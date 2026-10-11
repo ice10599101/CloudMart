@@ -47,6 +47,11 @@ public class AdminPetSeasonController {
     private final com.cloudmart.pet.repository.PetSeasonSettlementJobMapper jobMapper;
     private final PetSeasonSettlementService settlementService;
     private final PetConfigGovernanceService governance;
+    private final com.cloudmart.pet.repository.PetSkinConfigMapper skinConfigMapper;
+
+    /** R05：最终档赛季皮肤码（与 PetSeasonPassServiceImpl 同一配置源；空=不承诺皮肤） */
+    @org.springframework.beans.factory.annotation.Value("${pet.season-pass.final-tier-skin-code:}")
+    private String finalTierSkinCode;
 
     @GetMapping
     @Operation(summary = "赛季列表", description = "分页，按结束时间倒序")
@@ -58,10 +63,21 @@ public class AdminPetSeasonController {
         return ApiResponse.ok(result.getRecords(), result.getCurrent(), result.getSize(), result.getTotal());
     }
 
-    /** 赛季创建/更新请求 */
+    /** R05：皮肤承诺校验——配置存在才允许发布承诺；未配置=只发币，描述不承诺皮肤 */
+    private boolean skinConfigExists(String skinCode) {
+        return skinConfigMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetSkinConfig>()
+                .eq(com.cloudmart.pet.entity.PetSkinConfig::getCode, skinCode)) > 0;
+    }
+
+    private String seasonPassSkinCode() {
+        return finalTierSkinCode == null ? "" : finalTierSkinCode.trim();
+    }
+
+    /** 赛季创建/更新请求（R05：claimUntil 领奖截止可空=随赛季结束） */
     public record SeasonUpsertRequest(Long id, @NotBlank String name,
                                       @NotNull LocalDateTime startsAt,
-                                      @NotNull LocalDateTime endsAt) {
+                                      @NotNull LocalDateTime endsAt,
+                                      LocalDateTime claimUntil) {
     }
 
     @PostMapping
@@ -70,12 +86,19 @@ public class AdminPetSeasonController {
         if (!request.endsAt().isAfter(request.startsAt())) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "结束时间必须晚于开始时间");
         }
+        // R05 发布校验：承诺最终档赛季皮肤则皮肤配置必须真实存在（不允许缺资源仍承诺发放）
+        String skinCode = seasonPassSkinCode();
+        if (!skinCode.isBlank() && skinConfigExists(skinCode) == false) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "最终档皮肤配置不存在: " + skinCode + "，请先在皮肤配置中上架或清空 pet.season-pass.final-tier-skin-code");
+        }
         // 进行中的赛季只允许一个（ACTIVE 状态唯一）
         PetSeason season = new PetSeason();
         season.setId(request.id());
         season.setName(request.name().strip());
         season.setStartsAt(request.startsAt());
         season.setEndsAt(request.endsAt());
+        season.setClaimUntil(request.claimUntil());
         if (request.id() != null) {
             PetSeason existing = seasonMapper.selectById(request.id());
             if (existing == null) {

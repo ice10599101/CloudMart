@@ -29,6 +29,9 @@ public class PetSeason {
     /** 结束时间（UTC） */
     private LocalDateTime endsAt;
 
+    /** R05：领奖截止（NULL=随赛季结束；截止前可补领已达标档位） */
+    private LocalDateTime claimUntil;
+
     /** ACTIVE / FREEZING / SETTLING / SETTLED（R06：SETTLED 只在全量发奖后写，失败不回退 ACTIVE） */
     private String status;
 

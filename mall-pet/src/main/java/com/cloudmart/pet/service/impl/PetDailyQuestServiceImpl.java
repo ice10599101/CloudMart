@@ -10,6 +10,7 @@ import com.cloudmart.pet.util.PetJsonUtils;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetDailyQuest;
+import com.cloudmart.pet.entity.PetSeasonPassExpFact;
 import com.cloudmart.pet.entity.PetDailyQuestConfig;
 import com.cloudmart.pet.entity.PetDailyQuestSet;
 import com.cloudmart.pet.enums.PetIntimacySource;
@@ -186,8 +187,9 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         }
         achievementService.evaluate(pet, PetAchievementService.Event.QUEST);
         quest.setStatus(PetQuestStatus.CLAIMED.name());
-        // 赛季通行证（§6）：任务领取累积经验（失败不阻断主流程）
-        seasonPassService.addExp(pet.getUserId(), QUEST_CLAIM_EXP);
+        // 赛季通行证（R05）：任务领取事实累积经验（按 quest 实例 ID 去重；失败不阻断主流程）
+        seasonPassService.addExp(pet.getUserId(), QUEST_CLAIM_EXP,
+                PetSeasonPassExpFact.SOURCE_QUEST, String.valueOf(quest.getId()));
         return toItemVo(quest, null);
     }
 
@@ -358,8 +360,9 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         if (levelups > 0) {
             achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
         }
-        // 赛季通行证（§6）：宝箱领取累积经验（失败不阻断主流程）
-        seasonPassService.addExp(pet.getUserId(), CHEST_CLAIM_EXP);
+        // 赛季通行证（R05）：宝箱领取事实累积经验（按 chest 实例 ID 去重；失败不阻断主流程）
+        seasonPassService.addExp(pet.getUserId(), CHEST_CLAIM_EXP,
+                PetSeasonPassExpFact.SOURCE_CHEST, String.valueOf(chest.getId()));
         // PET-09：宝箱领取时间落任务集（集为领取生命周期锚点）；存量行 set_id 为空回退按日查询
         if (chest.getSetId() != null) {
             setMapper.update(null, new LambdaUpdateWrapper<PetDailyQuestSet>()

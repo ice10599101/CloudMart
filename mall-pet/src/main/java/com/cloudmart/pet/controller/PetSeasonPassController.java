@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,28 +17,39 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 赛季通行证（§6）：进行中赛季的任务经验累积 + 档位奖励领取。
+ * 赛季通行证（§6/R05）：经验事实累积 + 逐档权威领取 + 可恢复交付。
  */
 @RestController
 @RequestMapping("/season/pass")
 @RequiredArgsConstructor
-@Tag(name = "赛季通行证", description = "§6：每日任务累积通行证经验，10 档奖励（宠物币+最终档皮肤）")
+@Tag(name = "赛季通行证", description = "R05：逐档领取权威裁决（并发互不覆盖）、交付失败可补发")
 public class PetSeasonPassController {
 
     private final PetSeasonPassService passService;
 
     @GetMapping
-    @Operation(summary = "我的通行证", description = "当前赛季 + 经验 + 10 档阶梯（达标/领取状态）；无进行中赛季 seasonId=null")
+    @Operation(summary = "我的通行证", description = "当前赛季 + 经验 + 档位阶梯（含领取状态；CLAIM_PENDING 不计为已领取）")
     public ApiResponse<PetSeasonPassVO> myPass(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(passService.myPass(userId));
     }
 
+    @GetMapping("/{seasonId}")
+    @Operation(summary = "按赛季查询通行证", description = "R05：已结束赛季在领奖截止前可查可领取项")
+    public ApiResponse<PetSeasonPassVO> seasonPass(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable Long seasonId) {
+        return ApiResponse.ok(passService.seasonPass(userId, seasonId));
+    }
+
     @PostMapping("/claim")
-    @Operation(summary = "领取档位奖励", description = "达标且未领取；宠物币入账（第 10 档含皮肤，皮肤码可配）")
+    @Operation(summary = "领取档位奖励", description = "R05：uk(season,user,tier) 权威裁决——并发领不同档互不覆盖、"
+            + "同档重复返回原状态；币/皮肤交付失败留 CLAIM_PENDING 待补发，不虚报已领取")
     public ApiResponse<PetSeasonPassVO> claim(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @RequestParam("tier") int tier) {
-        return ApiResponse.ok(passService.claimTier(userId, tier));
+            @RequestParam(value = "seasonId", required = false) Long seasonId,
+            @RequestParam("tier") int tier,
+            @RequestParam(value = "requestKey", required = false) String requestKey) {
+        return ApiResponse.ok(passService.claimTier(userId, seasonId, tier, requestKey));
     }
 }

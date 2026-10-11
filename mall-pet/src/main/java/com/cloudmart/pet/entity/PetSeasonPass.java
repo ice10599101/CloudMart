@@ -32,6 +32,9 @@ public class PetSeasonPass {
     /** JSON 数组字符串（如 [1,2]） */
     private String claimedTiers;
 
+    /** 乐观锁版本（claimed_tiers 投影同步 CAS；领取裁决在 pet_season_pass_claim） */
+    private Integer version;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 
