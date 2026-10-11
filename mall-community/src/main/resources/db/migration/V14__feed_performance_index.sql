@@ -1,5 +1,5 @@
 -- =============================================
--- V10: 关注流/主页/推荐流复合索引（P2-26 性能演进）
+-- V14: 关注流/主页/推荐流复合索引（P2-26 性能演进）
 -- 背景：getFollowingFeed / getUserPosts / searchPosts 等读链路的
 --       WHERE user_id IN (...) AND status=1 AND review_status=1
 --       ORDER BY created_at DESC，原 idx_user_id 单列索引在大关注数/
