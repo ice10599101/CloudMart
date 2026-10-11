@@ -220,22 +220,41 @@ public class WishOutboxService {
                                  String createdAt, String updatedAt) {
     }
 
+    /** 分页结果：total 为同过滤条件全集计数，供分页器正确渲染页数 */
+    public record OperationsPage(List<OutboxTaskView> records, long total) {
+    }
+
     /** 分页查询：status 空=全部非 PUBLISHED */
-    public List<OutboxTaskView> pageForOperations(String status, int page, int size) {
+    public OperationsPage pageForOperations(String status, int page, int size) {
         int safeSize = Math.min(Math.max(size, 1), 100);
         int offset = Math.max(page - 1, 0) * safeSize;
-        List<WishOutboxEvent> rows = outboxMapper.selectList(
+        List<OutboxTaskView> records = outboxMapper.selectList(
                 new LambdaQueryWrapper<WishOutboxEvent>()
                         .ne(WishOutboxEvent::getStatus, "PUBLISHED")
                         .eq(status != null && !status.isBlank(), WishOutboxEvent::getStatus, status)
                         .orderByDesc(WishOutboxEvent::getCreatedAt)
-                        .last("LIMIT " + safeSize + " OFFSET " + offset));
-        return rows.stream().map(e -> new OutboxTaskView(
+                        .last("LIMIT " + safeSize + " OFFSET " + offset))
+                .stream().map(e -> new OutboxTaskView(
+                        e.getEventId(), e.getEventType(),
+                        e.getAggregateType() + ":" + e.getAggregateId(),
+                        e.getStatus(), e.getAttempts(), null,
+                        e.getCreatedAt() == null ? null : e.getCreatedAt().toString(),
+                        null)).toList();
+        long total = outboxMapper.selectCount(new LambdaQueryWrapper<WishOutboxEvent>()
+                .ne(WishOutboxEvent::getStatus, "PUBLISHED")
+                .eq(status != null && !status.isBlank(), WishOutboxEvent::getStatus, status));
+        return new OperationsPage(records, total);
+    }
+
+    /** 按 eventId 回读任务当前态（重试受理后向运营展示实际状态） */
+    public OutboxTaskView byEventId(String eventId) {
+        WishOutboxEvent e = outboxMapper.selectById(eventId);
+        return e == null ? null : new OutboxTaskView(
                 e.getEventId(), e.getEventType(),
                 e.getAggregateType() + ":" + e.getAggregateId(),
                 e.getStatus(), e.getAttempts(), null,
                 e.getCreatedAt() == null ? null : e.getCreatedAt().toString(),
-                null)).toList();
+                null);
     }
 
     /** 状态计数 */

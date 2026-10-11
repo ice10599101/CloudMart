@@ -1190,9 +1190,11 @@ export function getAdminGiftRecords(params: {
 }
 
 // ========== 治理工作台（N01）==========
+// R14：必须走 /admin/wish/moderation 管理代理（ADM AdminModerationController），
+// 不能指向 /wish/moderation 用户域——那会命中 mall-wish 普通用户路由并选择用户 Token。
 
 export function getModerationCases(params: { status?: string; cursor?: string; pageSize?: number }) {
-  return request.get('/wish/moderation/cases', { params })
+  return request.get('/admin/wish/moderation/cases', { params })
 }
 
 export function decideModerationCase(caseId: string, data: {
@@ -1202,13 +1204,13 @@ export function decideModerationCase(caseId: string, data: {
   reasonText?: string
   requestId?: string
 }) {
-  return request.post(`/wish/moderation/cases/${caseId}/decisions`, data)
+  return request.post(`/admin/wish/moderation/cases/${caseId}/decisions`, data)
 }
 
 export function resolveAppeal(appealId: string, data: { accept: boolean; resultReason?: string }) {
-  return request.post(`/wish/moderation/appeals/${appealId}/decisions`, data)
+  return request.post(`/admin/wish/moderation/appeals/${appealId}/decisions`, data)
 }
 
 export function getModerationAppeals(params: { status?: string; cursor?: string; pageSize?: number }) {
-  return request.get('/wish/moderation/appeals', { params })
+  return request.get('/admin/wish/moderation/appeals', { params })
 }

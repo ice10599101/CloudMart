@@ -1,9 +1,8 @@
 package com.cloudmart.order.controller;
 
 import com.cloudmart.common.api.ApiResponse;
-import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.common.async.outbox.OutboxOperationsService;
-import com.cloudmart.common.async.outbox.OutboxOperationsService.OutboxTaskView;
+import com.cloudmart.common.exception.BusinessException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -41,23 +39,28 @@ public class AdminOperationsController {
     }
 
     @GetMapping("/outbox")
-    @Operation(summary = "失败任务分页", description = "T16：status 空=全部非 SENT；视图不含 payload（脱敏）")
+    @Operation(summary = "失败任务分页", description = "T16：status 空=全部非 SENT；视图不含 payload（脱敏）；total 为同过滤全集计数")
     public ApiResponse<Map<String, Object>> page(
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
-        List<OutboxTaskView> records = operations().page(status, page, size);
+        OutboxOperationsService.OperationsPage result = operations().page(status, page, size);
         return ApiResponse.ok(Map.of(
-                "records", records,
-                "total", records.size(),
+                "records", result.records(),
+                "total", result.total(),
                 "stats", operations().stats()));
     }
 
     @PostMapping("/outbox/{eventId}/retry")
     @Operation(summary = "重试死信", description = "T16：仅 DEAD_LETTER 可重试（attempts 归零重新投递）；"
-            + "受理≠成功，重复点击幂等")
+            + "受理≠成功，重复点击幂等；返回受理结果与受理后实际状态")
     public ApiResponse<Map<String, Object>> retry(@PathVariable String eventId) {
         boolean accepted = operations().retryDeadLetter(eventId);
-        return ApiResponse.ok(Map.of("eventId", eventId, "accepted", accepted));
+        // 回读实际状态：accepted=false 时让运营看到任务当前态（如已被他人重试/已非死信）
+        var task = operations().byEventId(eventId);
+        return ApiResponse.ok(Map.of(
+                "eventId", eventId,
+                "accepted", accepted,
+                "status", task == null || task.status() == null ? "UNKNOWN" : task.status()));
     }
 }

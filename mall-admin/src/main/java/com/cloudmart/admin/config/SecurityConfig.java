@@ -25,7 +25,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *
  * <p>授权默认值（SEC-03）：匿名默认拒绝；管理接口默认仅 ROLE_ADMIN，
  * 方法级 {@code @RequiresAdmin/@RequiresPermission} 继续由拦截器细粒度收口。
- * 内部 /auth/**、/logs/** 仅接受服务令牌。诊断接口只注册在开发 profile
+ * 内部 /auth/** 与登录日志写入 /logs/login/record 仅接受服务令牌；
+ * 管理日志查询/删除归管理员域（R16）。诊断接口只注册在开发 profile
  * （{@link FeignDiagnosticController}），生产 404。</p>
  */
 @Configuration(proxyBeanMethods = false)
@@ -52,8 +53,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 仅最小健康检查匿名可达；metrics/env 等管理端点需要网络层限制（部署边界）
                 .requestMatchers("/error", "/actuator/health", "/actuator/health/**").permitAll()
-                // 内部端点：仅服务令牌（ROLE_INTERNAL），控制器 @PreAuthorize 再核能力域
-                .requestMatchers("/auth/**", "/logs/**").hasAuthority("ROLE_INTERNAL")
+                // 内部端点：仅服务令牌（ROLE_INTERNAL），控制器 @PreAuthorize 再核能力域。
+                // R16：/logs/** 不能整体限定内部——管理日志查询/删除（/logs/login/page、
+                // /logs/oper/**）是管理员能力，按 ROLE_ADMIN + @RequiresPermission 授权；
+                // 仅真正的服务间写入端点 /logs/login/record（mall-auth 记登录日志）保留内部限定。
+                .requestMatchers("/auth/**", "/logs/login/record").hasAuthority("ROLE_INTERNAL")
                 // 管理端点：已验签管理员；细粒度权限由 AdminPermissionInterceptor 承担
                 .anyRequest().hasAuthority("ROLE_ADMIN")
             )

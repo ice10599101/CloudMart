@@ -57,8 +57,13 @@ export default function Operations() {
                   }
                   try {
                     const res = await retryOperationsTask(service, record.eventId, reason.trim())
-                    if (res.data.success) {
-                      message.success(res.data.data?.accepted ? '已受理，将按退避重新投递' : '已被其他操作员受理')
+                    if (res.data.success && res.data.data) {
+                      const { accepted, status } = res.data.data
+                      message.success(
+                        accepted
+                          ? `已受理（当前状态：${status ?? 'PENDING'}），将按退避重新投递`
+                          : `未被受理（任务当前状态：${status ?? 'UNKNOWN'}，可能已被处理）`,
+                      )
                       actionRef.current?.reload()
                     }
                   } catch {

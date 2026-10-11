@@ -36,13 +36,24 @@ public class OutboxOperationsService {
                                  String createdAt, String updatedAt) {
     }
 
+    /** 分页结果：total 为同过滤条件全集计数，供分页器正确渲染页数 */
+    public record OperationsPage(List<OutboxTaskView> records, long total) {
+    }
+
+    /** 按状态查询（重试受理后回读实际任务状态用） */
+    public OutboxTaskView byEventId(String eventId) {
+        OutboxEventEntity event = mapper().findByEventId(eventId);
+        return event == null ? null : toView(event);
+    }
+
     /** 分页查询：status 空=全部非 SENT；LIMIT/OFFSET 手写分页（mall-common 无 MP 依赖） */
-    public List<OutboxTaskView> page(String status, int page, int size) {
+    public OperationsPage page(String status, int page, int size) {
         int safeSize = Math.min(Math.max(size, 1), 100);
         int offset = Math.max(page - 1, 0) * safeSize;
         String st = status == null || status.isBlank() ? null : status.toUpperCase();
-        List<OutboxEventEntity> rows = mapper().selectForOperations(st, safeSize, offset);
-        return rows.stream().map(this::toView).toList();
+        List<OutboxTaskView> records = mapper().selectForOperations(st, safeSize, offset)
+                .stream().map(this::toView).toList();
+        return new OperationsPage(records, mapper().countForOperations(st));
     }
 
     /** 各状态计数（告警区分"按计划重试"与"死信"） */

@@ -130,6 +130,8 @@ export default defineConfig({
         { path: '/admin/system/oper-log', component: '@/pages/admin/system/OperLog' },
         { path: '/admin/system/login-log', component: '@/pages/admin/system/LoginLog' },
         { path: '/admin/business/products', component: '@/pages/admin/business/Products' },
+        // R13：宠物运营（V10 菜单叶子 /admin/business/pet → PetManage；漏注册导致菜单点击 404）
+        { path: '/admin/business/pet', component: '@/pages/admin/business/PetManage' },
         { path: '/admin/business/pet-wallet', component: '@/pages/admin/business/PetWalletAdmin' },
         { path: '/admin/business/categories', component: '@/pages/admin/business/Categories' },
         { path: '/admin/business/orders', component: '@/pages/admin/business/Orders' },

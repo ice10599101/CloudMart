@@ -133,4 +133,18 @@ public interface OutboxEventMapper {
     /** T16 异常处理中心：状态计数（告警区分"按计划重试"与"死信"） */
     @Select("SELECT COUNT(*) FROM outbox_event WHERE status = #{status}")
     long countByStatus(@Param("status") String status);
+
+    /** T16 异常处理中心：与 selectForOperations 同过滤条件的总数（分页 total 不能用页内行数冒充） */
+    @Select("""
+            <script>
+            SELECT COUNT(*) FROM outbox_event
+            <where>
+                <choose>
+                    <when test="status != null and status != ''">status = #{status}</when>
+                    <otherwise>status IN ('PENDING', 'SENDING', 'FAILED', 'DEAD_LETTER')</otherwise>
+                </choose>
+            </where>
+            </script>
+            """)
+    long countForOperations(@Param("status") String status);
 }
