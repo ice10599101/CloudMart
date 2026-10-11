@@ -30,6 +30,8 @@ public class PetQuotaService {
         BATTLE_ABORT,
         /** 内容举报每日提交上限（R05：防刷举报队列；系统自动举报不计入） */
         REPORT,
+        /** R04：PVE 胜利收益日配额（独立于串门 VISIT_REWARD；配额外仅参与不发币） */
+        PVE_REWARD,
         /** P1-9：串门全局日上限（不同目标合计；单目标冷却另由 visit_fact 唯一键约束） */
         VISIT
     }

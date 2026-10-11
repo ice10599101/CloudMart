@@ -6,67 +6,135 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
+import com.cloudmart.pet.entity.PetPveParticipant;
+import com.cloudmart.pet.entity.PetPveRoundLog;
 import com.cloudmart.pet.entity.PetPveRun;
+import com.cloudmart.pet.entity.PetRewardClaim;
 import com.cloudmart.pet.repository.PetMapper;
+import com.cloudmart.pet.repository.PetPveParticipantMapper;
+import com.cloudmart.pet.repository.PetPveRoundLogMapper;
 import com.cloudmart.pet.repository.PetPveRunMapper;
+import com.cloudmart.pet.repository.PetRewardClaimMapper;
 import com.cloudmart.pet.service.PetPveService;
 import com.cloudmart.pet.service.PetService;
-import com.cloudmart.pet.wallet.PetEconomyService;
-// PetStatsService 位于本包 service.impl（同包直接引用）
+import com.cloudmart.pet.vo.PetPveBossVO;
 import com.cloudmart.pet.vo.PetPveRunVO;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.cloudmart.pet.wallet.PetRewardApplicationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.UUID;
 
 /**
- * 协作 PVE 副本（§6）：2 人协战 Boss。
+ * 协作 PVE 副本（R03/R04 状态机重写）。
  *
- * <p>战斗推进：每次 attack 服务端生成一"攻击波次"——当前行动宠（发起人/队友轮流）
- * 对 Boss 造成伤害，Boss 反击随机存活宠物。伤害复用 {@link PetBattleEngine} 的
- * 数值口径（攻击-防御夹逼 + 暴击/闪避），Boss 属性由 bossCode 配置表驱动（内置三只）。
- * 并发推进用 CAS（status+bossHp 双条件更新），失败即"战斗状态已变化"。</p>
+ * <p>R03 轮次推进：run 行持有 turnNo/nextActorUserId/version——每次成功攻击
+ * turnNo+1、行动权交给对方（对方倒下则存活者继续，全员倒下 FAILED）；
+ * CAS (id, status='FIGHTING', version) 推进，日志条数不再决定轮次；
+ * 回合明细落 pet_pve_round_log（uk run+turn+seq，request_key 重放原回合结果）；
+ * 参与占用行 pet_pve_participant（uk user_id）保证一人一个活动副本，终态释放。
+ * 伤害复用 {@link PetBattleEngine} 口径：开局 Fighter 快照 + run 种子 + 回合号
+ * 决定生成随机序列，服务端掌握结果，前端不能提交胜负/伤害。</p>
  *
- * <p>奖励：Boss HP≤0 → WON 一次性发放（发起人/队友各一份，宠物币经 economyService.earn
- * 幂等 + 每日 PVE 配额 tryConsume 有收益档；配额耗尽转无收益参与）。</p>
+ * <p>R04 奖励：WON 后 run.reward_status=PENDING，由 {@link #settlePendingRewards()}
+ * 定时/手动逐用户经 {@link PetRewardApplicationService#claim} 领奖（uk
+ * user+PVE+runId+MAIN 保证每人每场至多一次；钱包异常整笔回滚待重试）；
+ * 独立 PVE_REWARD 日配额，配额外仅参与不发币；串门配额不受影响。</p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class PetPveServiceImpl implements PetPveService {
 
-    /** 内置 Boss 配置：code → [name, maxHp, attack, defense] */
+    /** 内置 Boss 配置：code → [name, maxHp, attack, defense]（服务端权威，经 /bosses 下发） */
     private static final Map<String, BossSpec> BOSSES = Map.of(
             "forest_ogre", new BossSpec("森林巨魔", 600, 55, 30),
             "sand_worm", new BossSpec("流沙巨虫", 900, 70, 45),
             "void_knight", new BossSpec("虚空骑士", 1500, 95, 60));
 
-    private static final long PARTNER_NOT_JOINED = -1L;
-    private static final int OPEN_EXPIRE_HOURS = 24;
+    private static final String RULE_VERSION = "V1";
+    private static final long OPEN_EXPIRE_HOURS = 24;
+    private static final long TURN_DEADLINE_MINUTES = 10;
+    private static final int MAX_ROUNDS = 100;
 
     private final PetPveRunMapper runMapper;
+    private final PetPveParticipantMapper participantMapper;
+    private final PetPveRoundLogMapper roundLogMapper;
+    private final PetRewardClaimMapper rewardClaimMapper;
     private final PetService petService;
     private final PetMapper petMapper;
     private final PetStatsService statsService;
-    private final com.cloudmart.pet.wallet.PetEconomyService economyService;
     private final PetQuotaService quotaService;
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper()
-            .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
-            .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    private final PetRewardApplicationService rewardApplicationService;
+    private final SecureRandom seedRandom = new SecureRandom();
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${pet.pve.reward-coins:100}")
-    private long rewardCoins;
+    long rewardCoins;
 
-    @Value("${pet.pve.reward-starlight:10}")
-    private int rewardStarlight;
+    /** R04：PVE 胜利收益日配额（独立于串门；配额外仅参与不发币） */
+    @Value("${pet.pve.daily-reward-limit:3}")
+    int pveDailyRewardLimit;
+
+    /** R03：副本总时限（FIGHTING 超时批量收口为 FAILED） */
+    @Value("${pet.pve.run-time-limit-minutes:120}")
+    long runTimeLimitMinutes;
+
+    // ==================== 查询 ====================
+
+    @Override
+    public List<PetPveBossVO> bosses() {
+        return BOSSES.entrySet().stream()
+                .map(e -> new PetPveBossVO(e.getKey(), e.getValue().name(),
+                        e.getValue().maxHp(), e.getValue().attack(), e.getValue().defense()))
+                .toList();
+    }
+
+    @Override
+    public Page<PetPveRunVO> openRuns(int page, int size) {
+        closeExpiredRuns();
+        Page<PetPveRun> result = runMapper.selectPage(new Page<>(page, Math.min(size, 50)),
+                new LambdaQueryWrapper<PetPveRun>()
+                        .eq(PetPveRun::getStatus, PetPveRun.STATUS_OPEN)
+                        .gt(PetPveRun::getCreatedAt, LocalDateTime.now().minusHours(OPEN_EXPIRE_HOURS))
+                        .orderByDesc(PetPveRun::getId));
+        return toVoPage(result);
+    }
+
+    @Override
+    public Page<PetPveRunVO> mine(Long userId, int page, int size) {
+        Page<PetPveRun> result = runMapper.selectPage(new Page<>(page, Math.min(size, 50)),
+                new LambdaQueryWrapper<PetPveRun>()
+                        .and(w -> w.eq(PetPveRun::getInitiatorUserId, userId)
+                                .or().eq(PetPveRun::getPartnerUserId, userId))
+                        .orderByDesc(PetPveRun::getId));
+        return toVoPage(result);
+    }
+
+    @Override
+    public PetPveRunVO detail(Long userId, Long runId) {
+        PetPveRun run = requireRun(runId);
+        boolean participant = run.getInitiatorUserId().equals(userId)
+                || userId.equals(run.getPartnerUserId());
+        if (!participant && !PetPveRun.STATUS_OPEN.equals(run.getStatus())) {
+            throw new BusinessException(PetErrorCodes.PET_FORBIDDEN, "仅参与者可查看");
+        }
+        return toVO(run, userId, recentRounds(runId));
+    }
+
+    // ==================== 状态机写操作 ====================
 
     @Override
     @Transactional
@@ -75,11 +143,17 @@ public class PetPveServiceImpl implements PetPveService {
         if (spec == null) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "未知的 Boss");
         }
-        Long active = activeRunCount(userId);
-        if (active > 0) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "你已有进行中的副本，先完成或等待过期");
-        }
         Pet pet = petService.requireOwnedPet(userId);
+        // 占用行先行：uk(user_id) 数据库唯一约束保证一人一个活动副本（并发 start/join 只成功一个）
+        PetPveParticipant occupation = new PetPveParticipant();
+        occupation.setUserId(userId);
+        occupation.setRunId(null);
+        occupation.setPetId(pet.getId());
+        try {
+            participantMapper.insert(occupation);
+        } catch (DuplicateKeyException occupied) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "你已有进行中的副本，先完成或等待收口");
+        }
         PetPveRun run = new PetPveRun();
         run.setBossCode(bossCode);
         run.setBossName(spec.name());
@@ -89,56 +163,93 @@ public class PetPveServiceImpl implements PetPveService {
         run.setInitiatorPetId(pet.getId());
         run.setInitiatorSnapshot(toJson(toFighter(pet)));
         run.setInitiatorPetHp(maxHpOf(pet));
-        run.setRounds("[]");
-        run.setStatus("OPEN");
-        run.setRewardGranted(false);
-        runMapper.insert(run);
-        log.info("PVE 副本已发起: runId={}, boss={}, user={}", run.getId(), bossCode, userId);
-        return toVO(runMapper.selectById(run.getId()));
-    }
-
-    @Override
-    public Page<PetPveRunVO> openRuns(int page, int size) {
-        Page<PetPveRun> result = runMapper.selectPage(new Page<>(page, Math.min(size, 50)),
-                new LambdaQueryWrapper<PetPveRun>()
-                        .eq(PetPveRun::getStatus, "OPEN")
-                        .gt(PetPveRun::getCreatedAt, LocalDateTime.now().minusHours(OPEN_EXPIRE_HOURS))
-                        .orderByDesc(PetPveRun::getId));
-        return toVoPage(result);
+        run.setStatus(PetPveRun.STATUS_OPEN);
+        run.setVersion(0);
+        run.setTurnNo(0);
+        run.setRuleVersion(RULE_VERSION);
+        run.setSeed(seedRandom.nextLong());
+        run.setRewardStatus(PetPveRun.REWARD_NONE);
+        run.setRunExpiresAt(LocalDateTime.now().plusHours(OPEN_EXPIRE_HOURS));
+        try {
+            runMapper.insert(run);
+        } catch (Exception e) {
+            // 副本行写入失败：释放占用行（同事务回滚亦可达此目的，显式删除防御半提交）
+            participantMapper.deleteById(occupation.getId());
+            throw e;
+        }
+        occupation.setRunId(run.getId());
+        participantMapper.updateById(occupation);
+        log.info("PVE 副本已发起: runId={}, boss={}, user={}, seed={}", run.getId(), bossCode, userId, run.getSeed());
+        return toVO(runMapper.selectById(run.getId()), userId, List.of());
     }
 
     @Override
     @Transactional
     public PetPveRunVO join(Long userId, Long runId) {
         PetPveRun run = requireRun(runId);
-        if (!"OPEN".equals(run.getStatus())) {
+        if (!PetPveRun.STATUS_OPEN.equals(run.getStatus())) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "该副本已不在等待队友状态");
         }
         if (run.getInitiatorUserId().equals(userId)) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "这是你发起的副本");
         }
         Pet pet = petService.requireOwnedPet(userId);
-        // CAS：OPEN→FIGHTING（并发加入仅一人成功）
+        // 占用行先行：与 start 共用 uk(user_id)——已在别的副本中直接拒绝
+        PetPveParticipant occupation = new PetPveParticipant();
+        occupation.setUserId(userId);
+        occupation.setRunId(runId);
+        occupation.setPetId(pet.getId());
+        try {
+            participantMapper.insert(occupation);
+        } catch (DuplicateKeyException occupied) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "你已有进行中的副本，先完成或等待收口");
+        }
+        // CAS：OPEN→FIGHTING（并发加入仅一人成功；失败释放自己刚占的位）
         int updated = runMapper.update(null, new LambdaUpdateWrapper<PetPveRun>()
                 .eq(PetPveRun::getId, runId)
-                .eq(PetPveRun::getStatus, "OPEN")
+                .eq(PetPveRun::getStatus, PetPveRun.STATUS_OPEN)
                 .set(PetPveRun::getPartnerUserId, userId)
                 .set(PetPveRun::getPartnerPetId, pet.getId())
                 .set(PetPveRun::getPartnerSnapshot, toJson(toFighter(pet)))
                 .set(PetPveRun::getPartnerPetHp, maxHpOf(pet))
-                .set(PetPveRun::getStatus, "FIGHTING"));
+                .set(PetPveRun::getStatus, PetPveRun.STATUS_FIGHTING)
+                .set(PetPveRun::getTurnNo, 0)
+                .set(PetPveRun::getNextActorUserId, run.getInitiatorUserId())
+                .set(PetPveRun::getTurnDeadlineAt, LocalDateTime.now().plusMinutes(TURN_DEADLINE_MINUTES))
+                .set(PetPveRun::getRunExpiresAt, LocalDateTime.now().plusMinutes(runTimeLimitMinutes))
+                .set(PetPveRun::getVersion, 1));
         if (updated == 0) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "手慢了，该副本刚被别人加入");
+            participantMapper.deleteById(occupation.getId());
+            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "手慢了，该副本刚被别人加入");
         }
         log.info("PVE 队友加入: runId={}, partner={}", runId, userId);
-        return toVO(runMapper.selectById(runId));
+        return toVO(runMapper.selectById(runId), userId, List.of());
     }
 
     @Override
     @Transactional
-    public PetPveRunVO attack(Long userId, Long runId) {
+    public PetPveRunVO cancel(Long userId, Long runId) {
         PetPveRun run = requireRun(runId);
-        if (!"FIGHTING".equals(run.getStatus())) {
+        if (!run.getInitiatorUserId().equals(userId)) {
+            throw new BusinessException(PetErrorCodes.PET_FORBIDDEN, "仅发起人可取消");
+        }
+        int updated = runMapper.update(null, new LambdaUpdateWrapper<PetPveRun>()
+                .eq(PetPveRun::getId, runId)
+                .eq(PetPveRun::getStatus, PetPveRun.STATUS_OPEN)
+                .set(PetPveRun::getStatus, PetPveRun.STATUS_CANCELLED)
+                .set(PetPveRun::getFinishedAt, LocalDateTime.now()));
+        if (updated == 0) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "副本已开始或已结束，不能取消");
+        }
+        releaseParticipants(runId);
+        return toVO(runMapper.selectById(runId), userId, List.of());
+    }
+
+    @Override
+    @Transactional
+    public PetPveRunVO attack(Long userId, Long runId, String requestKey) {
+        PetPveRun run = requireRun(runId);
+        if (!PetPveRun.STATUS_FIGHTING.equals(run.getStatus())) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "副本不在战斗中");
         }
         boolean isInitiator = run.getInitiatorUserId().equals(userId);
@@ -146,150 +257,277 @@ public class PetPveServiceImpl implements PetPveService {
         if (!isInitiator && !isPartner) {
             throw new BusinessException(PetErrorCodes.PET_FORBIDDEN, "你不是该副本的参与者");
         }
-        // 轮流行动：偶数波次发起人、奇数波次队友（波次=rounds 长度）
-        int wave = parseRounds(run.getRounds()).size();
-        boolean initiatorTurn = wave % 2 == 0;
-        if (isInitiator != initiatorTurn) {
+        String key = requestKey == null || requestKey.isBlank() ? "atk-" + UUID.randomUUID() : requestKey.trim();
+        // 重放：同请求键的攻击已生效 → 返回当前战局（原回合结果，不重复推进）
+        if (roundLogMapper.selectCount(new LambdaQueryWrapper<PetPveRoundLog>()
+                .eq(PetPveRoundLog::getRunId, runId)
+                .eq(PetPveRoundLog::getRequestKey, key)) > 0) {
+            log.info("PVE 攻击重放返回原战局: runId={}, user={}, key={}", runId, userId, key);
+            return toVO(run, userId, recentRounds(runId));
+        }
+        // 行动权判定：nextActorUserId 权威（并发/重放后轮次清晰）
+        if (!userId.equals(run.getNextActorUserId())) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "还没轮到你的宠物行动");
         }
-        if (isPartner && run.getPartnerPetHp() == null) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "队友数据异常");
+        if (run.getTurnNo() >= MAX_ROUNDS) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "回合数已达上限，副本将按失败收口");
         }
 
-        List<Map<String, Object>> newRounds = new ArrayList<>();
+        // ---------- 决定性结算：开局快照 + seed + turnNo 派生随机序列 ----------
+        Random rng = new Random(run.getSeed() + run.getTurnNo() * 31L);
+        FighterBox actorBox = isInitiator
+                ? new FighterBox(parseFighter(run.getInitiatorSnapshot()), run.getInitiatorPetHp())
+                : new FighterBox(parseFighter(run.getPartnerSnapshot()), run.getPartnerPetHp());
         int bossHp = run.getBossHp();
-        int initiatorHp = run.getInitiatorPetHp();
-        int partnerHp = run.getPartnerPetHp() == null ? 0 : run.getPartnerPetHp();
-        int roundNo = wave + 1;
 
-        // 行动宠攻击 Boss
-        int actorHp = isInitiator ? initiatorHp : partnerHp;
-        if (actorHp <= 0) {
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "你的宠物已倒下，等待队友或失败结算");
-        }
-        int damage = 25 + ThreadLocalRandom.current().nextInt(0, 26); // 25..50
-        boolean crit = ThreadLocalRandom.current().nextInt(100) < 20;
-        if (crit) damage = (int) Math.round(damage * 1.6);
-        bossHp = Math.max(0, bossHp - damage);
-        newRounds.add(Map.of("round", roundNo, "actorName", isInitiator ? "发起人宠物" : "队友宠物",
-                "action", crit ? "暴击" : "攻击", "damage", damage, "dodged", false,
-                "targetName", run.getBossName(), "targetRemainingHp", bossHp));
+        int turnNo = run.getTurnNo() + 1;
+        List<PetPveRoundLog> logs = new java.util.ArrayList<>();
+        PetBattleEngine.PveStrike strike = PetBattleEngine.pveStrike(actorBox.fighter(),
+                BOSSES.get(run.getBossCode()).defense(), rng);
+        bossHp = Math.max(0, bossHp - strike.damage());
+        logs.add(logOf(run, turnNo, 1, userId, actorBox.fighter(), PetPveRoundLog.ACTION_ATTACK,
+                strike, run.getBossName(), bossHp, key));
 
-        // Boss 反击（存活时）：随机攻击任一存活宠
-        int myHpAfter = actorHp;
+        int actorHpAfter = actorBox.hp();
         if (bossHp > 0) {
-            int bossDamage = 20 + ThreadLocalRandom.current().nextInt(0, 21);
-            boolean dodged = ThreadLocalRandom.current().nextInt(100) < 15;
-            if (!dodged) {
-                if (isInitiator) initiatorHp = Math.max(0, initiatorHp - bossDamage);
-                else partnerHp = Math.max(0, partnerHp - bossDamage);
-                myHpAfter = isInitiator ? initiatorHp : partnerHp;
-            }
-            newRounds.add(Map.of("round", roundNo, "actorName", run.getBossName(),
-                    "action", "反击", "damage", bossDamage, "dodged", dodged,
-                    "targetName", isInitiator ? "发起人宠物" : "队友宠物",
-                    "targetRemainingHp", myHpAfter));
+            // Boss 反击行动宠（存活时）；闪避按对战防守口径
+            PetBattleEngine.PveStrike counter = PetBattleEngine.pveCounter(
+                    BOSSES.get(run.getBossCode()).attack(), actorBox.fighter(), rng);
+            actorHpAfter = Math.max(0, actorHpAfter - counter.damage());
+            logs.add(logOf(run, turnNo, 2, null, null, PetPveRoundLog.ACTION_COUNTER,
+                    counter, actorBox.fighter().name(), actorHpAfter, null));
         }
 
-        // 结算：Boss 倒 → WON（一次性发奖）；双宠倒 → FAILED
-        boolean bossDown = bossHp <= 0;
-        boolean bothDown = initiatorHp <= 0
-                && (run.getPartnerPetId() == null || partnerHp <= 0);
+        // ---------- 终态/下一行动方 ----------
+        int initiatorHpAfter = isInitiator ? actorHpAfter : run.getInitiatorPetHp();
+        int partnerHpAfter = isInitiator ? run.getPartnerPetHp() : actorHpAfter;
+        boolean initiatorAlive = initiatorHpAfter > 0;
+        boolean partnerAlive = run.getPartnerPetId() != null && partnerHpAfter > 0;
         String nextStatus = run.getStatus();
-        if (bossDown) nextStatus = "WON";
-        else if (bothDown) nextStatus = "FAILED";
+        LocalDateTime finishedAt = null;
+        if (bossHp <= 0) {
+            nextStatus = PetPveRun.STATUS_WON;
+            finishedAt = LocalDateTime.now();
+        } else if (!initiatorAlive && !partnerAlive) {
+            nextStatus = PetPveRun.STATUS_FAILED;
+            finishedAt = LocalDateTime.now();
+        }
+        // 存活者继续：对方存活则轮对方；对方倒下由存活者连续行动
+        Long nextActor = PetPveRun.STATUS_FIGHTING.equals(nextStatus)
+                ? (otherAlive(isInitiator, initiatorAlive, partnerAlive) ? otherOf(run, userId) : userId)
+                : null;
 
+        // ---------- 回合明细先落（uk run+request 重放判重），CAS 推进 run 行 ----------
+        try {
+            logs.forEach(roundLogMapper::insert);
+        } catch (DuplicateKeyException duplicate) {
+            // 并发同请求键：视为重放，返回当前战局
+            return toVO(runMapper.selectById(runId), userId, recentRounds(runId));
+        }
         LambdaUpdateWrapper<PetPveRun> uw = new LambdaUpdateWrapper<PetPveRun>()
                 .eq(PetPveRun::getId, runId)
-                .eq(PetPveRun::getStatus, "FIGHTING")
-                .eq(PetPveRun::getBossHp, run.getBossHp()) // CAS 防并发推进
+                .eq(PetPveRun::getStatus, PetPveRun.STATUS_FIGHTING)
+                .eq(PetPveRun::getVersion, run.getVersion())
                 .set(PetPveRun::getBossHp, bossHp)
-                .set(PetPveRun::getInitiatorPetHp, initiatorHp)
-                .set(PetPveRun::getPartnerPetHp, run.getPartnerPetId() == null ? null : partnerHp)
-                .set(PetPveRun::getRounds, appendRounds(run.getRounds(), newRounds));
-        if (!nextStatus.equals(run.getStatus())) {
+                .set(PetPveRun::getInitiatorPetHp, initiatorHpAfter)
+                .set(PetPveRun::getPartnerPetHp, run.getPartnerPetId() == null ? null : partnerHpAfter)
+                .set(PetPveRun::getTurnNo, turnNo)
+                .set(PetPveRun::getNextActorUserId, nextActor)
+                .setSql("version = version + 1");
+        if (!PetPveRun.STATUS_FIGHTING.equals(nextStatus)) {
             uw.set(PetPveRun::getStatus, nextStatus);
-        }
-        if (bossDown || bothDown) {
-            uw.set(PetPveRun::getFinishedAt, LocalDateTime.now());
+            uw.set(PetPveRun::getFinishedAt, finishedAt);
+        } else {
+            uw.set(PetPveRun::getTurnDeadlineAt, LocalDateTime.now().plusMinutes(TURN_DEADLINE_MINUTES));
         }
         int updated = runMapper.update(null, uw);
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "战斗状态刚被队友推进，请刷新后再攻击");
         }
-        if ("WON".equals(nextStatus)) {
-            grantVictoryReward(runId, run);
+        if (PetPveRun.STATUS_WON.equals(nextStatus)) {
+            // R04：奖励交付异步可恢复——WON 先落 PENDING，定时/手动逐用户 claim（uk 防重）
+            runMapper.update(null, new LambdaUpdateWrapper<PetPveRun>()
+                    .eq(PetPveRun::getId, runId)
+                    .eq(PetPveRun::getRewardStatus, PetPveRun.REWARD_NONE)
+                    .set(PetPveRun::getRewardStatus, PetPveRun.REWARD_PENDING));
         }
-        return toVO(runMapper.selectById(runId));
+        if (!PetPveRun.STATUS_FIGHTING.equals(nextStatus)) {
+            releaseParticipants(runId);
+        }
+        return toVO(runMapper.selectById(runId), userId, recentRounds(runId));
     }
 
-    @Override
-    public Page<PetPveRunVO> mine(Long userId, int page, int size) {
-        Page<PetPveRun> result = runMapper.selectPage(new Page<>(page, Math.min(size, 50)),
-                new LambdaQueryWrapper<PetPveRun>()
-                        .and(w -> w.eq(PetPveRun::getInitiatorUserId, userId).or().eq(PetPveRun::getPartnerUserId, userId))
-                        .orderByDesc(PetPveRun::getId));
-        return toVoPage(result);
-    }
+    // ==================== 定时收口与奖励补发 ====================
 
     @Override
-    public PetPveRunVO detail(Long userId, Long runId) {
-        PetPveRun run = requireRun(runId);
-        if (!run.getInitiatorUserId().equals(userId) && !userId.equals(run.getPartnerUserId())
-                && !"OPEN".equals(run.getStatus())) {
-            // OPEN 状态对外可见（招募）；进行中/已结束仅参与者可见
-            if (run.getPartnerUserId() != null) {
-                throw new BusinessException(PetErrorCodes.PET_FORBIDDEN, "仅参与者可查看");
+    @Scheduled(fixedDelayString = "${pet.pve.sweep-delay-ms:30000}")
+    @Transactional
+    public int closeExpiredRuns() {
+        int closed = 0;
+        // FIGHTING 超总时限 → FAILED（收口不能把失败改写成胜利）
+        List<PetPveRun> fighting = runMapper.selectList(new LambdaQueryWrapper<PetPveRun>()
+                .eq(PetPveRun::getStatus, PetPveRun.STATUS_FIGHTING)
+                .isNotNull(PetPveRun::getRunExpiresAt)
+                .lt(PetPveRun::getRunExpiresAt, LocalDateTime.now())
+                .last("LIMIT 50"));
+        for (PetPveRun run : fighting) {
+            int updated = runMapper.update(null, new LambdaUpdateWrapper<PetPveRun>()
+                    .eq(PetPveRun::getId, run.getId())
+                    .eq(PetPveRun::getStatus, PetPveRun.STATUS_FIGHTING)
+                    .set(PetPveRun::getStatus, PetPveRun.STATUS_FAILED)
+                    .set(PetPveRun::getFinishedAt, LocalDateTime.now()));
+            if (updated == 1) {
+                releaseParticipants(run.getId());
+                closed++;
             }
         }
-        return toVO(run);
+        // OPEN 超 24h → EXPIRED
+        int expired = runMapper.update(null, new LambdaUpdateWrapper<PetPveRun>()
+                .eq(PetPveRun::getStatus, PetPveRun.STATUS_OPEN)
+                .lt(PetPveRun::getCreatedAt, LocalDateTime.now().minusHours(OPEN_EXPIRE_HOURS))
+                .set(PetPveRun::getStatus, PetPveRun.STATUS_EXPIRED)
+                .set(PetPveRun::getFinishedAt, LocalDateTime.now()));
+        if (expired > 0) {
+            closed += expired;
+        }
+        if (closed > 0) {
+            log.info("PVE 过期副本已收口: count={}", closed);
+        }
+        return closed;
+    }
+
+    @Override
+    @Scheduled(fixedDelayString = "${pet.pve.reward-sweep-delay-ms:15000}")
+    public int settlePendingRewards() {
+        List<PetPveRun> pending = runMapper.selectList(new LambdaQueryWrapper<PetPveRun>()
+                .eq(PetPveRun::getStatus, PetPveRun.STATUS_WON)
+                .eq(PetPveRun::getRewardStatus, PetPveRun.REWARD_PENDING)
+                .last("LIMIT 20"));
+        int settled = 0;
+        for (PetPveRun run : pending) {
+            if (settleRewards(run)) {
+                settled++;
+            }
+        }
+        return settled;
+    }
+
+    /**
+     * R04：逐用户领奖（每次 claim 独立短事务——单人失败不回滚他人已交付事实）。
+     * pet_reward_claim uk(user, PVE, runId, MAIN) 保证每人每场至多一次；
+     * 配额外仅参与不发币（独立 PVE_REWARD 配额，不占串门）。
+     *
+     * @return 该副本奖励是否全部交付完成（全部 COMPLETED → run.reward_status=SETTLED）
+     */
+    private boolean settleRewards(PetPveRun run) {
+        List<Long> userIds = run.getPartnerUserId() == null
+                ? List.of(run.getInitiatorUserId())
+                : List.of(run.getInitiatorUserId(), run.getPartnerUserId());
+        boolean allCompleted = true;
+        for (Long userId : userIds) {
+            try {
+                boolean completed = claimVictoryReward(run, userId);
+                allCompleted = allCompleted && completed;
+            } catch (Exception e) {
+                // 钱包冻结/维护/异常：claim 内部事务回滚，reward_status 留 PENDING 等待补发
+                log.warn("PVE 奖励交付未完成（可恢复重试）: runId={}, userId={}, err={}",
+                        run.getId(), userId, e.getMessage());
+                allCompleted = false;
+            }
+        }
+        if (allCompleted) {
+            int updated = runMapper.update(null, new LambdaUpdateWrapper<PetPveRun>()
+                    .eq(PetPveRun::getId, run.getId())
+                    .eq(PetPveRun::getRewardStatus, PetPveRun.REWARD_PENDING)
+                    .set(PetPveRun::getRewardStatus, PetPveRun.REWARD_SETTLED));
+            if (updated == 1) {
+                log.info("PVE 胜利奖励全部到账: runId={}, users={}", run.getId(), userIds);
+            }
+        }
+        return allCompleted;
+    }
+
+    /** 单用户领奖；返回是否 COMPLETED（重复调用命中已 COMPLETED 行返回 true，不重复发币） */
+    private boolean claimVictoryReward(PetPveRun run, Long userId) {
+        // 配额判定在 resolver 内（与领奖同事务：配额占用随 claim 失败一并回滚）
+        rewardApplicationService.claim(
+                new PetRewardApplicationService.RewardClaimCommand(userId, petIdOf(run, userId),
+                        "PVE", String.valueOf(run.getId()), "MAIN", null),
+                command -> {
+                    boolean withinQuota = quotaService.tryConsume(userId,
+                            PetQuotaService.QuotaType.PVE_REWARD, 0, pveDailyRewardLimit);
+                    // R04 默认口径：配额外仅参与、不发货币（无保底参与奖）
+                    long coins = withinQuota ? rewardCoins : 0;
+                    return new PetRewardApplicationService.ResolvedReward(coins, "",
+                            List.of(), RULE_VERSION);
+                });
+        return "COMPLETED".equals(claimStatus(run.getId(), userId));
+    }
+
+    private String claimStatus(Long runId, Long userId) {
+        PetRewardClaim claim = rewardClaimMapper.selectOne(new LambdaQueryWrapper<PetRewardClaim>()
+                .eq(PetRewardClaim::getBizType, "PVE")
+                .eq(PetRewardClaim::getBizId, String.valueOf(runId))
+                .eq(PetRewardClaim::getUserId, userId)
+                .last("LIMIT 1"));
+        return claim == null ? null : claim.getStatus();
     }
 
     // ==================== 内部 ====================
 
-    /** WON 一次性发奖（reward_granted CAS 兜底重复）：宠物币（配额内）+ 星光 */
-    private void grantVictoryReward(Long runId, PetPveRun run) {
-        int claimed = runMapper.update(null, new LambdaUpdateWrapper<PetPveRun>()
-                .eq(PetPveRun::getId, runId)
-                .eq(PetPveRun::getStatus, "WON")
-                .eq(PetPveRun::getRewardGranted, false)
-                .set(PetPveRun::getRewardGranted, true));
-        if (claimed == 0) {
-            return;
-        }
-        List<Long> userIds = List.of(run.getInitiatorUserId(), run.getPartnerUserId());
-        for (Long userId : userIds) {
-            if (userId == null) continue;
-            try {
-                boolean rewarded = quotaService.tryConsume(userId, PetQuotaService.QuotaType.VISIT_REWARD, 0, 3);
-                long coins = rewarded ? rewardCoins : Math.max(10, rewardCoins / 10); // 配额外参与奖
-                economyService.earn(userId, run.getInitiatorPetId(), "PVE_REWARD", runId, coins,
-                        "{\"type\":\"pve\",\"boss\":\"" + run.getBossCode() + "\",\"rewarded\":" + rewarded + "}",
-                        "PVE:" + runId + ":" + userId);
-            } catch (Exception e) {
-                log.warn("PVE 宠物币发放失败（fail-open）: runId={}, userId={}, err={}", runId, userId, e.getMessage());
-            }
-        }
-        log.info("PVE 胜利奖励已发放: runId={}, users={}", runId, userIds);
+    private void releaseParticipants(Long runId) {
+        participantMapper.delete(new LambdaQueryWrapper<PetPveParticipant>()
+                .eq(PetPveParticipant::getRunId, runId));
     }
 
-    private Long activeRunCount(Long userId) {
-        return runMapper.selectCount(new LambdaQueryWrapper<PetPveRun>()
-                .and(w -> w.eq(PetPveRun::getInitiatorUserId, userId).or().eq(PetPveRun::getPartnerUserId, userId))
-                .in(PetPveRun::getStatus, "OPEN", "FIGHTING"));
+    private boolean otherAlive(boolean isInitiator, boolean initiatorAlive, boolean partnerAlive) {
+        return isInitiator ? partnerAlive : initiatorAlive;
+    }
+
+    private Long otherOf(PetPveRun run, Long userId) {
+        return userId.equals(run.getInitiatorUserId()) ? run.getPartnerUserId() : run.getInitiatorUserId();
+    }
+
+    private Long petIdOf(PetPveRun run, Long userId) {
+        return userId.equals(run.getInitiatorUserId()) ? run.getInitiatorPetId() : run.getPartnerPetId();
+    }
+
+    private PetPveRoundLog logOf(PetPveRun run, int turnNo, int seq, Long actorUserId,
+                                 PetBattleEngine.Fighter actor, String action,
+                                 PetBattleEngine.PveStrike strike, String targetName,
+                                 int targetHpAfter, String requestKey) {
+        PetPveRoundLog logEntry = new PetPveRoundLog();
+        logEntry.setRunId(run.getId());
+        logEntry.setTurnNo(turnNo);
+        logEntry.setSeq(seq);
+        logEntry.setActorUserId(actorUserId);
+        logEntry.setActorPetId(actor == null ? null : actor.petId());
+        logEntry.setActorName(actor == null ? run.getBossName() : actor.name());
+        logEntry.setAction(action);
+        logEntry.setDamage(strike.damage());
+        logEntry.setCritical(strike.critical());
+        logEntry.setDodged(strike.dodged());
+        logEntry.setTargetName(targetName);
+        logEntry.setTargetHpAfter(targetHpAfter);
+        logEntry.setRequestKey(requestKey);
+        return logEntry;
+    }
+
+    private List<PetPveRunVO.RoundLog> recentRounds(Long runId) {
+        List<PetPveRoundLog> rows = roundLogMapper.selectList(new LambdaQueryWrapper<PetPveRoundLog>()
+                .eq(PetPveRoundLog::getRunId, runId)
+                .orderByDesc(PetPveRoundLog::getTurnNo)
+                .orderByAsc(PetPveRoundLog::getSeq)
+                .last("LIMIT 10"));
+        return rows.stream().map(r -> new PetPveRunVO.RoundLog(r.getTurnNo(), r.getActorName(),
+                r.getAction(), r.getDamage(), Boolean.TRUE.equals(r.getCritical()),
+                Boolean.TRUE.equals(r.getDodged()), r.getTargetName(), r.getTargetHpAfter())).toList();
     }
 
     private PetPveRun requireRun(Long runId) {
         PetPveRun run = runMapper.selectById(runId);
         if (run == null) {
             throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "副本不存在");
-        }
-        // 懒清理：OPEN 超时 → EXPIRED
-        if ("OPEN".equals(run.getStatus()) && run.getCreatedAt().isBefore(LocalDateTime.now().minusHours(OPEN_EXPIRE_HOURS))) {
-            runMapper.update(null, new LambdaUpdateWrapper<PetPveRun>()
-                    .eq(PetPveRun::getId, runId).eq(PetPveRun::getStatus, "OPEN")
-                    .set(PetPveRun::getStatus, "EXPIRED"));
-            run.setStatus("EXPIRED");
         }
         return run;
     }
@@ -303,60 +541,58 @@ public class PetPveServiceImpl implements PetPveService {
                 stats.powerStrikeBonus(), stats.damageReduction(), statsService.firstStrikeBonus(pet));
     }
 
+    private PetBattleEngine.Fighter parseFighter(String snapshot) {
+        try {
+            return objectMapper.readValue(snapshot, PetBattleEngine.Fighter.class);
+        } catch (Exception e) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "战斗快照损坏，无法继续战斗");
+        }
+    }
+
     private int maxHpOf(Pet pet) {
         return statsService.combatStats(pet).maxHp();
     }
 
-    private List<Map<String, Object>> parseRounds(String json) {
-        try {
-            return objectMapper.readValue(json == null || json.isBlank() ? "[]" : json,
-                    new TypeReference<List<Map<String, Object>>>() {});
-        } catch (Exception e) {
-            return new ArrayList<>();
-        }
-    }
-
-    private String appendRounds(String existing, List<Map<String, Object>> additions) {
-        List<Map<String, Object>> all = parseRounds(existing);
-        all.addAll(additions);
-        try {
-            return objectMapper.writeValueAsString(all);
-        } catch (Exception e) {
-            return existing;
-        }
-    }
-
     private Page<PetPveRunVO> toVoPage(Page<PetPveRun> result) {
         Page<PetPveRunVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
-        voPage.setRecords(result.getRecords().stream().map(this::toVO).toList());
+        voPage.setRecords(result.getRecords().stream().map(r -> toVO(r, null, List.of())).toList());
         return voPage;
     }
 
-    private PetPveRunVO toVO(PetPveRun run) {
-        List<Map<String, Object>> rounds = parseRounds(run.getRounds());
-        List<PetPveRunVO.RoundLog> recent = rounds.size() > 10
-                ? rounds.subList(rounds.size() - 10, rounds.size()).stream().map(this::toRoundLog).toList()
-                : rounds.stream().map(this::toRoundLog).toList();
+    private PetPveRunVO toVO(PetPveRun run, Long viewerId, List<PetPveRunVO.RoundLog> rounds) {
+        Long nextActor = run.getNextActorUserId();
+        String blockedReason = null;
+        boolean canAttack = false;
+        if (viewerId != null && PetPveRun.STATUS_FIGHTING.equals(run.getStatus())) {
+            if (!viewerId.equals(nextActor)) {
+                blockedReason = "NOT_YOUR_TURN";
+            } else if (run.getTurnDeadlineAt() != null && run.getTurnDeadlineAt().isBefore(LocalDateTime.now())) {
+                blockedReason = "TURN_OVERDUE";
+            } else {
+                canAttack = true;
+            }
+        }
+        Integer initiatorMaxHp = maxHpFromSnapshot(run.getInitiatorSnapshot());
+        Integer partnerMaxHp = run.getPartnerSnapshot() == null ? null : maxHpFromSnapshot(run.getPartnerSnapshot());
         return new PetPveRunVO(
                 run.getId(), run.getBossCode(), run.getBossName(),
                 run.getBossMaxHp(), run.getBossHp(),
                 run.getInitiatorUserId(), petNameOf(run.getInitiatorPetId()),
                 run.getPartnerUserId(), petNameOf(run.getPartnerPetId()),
                 run.getInitiatorPetHp(), run.getPartnerPetHp() == null ? -1 : run.getPartnerPetHp(),
-                run.getStatus(), Boolean.TRUE.equals(run.getRewardGranted()), recent,
-                run.getCreatedAt(), run.getFinishedAt());
+                run.getStatus(), PetPveRun.REWARD_SETTLED.equals(run.getRewardStatus()), rounds,
+                run.getCreatedAt(), run.getFinishedAt(),
+                run.getTurnNo() == null ? 0 : run.getTurnNo(), nextActor, canAttack, blockedReason,
+                run.getTurnDeadlineAt(), run.getRunExpiresAt(), run.getRewardStatus(),
+                initiatorMaxHp == null ? 0 : initiatorMaxHp, partnerMaxHp == null ? 0 : partnerMaxHp);
     }
 
-    private PetPveRunVO.RoundLog toRoundLog(Map<String, Object> m) {
-        return new PetPveRunVO.RoundLog(
-                ((Number) m.getOrDefault("round", 0)).intValue(),
-                String.valueOf(m.getOrDefault("actorName", "")),
-                String.valueOf(m.getOrDefault("action", "")),
-                ((Number) m.getOrDefault("damage", 0)).intValue(),
-                Boolean.TRUE.equals(m.get("critical")),
-                Boolean.TRUE.equals(m.get("dodged")),
-                String.valueOf(m.getOrDefault("targetName", "")),
-                ((Number) m.getOrDefault("targetRemainingHp", 0)).intValue());
+    private Integer maxHpFromSnapshot(String snapshot) {
+        try {
+            return objectMapper.readValue(snapshot, PetBattleEngine.Fighter.class).maxHp();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private String petNameOf(Long petId) {
@@ -369,8 +605,11 @@ public class PetPveServiceImpl implements PetPveService {
         try {
             return objectMapper.writeValueAsString(fighter);
         } catch (Exception e) {
-            return "{}";
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "战斗快照序列化失败");
         }
+    }
+
+    private record FighterBox(PetBattleEngine.Fighter fighter, int hp) {
     }
 
     /** 内置 Boss 配置 */

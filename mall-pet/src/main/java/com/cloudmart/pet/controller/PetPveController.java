@@ -4,7 +4,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.pet.service.PetPveService;
+import com.cloudmart.pet.vo.PetPveBossVO;
 import com.cloudmart.pet.vo.PetPveRunVO;
+
+import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,12 +34,21 @@ public class PetPveController {
 
     public record StartRequest(String bossCode) {}
 
+    /** R03：攻击请求体（requestKey 重放判重——同键重复提交返回原回合结果） */
+    public record AttackRequest(String requestKey) {}
+
     @PostMapping
     @Operation(summary = "发起副本", description = "选 Boss 发起（等待队友加入）；一人同时仅一个进行中副本")
     public ApiResponse<PetPveRunVO> start(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @RequestBody StartRequest request) {
         return ApiResponse.ok(pveService.start(userId, request.bossCode()));
+    }
+
+    @GetMapping("/bosses")
+    @Operation(summary = "Boss 配置列表", description = "R03：数值服务端权威下发，前端动态加载不硬编码")
+    public ApiResponse<List<PetPveBossVO>> bosses() {
+        return ApiResponse.ok(pveService.bosses());
     }
 
     @GetMapping("/open")
@@ -56,11 +68,21 @@ public class PetPveController {
     }
 
     @PostMapping("/{runId}/attack")
-    @Operation(summary = "攻击", description = "轮流行动（发起人/队友）；服务端推进一攻击波次并结算 Boss 反击；CAS 防并发")
+    @Operation(summary = "攻击", description = "R03：nextActorUserId 判定行动权；服务端以快照+种子决定性结算；"
+            + "CAS(version) 防并发；requestKey 重放原回合结果")
     public ApiResponse<PetPveRunVO> attack(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable Long runId,
+            @org.springframework.web.bind.annotation.RequestBody(required = false) AttackRequest request) {
+        return ApiResponse.ok(pveService.attack(userId, runId, request == null ? null : request.requestKey()));
+    }
+
+    @PostMapping("/{runId}/cancel")
+    @Operation(summary = "取消副本", description = "R03：发起人取消 OPEN 副本并释放参与占用")
+    public ApiResponse<PetPveRunVO> cancel(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable Long runId) {
-        return ApiResponse.ok(pveService.attack(userId, runId));
+        return ApiResponse.ok(pveService.cancel(userId, runId));
     }
 
     @GetMapping("/mine")

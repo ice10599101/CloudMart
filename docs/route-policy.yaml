@@ -145,9 +145,10 @@ mall-pet:
   - { method: POST,   path: /linked-product/redeem,     subjectType: "USER", note: "SELF：uk 兑换码幂等" }
   - { method: GET,    path: /linked-product/entitlement, subjectType: "USER", note: "SELF" }
   # 协作 PVE（§6）：发起/加入/攻击（参与者+轮流+CAS）；open 列表公开招募
-  - { method: POST,   path: /pve,                  subjectType: "USER", note: "SELF：发起，一人一进行中副本" }
-  - { method: POST,   path: "/pve/{runId}/join",   subjectType: "USER", note: "SELF：CAS 加入，禁自邀" }
-  - { method: POST,   path: "/pve/{runId}/attack", subjectType: "USER", note: "SELF：参与者+轮流行动" }
+  - { method: POST,   path: /pve,                  subjectType: "USER", note: "SELF：发起，占用行 uk 一人一进行中副本" }
+  - { method: POST,   path: "/pve/{runId}/join",   subjectType: "USER", note: "SELF：占用行+CAS 加入，禁自邀" }
+  - { method: POST,   path: "/pve/{runId}/attack", subjectType: "USER", note: "SELF：参与者+nextActor 行动权+requestKey 重放" }
+  - { method: POST,   path: "/pve/{runId}/cancel", subjectType: "USER", note: "SELF：发起人取消 OPEN 副本并释放占用（R03）" }
 
 mall-wms:
   - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: wms:admin, note: "WMS-01：补订单归属校验" }

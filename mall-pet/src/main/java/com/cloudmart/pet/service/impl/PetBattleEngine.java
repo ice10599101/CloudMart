@@ -129,4 +129,39 @@ public final class PetBattleEngine {
         // 击倒：胜者是出手方（actor），而非倒下的受击方
         return hp[targetIndex] <= 0 ? actor.petId() : null;
     }
+
+    /**
+     * R03：PVE 单次结算（宠物→Boss）——复用对战伤害口径（力量/智力/装备加成 + 暴击），
+     * Boss 以 defense 折算减免（与 damageReduction 同夹逼），随机源由调用方注入
+     * （run 种子 + 回合号派生，服务端决定性重放，前端不能提交胜负/伤害）。
+     */
+    public record PveStrike(int damage, boolean critical, boolean dodged) {
+    }
+
+    /** 宠物攻击 Boss：闪避/暴击率与对战同口径；Boss defense 按 0.005/点折算减免（封顶 50%） */
+    public static PveStrike pveStrike(Fighter attacker, int bossDefense, Random random) {
+        // 闪避：Boss 不闪避宠物攻击（Boss 无敏捷快照），保留参数位以便规则版本扩展
+        double criticalRate = Math.min(MAX_CRIT_RATE, 0.05 + attacker.charm() * 0.002 + attacker.critBonus());
+        boolean critical = random.nextDouble() < criticalRate;
+        double damage = attacker.strength() * 0.6 + attacker.intelligence() * 0.3
+                + attacker.damageBonus() + random.nextInt(5) + 1;
+        if (critical) {
+            damage *= 1.5;
+        }
+        double reduction = Math.min(MAX_DAMAGE_REDUCTION, bossDefense * 0.005);
+        int finalDamage = (int) Math.round(damage * (1 - reduction));
+        return new PveStrike(Math.max(1, finalDamage), critical, false);
+    }
+
+    /** Boss 反击宠物：固定攻击基数 + 宠物敏捷闪避 + 宠物受伤减免（对齐对战防守口径） */
+    public static PveStrike pveCounter(int bossAttack, Fighter defender, Random random) {
+        double dodgeRate = Math.min(MAX_DODGE_RATE, defender.agility() * 0.0015 + defender.dodgeBonus());
+        if (random.nextDouble() < dodgeRate) {
+            return new PveStrike(0, false, true);
+        }
+        double damage = bossAttack * 0.8 + random.nextInt(11);
+        double reduction = Math.min(MAX_DAMAGE_REDUCTION, Math.max(0, defender.damageReduction()));
+        int finalDamage = (int) Math.round(damage * (1 - reduction));
+        return new PveStrike(Math.max(1, finalDamage), false, false);
+    }
 }
