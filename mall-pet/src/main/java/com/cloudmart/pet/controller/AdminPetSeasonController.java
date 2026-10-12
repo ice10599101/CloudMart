@@ -111,14 +111,24 @@ public class AdminPetSeasonController {
                 throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "结束时间只允许延后");
             }
             season.setStatus(existing.getStatus());
-            seasonMapper.updateById(season);
+            // R20：更新写入→快照→版本登记同事务（mutateAndRecord 事务边界），0 行回滚
+            final Long seasonId = request.id();
+            governance.mutateAndRecord("pet_season", () -> seasonId,
+                    PetConfigGovernanceService.currentOperator(),
+                    () -> {
+                        if (seasonMapper.updateById(season) == 0) {
+                            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND,
+                                    "配置不存在: " + seasonId);
+                        }
+                    });
         } else {
             // R06：创建在 pet_season_guard 行锁内复验——先 count 后 insert 的读快照竞态不再产生双 ACTIVE
             season.setStatus("ACTIVE");
+            // 档位写入收口在 settlementService 独立事务方法内，保持原结构，写后单独快照登记
             settlementService.createSeasonGuarded(season);
+            governance.snapshotAndRecord("pet_season", season.getId(),
+                    PetConfigGovernanceService.currentOperator());
         }
-        governance.snapshotAndRecord("pet_season", season.getId(),
-                PetConfigGovernanceService.currentOperator());
         return ApiResponse.ok(season);
     }
 

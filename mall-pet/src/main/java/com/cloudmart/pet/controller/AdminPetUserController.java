@@ -175,13 +175,17 @@ public class AdminPetUserController {
             default -> wrapper.setSql(field + " = GREATEST({0}, LEAST({1}, " + field + " + {2}))",
                     ADJUSTABLE_FIELDS.get(field)[0], ADJUSTABLE_FIELDS.get(field)[1], delta);
         }
-        int updated = petMapper.update(null, wrapper);
-        if (updated == 0) {
-            throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT, "宠物状态被并发修改，请稍后重试");
-        }
+        // R20：条件更新→写后快照→版本登记同事务，update 0 行视为宠物不存在
+        governance.mutateAndRecord("pet", () -> petId,
+                PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    int updated = petMapper.update(null, wrapper);
+                    if (updated == 0) {
+                        throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "配置不存在: " + petId);
+                    }
+                });
         Pet latest = petMapper.selectById(petId);
         // F5：快照审计（操作者从 SecurityContext 已验签声明读取，P0-3 口径）
-        governance.snapshotAndRecord("pet", petId, PetConfigGovernanceService.currentOperator());
         log.info("[F5] 宠物数值调整: petId={}, field={}, delta={}, reason={}, adminUserId={}",
                 petId, field, delta, request.reason(), adminUserId);
         return ApiResponse.ok(latest);

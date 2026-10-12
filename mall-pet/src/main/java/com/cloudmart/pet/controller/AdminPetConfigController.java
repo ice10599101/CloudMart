@@ -48,7 +48,8 @@ public class AdminPetConfigController {
     }
 
     @PostMapping("/jobs")
-    @Operation(summary = "新增/更新岗位", description = "带 id 为更新；参数服务端权威")
+    @Operation(summary = "新增/更新岗位", description = "带 id 为更新；参数服务端权威；"
+            + "R20 配置写入与版本快照登记同事务，更新不存在 id 返回 404")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetJobConfig> upsertJob(@Valid @RequestBody JobUpsertRequest request) {
         governance.validateDto("job", request);
@@ -64,29 +65,41 @@ public class AdminPetConfigController {
         config.setRequiredLevel(request.requiredLevel());
         config.setEnabled(request.enabled() != null ? request.enabled() : true);
         config.setSort(request.sort() != null ? request.sort() : 0);
-        if (request.id() != null) {
-            jobConfigMapper.updateById(config);
-        } else {
-            config.setId(null);
-            jobConfigMapper.insert(config);
-        }
-        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
-        governance.snapshotAndRecord("job", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：写入→快照→版本登记同事务（mutateAndRecord 事务边界）
+        governance.mutateAndRecord("job", config::getId,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    if (request.id() != null) {
+                        if (jobConfigMapper.updateById(config) == 0) {
+                            throw new com.cloudmart.common.exception.BusinessException(
+                                    com.cloudmart.pet.constant.PetErrorCodes.PET_JOB_NOT_FOUND,
+                                    "岗位配置不存在: " + request.id());
+                        }
+                    } else {
+                        config.setId(null);
+                        jobConfigMapper.insert(config);
+                    }
+                });
         return ApiResponse.ok(config);
     }
 
     @PutMapping("/jobs/{id}/enabled")
-    @Operation(summary = "岗位启停")
+    @Operation(summary = "岗位启停", description = "R20 不存在 id 返回 404；启停与版本登记同事务")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleJob(@PathVariable("id") Long id,
                                        @RequestParam("enabled") Boolean enabled) {
-        PetJobConfig patch = new PetJobConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled);
-        jobConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("job", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        governance.mutateAndRecord("job", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    PetJobConfig patch = new PetJobConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled);
+                    if (jobConfigMapper.updateById(patch) == 0) {
+                        throw new com.cloudmart.common.exception.BusinessException(
+                                com.cloudmart.pet.constant.PetErrorCodes.PET_JOB_NOT_FOUND,
+                                "岗位配置不存在: " + id);
+                    }
+                });
         return ApiResponse.ok(null);
     }
 
@@ -103,21 +116,28 @@ public class AdminPetConfigController {
      * 原直连本端 404（代理已写、下游缺失的断路）；与 jobs/{id}/enabled 同构，写后快照留审计。
      */
     @PutMapping("/studies/{id}/enabled")
-    @Operation(summary = "课程启停")
+    @Operation(summary = "课程启停", description = "R20 不存在 id 返回 404；启停与版本登记同事务")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleStudy(@PathVariable("id") Long id,
                                          @RequestParam("enabled") Boolean enabled) {
-        PetStudyConfig patch = new PetStudyConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled);
-        studyConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("study", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        governance.mutateAndRecord("study", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    PetStudyConfig patch = new PetStudyConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled);
+                    if (studyConfigMapper.updateById(patch) == 0) {
+                        throw new com.cloudmart.common.exception.BusinessException(
+                                com.cloudmart.pet.constant.PetErrorCodes.PET_STUDY_NOT_FOUND,
+                                "课程配置不存在: " + id);
+                    }
+                });
         return ApiResponse.ok(null);
     }
 
     @PostMapping("/studies")
-    @Operation(summary = "新增/更新课程", description = "带 id 为更新")
+    @Operation(summary = "新增/更新课程", description = "带 id 为更新；"
+            + "R20 配置写入与版本快照登记同事务，更新不存在 id 返回 404")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<PetStudyConfig> upsertStudy(@Valid @RequestBody StudyUpsertRequest request) {
         governance.validateDto("study", request);
@@ -133,15 +153,20 @@ public class AdminPetConfigController {
         config.setRequiredLevel(request.requiredLevel());
         config.setEnabled(request.enabled() != null ? request.enabled() : true);
         config.setSort(request.sort() != null ? request.sort() : 0);
-        if (request.id() != null) {
-            studyConfigMapper.updateById(config);
-        } else {
-            config.setId(null);
-            studyConfigMapper.insert(config);
-        }
-        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
-        governance.snapshotAndRecord("study", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        governance.mutateAndRecord("study", config::getId,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    if (request.id() != null) {
+                        if (studyConfigMapper.updateById(config) == 0) {
+                            throw new com.cloudmart.common.exception.BusinessException(
+                                    com.cloudmart.pet.constant.PetErrorCodes.PET_STUDY_NOT_FOUND,
+                                    "课程配置不存在: " + request.id());
+                        }
+                    } else {
+                        config.setId(null);
+                        studyConfigMapper.insert(config);
+                    }
+                });
         return ApiResponse.ok(config);
     }
 

@@ -122,4 +122,54 @@ class PetConfigGovernanceServiceTest {
                 .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_VALIDATION_ERROR);
     }
 
+    // ========== R20 配置写入统一事务边界 ==========
+
+    @Test
+    @DisplayName("R20：mutateAndRecord 正常路径——先执行写入，再读快照并登记版本")
+    void mutateAndRecord_writesThenSnapshotsAndRecords() {
+        var vMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetConfigVersionMapper.class);
+        var jdbc = org.mockito.Mockito.mock(JdbcTemplate.class);
+        PetConfigGovernanceService service = new PetConfigGovernanceService(vMapper, jdbc,
+                new com.cloudmart.pet.config.PetProperties());
+        org.mockito.Mockito.when(vMapper.selectList(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.List.of());
+        org.mockito.Mockito.when(vMapper.insert(org.mockito.ArgumentMatchers.any(
+                com.cloudmart.pet.entity.PetConfigVersion.class))).thenReturn(1);
+        org.mockito.Mockito.when(jdbc.queryForList(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenReturn(java.util.List.of(java.util.Map.of("id", 11L, "name", "岗位A")));
+        java.util.List<String> order = new java.util.ArrayList<>();
+
+        service.mutateAndRecord("job", () -> 11L, "admin-a",
+                () -> order.add("write"));
+
+        // 写入必须先于快照查询（snapshotRow 在 writer 之后），版本行以新值落库
+        org.assertj.core.api.Assertions.assertThat(order).containsExactly("write");
+        org.mockito.Mockito.verify(jdbc).queryForList(org.mockito.ArgumentMatchers.contains("pet_job_config"),
+                org.mockito.ArgumentMatchers.any(Object[].class));
+        org.mockito.Mockito.verify(vMapper).insert(org.mockito.ArgumentMatchers.any(
+                com.cloudmart.pet.entity.PetConfigVersion.class));
+    }
+
+    @Test
+    @DisplayName("R20：写入抛业务异常（update 0 行）时短路，不读快照不登记版本——事务由代理回滚")
+    void mutateAndRecord_writerFailure_skipsSnapshotAndRecord() {
+        var vMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetConfigVersionMapper.class);
+        var jdbc = org.mockito.Mockito.mock(JdbcTemplate.class);
+        PetConfigGovernanceService service = new PetConfigGovernanceService(vMapper, jdbc,
+                new com.cloudmart.pet.config.PetProperties());
+
+        assertThatThrownBy(() -> service.mutateAndRecord("job", () -> 11L, "admin-a",
+                (Runnable) () -> {
+                    throw new BusinessException(PetErrorCodes.PET_JOB_NOT_FOUND, "岗位配置不存在: 11");
+                }))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_JOB_NOT_FOUND);
+
+        // 写入失败后不得读快照、不得登记版本（生产环境 @Transactional 代理连同写入一起回滚）
+        org.mockito.Mockito.verify(jdbc, never()).queryForList(anyString(),
+                org.mockito.ArgumentMatchers.any(Object[].class));
+        org.mockito.Mockito.verify(vMapper, never()).insert(
+                org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.PetConfigVersion.class));
+    }
+
 }

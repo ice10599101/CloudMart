@@ -264,14 +264,28 @@ class PetRouteContractTest {
     @Test
     @DisplayName("PET-05/T06：PUT /admin/configs/studies/{id}/enabled 端点存在且带启停参数（原 404 断路）")
     void studyEnabledRouteExists() throws Exception {
+        // R20：update 影响 0 行现在显式 404，mock 命中 1 行
+        Mockito.when(studyConfigMapper.updateById(org.mockito.ArgumentMatchers.<com.cloudmart.pet.entity.PetStudyConfig>any()))
+                .thenReturn(1);
+        // governance 为 mock：需驱动执行写入 lambda（真实事务方法会在事务内运行 writer）
+        Mockito.doAnswer(invocation -> {
+            invocation.getArgument(3, Runnable.class).run();
+            return null;
+        }).when(governance).mutateAndRecord(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.<java.util.function.Supplier<Long>>any(),
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.<Runnable>any());
         adminConfigMockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
                         .put("/admin/configs/studies/3/enabled")
                         .param("enabled", "false"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
         Mockito.verify(studyConfigMapper).updateById(org.mockito.ArgumentMatchers.<com.cloudmart.pet.entity.PetStudyConfig>any());
-        // 写后审计快照必须发生（与 jobs/{id}/enabled 同构）
-        Mockito.verify(governance).snapshotAndRecord(eq("study"), eq(3L), any());
+        // R20：启停写入与版本快照登记走统一事务边界 mutateAndRecord（不再是无事务的 snapshotAndRecord）
+        Mockito.verify(governance).mutateAndRecord(eq("study"),
+                org.mockito.ArgumentMatchers.<java.util.function.Supplier<Long>>any(),
+                any(), org.mockito.ArgumentMatchers.<Runnable>any());
     }
 
 }

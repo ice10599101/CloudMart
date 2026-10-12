@@ -100,6 +100,15 @@ interface ConfigDef {
   fields: FieldDef[]
 }
 
+/**
+ * R20 币种口径（与后端结算链路对齐，字段名 priceStarlight/costStarlight 为历史兼容名）：
+ * 售价/进化/晋升消耗走 PetEconomyService.spend —— 钱包 PET 模式扣宠物币 PET_COIN，
+ * LEGACY 模式扣社区星光 STARLIGHT，商城返回 currency 字段标明当前币种。
+ */
+const CURRENCY_TIP = '按当前钱包模式结算：PET 模式=宠物币 PET_COIN，LEGACY 模式=社区星光（商城接口返回 currency）'
+/** 奖励类 currencyReward/rewardStarlight 经 earnStarlight 发放社区星光 STARLIGHT（非宠物币） */
+const STARLIGHT_REWARD_TIP = '奖励发放社区星光 STARLIGHT（经心愿域 earnStarlight 幂等入账）'
+
 const CONFIGS: ConfigDef[] = [
   {
     key: 'configs/jobs',
@@ -111,7 +120,7 @@ const CONFIGS: ConfigDef[] = [
       { name: 'energyCost', label: '精力消耗', type: 'number' },
       { name: 'hungerCost', label: '饥饿消耗', type: 'number' },
       { name: 'expReward', label: '经验奖励', type: 'number' },
-      { name: 'currencyReward', label: '星光奖励', type: 'number' },
+      { name: 'currencyReward', label: '星光奖励(社区星光)', type: 'number', tip: STARLIGHT_REWARD_TIP },
       { name: 'requiredLevel', label: '等级要求', type: 'number' },
       { name: 'sort', label: '排序', type: 'number' },
     ],
@@ -141,7 +150,7 @@ const CONFIGS: ConfigDef[] = [
       { name: 'slot', label: '部位', type: 'select', options: ['HAT', 'NECKLACE', 'SCARF', 'BACKPACK'], required: true },
       { name: 'icon', label: '图标' },
       { name: 'rarity', label: '稀有度', type: 'select', options: ['COMMON', 'RARE', 'EPIC'] },
-      { name: 'priceStarlight', label: '售价星光', type: 'number' },
+      { name: 'priceStarlight', label: '售价(宠物币)', type: 'number', tip: CURRENCY_TIP },
       { name: 'bonusStrength', label: '力量+', type: 'number' },
       { name: 'bonusIntelligence', label: '智力+', type: 'number' },
       { name: 'bonusAgility', label: '敏捷+', type: 'number' },
@@ -159,12 +168,17 @@ const CONFIGS: ConfigDef[] = [
       { name: 'code', label: '编码', required: true },
       { name: 'name', label: '名称', required: true },
       { name: 'description', label: '描述', type: 'textarea' },
-      { name: 'species', label: '限定种类', type: 'select', options: ['', 'CAT', 'DOG', 'RABBIT', 'FOX', 'PANDA'] },
+      // R20：物种已水果化（PetSpecies 五种），旧 CAT/DOG/RABBIT/FOX/PANDA 已随 V28 废弃，提交旧值后端 400
+      {
+        name: 'species', label: '限定物种', type: 'select',
+        options: ['', 'STRAWBERRY', 'ORANGE', 'WATERMELON', 'BLUEBERRY', 'DRAGONFRUIT'],
+        tip: '水果物种（V28 水果化）；留空表示全物种通用',
+      },
       { name: 'color', label: '主色', required: true },
       { name: 'accessory', label: '配饰' },
       { name: 'icon', label: '图标' },
       { name: 'rarity', label: '稀有度', type: 'select', options: ['COMMON', 'RARE', 'EPIC'] },
-      { name: 'priceStarlight', label: '售价星光', type: 'number' },
+      { name: 'priceStarlight', label: '售价(宠物币)', type: 'number', tip: CURRENCY_TIP },
       { name: 'requiredLevel', label: '等级要求', type: 'number' },
       { name: 'requiredEvolutionStage', label: '进化要求', type: 'number' },
       { name: 'sort', label: '排序', type: 'number' },
@@ -187,7 +201,7 @@ const CONFIGS: ConfigDef[] = [
       },
       { name: 'effectValue', label: '效果数值', type: 'number' },
       { name: 'icon', label: '图标' },
-      { name: 'priceStarlight', label: '售价星光', type: 'number' },
+      { name: 'priceStarlight', label: '售价(宠物币)', type: 'number', tip: CURRENCY_TIP },
       { name: 'requiredLevel', label: '等级要求', type: 'number' },
       { name: 'sort', label: '排序', type: 'number' },
     ],
@@ -202,7 +216,7 @@ const CONFIGS: ConfigDef[] = [
       { name: 'stageFrom', label: '起始阶段', type: 'number', required: true },
       { name: 'stageTo', label: '目标阶段', type: 'number', required: true },
       { name: 'requiredLevel', label: '等级要求', type: 'number', required: true },
-      { name: 'costStarlight', label: '消耗星光', type: 'number' },
+      { name: 'costStarlight', label: '进化消耗(宠物币)', type: 'number', tip: CURRENCY_TIP },
       { name: 'bonusMaxHp', label: '生命+', type: 'number' },
       { name: 'bonusStrength', label: '力量+', type: 'number' },
       { name: 'bonusIntelligence', label: '智力+', type: 'number' },
@@ -227,7 +241,7 @@ const CONFIGS: ConfigDef[] = [
         options: ['BOTTLE', 'BATTLE', 'WORK', 'STUDY', 'FEED', 'PLAY', 'VISIT'],
       },
       { name: 'targetValue', label: '目标次数', type: 'number', required: true },
-      { name: 'rewardStarlight', label: '奖励星光', type: 'number' },
+      { name: 'rewardStarlight', label: '奖励星光(社区星光)', type: 'number', tip: STARLIGHT_REWARD_TIP },
       { name: 'rewardExp', label: '奖励经验', type: 'number' },
       { name: 'rewardItemCode', label: '奖励物品编码' },
       { name: 'sort', label: '排序', type: 'number' },
@@ -249,10 +263,10 @@ const CONFIGS: ConfigDef[] = [
       { name: 'energyCost', label: '精力消耗', type: 'number' },
       { name: 'hungerCost', label: '饥饿消耗', type: 'number' },
       { name: 'expReward', label: '经验奖励', type: 'number' },
-      { name: 'currencyReward', label: '星光奖励', type: 'number' },
+      { name: 'currencyReward', label: '星光奖励(社区星光)', type: 'number', tip: STARLIGHT_REWARD_TIP },
       { name: 'promoteToCode', label: '晋升目标编码', tip: '留空表示该路线最高阶' },
       { name: 'promoteRequiredCount', label: '晋升所需次数', type: 'number' },
-      { name: 'promoteStarCost', label: '晋升消耗星光', type: 'number' },
+      { name: 'promoteStarCost', label: '晋升消耗(宠物币)', type: 'number', tip: CURRENCY_TIP },
       { name: 'sort', label: '排序', type: 'number' },
     ],
   },
@@ -272,7 +286,7 @@ const CONFIGS: ConfigDef[] = [
       },
       { name: 'icon', label: '图标' },
       { name: 'rarity', label: '稀有度', type: 'select', options: ['COMMON', 'RARE', 'EPIC'] },
-      { name: 'priceStarlight', label: '售价星光', type: 'number' },
+      { name: 'priceStarlight', label: '售价(宠物币)', type: 'number', tip: CURRENCY_TIP },
       { name: 'requiredLevel', label: '等级要求', type: 'number' },
       { name: 'comfort', label: '舒适度', type: 'number', tip: '房间舒适度 = 已摆放家具之和' },
       { name: 'sort', label: '排序', type: 'number' },
@@ -286,7 +300,7 @@ const CONFIGS: ConfigDef[] = [
       { name: 'name', label: '名称', required: true },
       { name: 'description', label: '描述', type: 'textarea' },
       { name: 'icon', label: '图标' },
-      { name: 'priceStarlight', label: '售价星光', type: 'number', required: true },
+      { name: 'priceStarlight', label: '售价(宠物币)', type: 'number', required: true, tip: CURRENCY_TIP },
       { name: 'hunger', label: '饱食+', type: 'number', required: true },
       { name: 'happiness', label: '心情+', type: 'number', required: true },
       { name: 'hp', label: '生命+', type: 'number', required: true },
@@ -314,7 +328,7 @@ const CONFIGS: ConfigDef[] = [
       },
       { name: 'targetValue', label: '目标次数', type: 'number', required: true },
       { name: 'expReward', label: '奖励经验', type: 'number' },
-      { name: 'currencyReward', label: '奖励星光', type: 'number' },
+      { name: 'currencyReward', label: '奖励星光(社区星光)', type: 'number', tip: STARLIGHT_REWARD_TIP },
       { name: 'requiredLevel', label: '等级要求', type: 'number' },
       { name: 'sort', label: '排序', type: 'number' },
     ],

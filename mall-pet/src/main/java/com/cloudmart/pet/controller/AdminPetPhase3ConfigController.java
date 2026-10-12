@@ -81,15 +81,21 @@ public class AdminPetPhase3ConfigController {
         config.setPromoteStarCost(orZero(request.promoteStarCost()));
         config.setEnabled(request.enabled() == null || request.enabled());
         config.setSort(orZero(request.sort()));
-        if (request.id() != null) {
-            careerConfigMapper.updateById(config);
-        } else {
-            config.setId(null);
-            careerConfigMapper.insert(config);
-        }
-        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
-        governance.snapshotAndRecord("career", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：写入→快照→版本登记同事务（mutateAndRecord 事务边界），更新不存在 id 回滚
+        governance.mutateAndRecord("career", config::getId,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    if (request.id() != null) {
+                        if (careerConfigMapper.updateById(config) == 0) {
+                            throw new com.cloudmart.common.exception.BusinessException(
+                                    com.cloudmart.pet.constant.PetErrorCodes.PET_NOT_FOUND,
+                                    "配置不存在: " + request.id());
+                        }
+                    } else {
+                        config.setId(null);
+                        careerConfigMapper.insert(config);
+                    }
+                });
         return ApiResponse.ok(config);
     }
 
@@ -98,12 +104,19 @@ public class AdminPetPhase3ConfigController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleCareer(@PathVariable("id") Long id,
                                           @RequestParam("enabled") Boolean enabled) {
-        PetCareerConfig patch = new PetCareerConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled);
-        careerConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("career", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：启停写入→快照→版本登记同事务，不存在 id 返回 404
+        governance.mutateAndRecord("career", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    PetCareerConfig patch = new PetCareerConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled);
+                    if (careerConfigMapper.updateById(patch) == 0) {
+                        throw new com.cloudmart.common.exception.BusinessException(
+                                com.cloudmart.pet.constant.PetErrorCodes.PET_NOT_FOUND,
+                                "配置不存在: " + id);
+                    }
+                });
         return ApiResponse.ok(null);
     }
 
@@ -136,15 +149,21 @@ public class AdminPetPhase3ConfigController {
         config.setComfort(orZero(request.comfort()));
         config.setEnabled(request.enabled() == null || request.enabled());
         config.setSort(orZero(request.sort()));
-        if (request.id() != null) {
-            furnitureConfigMapper.updateById(config);
-        } else {
-            config.setId(null);
-            furnitureConfigMapper.insert(config);
-        }
-        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
-        governance.snapshotAndRecord("furniture", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：写入→快照→版本登记同事务（mutateAndRecord 事务边界），更新不存在 id 回滚
+        governance.mutateAndRecord("furniture", config::getId,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    if (request.id() != null) {
+                        if (furnitureConfigMapper.updateById(config) == 0) {
+                            throw new com.cloudmart.common.exception.BusinessException(
+                                    com.cloudmart.pet.constant.PetErrorCodes.PET_NOT_FOUND,
+                                    "配置不存在: " + request.id());
+                        }
+                    } else {
+                        config.setId(null);
+                        furnitureConfigMapper.insert(config);
+                    }
+                });
         return ApiResponse.ok(config);
     }
 
@@ -153,12 +172,19 @@ public class AdminPetPhase3ConfigController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleFurniture(@PathVariable("id") Long id,
                                              @RequestParam("enabled") Boolean enabled) {
-        PetFurnitureConfig patch = new PetFurnitureConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled);
-        furnitureConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("furniture", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：上下架写入→快照→版本登记同事务，不存在 id 返回 404
+        governance.mutateAndRecord("furniture", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    PetFurnitureConfig patch = new PetFurnitureConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled);
+                    if (furnitureConfigMapper.updateById(patch) == 0) {
+                        throw new com.cloudmart.common.exception.BusinessException(
+                                com.cloudmart.pet.constant.PetErrorCodes.PET_NOT_FOUND,
+                                "配置不存在: " + id);
+                    }
+                });
         return ApiResponse.ok(null);
     }
 
@@ -190,15 +216,21 @@ public class AdminPetPhase3ConfigController {
         config.setRequiredLevel(orOne(request.requiredLevel()));
         config.setEnabled(request.enabled() == null || request.enabled());
         config.setSort(orZero(request.sort()));
-        if (request.id() != null) {
-            dailyQuestConfigMapper.updateById(config);
-        } else {
-            config.setId(null);
-            dailyQuestConfigMapper.insert(config);
-        }
-        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
-        governance.snapshotAndRecord("daily_quest", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：写入→快照→版本登记同事务（mutateAndRecord 事务边界），更新不存在 id 回滚
+        governance.mutateAndRecord("daily_quest", config::getId,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    if (request.id() != null) {
+                        if (dailyQuestConfigMapper.updateById(config) == 0) {
+                            throw new com.cloudmart.common.exception.BusinessException(
+                                    com.cloudmart.pet.constant.PetErrorCodes.PET_NOT_FOUND,
+                                    "配置不存在: " + request.id());
+                        }
+                    } else {
+                        config.setId(null);
+                        dailyQuestConfigMapper.insert(config);
+                    }
+                });
         return ApiResponse.ok(config);
     }
 
@@ -207,12 +239,19 @@ public class AdminPetPhase3ConfigController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleDailyQuest(@PathVariable("id") Long id,
                                               @RequestParam("enabled") Boolean enabled) {
-        PetDailyQuestConfig patch = new PetDailyQuestConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled);
-        dailyQuestConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("daily_quest", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：启停写入→快照→版本登记同事务，不存在 id 返回 404
+        governance.mutateAndRecord("daily_quest", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    PetDailyQuestConfig patch = new PetDailyQuestConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled);
+                    if (dailyQuestConfigMapper.updateById(patch) == 0) {
+                        throw new com.cloudmart.common.exception.BusinessException(
+                                com.cloudmart.pet.constant.PetErrorCodes.PET_NOT_FOUND,
+                                "配置不存在: " + id);
+                    }
+                });
         return ApiResponse.ok(null);
     }
 

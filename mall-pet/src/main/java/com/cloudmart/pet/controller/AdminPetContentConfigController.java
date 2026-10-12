@@ -96,15 +96,20 @@ public class AdminPetContentConfigController {
         config.setRequiredEvolutionStage(orZero(request.requiredEvolutionStage()));
         config.setEnabled(request.enabled() == null || request.enabled());
         config.setSort(orZero(request.sort()));
-        if (request.id() != null) {
-            equipmentConfigMapper.updateById(config);
-        } else {
-            config.setId(null);
-            equipmentConfigMapper.insert(config);
-        }
-        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
-        governance.snapshotAndRecord("equipment", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：写入→快照→版本登记同事务（mutateAndRecord 事务边界）
+        governance.mutateAndRecord("equipment", config::getId,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    if (request.id() != null) {
+                        if (equipmentConfigMapper.updateById(config) == 0) {
+                            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND,
+                                    "配置不存在: " + request.id());
+                        }
+                    } else {
+                        config.setId(null);
+                        equipmentConfigMapper.insert(config);
+                    }
+                });
         return ApiResponse.ok(config);
     }
 
@@ -113,12 +118,17 @@ public class AdminPetContentConfigController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleEquipment(@PathVariable("id") Long id,
                                              @RequestParam("enabled") Boolean enabled) {
-        PetEquipmentConfig patch = new PetEquipmentConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled);
-        equipmentConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("equipment", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：启停写入→快照→版本登记同事务，update 0 行视为配置不存在
+        governance.mutateAndRecord("equipment", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    PetEquipmentConfig patch = new PetEquipmentConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled);
+                    if (equipmentConfigMapper.updateById(patch) == 0) {
+                        throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "配置不存在: " + id);
+                    }
+                });
         return ApiResponse.ok(null);
     }
 
@@ -152,15 +162,28 @@ public class AdminPetContentConfigController {
         config.setRequiredEvolutionStage(orZero(request.requiredEvolutionStage()));
         config.setEnabled(request.enabled() == null || request.enabled());
         config.setSort(orZero(request.sort()));
-        if (request.id() != null) {
-            skinConfigMapper.updateById(config);
-        } else {
-            config.setId(null);
-            skinConfigMapper.insert(config);
+        // 物种合法性：species 允许 null/空串（通用皮肤，不限定物种）；非空必须是五个合法枚举名
+        String species = request.species();
+        boolean speciesValid = species == null || species.isEmpty()
+                || java.util.Arrays.stream(com.cloudmart.pet.enums.PetSpecies.values())
+                        .anyMatch(item -> item.name().equals(species));
+        if (!speciesValid) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "皮肤物种不合法: " + species);
         }
-        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
-        governance.snapshotAndRecord("skin", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：写入→快照→版本登记同事务（mutateAndRecord 事务边界）
+        governance.mutateAndRecord("skin", config::getId,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    if (request.id() != null) {
+                        if (skinConfigMapper.updateById(config) == 0) {
+                            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND,
+                                    "配置不存在: " + request.id());
+                        }
+                    } else {
+                        config.setId(null);
+                        skinConfigMapper.insert(config);
+                    }
+                });
         return ApiResponse.ok(config);
     }
 
@@ -169,12 +192,17 @@ public class AdminPetContentConfigController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleSkin(@PathVariable("id") Long id,
                                         @RequestParam("enabled") Boolean enabled) {
-        PetSkinConfig patch = new PetSkinConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled);
-        skinConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("skin", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：启停写入→快照→版本登记同事务，update 0 行视为配置不存在
+        governance.mutateAndRecord("skin", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    PetSkinConfig patch = new PetSkinConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled);
+                    if (skinConfigMapper.updateById(patch) == 0) {
+                        throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "配置不存在: " + id);
+                    }
+                });
         return ApiResponse.ok(null);
     }
 
@@ -206,15 +234,20 @@ public class AdminPetContentConfigController {
         config.setRequiredLevel(orOne(request.requiredLevel()));
         config.setEnabled(request.enabled() == null || request.enabled());
         config.setSort(orZero(request.sort()));
-        if (request.id() != null) {
-            skillConfigMapper.updateById(config);
-        } else {
-            config.setId(null);
-            skillConfigMapper.insert(config);
-        }
-        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
-        governance.snapshotAndRecord("skill", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：写入→快照→版本登记同事务（mutateAndRecord 事务边界）
+        governance.mutateAndRecord("skill", config::getId,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    if (request.id() != null) {
+                        if (skillConfigMapper.updateById(config) == 0) {
+                            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND,
+                                    "配置不存在: " + request.id());
+                        }
+                    } else {
+                        config.setId(null);
+                        skillConfigMapper.insert(config);
+                    }
+                });
         return ApiResponse.ok(config);
     }
 
@@ -223,12 +256,17 @@ public class AdminPetContentConfigController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleSkill(@PathVariable("id") Long id,
                                          @RequestParam("enabled") Boolean enabled) {
-        PetSkillConfig patch = new PetSkillConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled);
-        skillConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("skill", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：启停写入→快照→版本登记同事务，update 0 行视为配置不存在
+        governance.mutateAndRecord("skill", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    PetSkillConfig patch = new PetSkillConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled);
+                    if (skillConfigMapper.updateById(patch) == 0) {
+                        throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "配置不存在: " + id);
+                    }
+                });
         return ApiResponse.ok(null);
     }
 
@@ -265,15 +303,20 @@ public class AdminPetContentConfigController {
         config.setIcon(request.icon() != null ? request.icon() : "🌠");
         config.setEnabled(request.enabled() == null || request.enabled());
         config.setSort(orZero(request.sort()));
-        if (request.id() != null) {
-            evolutionConfigMapper.updateById(config);
-        } else {
-            config.setId(null);
-            evolutionConfigMapper.insert(config);
-        }
-        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
-        governance.snapshotAndRecord("evolution", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：写入→快照→版本登记同事务（mutateAndRecord 事务边界）
+        governance.mutateAndRecord("evolution", config::getId,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    if (request.id() != null) {
+                        if (evolutionConfigMapper.updateById(config) == 0) {
+                            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND,
+                                    "配置不存在: " + request.id());
+                        }
+                    } else {
+                        config.setId(null);
+                        evolutionConfigMapper.insert(config);
+                    }
+                });
         return ApiResponse.ok(config);
     }
 
@@ -282,12 +325,17 @@ public class AdminPetContentConfigController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleEvolution(@PathVariable("id") Long id,
                                              @RequestParam("enabled") Boolean enabled) {
-        PetEvolutionConfig patch = new PetEvolutionConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled);
-        evolutionConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("evolution", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：启停写入→快照→版本登记同事务，update 0 行视为配置不存在
+        governance.mutateAndRecord("evolution", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    PetEvolutionConfig patch = new PetEvolutionConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled);
+                    if (evolutionConfigMapper.updateById(patch) == 0) {
+                        throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "配置不存在: " + id);
+                    }
+                });
         return ApiResponse.ok(null);
     }
 
@@ -320,15 +368,20 @@ public class AdminPetContentConfigController {
         config.setEndsAt(request.endsAt());
         config.setEnabled(request.enabled() == null || request.enabled());
         config.setSort(orZero(request.sort()));
-        if (request.id() != null) {
-            eventConfigMapper.updateById(config);
-        } else {
-            config.setId(null);
-            eventConfigMapper.insert(config);
-        }
-        // ADM-03：写后快照 + 版本登记（写前校验见下方 validateDto），与写库同事务
-        governance.snapshotAndRecord("event", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：写入→快照→版本登记同事务（mutateAndRecord 事务边界）
+        governance.mutateAndRecord("event", config::getId,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    if (request.id() != null) {
+                        if (eventConfigMapper.updateById(config) == 0) {
+                            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND,
+                                    "配置不存在: " + request.id());
+                        }
+                    } else {
+                        config.setId(null);
+                        eventConfigMapper.insert(config);
+                    }
+                });
         return ApiResponse.ok(config);
     }
 
@@ -337,12 +390,17 @@ public class AdminPetContentConfigController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleEvent(@PathVariable("id") Long id,
                                          @RequestParam("enabled") Boolean enabled) {
-        PetEventConfig patch = new PetEventConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled);
-        eventConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("event", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：启停写入→快照→版本登记同事务，update 0 行视为配置不存在
+        governance.mutateAndRecord("event", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    PetEventConfig patch = new PetEventConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled);
+                    if (eventConfigMapper.updateById(patch) == 0) {
+                        throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "配置不存在: " + id);
+                    }
+                });
         return ApiResponse.ok(null);
     }
 
@@ -384,18 +442,21 @@ public class AdminPetContentConfigController {
         entry.setWord(normalizedWord);
         entry.setCategory(request.category());
         entry.setStatus(request.enabled() == null || request.enabled() ? 1 : 0);
+        // R20：写入→快照→版本登记同事务（保留 selectById 判存逻辑于同事务内）
         try {
-            if (request.id() != null && sensitiveWordMapper.selectById(request.id()) != null) {
-                sensitiveWordMapper.updateById(entry);
-            } else {
-                entry.setId(null);
-                sensitiveWordMapper.insert(entry);
-            }
+            governance.mutateAndRecord("sensitive_word", entry::getId,
+                    com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                    () -> {
+                        if (request.id() != null && sensitiveWordMapper.selectById(request.id()) != null) {
+                            sensitiveWordMapper.updateById(entry);
+                        } else {
+                            entry.setId(null);
+                            sensitiveWordMapper.insert(entry);
+                        }
+                    });
         } catch (org.springframework.dao.DuplicateKeyException e) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "该敏感词已存在");
         }
-        governance.snapshotAndRecord("sensitive_word", entry.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         contentSafetyService.refresh();
         return ApiResponse.ok(entry);
     }
@@ -456,18 +517,21 @@ public class AdminPetContentConfigController {
         config.setHp(request.hp());
         config.setEnabled(request.enabled() == null || request.enabled() ? 1 : 0);
         config.setSort(request.sort() != null ? request.sort() : 0);
+        // R20：写入→快照→版本登记同事务（保留 selectById 判存逻辑于同事务内）
         try {
-            if (request.id() != null && foodConfigMapper.selectById(request.id()) != null) {
-                foodConfigMapper.updateById(config);
-            } else {
-                config.setId(null);
-                foodConfigMapper.insert(config);
-            }
+            governance.mutateAndRecord("food", config::getId,
+                    com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                    () -> {
+                        if (request.id() != null && foodConfigMapper.selectById(request.id()) != null) {
+                            foodConfigMapper.updateById(config);
+                        } else {
+                            config.setId(null);
+                            foodConfigMapper.insert(config);
+                        }
+                    });
         } catch (org.springframework.dao.DuplicateKeyException e) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "食物编码已存在: " + config.getCode());
         }
-        governance.snapshotAndRecord("food", config.getId(),
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
         itemCatalog.invalidateFoodCache();
         return ApiResponse.ok(config);
     }
@@ -477,12 +541,18 @@ public class AdminPetContentConfigController {
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Void> toggleFood(@PathVariable("id") Long id,
                                         @RequestParam("enabled") Boolean enabled) {
-        com.cloudmart.pet.entity.PetFoodConfig patch = new com.cloudmart.pet.entity.PetFoodConfig();
-        patch.setId(id);
-        patch.setEnabled(enabled ? 1 : 0);
-        foodConfigMapper.updateById(patch);
-        governance.snapshotAndRecord("food", id,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：启停写入→快照→版本登记同事务，update 0 行视为配置不存在
+        governance.mutateAndRecord("food", () -> id,
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> {
+                    com.cloudmart.pet.entity.PetFoodConfig patch =
+                            new com.cloudmart.pet.entity.PetFoodConfig();
+                    patch.setId(id);
+                    patch.setEnabled(enabled ? 1 : 0);
+                    if (foodConfigMapper.updateById(patch) == 0) {
+                        throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "配置不存在: " + id);
+                    }
+                });
         itemCatalog.invalidateFoodCache();
         return ApiResponse.ok(null);
     }
@@ -529,11 +599,12 @@ public class AdminPetContentConfigController {
         if (phrase.isEmpty() || phrase.length() > 64) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "口头禅需 1~64 字");
         }
-        // PET-20/T45：快照定位真实行主键并注册类型（原实现 ("persona_phrase", 0L) 未注册类型，
-        // 保存成功后快照必失败，接口报错但短语已生效）
-        Long phraseRowId = personaPhraseService.save(request.personality(), phrase);
-        governance.snapshotAndRecord("persona_phrase", phraseRowId,
-                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator());
+        // R20：保存（内部 upsert Mapper）→快照→版本登记同事务；行主键由 save 返回，经 holder 传给 supplier
+        Long[] phraseRowIdHolder = new Long[1];
+        governance.mutateAndRecord("persona_phrase",
+                () -> phraseRowIdHolder[0],
+                com.cloudmart.pet.service.impl.PetConfigGovernanceService.currentOperator(),
+                () -> phraseRowIdHolder[0] = personaPhraseService.save(request.personality(), phrase));
         return ApiResponse.ok(null);
     }
 

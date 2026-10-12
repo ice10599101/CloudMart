@@ -74,8 +74,39 @@ public class PetConfigGovernanceService {
         validate(configType, data);
     }
 
-    /** ADM-03：写后快照 + 版本登记（调用方事务内）；操作人取 mall-admin 透传的可信头 */
+    /**
+     * ADM-03：写后快照 + 版本登记。
+     *
+     * <p>R20 事务语义修正：历史调用方（各 Admin*ConfigController）均无 {@code @Transactional}，
+     * 本方法内部 this 调用 {@link #record}（其 {@code @Transactional} 因自调用代理失效），
+     * 导致"配置写库"与"版本快照登记"不在同一事务——快照登记失败时配置仍已提交。
+     * 现给本方法补上事务边界：调用方即使没有外层事务，{@code snapshot+record} 也原子提交；
+     * 新代码应优先使用 {@link #mutateAndRecord} 把配置写入本身纳入同一事务。</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
     public void snapshotAndRecord(String configType, Long configId, String operator) {
+        record(configType, configId, snapshotRow(configType, configId), operator);
+    }
+
+    /**
+     * R20 配置写入的统一事务边界：<b>配置写入 → 写后快照 → 版本登记</b>同事务提交。
+     *
+     * <p>版本快照/登记失败（或写入抛业务异常，如 update 影响 0 行判定为不存在）时配置写入
+     * 一并回滚，满足"强制版本记录写失败时配置也回滚"。{@code configIdSupplier} 在写入后
+     * 求值——insert 场景实体雪花 ID 此时已回填。</p>
+     *
+     * @param configType       TABLE_BY_TYPE 白名单内的配置类型
+     * @param configIdSupplier 写入后提供目标配置行 ID（insert 用实体回填 ID）
+     * @param operator         操作者（{@link #currentOperator()}）
+     * @param configWriter     实际 insert/update 逻辑；update 0 行应抛 BusinessException（404/409）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void mutateAndRecord(String configType,
+                                java.util.function.Supplier<Long> configIdSupplier,
+                                String operator,
+                                Runnable configWriter) {
+        configWriter.run();
+        Long configId = configIdSupplier.get();
         record(configType, configId, snapshotRow(configType, configId), operator);
     }
 
