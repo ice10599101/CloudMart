@@ -59,6 +59,8 @@ class StarlightTransferServiceImplTest {
     private UserStatService userStatService;
     @Mock
     private CommunityFeignClient communityFeignClient;
+    @Mock
+    private org.apache.rocketmq.spring.core.RocketMQTemplate rocketMQTemplate;
 
     private StarlightTransferServiceImpl service;
 
@@ -75,7 +77,8 @@ class StarlightTransferServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new StarlightTransferServiceImpl(transferMapper, quotaMapper,
-                userStatService, communityFeignClient);
+                userStatService, communityFeignClient,
+                new com.cloudmart.wish.mq.StarlightNotifyProducer(rocketMQTemplate));
         // 好友校验默认通过；额度条件更新默认成功
         when(communityFeignClient.checkFriendship(anyLong(), anyLong()))
                 .thenReturn(ApiResponse.ok(Map.of("friends", true)));

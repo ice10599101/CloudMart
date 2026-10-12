@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
+import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetPveParticipant;
 import com.cloudmart.pet.entity.PetPveRoundLog;
@@ -77,6 +78,7 @@ public class PetPveServiceImpl implements PetPveService {
     private final PetStatsService statsService;
     private final PetQuotaService quotaService;
     private final PetRewardApplicationService rewardApplicationService;
+    private final PetProperties properties;
     private final SecureRandom seedRandom = new SecureRandom();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -139,6 +141,10 @@ public class PetPveServiceImpl implements PetPveService {
     @Override
     @Transactional
     public PetPveRunVO start(Long userId, String bossCode) {
+        // R19：能力开关——关闭时拒绝发起新副本；进行中副本的攻击/领奖不拦（已受理操作照常结算）
+        if (!properties.getFeatureSwitches().isCooperativePve()) {
+            throw new BusinessException(PetErrorCodes.PET_FEATURE_DISABLED, "协作副本暂未开放");
+        }
         BossSpec spec = BOSSES.get(bossCode);
         if (spec == null) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "未知的 Boss");

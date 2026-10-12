@@ -86,7 +86,8 @@ class PetSeasonPassServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new PetSeasonPassServiceImpl(seasonMapper, passMapper, claimMapper,
-                expFactMapper, inventoryMapper, rewardApplicationService, petService);
+                expFactMapper, inventoryMapper, rewardApplicationService, petService,
+                new com.cloudmart.pet.config.PetProperties());
         service.finalTierSkinCode = "";
         when(rewardApplicationService.claim(any(), any()))
                 .thenReturn(new PetRewardApplicationService.RewardClaimResult(

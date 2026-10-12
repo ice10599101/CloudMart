@@ -214,6 +214,10 @@ public class PetBootstrapService {
         capabilities.put("moderationActions", switches.isModerationActions());
         capabilities.put("chatRequestV2", switches.isChatRequestV2());
         capabilities.put("seasonSettlementV2", switches.isSeasonSettlementV2());
+        // R19：跨端功能入口显隐开关（W/M/A 共用同一权威清单，关闭即不显示可执行入口）
+        capabilities.put("cooperativePve", switches.isCooperativePve());
+        capabilities.put("seasonPass", switches.isSeasonPass());
+        capabilities.put("linkedProduct", switches.isLinkedProduct());
         return capabilities;
     }
 

@@ -2,6 +2,7 @@ package com.cloudmart.wish.controller;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wish.enums.ResourceLogSource;
+import com.cloudmart.wish.mq.StarlightNotifyProducer;
 import com.cloudmart.wish.service.UserStatService;
 import com.cloudmart.wish.vo.PetWalletOperationVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,6 +10,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,6 +36,7 @@ import java.util.Map;
 public class InternalStarlightController {
 
     private final UserStatService userStatService;
+    private final StarlightNotifyProducer notifyProducer;
 
     /** 允许经本端点发放的来源白名单（新业务接入需显式登记，防流水来源滥用） */
     private static final Map<String, ResourceLogSource> ALLOWED_SOURCES = Map.of(
@@ -39,6 +44,7 @@ public class InternalStarlightController {
             "INVITE_REWARD", ResourceLogSource.INVITE_REWARD);
 
     @PostMapping("/earn")
+    @Transactional(rollbackFor = Exception.class)
     @Operation(summary = "幂等发放星光", description = "携带 operationId 幂等：重复相同请求返回原结果，"
             + "同键不同内容返回 WISH_OPERATION_CONFLICT(409)；余额达上限时截断（credited < amount）")
     public ApiResponse<PetWalletOperationVO> earn(
@@ -52,6 +58,19 @@ public class InternalStarlightController {
             throw new com.cloudmart.common.exception.BusinessException(
                     "WISH_SOURCE_NOT_ALLOWED", "星光来源未登记：" + source);
         }
-        return ApiResponse.ok(userStatService.earnStarlightIdempotent(userId, amount, resolved, refId, operationId));
+        PetWalletOperationVO result = userStatService.earnStarlightIdempotent(userId, amount, resolved, refId, operationId);
+        // R19：邀请奖励首次实际入账（非幂等重放、入账量>0）在事务提交后通知，深链跳邀请中心
+        if (resolved == ResourceLogSource.INVITE_REWARD
+                && !result.duplicate()
+                && result.creditedAmount() != null && result.creditedAmount() > 0) {
+            final int credited = result.creditedAmount();
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notifyProducer.publishInviteReward(userId, refId, credited);
+                }
+            });
+        }
+        return ApiResponse.ok(result);
     }
 }

@@ -50,6 +50,10 @@ public class PetLinkedProductServiceImpl implements PetLinkedProductService {
     @Override
     @Transactional
     public OperationView redeem(Long userId, String redemptionCode, String requestKey) {
+        // R19：能力开关——关闭时拒绝新兑换；已发权益与操作进度查询不拦
+        if (!properties.getFeatureSwitches().isLinkedProduct()) {
+            throw new BusinessException(PetErrorCodes.PET_FEATURE_DISABLED, "实物权益兑换暂未开放");
+        }
         String code = normalizeCode(redemptionCode);
         String key = requestKey == null || requestKey.isBlank()
                 ? "r-" + UUID.randomUUID() : requestKey.trim();

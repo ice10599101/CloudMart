@@ -473,6 +473,12 @@ public class UserStatServiceImpl implements UserStatService {
 
     @Override
     public List<ResourceLogVO> listResourceLogs(Long userId, ResourceLogType type, Long cursor, Integer pageSize) {
+        return listResourceLogs(userId, type, (ResourceLogSource) null, cursor, pageSize);
+    }
+
+    @Override
+    public List<ResourceLogVO> listResourceLogs(Long userId, ResourceLogType type, ResourceLogSource source,
+                                                Long cursor, Integer pageSize) {
         int size = pageSize == null ? 20 : Math.min(pageSize, 50);
         if (size <= 0) {
             size = 20;
@@ -483,6 +489,10 @@ public class UserStatServiceImpl implements UserStatService {
                 .last("LIMIT " + size);
         if (type != null) {
             wrapper.eq(WishResourceLog::getType, type);
+        }
+        // R19：来源过滤（邀请奖励/转赠等专页）
+        if (source != null) {
+            wrapper.eq(WishResourceLog::getSource, source.name());
         }
         if (cursor != null) {
             wrapper.lt(WishResourceLog::getId, cursor);

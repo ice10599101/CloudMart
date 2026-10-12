@@ -59,7 +59,8 @@ class WishServiceTokenPathMappingTest {
 
         assertThat(byPrefix.keySet()).containsExactlyInAnyOrder(
                 "/admin", "/internal/jobs", "/internal/tree-env",
-                "/internal/pet-support", "/internal/account-erasure", "/internal/starlight");
+                "/internal/pet-support", "/internal/account-erasure", "/internal/starlight",
+                "/internal/users");
 
         assertThat(castList(byPrefix.get("/admin").get("issuers"))).isEqualTo(List.of("mall-admin"));
         assertThat(byPrefix.get("/admin").get("scope")).isEqualTo("wish:admin");
@@ -78,6 +79,9 @@ class WishServiceTokenPathMappingTest {
 
         assertThat(castList(byPrefix.get("/internal/account-erasure").get("issuers"))).isEqualTo(List.of("mall-user"));
         assertThat(byPrefix.get("/internal/account-erasure").get("scope")).isEqualTo("wish:erasure");
+
+        assertThat(castList(byPrefix.get("/internal/users").get("issuers"))).isEqualTo(List.of("mall-community", "mall-pet"));
+        assertThat(byPrefix.get("/internal/users").get("scope")).isEqualTo("wish:profile");
     }
 
     @SuppressWarnings("unchecked")

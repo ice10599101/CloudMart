@@ -20,5 +20,9 @@ public enum WishNotificationType {
     DEVICE_OFFLINE,
     LEVEL_UP,
     BADGE_EARNED,
+    /** R19：收到好友星光转赠 */
+    STARLIGHT_RECEIVED,
+    /** R19：邀请奖励到账 */
+    INVITE_REWARD,
     SYSTEM
 }

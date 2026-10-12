@@ -9,6 +9,7 @@ import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.entity.StarlightDailyOutQuota;
 import com.cloudmart.wish.entity.StarlightTransfer;
 import com.cloudmart.wish.feign.CommunityFeignClient;
+import com.cloudmart.wish.mq.StarlightNotifyProducer;
 import com.cloudmart.wish.repository.StarlightDailyOutQuotaMapper;
 import com.cloudmart.wish.repository.StarlightTransferMapper;
 import com.cloudmart.wish.service.StarlightTransferService;
@@ -19,6 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -55,6 +58,7 @@ public class StarlightTransferServiceImpl implements StarlightTransferService {
     private final StarlightDailyOutQuotaMapper quotaMapper;
     private final UserStatService userStatService;
     private final CommunityFeignClient communityFeignClient;
+    private final StarlightNotifyProducer notifyProducer;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -131,6 +135,18 @@ public class StarlightTransferServiceImpl implements StarlightTransferService {
 
         log.info("星光转赠成功（守恒）: from={}, to={}, amount={}, transferId={}",
                 fromUserId, toUserId, amount, transfer.getId());
+        // R19：到账通知在事务提交后发出（回滚不通知；Fail-Open 不影响资产事实）。
+        // isSynchronizationActive 守卫：本方法 @Transactional，生产必有同步；直接单测无事务时跳过
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            final Long transferId = transfer.getId();
+            final String settledMessage = trimmedMessage;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notifyProducer.publishTransferReceived(toUserId, transferId, amount, settledMessage);
+                }
+            });
+        }
         TransferLimits limits = transferLimits(fromUserId);
         return toVo(transfer, fromUserId, limits.remainingToday());
     }

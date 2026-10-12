@@ -3,6 +3,7 @@ package com.cloudmart.wish.controller;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.wish.enums.ResourceLogSource;
 import com.cloudmart.wish.enums.ResourceLogType;
 import com.cloudmart.wish.service.UserStatService;
 import com.cloudmart.wish.vo.MyResourcesVO;
@@ -44,17 +45,20 @@ public class MyResourceController {
 
     @GetMapping("/logs")
     @Operation(summary = "星光流水", description = "时间倒序 cursor 分页（游标为上一页末条 id）；"
-            + "type 可选 EARN/SPEND 过滤；amount 恒为正数，方向由 type 表达")
+            + "type 可选 EARN/SPEND 过滤；source 可选来源过滤（R19：INVITE_REWARD/TRANSFER_IN 等）；"
+            + "amount 恒为正数，方向由 type 表达")
     @SentinelResource("WISH_MY_RESOURCE_LOGS")
     public ApiResponse<List<ResourceLogVO>> listResourceLogs(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "类型过滤：EARN / SPEND，缺省全部")
             @RequestParam(required = false) ResourceLogType type,
+            @Parameter(description = "来源过滤：INVITE_REWARD / TRANSFER_IN / TRANSFER_OUT 等，缺省全部")
+            @RequestParam(required = false) ResourceLogSource source,
             @Parameter(description = "游标（上一页末条流水 ID，缺省第一页）")
             @RequestParam(required = false) Long cursor,
             @Parameter(description = "页大小，默认 20，上限 50")
             @RequestParam(required = false, defaultValue = "20") Integer pageSize) {
-        return ApiResponse.ok(userStatService.listResourceLogs(userId, type, cursor, pageSize));
+        return ApiResponse.ok(userStatService.listResourceLogs(userId, type, source, cursor, pageSize));
     }
 }

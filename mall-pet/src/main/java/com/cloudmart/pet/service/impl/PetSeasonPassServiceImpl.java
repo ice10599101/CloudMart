@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
+import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.entity.PetSeason;
 import com.cloudmart.pet.entity.PetSeasonPass;
@@ -62,6 +63,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
     private final PetInventoryMapper inventoryMapper;
     private final PetRewardApplicationService rewardApplicationService;
     private final PetService petService;
+    private final PetProperties properties;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -97,6 +99,10 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
 
     @Override
     public PetSeasonPassVO claimTier(Long userId, Long seasonId, int tier, String requestKey) {
+        // R19：能力开关——关闭时拒绝新领取；通行证进度查询不拦
+        if (!properties.getFeatureSwitches().isSeasonPass()) {
+            throw new BusinessException(PetErrorCodes.PET_FEATURE_DISABLED, "赛季通行证暂未开放");
+        }
         if (tier < 1 || tier > TIER_COUNT) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "档位非法");
         }

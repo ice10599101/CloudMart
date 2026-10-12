@@ -46,6 +46,10 @@ public final class RocketMQConfig {
     public static final String WISH_TAG_ENCOUNTER_LETTER = "encounter-letter";
     /** Tag：R17 胶囊墙裁决结果（通过/驳回/下架，mall-notification 消费告知作者） */
     public static final String WISH_TAG_CAPSULE_WALL = "capsule-wall";
+    /** Tag：R19 星光转赠到账通知（接收方，bizType=STARLIGHT_TRANSFER，bizId=转赠单 ID） */
+    public static final String WISH_TAG_STARLIGHT_TRANSFER = "starlight-transfer";
+    /** Tag：R19 邀请奖励到账通知（被邀请人完成绑定触发奖励后，bizType=INVITE_REWARD） */
+    public static final String WISH_TAG_INVITE_REWARD = "invite-reward";
 
     /** 消费者组：统计同步 */
     public static final String CG_WISH_STAT_SYNC = "wish-stat-sync-cg";

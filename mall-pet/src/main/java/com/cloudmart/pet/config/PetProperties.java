@@ -386,6 +386,14 @@ public class PetProperties {
         private boolean chatRequestV2 = true;
         /** 赛季快照结算（R06 冻榜/发奖分离）；关闭回退实时排名结算 */
         private boolean seasonSettlementV2 = true;
+
+        // ---- R19：跨端补齐功能的显式能力开关（三端按 bootstrap.capabilities 决定入口显隐） ----
+        /** 双人协作 PVE（/pet/pve）；关闭时拒绝发起新副本，进行中的副本仍可继续结算 */
+        private boolean cooperativePve = true;
+        /** 赛季通行证（/pet/season/pass）；关闭时拒绝领取，查询不拦 */
+        private boolean seasonPass = true;
+        /** 实物商品权益兑换（/pet/linked-product/redeem）；关闭时拒绝新兑换，查询不拦 */
+        private boolean linkedProduct = true;
     }
 
     /** 告警（P2-5）：钱包对账差异等运维告警的接收管理员用户 ID（站内信经 mall-notification 落库推送） */

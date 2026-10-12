@@ -203,6 +203,13 @@ public interface UserStatService {
     List<ResourceLogVO> listResourceLogs(Long userId, ResourceLogType type, Long cursor, Integer pageSize);
 
     /**
+     * R19：流水查询支持来源过滤（INVITE_REWARD/TRANSFER_IN 等），用于邀请中心、
+     * 转赠记录等场景；source 为空时不过滤。
+     */
+    List<ResourceLogVO> listResourceLogs(Long userId, ResourceLogType type, ResourceLogSource source,
+                                         Long cursor, Integer pageSize);
+
+    /**
      * 心愿打卡时：total_checkin_days +1（文档 6.5：打卡时 +1，历史事实只增不减）。
      * 必须与 wish_checkin 插入同事务。
      *

@@ -96,7 +96,7 @@ class PetPveServiceImplTest {
     void setUp() {
         service = new PetPveServiceImpl(runMapper, participantMapper, roundLogMapper,
                 rewardClaimMapper, petService, petMapper, statsService, quotaService,
-                rewardApplicationService);
+                rewardApplicationService, new com.cloudmart.pet.config.PetProperties());
         service.rewardCoins = 100;
         service.pveDailyRewardLimit = 3;
         service.runTimeLimitMinutes = 120;
