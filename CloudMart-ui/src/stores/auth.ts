@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { history } from 'umi'
-import { login as loginApi } from '@/api/auth'
+import { login as loginApi, logoutApi } from '@/api/auth'
 import { getUserProfile, type UserProfile } from '@/api/user'
 
 const STORAGE_KEYS = {
@@ -16,7 +16,8 @@ interface AuthState {
   userLoading: boolean
   user: UserProfile | null
   login: (account: string, password: string, redirect?: string) => Promise<void>
-  logout: () => void
+  /** R23：服务端撤销当前会话（access sid + refresh 家族）后再清本地；失败也保证本地清理 */
+  logout: () => Promise<void>
   fetchProfile: () => Promise<void>
 }
 
@@ -39,11 +40,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     history.push(redirect || '/')
   },
 
-  logout: () => {
-    localStorage.removeItem(STORAGE_KEYS.accessToken)
-    localStorage.removeItem(STORAGE_KEYS.refreshToken)
-    set({ accessToken: '', refreshToken: '', isAuthenticated: false, user: null })
-    history.push('/login')
+  logout: async () => {
+    // R23：先请求服务端撤销当前会话（access 立即失效 + refresh 家族吊销），
+    // 无论网络/鉴权失败与否，finally 都清掉本地凭据并跳登录——
+    // 网络失败时本地凭据仍删除（服务端 refresh 家族在到期前残留的极端情况由改密/登出全部设备兜底）
+    try {
+      await logoutApi()
+    } catch {
+      // 拦截器已处理提示；不阻断本地登出
+    } finally {
+      localStorage.removeItem(STORAGE_KEYS.accessToken)
+      localStorage.removeItem(STORAGE_KEYS.refreshToken)
+      set({ accessToken: '', refreshToken: '', isAuthenticated: false, user: null })
+      history.push('/login')
+    }
   },
 
   fetchProfile: async () => {

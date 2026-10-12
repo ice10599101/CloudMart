@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/api/auth', () => ({
   login: vi.fn(),
+  logoutApi: vi.fn(),
 }))
 
 vi.mock('@/api/user', () => ({
@@ -13,7 +14,7 @@ vi.mock('umi', () => ({
 }))
 
 import { useAuthStore } from './auth'
-import { login as loginApi } from '@/api/auth'
+import { login as loginApi, logoutApi } from '@/api/auth'
 import { getUserProfile } from '@/api/user'
 import { history } from 'umi'
 
@@ -130,18 +131,34 @@ describe('useAuthStore', () => {
     expect(vi.mocked(getUserProfile)).not.toHaveBeenCalled()
   })
 
-  it('logout() clears tokens and state', () => {
+  it('R23 logout() 先调服务端撤销，再清本地凭据并跳登录', async () => {
+    vi.mocked(logoutApi).mockResolvedValue({ data: { success: true, data: null } } as any)
     localStorage.setItem('access_token', 'token')
     localStorage.setItem('refresh_token', 'refresh')
     useAuthStore.setState({ accessToken: 'token', refreshToken: 'refresh', isAuthenticated: true, user: { id: 1 } as any })
 
-    useAuthStore.getState().logout()
+    await useAuthStore.getState().logout()
 
+    // 服务端撤销必须先于本地清理发生
+    expect(logoutApi).toHaveBeenCalledTimes(1)
     expect(localStorage.getItem('access_token')).toBeNull()
     expect(localStorage.getItem('refresh_token')).toBeNull()
     expect(useAuthStore.getState().accessToken).toBe('')
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
     expect(useAuthStore.getState().user).toBeNull()
+    expect(history.push).toHaveBeenCalledWith('/login')
+  })
+
+  it('R23 logout() 服务端调用失败仍清本地凭据（本地登出不被网络/鉴权故障阻断）', async () => {
+    vi.mocked(logoutApi).mockRejectedValue(new Error('network down'))
+    localStorage.setItem('access_token', 'token')
+    useAuthStore.setState({ accessToken: 'token', refreshToken: 'rt', isAuthenticated: true })
+
+    await useAuthStore.getState().logout()
+
+    expect(logoutApi).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem('access_token')).toBeNull()
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
     expect(history.push).toHaveBeenCalledWith('/login')
   })
 
