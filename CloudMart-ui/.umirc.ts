@@ -84,6 +84,8 @@ export default defineConfig({
         { path: '/wish/tree', component: '@/pages/WorldTree3D' },
         { path: '/wish/capsules', component: '@/pages/CapsuleList' },
         { path: '/wish/capsules/create', component: '@/pages/CapsuleCreate' },
+        // R17 公共胶囊墙（静态段须在 :id 之前声明）
+        { path: '/wish/capsules/wall', component: '@/pages/CapsuleWall' },
         { path: '/wish/capsules/:id', component: '@/pages/CapsuleDetail' },
         { path: '/wish/assistant', component: '@/pages/AiAssistant' },
         { path: '/wish/annual-report', component: '@/pages/AnnualReport' },

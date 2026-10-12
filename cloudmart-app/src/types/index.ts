@@ -675,6 +675,10 @@ export interface CapsuleItem {
   /** T22：已改期次数与上限（服务端权威） */
   rescheduleCount: number
   rescheduleLimit: number
+  /** R17 公共胶囊墙状态: 0未申请/1待审核/2已上墙/3已拒绝/4已撤下 */
+  wallStatus?: number
+  /** R17 驳回/下架理由（作者可见） */
+  wallReason?: string | null
 }
 
 export interface CreateCapsulePayload {

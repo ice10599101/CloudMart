@@ -35,10 +35,14 @@ public final class RocketMQConfig {
     public static final String WISH_TAG_LEGACY_PUSH = "legacy-push";
     /** Tag：擦肩而过（Sprint 3.3，ENCOUNTER_LETTER 站内信） */
     public static final String WISH_TAG_ENCOUNTER_LETTER = "encounter-letter";
+    /** Tag：R17 胶囊墙裁决结果（通过/驳回/下架，告知作者） */
+    public static final String WISH_TAG_CAPSULE_WALL = "capsule-wall";
 
     public static final String CG_NOTIFICATION_ORDER_STATUS = "notification-order-status-cg";
     public static final String CG_NOTIFICATION_COMMUNITY_EVENT = "notification-community-event-cg";
     public static final String CG_NOTIFICATION_WISH_EVENT = "notification-wish-event-cg";
+    /** R17 胶囊墙裁决结果消费者组（独立组：与到期推送 selector 不同，订阅关系不能混组） */
+    public static final String CG_NOTIFICATION_WISH_CAPSULE_WALL = "notification-wish-capsule-wall-cg";
     public static final String CG_NOTIFICATION_AI_REMINDER = "notification-ai-reminder-cg";
     public static final String CG_NOTIFICATION_PET_EVENT = "notification-pet-event-cg";
 }

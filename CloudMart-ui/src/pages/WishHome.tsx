@@ -17,6 +17,7 @@ import {
   FlagOutlined,
   BellOutlined,
   CalendarOutlined,
+  StarFilled,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import { getHomeAggregation } from '@/api/wish'
@@ -145,6 +146,16 @@ export default function WishHome() {
               >
                 <LockOutlined className={styles.entryIcon} style={{ color: '#4ECDC4' }} />
                 <div className={styles.entryText}>时间胶囊</div>
+              </Card>
+            </Col>
+            <Col xs={12} md={6}>
+              <Card
+                  hoverable
+                  className={styles.entryCard}
+                  onClick={() => history.push('/wish/capsules/wall')}
+              >
+                <StarFilled className={styles.entryIcon} style={{ color: '#a29bfe' }} />
+                <div className={styles.entryText}>公共胶囊墙</div>
               </Card>
             </Col>
             <Col xs={12} md={6}>

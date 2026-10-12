@@ -186,9 +186,23 @@ export default function CapsuleListScreen() {
                 <TouchableOpacity onPress={() => router.back()}>
                     <Text style={{ fontSize: FontSize.lg, color: WishColors.textSecondary }}>‹ 返回</Text>
                 </TouchableOpacity>
-                <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.text, marginLeft: Spacing.md }}>
+                <Text style={{ flex: 1, fontSize: FontSize.lg, fontWeight: '700', color: WishColors.text, marginLeft: Spacing.md }}>
                     我的时间胶囊
                 </Text>
+                {/* R17 公共胶囊墙入口 */}
+                <TouchableOpacity
+                    onPress={() => router.push('/capsule/wall')}
+                    style={{
+                        paddingHorizontal: Spacing.md,
+                        paddingVertical: 6,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: 'rgba(162,155,254,0.6)',
+                        backgroundColor: 'rgba(108,92,231,0.16)',
+                    }}
+                >
+                    <Text style={{ fontSize: FontSize.xs, color: '#c9b8ff' }}>🌌 公共墙</Text>
+                </TouchableOpacity>
             </View>
 
             {/* 状态 Tabs */}

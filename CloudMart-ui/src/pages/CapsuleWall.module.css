@@ -1,0 +1,58 @@
+.hero {
+    text-align: center;
+    margin: 8px 0 24px;
+}
+
+.title {
+    font-size: 28px;
+    margin: 0 0 12px;
+    background: linear-gradient(135deg, #6c5ce7, #ff9ff3);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+    max-width: 560px;
+    margin: 0 auto 16px !important;
+}
+
+.wallList {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.wallCard {
+    border-radius: 16px;
+}
+
+.cardTitle {
+    display: block;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.cardContent {
+    white-space: pre-wrap;
+    margin-bottom: 12px !important;
+}
+
+.cardMeta {
+    font-size: 12px;
+}
+
+.emptyCard {
+    border-radius: 16px;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.totalHint {
+    text-align: center;
+    font-size: 12px;
+    display: block;
+    margin: 4px 0;
+}

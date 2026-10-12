@@ -303,6 +303,7 @@ public class WishOutboxService {
             case "WishFulfilled" -> RocketMQConfig.WISH_TAG_FULFILLED;
             case "WishModerated" -> RocketMQConfig.WISH_TAG_AUDITED;
             case "CAPSULE_AVAILABLE" -> RocketMQConfig.WISH_TAG_CAPSULE_AVAILABLE;
+            case "CAPSULE_WALL_DECIDED" -> RocketMQConfig.WISH_TAG_CAPSULE_WALL;
             default -> camelToTag(eventType);
         };
     }

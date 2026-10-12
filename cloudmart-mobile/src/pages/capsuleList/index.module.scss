@@ -171,3 +171,61 @@
   background: var(--color-primary-bg, rgba(0, 212, 255, 0.1));
   border-radius: 999rpx;
 }
+
+/* R17 公共墙入口横幅 */
+.wallEntry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx 28rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.18), rgba(255, 159, 243, 0.12));
+  border: 1rpx solid rgba(108, 92, 231, 0.35);
+}
+
+.wallEntryText {
+  font-size: 26rpx;
+  color: #c9b8ff;
+}
+
+.wallEntryArrow {
+  font-size: 36rpx;
+  color: #c9b8ff;
+  line-height: 1;
+}
+
+/* R17 胶囊卡片墙状态行 */
+.wallRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 12rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx dashed rgba(255, 255, 255, 0.08);
+}
+
+.wallPendingText {
+  font-size: 22rpx;
+  color: #ffd166;
+}
+
+.wallApprovedText {
+  font-size: 22rpx;
+  color: #3ddc97;
+}
+
+.wallRejectedText {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.55);
+  flex: 1 1 100%;
+}
+
+.wallWithdrawBtn {
+  font-size: 22rpx;
+  color: #ff8fa3;
+  padding: 4rpx 16rpx;
+  border: 1rpx solid rgba(255, 143, 163, 0.4);
+  border-radius: 999rpx;
+}

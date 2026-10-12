@@ -132,6 +132,51 @@ export default function CapsuleListPage() {
         Taro.navigateTo({ url: `/pages/capsuleDetail/index?id=${id}` })
     }
 
+    // R17：墙操作后本地刷新墙状态（后端返回 void，按操作语义乐观更新）
+    const patchWallStatus = (id: number, wallStatus: number, wallReason?: string | null) => {
+        setItems((prev) => prev.map((it) => (it.id === id ? { ...it, wallStatus, wallReason } : it)))
+    }
+
+    const handleApplyWall = (capsule: CapsuleItem) => {
+        Taro.showModal({
+            title: '申请上墙',
+            content: '将这颗胶囊匿名放上公共胶囊墙，经审核后展示（不公开你的身份、媒体附件）？',
+            confirmText: '提交申请',
+            success: async (res) => {
+                if (!res.confirm) return
+                try {
+                    await wishApi.applyCapsuleToWall(capsule.id)
+                    Taro.showToast({ title: '已提交审核', icon: 'success' })
+                    patchWallStatus(capsule.id, 1)
+                } catch {
+                    // 409 等错误已由 request 拦截器提示
+                }
+            },
+        })
+    }
+
+    const handleWithdrawWall = (capsule: CapsuleItem) => {
+        const isApproved = capsule.wallStatus === 2
+        Taro.showModal({
+            title: isApproved ? '从公共墙撤下？' : '撤回上墙申请？',
+            content: isApproved
+                ? '撤下后胶囊将立即不在公共墙展示，之后可重新申请上墙'
+                : '撤回后审核终止，之后可重新提交申请',
+            confirmText: isApproved ? '确认撤下' : '撤回申请',
+            confirmColor: '#e94560',
+            success: async (res) => {
+                if (!res.confirm) return
+                try {
+                    await wishApi.withdrawCapsuleWall(capsule.id)
+                    Taro.showToast({ title: isApproved ? '已撤下' : '已撤回', icon: 'success' })
+                    patchWallStatus(capsule.id, isApproved ? 4 : 0, null)
+                } catch {
+                    // 与管理员裁决竞争等 409 由拦截器提示
+                }
+            },
+        })
+    }
+
     return (
         <View style={{ ...WISH_THEME_STYLE, paddingTop: `${statusBarHeight + navBarHeight}px`, minHeight: '100vh' }}>
             <CustomNavBar title='我的时间胶囊' back />
@@ -149,6 +194,15 @@ export default function CapsuleListPage() {
                         </Text>
                     </View>
                 ))}
+            </View>
+
+            {/* R17 公共胶囊墙入口（原为无入口死页面） */}
+            <View
+                className={styles.wallEntry}
+                onClick={() => Taro.navigateTo({ url: '/pages/capsuleWall/index' })}
+            >
+                <Text className={styles.wallEntryText}>🌌 公共胶囊墙 · 看看别人封存的时光</Text>
+                <Text className={styles.wallEntryArrow}>›</Text>
             </View>
 
             <ScrollView scrollY className={styles.scroll} onScrollToLower={handleLoadMore}>
@@ -189,26 +243,6 @@ export default function CapsuleListPage() {
                                     </View>
                                     <View className={styles.cardMeta}>
                                         <Text className={styles.metaLine}>
-                                            {item.status === 'OPENED' && item.wallStatus === 0 && (
-                                                <Text
-                                                    className={styles.wallApplyBtn}
-                                                    onClick={() => {
-                                                        Taro.showModal({
-                                                            title: '申请上墙',
-                                                            content: '将这颗胶囊匿名放上公共胶囊墙，经审核后展示（不暴露你的身份）？',
-                                                            success: async (res) => {
-                                                                if (!res.confirm) return
-                                                                try {
-                                                                    await wishApi.applyCapsuleToWall(item.id)
-                                                                    Taro.showToast({ title: '已提交审核', icon: 'success' })
-                                                                } catch {
-                                                                    Taro.showToast({ title: '申请失败', icon: 'none' })
-                                                                }
-                                                            },
-                                                        })
-                                                    }}
-                                                >📝 上墙</Text>
-                                            )}
                                             {item.status === 'OPENED'
                                                 ? `已于 ${formatLocal(item.openedAt)} 开启`
                                                 : item.status === 'CANCELLED'
@@ -217,6 +251,60 @@ export default function CapsuleListPage() {
                                         </Text>
                                         <Text className={styles.metaSub}>创建时区 {item.openAtTimezone}</Text>
                                     </View>
+                                    {item.status === 'OPENED' && (
+                                        <View
+                                            className={styles.wallRow}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            {(item.wallStatus === undefined || item.wallStatus === 0) && (
+                                                <Text className={styles.wallApplyBtn} onClick={() => handleApplyWall(item)}>
+                                                    📝 申请上墙
+                                                </Text>
+                                            )}
+                                            {item.wallStatus === 1 && (
+                                                <>
+                                                    <Text className={styles.wallPendingText}>⏳ 审核中</Text>
+                                                    <Text
+                                                        className={styles.wallWithdrawBtn}
+                                                        onClick={() => handleWithdrawWall(item)}
+                                                    >
+                                                        撤回申请
+                                                    </Text>
+                                                </>
+                                            )}
+                                            {item.wallStatus === 2 && (
+                                                <>
+                                                    <Text className={styles.wallApprovedText}>🌌 已在公共墙展出</Text>
+                                                    <Text
+                                                        className={styles.wallWithdrawBtn}
+                                                        onClick={() => handleWithdrawWall(item)}
+                                                    >
+                                                        撤下
+                                                    </Text>
+                                                </>
+                                            )}
+                                            {item.wallStatus === 3 && (
+                                                <>
+                                                    <Text className={styles.wallRejectedText}>
+                                                        未通过审核{item.wallReason ? `：${item.wallReason}` : ''}
+                                                    </Text>
+                                                    <Text className={styles.wallApplyBtn} onClick={() => handleApplyWall(item)}>
+                                                        重新申请
+                                                    </Text>
+                                                </>
+                                            )}
+                                            {item.wallStatus === 4 && (
+                                                <>
+                                                    <Text className={styles.wallRejectedText}>
+                                                        已从公共墙撤下{item.wallReason ? `（${item.wallReason}）` : ''}
+                                                    </Text>
+                                                    <Text className={styles.wallApplyBtn} onClick={() => handleApplyWall(item)}>
+                                                        重新申请
+                                                    </Text>
+                                                </>
+                                            )}
+                                        </View>
+                                    )}
                                     {cancellable && (
                                         <View
                                             className={styles.cancelLink}

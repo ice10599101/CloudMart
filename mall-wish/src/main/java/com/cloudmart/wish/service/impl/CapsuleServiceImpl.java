@@ -341,7 +341,9 @@ public class CapsuleServiceImpl implements CapsuleService {
                 capsule.getCreatedAt(),
                 capsule.getUserId(),
                 capsule.getRescheduleCount(),
-                capsule.getRescheduleLimit()
+                capsule.getRescheduleLimit(),
+                capsule.getWallStatus() == null ? WALL_NONE : capsule.getWallStatus(),
+                capsule.getWallReason()
         );
     }
 
@@ -376,13 +378,18 @@ public class CapsuleServiceImpl implements CapsuleService {
         }
     }
 
-    // ==================== 公共胶囊墙（§6） ====================
+    // ==================== 公共胶囊墙（§6/R17） ====================
 
-    /** 墙状态位（对齐 V65 注释） */
+    /** 墙状态位（对齐 V65/V79 注释） */
     private static final int WALL_NONE = 0;
     private static final int WALL_PENDING = 1;
     private static final int WALL_APPROVED = 2;
     private static final int WALL_REJECTED = 3;
+    /** R17：owner 撤回申请/主动撤下、管理员下架的统一终态（可重新申请） */
+    private static final int WALL_TAKEN_DOWN = 4;
+
+    /** 驳回/下架理由长度上限（与 V79 wall_reason VARCHAR(200) 对齐） */
+    private static final int WALL_REASON_MAX_LENGTH = 200;
 
     @Override
     public void applyToWall(Long userId, Long capsuleId) {
@@ -393,28 +400,75 @@ public class CapsuleServiceImpl implements CapsuleService {
         if (capsule.getStatus() != CapsuleStatus.OPENED) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "仅已开启的胶囊可申请上墙");
         }
-        Integer wall = capsule.getWallStatus() == null ? WALL_NONE : capsule.getWallStatus();
+        int wall = capsule.getWallStatus() == null ? WALL_NONE : capsule.getWallStatus();
         if (wall == WALL_PENDING || wall == WALL_APPROVED) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
                     wall == WALL_PENDING ? "已提交审核，请耐心等待" : "该胶囊已在墙上");
         }
+        // R17：CAS 绑定旧状态（0/3/4 才可申请），消除"内存判断后并发重复申请"窗口
         int updated = timeCapsuleMapper.update(null,
-                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<TimeCapsule>()
+                new LambdaUpdateWrapper<TimeCapsule>()
                         .eq(TimeCapsule::getId, capsuleId)
                         .eq(TimeCapsule::getUserId, userId)
+                        .in(TimeCapsule::getWallStatus, WALL_NONE, WALL_REJECTED, WALL_TAKEN_DOWN)
                         .set(TimeCapsule::getWallStatus, WALL_PENDING)
                         .set(TimeCapsule::getWallAppliedAt, LocalDateTime.now())
-                        .set(TimeCapsule::getWallDecidedAt, null));
+                        .set(TimeCapsule::getWallDecidedAt, null)
+                        .set(TimeCapsule::getWallReason, null)
+                        .set(TimeCapsule::getWallActorId, userId));
         if (updated == 0) {
-            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "申请失败，请稍后重试");
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "墙状态已变更，请刷新后重试");
         }
         log.info("胶囊墙申请提交: capsuleId={}, userId={}", capsuleId, userId);
     }
 
     @Override
+    public void withdrawWall(Long userId, Long capsuleId) {
+        TimeCapsule capsule = requireOwnedCapsule(userId, capsuleId);
+        int wall = capsule.getWallStatus() == null ? WALL_NONE : capsule.getWallStatus();
+        LocalDateTime now = LocalDateTime.now();
+        if (wall == WALL_PENDING) {
+            // 撤回审核申请：回到未申请，清空本轮申请/裁决痕迹
+            int updated = timeCapsuleMapper.update(null,
+                    new LambdaUpdateWrapper<TimeCapsule>()
+                            .eq(TimeCapsule::getId, capsuleId)
+                            .eq(TimeCapsule::getUserId, userId)
+                            .eq(TimeCapsule::getWallStatus, WALL_PENDING)
+                            .set(TimeCapsule::getWallStatus, WALL_NONE)
+                            .set(TimeCapsule::getWallAppliedAt, null)
+                            .set(TimeCapsule::getWallDecidedAt, null)
+                            .set(TimeCapsule::getWallReason, null)
+                            .set(TimeCapsule::getWallActorId, userId));
+            if (updated == 0) {
+                throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "墙状态已变更，请刷新后重试");
+            }
+            log.info("胶囊墙申请撤回: capsuleId={}, userId={}", capsuleId, userId);
+            return;
+        }
+        if (wall == WALL_APPROVED) {
+            // 作者主动撤下：2→4（公开列表/分享立即不可见，由缓存与查询的 wallStatus 条件保证）
+            int updated = timeCapsuleMapper.update(null,
+                    new LambdaUpdateWrapper<TimeCapsule>()
+                            .eq(TimeCapsule::getId, capsuleId)
+                            .eq(TimeCapsule::getUserId, userId)
+                            .eq(TimeCapsule::getWallStatus, WALL_APPROVED)
+                            .set(TimeCapsule::getWallStatus, WALL_TAKEN_DOWN)
+                            .set(TimeCapsule::getWallDecidedAt, now)
+                            .set(TimeCapsule::getWallReason, null)
+                            .set(TimeCapsule::getWallActorId, userId));
+            if (updated == 0) {
+                throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "墙状态已变更，请刷新后重试");
+            }
+            log.info("胶囊墙作者撤下: capsuleId={}, userId={}", capsuleId, userId);
+            return;
+        }
+        throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "当前墙状态不可撤回/撤下");
+    }
+
+    @Override
     public com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO> wall(int page, int size) {
         var result = timeCapsuleMapper.selectPage(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size),
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TimeCapsule>()
+                new LambdaQueryWrapper<TimeCapsule>()
                         .select(TimeCapsule::getId, TimeCapsule::getTitle, TimeCapsule::getContent,
                                 TimeCapsule::getOpenedAt, TimeCapsule::getWallDecidedAt)
                         .eq(TimeCapsule::getStatus, CapsuleStatus.OPENED)
@@ -430,34 +484,112 @@ public class CapsuleServiceImpl implements CapsuleService {
     }
 
     @Override
-    public void decideWall(Long capsuleId, boolean approve) {
+    @Transactional(rollbackFor = Exception.class)
+    public void decideWall(Long capsuleId, boolean approve, String reason, Long adminUserId) {
         TimeCapsule capsule = timeCapsuleMapper.selectById(capsuleId);
-        if (capsule == null || capsule.getWallStatus() == null || capsule.getWallStatus() != WALL_PENDING) {
-            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "胶囊不在待审核状态");
+        if (capsule == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "胶囊不存在");
         }
-        timeCapsuleMapper.update(null,
-                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<TimeCapsule>()
+        if (capsule.getWallStatus() == null || capsule.getWallStatus() != WALL_PENDING) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "胶囊不在待审核状态");
+        }
+        String trimmedReason = reason == null ? null : reason.trim();
+        if (!approve) {
+            if (trimmedReason == null || trimmedReason.isBlank()) {
+                throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "驳回必须填写理由");
+            }
+            if (trimmedReason.length() > WALL_REASON_MAX_LENGTH) {
+                throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "驳回理由不能超过 200 字");
+            }
+        }
+        int target = approve ? WALL_APPROVED : WALL_REJECTED;
+        LocalDateTime now = LocalDateTime.now();
+        // CAS：仅 wallStatus=1 可裁决；并发双裁决/作者同时撤回只有一个赢家（0 行→409）
+        int updated = timeCapsuleMapper.update(null,
+                new LambdaUpdateWrapper<TimeCapsule>()
                         .eq(TimeCapsule::getId, capsuleId)
                         .eq(TimeCapsule::getWallStatus, WALL_PENDING)
-                        .set(TimeCapsule::getWallStatus, approve ? WALL_APPROVED : WALL_REJECTED)
-                        .set(TimeCapsule::getWallDecidedAt, LocalDateTime.now()));
-        log.info("胶囊墙审核完成: capsuleId={}, approve={}", capsuleId, approve);
+                        .set(TimeCapsule::getWallStatus, target)
+                        .set(TimeCapsule::getWallDecidedAt, now)
+                        .set(TimeCapsule::getWallReason, approve ? null : trimmedReason)
+                        .set(TimeCapsule::getWallActorId, adminUserId));
+        if (updated == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "该胶囊已被裁决或撤回，请刷新后重试");
+        }
+        // 裁决事实与通知事件同事务（Outbox 中继，事件不丢不重）
+        wishOutboxService.publish("CAPSULE", capsuleId, 1, "CAPSULE_WALL_DECIDED",
+                Map.of(
+                        "capsuleId", capsuleId,
+                        "userId", capsule.getUserId(),
+                        "title", capsule.getTitle() == null ? "" : capsule.getTitle(),
+                        "result", approve ? "APPROVED" : "REJECTED",
+                        "reason", approve ? "" : trimmedReason));
+        log.info("胶囊墙审核完成: capsuleId={}, approve={}, admin={}", capsuleId, approve, adminUserId);
     }
 
     @Override
-    public com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO> wallPending(int page, int size) {
+    @Transactional(rollbackFor = Exception.class)
+    public void adminTakeDown(Long capsuleId, String reason, Long adminUserId) {
+        TimeCapsule capsule = timeCapsuleMapper.selectById(capsuleId);
+        if (capsule == null) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "胶囊不存在");
+        }
+        if (capsule.getWallStatus() == null || capsule.getWallStatus() != WALL_APPROVED) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "仅已上墙的胶囊可下架");
+        }
+        String trimmedReason = reason == null ? null : reason.trim();
+        if (trimmedReason == null || trimmedReason.isBlank()) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "下架必须填写理由");
+        }
+        if (trimmedReason.length() > WALL_REASON_MAX_LENGTH) {
+            throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "下架理由不能超过 200 字");
+        }
+        int updated = timeCapsuleMapper.update(null,
+                new LambdaUpdateWrapper<TimeCapsule>()
+                        .eq(TimeCapsule::getId, capsuleId)
+                        .eq(TimeCapsule::getWallStatus, WALL_APPROVED)
+                        .set(TimeCapsule::getWallStatus, WALL_TAKEN_DOWN)
+                        .set(TimeCapsule::getWallDecidedAt, LocalDateTime.now())
+                        .set(TimeCapsule::getWallReason, trimmedReason)
+                        .set(TimeCapsule::getWallActorId, adminUserId));
+        if (updated == 0) {
+            throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "该胶囊已被撤下或裁决状态变更，请刷新后重试");
+        }
+        wishOutboxService.publish("CAPSULE", capsuleId, 1, "CAPSULE_WALL_DECIDED",
+                Map.of(
+                        "capsuleId", capsuleId,
+                        "userId", capsule.getUserId(),
+                        "title", capsule.getTitle() == null ? "" : capsule.getTitle(),
+                        "result", "TAKEN_DOWN",
+                        "reason", trimmedReason));
+        log.info("胶囊墙管理员下架: capsuleId={}, admin={}", capsuleId, adminUserId);
+    }
+
+    @Override
+    public com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.AdminCapsuleWallVO> wallPending(int page, int size) {
+        return queryAdminWallPage(page, size, WALL_PENDING, TimeCapsule::getWallAppliedAt);
+    }
+
+    @Override
+    public com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.AdminCapsuleWallVO> wallApproved(int page, int size) {
+        return queryAdminWallPage(page, size, WALL_APPROVED, TimeCapsule::getWallDecidedAt);
+    }
+
+    /** 管理端墙分页（含作者 ID/裁决理由，仅供内部管理端点，公开墙走 {@link #wall}）。 */
+    private com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.AdminCapsuleWallVO> queryAdminWallPage(
+            int page, int size, int wallStatus,
+            com.baomidou.mybatisplus.core.toolkit.support.SFunction<TimeCapsule, ?> orderColumn) {
         var result = timeCapsuleMapper.selectPage(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size),
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TimeCapsule>()
-                        .select(TimeCapsule::getId, TimeCapsule::getTitle, TimeCapsule::getContent,
-                                TimeCapsule::getOpenedAt, TimeCapsule::getWallAppliedAt, TimeCapsule::getWallDecidedAt)
+                new LambdaQueryWrapper<TimeCapsule>()
                         .eq(TimeCapsule::getStatus, CapsuleStatus.OPENED)
-                        .eq(TimeCapsule::getWallStatus, WALL_PENDING)
-                        .orderByDesc(TimeCapsule::getWallAppliedAt));
-        var voPage = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO>(
+                        .eq(TimeCapsule::getWallStatus, wallStatus)
+                        .orderByDesc(orderColumn));
+        var voPage = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.AdminCapsuleWallVO>(
                 result.getCurrent(), result.getSize(), result.getTotal());
         voPage.setRecords(result.getRecords().stream()
-                .map(c -> new com.cloudmart.wish.vo.CapsuleWallVO(c.getId(), c.getTitle(),
-                        c.getContent(), c.getOpenedAt(), c.getWallDecidedAt()))
+                .map(c -> new com.cloudmart.wish.vo.AdminCapsuleWallVO(c.getId(), c.getUserId(), c.getTitle(),
+                        c.getContent(), c.getOpenedAt(), c.getWallAppliedAt(), c.getWallDecidedAt(),
+                        c.getWallStatus(), c.getWallReason()))
                 .toList());
         return voPage;
     }

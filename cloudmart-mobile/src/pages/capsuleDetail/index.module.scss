@@ -245,6 +245,62 @@
   font-size: 28rpx;
 }
 
+/* R17 公共胶囊墙状态卡片 */
+.wallCard {
+  margin-top: 32rpx;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 28rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.16), rgba(255, 159, 243, 0.1));
+  border: 1rpx solid rgba(108, 92, 231, 0.35);
+}
+
+.wallCardTitle {
+  display: block;
+  font-size: 28rpx;
+  color: #c9b8ff;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.wallCardActions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16rpx;
+}
+
+.wallCardTip {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+.wallCardBtn {
+  align-self: flex-start;
+  padding: 12rpx 40rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+}
+
+.wallCardBtnText {
+  color: #fff;
+  font-size: 26rpx;
+}
+
+.wallCardBtnGhost {
+  align-self: flex-start;
+  padding: 10rpx 36rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid rgba(255, 143, 163, 0.5);
+}
+
+.wallCardGhostText {
+  color: #ff8fa3;
+  font-size: 26rpx;
+}
+
 /* T22 胶囊改期（作者本人 + SEALED + 次数未限） */
 .rescheduleCard {
   margin-top: 32rpx;

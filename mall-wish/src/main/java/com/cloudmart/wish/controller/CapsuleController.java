@@ -113,11 +113,22 @@ public class CapsuleController {
     }
 
     @PostMapping("/{id}/wall")
-    @Operation(summary = "申请上墙", description = "公共胶囊墙（§6）：仅作者、仅 OPENED 胶囊；进入待审核")
+    @Operation(summary = "申请上墙", description = "公共胶囊墙（§6/R17）：仅作者、仅 OPENED 胶囊；"
+            + "墙状态 0/3/4 可申请，进入待审核（1）；并发重复申请返回 409")
     public ApiResponse<Void> applyToWall(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "胶囊 ID", required = true) @PathVariable("id") Long id) {
         capsuleService.applyToWall(userId, id);
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/{id}/wall/withdraw")
+    @Operation(summary = "撤回申请/撤下上墙", description = "R17：作者本人操作；待审核（1）可撤回回到未申请（0），"
+            + "已上墙（2）可主动撤下（4），撤下后公开墙与分享均不可见；其他状态 409")
+    public ApiResponse<Void> withdrawWall(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "胶囊 ID", required = true) @PathVariable("id") Long id) {
+        capsuleService.withdrawWall(userId, id);
         return ApiResponse.ok(null);
     }
 

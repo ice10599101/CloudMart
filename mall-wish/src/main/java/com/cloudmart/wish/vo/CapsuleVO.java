@@ -47,6 +47,12 @@ public record CapsuleVO(
         Integer rescheduleCount,
 
         @Schema(description = "T22：改期次数上限")
-        Integer rescheduleLimit
+        Integer rescheduleLimit,
+
+        @Schema(description = "R17 公共胶囊墙状态: 0未申请/1待审核/2已上墙/3已拒绝/4已撤下")
+        Integer wallStatus,
+
+        @Schema(description = "R17 驳回/下架理由（作者可见，无则 null）")
+        String wallReason
 ) {
 }

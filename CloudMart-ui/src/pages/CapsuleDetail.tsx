@@ -3,7 +3,14 @@ import type { Dayjs } from 'dayjs'
 import { Button, Card, App, Tag, Image, Popconfirm, DatePicker, Modal } from 'antd'
 import { ArrowLeftOutlined } from '@ant-design/icons'
 import { history, useParams } from 'umi'
-import { getCapsuleDetail, openCapsule, rescheduleCapsule, type CapsuleItem } from '@/api/wish'
+import {
+    applyCapsuleToWall,
+    getCapsuleDetail,
+    openCapsule,
+    rescheduleCapsule,
+    withdrawCapsuleWall,
+    type CapsuleItem,
+} from '@/api/wish'
 import { useAuthStore } from '@/stores/auth'
 import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 import styles from './CapsuleDetail.module.css'
@@ -149,6 +156,110 @@ export default function CapsuleDetail() {
     }
 
     const formatLocal = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '-')
+
+    // R17 公共墙：申请/撤回/撤下，成功后重新拉取详情（后端返回 void，状态以权威查询为准）
+    const [wallBusy, setWallBusy] = useState(false)
+    const handleApplyWall = async () => {
+        if (!capsuleId || wallBusy) return
+        setWallBusy(true)
+        try {
+            const res = await applyCapsuleToWall(capsuleId)
+            if (res.data.success) {
+                message.success('已提交审核')
+                setReloadKey((k) => k + 1)
+            }
+        } catch {
+            // 409 等错误已由 request 拦截器提示
+        } finally {
+            setWallBusy(false)
+        }
+    }
+
+    const handleWithdrawWall = async () => {
+        if (!capsuleId || wallBusy) return
+        setWallBusy(true)
+        try {
+            const res = await withdrawCapsuleWall(capsuleId)
+            if (res.data.success) {
+                message.success(capsule?.wallStatus === 2 ? '已从公共墙撤下' : '已撤回申请')
+                setReloadKey((k) => k + 1)
+            }
+        } catch {
+            // 与管理员裁决竞争等 409 由拦截器提示
+        } finally {
+            setWallBusy(false)
+        }
+    }
+
+    /** R17 本人已开启胶囊的墙状态/操作区 */
+    const renderWallSection = (current: CapsuleItem) => {
+        if (!isOwner) return null
+        const wall = current.wallStatus ?? 0
+        return (
+            <Card size="small" className={styles.wallSection} title="🌌 公共胶囊墙">
+                {wall === 0 && (
+                    <div className={styles.wallLine}>
+                        <span className={styles.wallTip}>审核通过后将匿名在公共墙展出（不公开身份与附件）</span>
+                        <Button type="primary" ghost size="small" loading={wallBusy} onClick={handleApplyWall}>
+                            申请上墙
+                        </Button>
+                    </div>
+                )}
+                {wall === 1 && (
+                    <div className={styles.wallLine}>
+                        <span className={styles.wallTip}>⏳ 审核中，请耐心等待</span>
+                        <Popconfirm
+                            title="撤回上墙申请？"
+                            description="撤回后审核终止，之后可重新提交"
+                            okText="撤回申请"
+                            cancelText="保留"
+                            onConfirm={handleWithdrawWall}
+                        >
+                            <Button size="small" danger loading={wallBusy}>
+                                撤回申请
+                            </Button>
+                        </Popconfirm>
+                    </div>
+                )}
+                {wall === 2 && (
+                    <div className={styles.wallLine}>
+                        <span className={styles.wallTip}>🌌 已在公共墙匿名展出</span>
+                        <Popconfirm
+                            title="从公共墙撤下？"
+                            description="撤下后立即不在公共墙展示，之后可重新申请"
+                            okText="确认撤下"
+                            cancelText="保留"
+                            onConfirm={handleWithdrawWall}
+                        >
+                            <Button size="small" danger loading={wallBusy}>
+                                撤下
+                            </Button>
+                        </Popconfirm>
+                    </div>
+                )}
+                {wall === 3 && (
+                    <div className={styles.wallLine}>
+                        <span className={styles.wallTip}>
+                            未通过审核{current.wallReason ? `：${current.wallReason}` : ''}
+                        </span>
+                        <Button type="primary" ghost size="small" loading={wallBusy} onClick={handleApplyWall}>
+                            重新申请
+                        </Button>
+                    </div>
+                )}
+                {wall === 4 && (
+                    <div className={styles.wallLine}>
+                        <span className={styles.wallTip}>
+                            已从公共墙撤下{current.wallReason ? `（${current.wallReason}）` : ''}
+                        </span>
+                        <Button type="primary" ghost size="small" loading={wallBusy} onClick={handleApplyWall}>
+                            重新申请
+                        </Button>
+                    </div>
+                )}
+            </Card>
+        )
+    }
 
     if (loading) {
         return (
@@ -299,6 +410,7 @@ export default function CapsuleDetail() {
                             <Tag>封存于 {formatLocal(capsule.createdAt)}</Tag>
                             <Tag>创建时区 {capsule.openAtTimezone}</Tag>
                         </div>
+                        {renderWallSection(capsule)}
                         <Button type="primary" onClick={() => history.push('/wish/capsules')} className={styles.openBtn}>
                             返回我的胶囊
                         </Button>

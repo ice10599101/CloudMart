@@ -465,6 +465,44 @@ export function getAdminCapsulePushRecords(params: AdminCapsulePushParams) {
   return request.get<ApiResponse<AdminCapsulePushRecord[]>>('/admin/wish/capsules/notifications', { params })
 }
 
+// ========== R17 公共胶囊墙审核（mall-admin → mall-wish /admin/capsules/wall/**） ==========
+
+/** 管理端墙条目（含作者身份，仅后台可见；公开墙匿名不含 userId） */
+export interface AdminCapsuleWallRecord {
+  capsuleId: number
+  userId: number
+  title: string
+  content: string
+  openedAt: string
+  wallAppliedAt: string | null
+  wallDecidedAt: string | null
+  wallStatus: number
+  wallReason: string | null
+}
+
+export interface AdminCapsuleWallPage {
+  records: AdminCapsuleWallRecord[]
+  total: number
+  current: number
+  size: number
+}
+
+export function getAdminCapsuleWallPending(params: { page?: number; pageSize?: number }) {
+  return request.get<ApiResponse<AdminCapsuleWallPage>>('/admin/wish/capsules/wall/pending', { params })
+}
+
+export function getAdminCapsuleWallApproved(params: { page?: number; pageSize?: number }) {
+  return request.get<ApiResponse<AdminCapsuleWallPage>>('/admin/wish/capsules/wall/approved', { params })
+}
+
+export function decideAdminCapsuleWall(id: number, data: { approve: boolean; reason?: string }) {
+  return request.post<ApiResponse<null>>(`/admin/wish/capsules/wall/${id}/decide`, data)
+}
+
+export function takeDownAdminCapsuleWall(id: number, reason: string) {
+  return request.post<ApiResponse<null>>(`/admin/wish/capsules/wall/${id}/take-down`, { reason })
+}
+
 // ========== AI 心愿助手（Sprint 2.5，代理 mall-wish /admin/ai/**） ==========
 
 export type AdminAiPromptScene = 'GOAL_BREAKDOWN' | 'TREE_HOLE' | 'ANNUAL_REPORT' | 'EXPECTED_GUIDE'

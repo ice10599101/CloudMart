@@ -90,10 +90,16 @@ public interface CapsuleService {
     }
 
     /**
-     * 公共胶囊墙（§6）：作者申请将已开启（OPENED）胶囊送上匿名精选墙（进入待审核）。
-     * 幂等：wallStatus ∈ {1,2} 时拒绝重复申请；拒绝后（3）可重新申请。
+     * 公共胶囊墙（§6/R17）：作者申请将已开启（OPENED）胶囊送上匿名精选墙（进入待审核）。
+     * CAS 绑定旧状态 ∈ {0 未申请, 3 已拒绝, 4 已撤下}；1/2 状态拒绝重复申请。
      */
     void applyToWall(Long userId, Long capsuleId);
+
+    /**
+     * R17：作者撤回待审核申请（1→0）或主动撤下已上墙内容（2→4）。
+     * 仅作者本人；其他墙状态抛 WISH_STATUS_CONFLICT。
+     */
+    void withdrawWall(Long userId, Long capsuleId);
 
     /**
      * 公共胶囊墙（§6）：匿名墙分页（wallStatus=2，不暴露作者身份，按决定时间倒序）。
@@ -102,10 +108,20 @@ public interface CapsuleService {
             int page, int size);
 
     /**
-     * 管理端审核（§6）：approve=true 上墙（2）/ false 拒绝（3），记录决定时间。
+     * R17 管理端审核：approve=true 上墙（1→2）/ false 拒绝（1→3，reason 必填）。
+     * CAS 绑定 wallStatus=1，并发双裁决只有一个赢家（0 行 → 409）；裁决与通知
+     * Outbox 事件同事务提交。
      */
-    void decideWall(Long capsuleId, boolean approve);
+    void decideWall(Long capsuleId, boolean approve, String reason, Long adminUserId);
 
-    /** 管理端：胶囊墙待审核分页（wallStatus=1，申请时间倒序） */
-    com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO> wallPending(int page, int size);
+    /**
+     * R17 管理员下架已上墙内容（2→4，reason 必填）；与通知事件同事务。
+     */
+    void adminTakeDown(Long capsuleId, String reason, Long adminUserId);
+
+    /** 管理端：胶囊墙待审核分页（wallStatus=1，申请时间倒序，含作者信息） */
+    com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.AdminCapsuleWallVO> wallPending(int page, int size);
+
+    /** R17 管理端：已上墙分页（wallStatus=2，决定时间倒序，含作者信息，供下架管理） */
+    com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.AdminCapsuleWallVO> wallApproved(int page, int size);
 }

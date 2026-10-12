@@ -730,9 +730,12 @@ export const wishApi = {
     /** 公共胶囊墙（匿名精选，决定时间倒序） */
     getCapsuleWall: (page?: number, pageSize?: number) =>
         request<WallCapsulePage>({ url: '/wish/capsules/wall', params: { page: page ?? 1, pageSize: pageSize ?? 10 } as Record<string, unknown> }),
-    /** 申请上墙（作者，OPENED 胶囊） */
+    /** 申请上墙（作者，OPENED 胶囊；墙状态 0/3/4 可申请） */
     applyCapsuleToWall: (capsuleId: number | string) =>
         request<void>({ url: `/wish/capsules/${capsuleId}/wall`, method: 'POST' }),
+    /** R17 撤回待审核申请（1→0）或撤下已上墙内容（2→4） */
+    withdrawCapsuleWall: (capsuleId: number | string) =>
+        request<void>({ url: `/wish/capsules/${capsuleId}/wall/withdraw`, method: 'POST' }),
 }
 
 // ========== P0-5 擦肩而过·附近模式（2026-10 产品决策恢复：信笺与漂流瓶并存；契约对齐 mall-wish EncounterController） ==========

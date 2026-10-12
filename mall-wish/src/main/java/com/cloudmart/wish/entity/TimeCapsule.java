@@ -64,7 +64,7 @@ public class TimeCapsule {
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
 
-    /** 公共胶囊墙（§6）：0 未申请 / 1 待审核 / 2 已上墙 / 3 已拒绝 */
+    /** 公共胶囊墙（§6/R17）：0 未申请 / 1 待审核 / 2 已上墙 / 3 已拒绝 / 4 已撤下 */
     private Integer wallStatus;
 
     /** 申请上墙时间 */
@@ -72,4 +72,10 @@ public class TimeCapsule {
 
     /** 审核决定时间 */
     private LocalDateTime wallDecidedAt;
+
+    /** 驳回/下架理由（作者可见，R17） */
+    private String wallReason;
+
+    /** 最后一次墙裁决操作者 ID（管理员或作者本人，R17 审计） */
+    private Long wallActorId;
 }

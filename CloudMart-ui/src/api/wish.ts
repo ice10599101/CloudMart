@@ -621,6 +621,10 @@ export interface CapsuleItem {
   /** T22：已改期次数与上限（服务端权威；改期入口仅 SEALED 本人可见） */
   rescheduleCount: number
   rescheduleLimit: number
+  /** R17 公共胶囊墙状态: 0未申请/1待审核/2已上墙/3已拒绝/4已撤下 */
+  wallStatus?: number
+  /** R17 驳回/下架理由（作者可见） */
+  wallReason?: string | null
 }
 
 export function createCapsule(data: {
@@ -652,6 +656,37 @@ export function rescheduleCapsule(id: number | string, data: { newOpenAt: string
 
 export function cancelCapsule(id: number | string) {
   return request.delete<ApiResponse<CapsuleItem>>(`/wish/capsules/${id}`)
+}
+
+// ========== R17 公共胶囊墙（申请/撤回撤下/匿名墙） ==========
+
+/** 公开墙条目（匿名，不含作者身份与媒体附件） */
+export interface CapsuleWallItem {
+  capsuleId: number | string
+  title: string
+  content: string
+  openedAt: string | null
+  wallDecidedAt: string | null
+}
+
+export interface CapsuleWallPage {
+  records: CapsuleWallItem[]
+  total: number
+  current: number
+  size: number
+}
+
+export function applyCapsuleToWall(id: number | string) {
+  return request.post<ApiResponse<null>>(`/wish/capsules/${id}/wall`, {})
+}
+
+/** R17 撤回待审核申请（1→0）或撤下已上墙内容（2→4），仅作者 */
+export function withdrawCapsuleWall(id: number | string) {
+  return request.post<ApiResponse<null>>(`/wish/capsules/${id}/wall/withdraw`, {})
+}
+
+export function getCapsuleWall(page = 1, size = 10) {
+  return request.get<ApiResponse<CapsuleWallPage>>('/wish/capsules/wall', { params: { page, size } })
 }
 
 /** 时区上报（登录/启动/时区变化时调用；IANA 时区 + UTC 偏移分钟，重复上报幂等） */

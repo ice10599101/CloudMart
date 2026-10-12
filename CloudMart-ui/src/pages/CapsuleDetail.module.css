@@ -311,6 +311,28 @@
     min-width: 200px;
 }
 
+/* R17 公共胶囊墙操作区 */
+.wallSection {
+    max-width: 480px;
+    margin: 0 auto 20px;
+    text-align: left;
+    border-radius: 12px;
+}
+
+.wallLine {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.wallTip {
+    font-size: 13px;
+    color: var(--color-text-secondary, #888);
+    flex: 1 1 240px;
+}
+
 /* ---- 已取消 ---- */
 .cancelledView {
     display: flex;

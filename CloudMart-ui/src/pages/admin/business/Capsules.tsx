@@ -1,14 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
-import type { ProColumns } from '@ant-design/pro-components'
-import { Button, Card, Col, Row, Statistic, Tabs, Tag, Typography } from 'antd'
+import type { ActionType, ProColumns } from '@ant-design/pro-components'
+import { Button, Card, Col, Input, Modal, Row, Statistic, Tabs, Tag, Typography } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import {
     CAPSULE_STATUS_STAT_META,
+    decideAdminCapsuleWall,
     getAdminCapsulePushRecords,
     getAdminCapsuleStats,
+    getAdminCapsuleWallApproved,
+    getAdminCapsuleWallPending,
+    takeDownAdminCapsuleWall,
 } from '@/api/admin/wish'
-import type { AdminCapsulePushRecord, AdminCapsuleStats } from '@/api/admin/wish'
+import type {
+    AdminCapsulePushRecord,
+    AdminCapsuleStats,
+    AdminCapsuleWallRecord,
+} from '@/api/admin/wish'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 
@@ -140,12 +148,284 @@ function PushRecordsPanel() {
     )
 }
 
+/** R17 理由输入 Modal（驳回/下架共用；理由必填 ≤200 字） */
+function WallReasonModal({
+    open,
+    title,
+    okText,
+    confirmLoading,
+    onCancel,
+    onOk,
+}: {
+    open: boolean
+    title: string
+    okText: string
+    confirmLoading: boolean
+    onCancel: () => void
+    onOk: (reason: string) => void
+}) {
+    const [reason, setReason] = useState('')
+    const [error, setError] = useState<string | null>(null)
+
+    const submit = () => {
+        const trimmed = reason.trim()
+        if (!trimmed) {
+            setError('请填写理由（将随通知告知作者）')
+            return
+        }
+        if (trimmed.length > 200) {
+            setError('理由不能超过 200 字')
+            return
+        }
+        onOk(trimmed)
+    }
+
+    return (
+        <Modal
+            open={open}
+            title={title}
+            okText={okText}
+            cancelText="取消"
+            confirmLoading={confirmLoading}
+            onCancel={onCancel}
+            onOk={submit}
+            destroyOnClose
+            afterOpenChange={(visible) => {
+                if (visible) {
+                    setReason('')
+                    setError(null)
+                }
+            }}
+        >
+            <Input.TextArea
+                rows={4}
+                maxLength={220}
+                showCount
+                value={reason}
+                placeholder="请填写理由（必填，≤200 字，将随站内通知告知作者）"
+                onChange={(e) => {
+                    setReason(e.target.value)
+                    if (error) setError(null)
+                }}
+            />
+            {error && <Typography.Text type="danger" style={{ fontSize: 12 }}>{error}</Typography.Text>}
+        </Modal>
+    )
+}
+
+/** R17 待审核队列：通过/驳回（驳回理由必填），并发冲突由后端 409 拦截器统一提示 */
+function WallPendingPanel() {
+    const message = useMessage()
+    const actionRef = useRef<ActionType>(null)
+    const [rejectTarget, setRejectTarget] = useState<AdminCapsuleWallRecord | null>(null)
+    const [submitting, setSubmitting] = useState(false)
+
+    const approve = (record: AdminCapsuleWallRecord) => {
+        Modal.confirm({
+            title: '确认通过该胶囊上墙？',
+            content: `《${record.title}》将立即在公共胶囊墙匿名展出，作者会收到通知。`,
+            okText: '确认通过',
+            cancelText: '取消',
+            onOk: async () => {
+                setSubmitting(true)
+                try {
+                    const res = await decideAdminCapsuleWall(record.capsuleId, { approve: true })
+                    if (res.data.success) {
+                        message.success('已通过上墙')
+                        actionRef.current?.reload()
+                    } else {
+                        message.error(res.data.error?.message ?? '操作失败')
+                        throw new Error('business failure')
+                    }
+                } finally {
+                    setSubmitting(false)
+                }
+            },
+        })
+    }
+
+    const reject = async (reason: string) => {
+        if (!rejectTarget) return
+        setSubmitting(true)
+        try {
+            const res = await decideAdminCapsuleWall(rejectTarget.capsuleId, { approve: false, reason })
+            if (res.data.success) {
+                message.success('已驳回并通知作者')
+                setRejectTarget(null)
+                actionRef.current?.reload()
+            } else {
+                message.error(res.data.error?.message ?? '操作失败')
+            }
+        } catch {
+            // 错误由拦截器处理
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const columns: ProColumns<AdminCapsuleWallRecord>[] = [
+        { title: '胶囊 ID', dataIndex: 'capsuleId', width: 150, search: false, copyable: true },
+        { title: '作者 ID', dataIndex: 'userId', width: 110, search: false },
+        { title: '标题', dataIndex: 'title', width: 180, search: false, ellipsis: true },
+        {
+            title: '正文',
+            dataIndex: 'content',
+            search: false,
+            ellipsis: true,
+            render: (_, record) => (
+                <Typography.Paragraph style={{ margin: 0, maxWidth: 360 }} ellipsis={{ rows: 2, tooltip: record.content }}>
+                    {record.content}
+                </Typography.Paragraph>
+            ),
+        },
+        { title: '开启时间', dataIndex: 'openedAt', width: 170, valueType: 'dateTime', search: false },
+        { title: '申请时间', dataIndex: 'wallAppliedAt', width: 170, valueType: 'dateTime', search: false },
+        {
+            title: '操作',
+            valueType: 'option',
+            width: 160,
+            fixed: 'right',
+            render: (_, record) => [
+                <Button
+                    key="approve"
+                    type="link"
+                    size="small"
+                    loading={submitting}
+                    onClick={() => approve(record)}
+                >
+                    通过
+                </Button>,
+                <Button key="reject" type="link" size="small" danger onClick={() => setRejectTarget(record)}>
+                    驳回
+                </Button>,
+            ],
+        },
+    ]
+
+    return (
+        <>
+            <ProTable<AdminCapsuleWallRecord>
+                actionRef={actionRef}
+                headerTitle="公共胶囊墙待审核"
+                rowKey="capsuleId"
+                scroll={{ x: 1200 }}
+                request={async (params) =>
+                    safeProTableRequest<AdminCapsuleWallRecord>(() =>
+                        getAdminCapsuleWallPending({ page: params.current, pageSize: params.pageSize })
+                    )
+                }
+                columns={columns}
+                pagination={{ defaultPageSize: 10, showSizeChanger: true }}
+            />
+            <WallReasonModal
+                open={rejectTarget !== null}
+                title={rejectTarget ? `驳回《${rejectTarget.title}》` : '驳回胶囊'}
+                okText="确认驳回"
+                confirmLoading={submitting}
+                onCancel={() => setRejectTarget(null)}
+                onOk={reject}
+            />
+        </>
+    )
+}
+
+/** R17 已上墙管理：管理员下架（理由必填，下架后公开墙即刻不可见） */
+function WallApprovedPanel() {
+    const message = useMessage()
+    const actionRef = useRef<ActionType>(null)
+    const [target, setTarget] = useState<AdminCapsuleWallRecord | null>(null)
+    const [submitting, setSubmitting] = useState(false)
+
+    const takeDown = async (reason: string) => {
+        if (!target) return
+        setSubmitting(true)
+        try {
+            const res = await takeDownAdminCapsuleWall(target.capsuleId, reason)
+            if (res.data.success) {
+                message.success('已下架并通知作者')
+                setTarget(null)
+                actionRef.current?.reload()
+            } else {
+                message.error(res.data.error?.message ?? '操作失败')
+            }
+        } catch {
+            // 作者抢先撤下等 409 由拦截器提示
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const columns: ProColumns<AdminCapsuleWallRecord>[] = [
+        { title: '胶囊 ID', dataIndex: 'capsuleId', width: 150, search: false, copyable: true },
+        { title: '作者 ID', dataIndex: 'userId', width: 110, search: false },
+        { title: '标题', dataIndex: 'title', width: 180, search: false, ellipsis: true },
+        {
+            title: '正文',
+            dataIndex: 'content',
+            search: false,
+            ellipsis: true,
+            render: (_, record) => (
+                <Typography.Paragraph style={{ margin: 0, maxWidth: 320 }} ellipsis={{ rows: 2, tooltip: record.content }}>
+                    {record.content}
+                </Typography.Paragraph>
+            ),
+        },
+        { title: '上墙时间', dataIndex: 'wallDecidedAt', width: 170, valueType: 'dateTime', search: false },
+        {
+            title: '状态',
+            dataIndex: 'wallStatus',
+            width: 100,
+            search: false,
+            render: () => <Tag color="green">已上墙</Tag>,
+        },
+        {
+            title: '操作',
+            valueType: 'option',
+            width: 110,
+            fixed: 'right',
+            render: (_, record) => [
+                <Button key="takeDown" type="link" size="small" danger onClick={() => setTarget(record)}>
+                    下架
+                </Button>,
+            ],
+        },
+    ]
+
+    return (
+        <>
+            <ProTable<AdminCapsuleWallRecord>
+                actionRef={actionRef}
+                headerTitle="已上墙胶囊（下架管理）"
+                rowKey="capsuleId"
+                scroll={{ x: 1150 }}
+                request={async (params) =>
+                    safeProTableRequest<AdminCapsuleWallRecord>(() =>
+                        getAdminCapsuleWallApproved({ page: params.current, pageSize: params.pageSize })
+                    )
+                }
+                columns={columns}
+                pagination={{ defaultPageSize: 10, showSizeChanger: true }}
+            />
+            <WallReasonModal
+                open={target !== null}
+                title={target ? `下架《${target.title}》` : '下架胶囊'}
+                okText="确认下架"
+                confirmLoading={submitting}
+                onCancel={() => setTarget(null)}
+                onOk={takeDown}
+            />
+        </>
+    )
+}
+
 export default function Capsules() {
     return (
         <Tabs
             defaultActiveKey="stats"
             items={[
                 { key: 'stats', label: '统计概览', children: <StatsPanel /> },
+                { key: 'wallPending', label: '公共墙待审核', children: <WallPendingPanel /> },
+                { key: 'wallApproved', label: '已上墙管理', children: <WallApprovedPanel /> },
                 { key: 'records', label: '推送记录', children: <PushRecordsPanel /> },
             ]}
         />

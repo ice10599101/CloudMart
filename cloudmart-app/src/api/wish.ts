@@ -697,6 +697,28 @@ export const wishApi = {
     /** 胶囊改期（SEALED；次数上限服务端权威；新开启时间须为未来） */
     rescheduleCapsule: (capsuleId: number | string, data: { newOpenAt: string; timezone?: string }) =>
         request<CapsuleItem>({ url: `/wish/capsules/${capsuleId}/reschedule`, method: 'POST', data: data as unknown as Record<string, unknown> }),
+
+    // ---- R17 公共胶囊墙 ----
+    /** 公共胶囊墙（匿名精选，决定时间倒序分页） */
+    getCapsuleWall: (page = 1, size = 10) =>
+        request<{ records: CapsuleWallItem[]; total: number; current: number; size: number }>({
+            url: `/wish/capsules/wall${buildQuery({ page, size })}`,
+        }),
+    /** 申请上墙（作者，OPENED；墙状态 0/3/4 可申请） */
+    applyCapsuleToWall: (capsuleId: number | string) =>
+        request<null>({ url: `/wish/capsules/${capsuleId}/wall`, method: 'POST' }),
+    /** 撤回待审核申请（1→0）或撤下已上墙内容（2→4），仅作者 */
+    withdrawCapsuleWall: (capsuleId: number | string) =>
+        request<null>({ url: `/wish/capsules/${capsuleId}/wall/withdraw`, method: 'POST' }),
+}
+
+/** R17 公共胶囊墙条目（匿名，不含作者身份与媒体附件） */
+export interface CapsuleWallItem {
+  capsuleId: number
+  title: string
+  content: string
+  openedAt: string | null
+  wallDecidedAt: string | null
 }
 
 // ========== P0-5 擦肩而过·附近模式（2026-10 产品决策恢复：信笺与漂流瓶并存；契约对齐 mall-wish EncounterController） ==========

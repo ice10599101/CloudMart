@@ -165,9 +165,17 @@ export default function CapsuleList() {
                     <h1 className={styles.pageTitle}>
                         <MailOutlined /> 我的时间胶囊
                     </h1>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => history.push('/wish/capsules/create')}>
-                        封存新胶囊
-                    </Button>
+                    <div>
+                        <Button
+                            style={{ marginRight: 8 }}
+                            onClick={() => history.push('/wish/capsules/wall')}
+                        >
+                            🌌 公共胶囊墙
+                        </Button>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => history.push('/wish/capsules/create')}>
+                            封存新胶囊
+                        </Button>
+                    </div>
                 </div>
 
                 <Tabs

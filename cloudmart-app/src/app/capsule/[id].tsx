@@ -249,6 +249,137 @@ export default function CapsuleDetailScreen() {
         ])
     }
 
+    // R17 公共墙：申请/撤回/撤下，成功后重新拉取详情（状态以权威查询为准）
+    const [wallBusy, setWallBusy] = useState(false)
+    const isOwner = !!capsule && !!user && capsule.userId === user.id
+
+    const refreshDetail = () => {
+        wishApi
+            .getCapsuleDetail(capsuleId)
+            .then((res) => {
+                if (res.data?.success) setCapsule(res.data.data)
+            })
+            .catch(() => undefined)
+    }
+
+    const handleApplyWall = () => {
+        if (wallBusy || !capsule) return
+        Alert.alert('申请上墙', '将这颗胶囊匿名放上公共胶囊墙，经审核后展示（不公开你的身份、媒体附件）？', [
+            { text: '取消', style: 'cancel' },
+            {
+                text: '提交申请',
+                onPress: () => {
+                    setWallBusy(true)
+                    wishApi
+                        .applyCapsuleToWall(capsule.id)
+                        .then((res) => {
+                            if (res.data?.success) {
+                                Alert.alert('已提交审核', '结果会通过站内通知告知你')
+                                refreshDetail()
+                            }
+                        })
+                        .catch(() => undefined) // 409 等由拦截器提示
+                        .finally(() => setWallBusy(false))
+                },
+            },
+        ])
+    }
+
+    const handleWithdrawWall = () => {
+        if (wallBusy || !capsule) return
+        const isApproved = capsule.wallStatus === 2
+        Alert.alert(isApproved ? '从公共墙撤下？' : '撤回上墙申请？',
+            isApproved ? '撤下后胶囊将立即不在公共墙展示，之后可重新申请上墙' : '撤回后审核终止，之后可重新提交申请', [
+            { text: '保留', style: 'cancel' },
+            {
+                text: isApproved ? '确认撤下' : '撤回申请',
+                style: 'destructive',
+                onPress: () => {
+                    setWallBusy(true)
+                    wishApi
+                        .withdrawCapsuleWall(capsule.id)
+                        .then((res) => {
+                            if (res.data?.success) {
+                                Alert.alert(isApproved ? '已撤下' : '已撤回')
+                                refreshDetail()
+                            }
+                        })
+                        .catch(() => undefined)
+                        .finally(() => setWallBusy(false))
+                },
+            },
+        ])
+    }
+
+    /** R17 本人已开启胶囊的墙状态/操作卡片（内联样式，返回 null 表示无操作区） */
+    const renderWallSection = (current: CapsuleItem) => {
+        if (!isOwner) return null
+        const wall = current.wallStatus ?? 0
+        let tip = ''
+        let action: (() => void) | null = null
+        let actionLabel = ''
+        let actionDanger = false
+        if (wall === 0) {
+            tip = '审核通过后将匿名在公共墙展出（不公开身份与附件）'
+            action = handleApplyWall
+            actionLabel = '申请上墙'
+        } else if (wall === 1) {
+            tip = '⏳ 审核中，请耐心等待'
+            action = handleWithdrawWall
+            actionLabel = '撤回申请'
+            actionDanger = true
+        } else if (wall === 2) {
+            tip = '🌌 已在公共墙匿名展出'
+            action = handleWithdrawWall
+            actionLabel = '撤下'
+            actionDanger = true
+        } else if (wall === 3) {
+            tip = `未通过审核${current.wallReason ? `：${current.wallReason}` : ''}`
+            action = handleApplyWall
+            actionLabel = '重新申请'
+        } else if (wall === 4) {
+            tip = `已从公共墙撤下${current.wallReason ? `（${current.wallReason}）` : ''}`
+            action = handleApplyWall
+            actionLabel = '重新申请'
+        }
+        return (
+            <View
+                style={{
+                    marginTop: Spacing.lg,
+                    padding: Spacing.md,
+                    borderRadius: BorderRadius.lg,
+                    backgroundColor: WishColors.bgContainer,
+                    borderWidth: 1,
+                    borderColor: 'rgba(162,155,254,0.4)',
+                    gap: Spacing.sm,
+                }}
+            >
+                <Text style={{ fontSize: FontSize.sm, fontWeight: '700', color: '#c9b8ff' }}>🌌 公共胶囊墙</Text>
+                <Text style={{ fontSize: FontSize.xs, lineHeight: 20, color: WishColors.textSecondary }}>{tip}</Text>
+                {action && (
+                    <TouchableOpacity
+                        onPress={action}
+                        disabled={wallBusy}
+                        activeOpacity={0.85}
+                        style={{
+                            alignSelf: 'flex-start',
+                            paddingHorizontal: Spacing.lg,
+                            paddingVertical: Spacing.xs + 2,
+                            borderRadius: 999,
+                            borderWidth: 1,
+                            borderColor: actionDanger ? 'rgba(255,143,163,0.6)' : 'rgba(162,155,254,0.7)',
+                            backgroundColor: actionDanger ? 'transparent' : 'rgba(108,92,231,0.25)',
+                        }}
+                    >
+                        <Text style={{ fontSize: FontSize.xs, color: actionDanger ? '#ff8fa3' : '#c9b8ff', fontWeight: '600' }}>
+                            {wallBusy ? '处理中…' : actionLabel}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+        )
+    }
+
     if (loading) {
         return (
             <View style={{ flex: 1, backgroundColor: WishColors.bgBase, justifyContent: 'center', alignItems: 'center' }}>
@@ -490,6 +621,8 @@ export default function CapsuleDetailScreen() {
                         <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary }}>封存于 {formatLocal(capsule.createdAt)}</Text>
                         <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary }}>创建时区 {capsule.openAtTimezone}</Text>
                     </View>
+
+                    {renderWallSection(capsule)}
 
                     <TouchableOpacity
                         onPress={() => router.replace('/capsule/list')}

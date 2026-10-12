@@ -678,4 +678,342 @@ class CapsuleServiceImplTest {
                     .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
         }
     }
+
+    // ========== R17 公共胶囊墙生命周期 ==========
+
+    @Nested
+    @DisplayName("R17 applyToWall - 申请上墙")
+    class WallApplyTests {
+
+        private TimeCapsule openedWithWall(Integer wallStatus) {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            capsule.setWallStatus(wallStatus);
+            return capsule;
+        }
+
+        @Test
+        @DisplayName("OPENED + 未申请：CAS 绑定 0/3/4 旧状态，提交成功")
+        void apply_success() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(openedWithWall(0));
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(1);
+
+            capsuleService.applyToWall(USER_ID, CAPSULE_ID);
+
+            // CAS 必须绑定旧状态集合（IN 预编译占位）+ SET wall_status；
+            // 0/3/4 具体绑定值由 mapper 集成测试覆盖
+            verify(timeCapsuleMapper).update(isNull(),
+                    org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<TimeCapsule>>argThat(w ->
+                            w.getSqlSet().contains("wall_status")
+                                    && w.getCustomSqlSegment().toUpperCase().contains(" IN ")));
+        }
+
+        @Test
+        @DisplayName("已拒绝(3)/已撤下(4)内存态可重新申请（实际放行由 SQL IN 条件保证）")
+        void apply_reapplyAfterRejectedOrTakenDown_allowedInMemory() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(openedWithWall(3));
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(1);
+
+            capsuleService.applyToWall(USER_ID, CAPSULE_ID);
+            verify(timeCapsuleMapper).update(isNull(), any());
+        }
+
+        @Test
+        @DisplayName("待审核(1)/已上墙(2)重复申请 → WISH_VALIDATION_ERROR 且不落库")
+        void apply_duplicate_rejected() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(openedWithWall(1));
+            assertThatThrownBy(() -> capsuleService.applyToWall(USER_ID, CAPSULE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
+
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(openedWithWall(2));
+            assertThatThrownBy(() -> capsuleService.applyToWall(USER_ID, CAPSULE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
+            verify(timeCapsuleMapper, never()).update(isNull(), any());
+        }
+
+        @Test
+        @DisplayName("非 OPENED 胶囊 → WISH_VALIDATION_ERROR")
+        void apply_notOpened_rejected() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID))
+                    .thenReturn(buildCapsule(CapsuleStatus.SEALED, LocalDateTime.now().plusDays(1)));
+
+            assertThatThrownBy(() -> capsuleService.applyToWall(USER_ID, CAPSULE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
+        }
+
+        @Test
+        @DisplayName("非本人/不存在 → WISH_NOT_FOUND")
+        void apply_notOwner_rejected() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(openedWithWall(0));
+
+            assertThatThrownBy(() -> capsuleService.applyToWall(OTHER_USER_ID, CAPSULE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("并发窗口 CAS 未命中 → WISH_STATUS_CONFLICT")
+        void apply_casMiss_conflict() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(openedWithWall(0));
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(0);
+
+            assertThatThrownBy(() -> capsuleService.applyToWall(USER_ID, CAPSULE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+        }
+    }
+
+    @Nested
+    @DisplayName("R17 withdrawWall - 作者撤回/撤下")
+    class WallWithdrawTests {
+
+        @Test
+        @DisplayName("待审核(1)撤回：CAS 命中回到未申请")
+        void withdraw_pending_success() {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            capsule.setWallStatus(1);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(capsule);
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(1);
+
+            capsuleService.withdrawWall(USER_ID, CAPSULE_ID);
+            verify(timeCapsuleMapper).update(isNull(), any());
+        }
+
+        @Test
+        @DisplayName("已上墙(2)主动撤下：CAS 命中变为撤下态")
+        void withdraw_approved_takenDown() {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            capsule.setWallStatus(2);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(capsule);
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(1);
+
+            capsuleService.withdrawWall(USER_ID, CAPSULE_ID);
+            verify(timeCapsuleMapper).update(isNull(), any());
+        }
+
+        @Test
+        @DisplayName("未申请(0)无可撤回动作 → WISH_STATUS_CONFLICT 且不落库")
+        void withdraw_none_conflict() {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            capsule.setWallStatus(0);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(capsule);
+
+            assertThatThrownBy(() -> capsuleService.withdrawWall(USER_ID, CAPSULE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+            verify(timeCapsuleMapper, never()).update(isNull(), any());
+        }
+
+        @Test
+        @DisplayName("非本人 → WISH_NOT_FOUND")
+        void withdraw_notOwner_rejected() {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            capsule.setWallStatus(1);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(capsule);
+
+            assertThatThrownBy(() -> capsuleService.withdrawWall(OTHER_USER_ID, CAPSULE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("与管理员裁决并发：CAS 0 行 → WISH_STATUS_CONFLICT")
+        void withdraw_casMiss_conflict() {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            capsule.setWallStatus(1);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(capsule);
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(0);
+
+            assertThatThrownBy(() -> capsuleService.withdrawWall(USER_ID, CAPSULE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+        }
+    }
+
+    @Nested
+    @DisplayName("R17 decideWall - 管理员裁决")
+    class WallDecideTests {
+
+        private static final Long ADMIN_ID = 9001L;
+
+        private TimeCapsule pendingCapsule() {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            capsule.setWallStatus(1);
+            return capsule;
+        }
+
+        @Test
+        @DisplayName("通过：1→2，登记 APPROVED 通知事件（同事务）")
+        void decide_approve_success() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(pendingCapsule());
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(1);
+
+            capsuleService.decideWall(CAPSULE_ID, true, null, ADMIN_ID);
+
+            verify(wishOutboxService).publish(eq("CAPSULE"), eq(CAPSULE_ID), eq(1L),
+                    eq("CAPSULE_WALL_DECIDED"),
+                    org.mockito.ArgumentMatchers.<Map<String, Object>>argThat(p ->
+                            "APPROVED".equals(p.get("result"))
+                                    && CAPSULE_ID.equals(((Number) p.get("capsuleId")).longValue())
+                                    && USER_ID.equals(((Number) p.get("userId")).longValue())));
+        }
+
+        @Test
+        @DisplayName("驳回无理由 → WISH_VALIDATION_ERROR，不裁决不发事件")
+        void decide_rejectWithoutReason_rejected() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(pendingCapsule());
+
+            assertThatThrownBy(() -> capsuleService.decideWall(CAPSULE_ID, false, "  ", ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
+            verify(timeCapsuleMapper, never()).update(isNull(), any());
+            verify(wishOutboxService, never())
+                    .publish(anyString(), anyLong(), anyLong(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("驳回带理由：1→3，事件 reason 透传")
+        void decide_rejectWithReason_success() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(pendingCapsule());
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(1);
+
+            capsuleService.decideWall(CAPSULE_ID, false, "内容涉及隐私信息", ADMIN_ID);
+
+            verify(wishOutboxService).publish(eq("CAPSULE"), eq(CAPSULE_ID), eq(1L),
+                    eq("CAPSULE_WALL_DECIDED"),
+                    org.mockito.ArgumentMatchers.<Map<String, Object>>argThat(p ->
+                            "REJECTED".equals(p.get("result"))
+                                    && "内容涉及隐私信息".equals(p.get("reason"))));
+        }
+
+        @Test
+        @DisplayName("理由超 200 字 → WISH_VALIDATION_ERROR")
+        void decide_reasonTooLong_rejected() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(pendingCapsule());
+            String longReason = "x".repeat(201);
+
+            assertThatThrownBy(() -> capsuleService.decideWall(CAPSULE_ID, false, longReason, ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
+        }
+
+        @Test
+        @DisplayName("非待审核状态 → WISH_STATUS_CONFLICT")
+        void decide_notPending_conflict() {
+            TimeCapsule approved = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            approved.setWallStatus(2);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(approved);
+
+            assertThatThrownBy(() -> capsuleService.decideWall(CAPSULE_ID, true, null, ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+        }
+
+        @Test
+        @DisplayName("并发双裁决 CAS 0 行 → WISH_STATUS_CONFLICT 且不发通知事件")
+        void decide_casMiss_conflict() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(pendingCapsule());
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(0);
+
+            assertThatThrownBy(() -> capsuleService.decideWall(CAPSULE_ID, true, null, ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+            verify(wishOutboxService, never())
+                    .publish(anyString(), anyLong(), anyLong(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("胶囊不存在 → WISH_NOT_FOUND")
+        void decide_missing_notFound() {
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(null);
+
+            assertThatThrownBy(() -> capsuleService.decideWall(CAPSULE_ID, true, null, ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("R17 adminTakeDown - 管理员下架")
+    class WallTakeDownTests {
+
+        private static final Long ADMIN_ID = 9001L;
+
+        @Test
+        @DisplayName("已上墙 2→4：理由必填，登记 TAKEN_DOWN 通知事件")
+        void takeDown_success() {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            capsule.setWallStatus(2);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(capsule);
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(1);
+
+            capsuleService.adminTakeDown(CAPSULE_ID, "收到投诉核实后下架", ADMIN_ID);
+
+            verify(wishOutboxService).publish(eq("CAPSULE"), eq(CAPSULE_ID), eq(1L),
+                    eq("CAPSULE_WALL_DECIDED"),
+                    org.mockito.ArgumentMatchers.<Map<String, Object>>argThat(p ->
+                            "TAKEN_DOWN".equals(p.get("result"))
+                                    && "收到投诉核实后下架".equals(p.get("reason"))));
+        }
+
+        @Test
+        @DisplayName("无理由/空白理由 → WISH_VALIDATION_ERROR 且不发事件")
+        void takeDown_withoutReason_rejected() {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            capsule.setWallStatus(2);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(capsule);
+
+            assertThatThrownBy(() -> capsuleService.adminTakeDown(CAPSULE_ID, "", ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_VALIDATION_ERROR);
+            verify(timeCapsuleMapper, never()).update(isNull(), any());
+            verify(wishOutboxService, never())
+                    .publish(anyString(), anyLong(), anyLong(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("非已上墙状态 → WISH_STATUS_CONFLICT")
+        void takeDown_notApproved_conflict() {
+            TimeCapsule pending = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            pending.setWallStatus(1);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(pending);
+
+            assertThatThrownBy(() -> capsuleService.adminTakeDown(CAPSULE_ID, "理由", ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+        }
+
+        @Test
+        @DisplayName("作者抢先撤下 CAS 0 行 → WISH_STATUS_CONFLICT 且不发事件")
+        void takeDown_casMiss_conflict() {
+            TimeCapsule capsule = buildCapsule(CapsuleStatus.OPENED, LocalDateTime.now().minusDays(1));
+            capsule.setWallStatus(2);
+            when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(capsule);
+            when(timeCapsuleMapper.update(isNull(), any())).thenReturn(0);
+
+            assertThatThrownBy(() -> capsuleService.adminTakeDown(CAPSULE_ID, "理由", ADMIN_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getCode())
+                    .isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT);
+            verify(wishOutboxService, never())
+                    .publish(anyString(), anyLong(), anyLong(), anyString(), any());
+        }
+    }
 }
