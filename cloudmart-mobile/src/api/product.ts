@@ -30,6 +30,30 @@ export interface Review {
   user?: { id: number; nickname: string; avatar?: string }
 }
 
+/** R08：发表评价入参（契约对齐后端，以订单行为唯一资格锚点） */
+export interface CreateReviewPayload {
+  orderItemId: number
+  orderId: number
+  productId: number
+  skuId: number
+  rating: number
+  content: string
+  images?: string[]
+}
+
+/** R08：当前用户在某订单行的评价（GET /reviews/order-item/{id}，未评价为 null） */
+export interface OwnReview {
+  id: number
+  rating: number
+  content: string
+  images?: string[] | null
+  /** 状态：1=显示 0=下架 */
+  status: number
+  /** 下架/驳回理由（作者可见） */
+  hideReason?: string | null
+  createdAt: string
+}
+
 export const productApi = {
   search: (params: { keyword?: string; categoryId?: number; page?: number; size?: number; sort?: string }) =>
     request<PaginatedResult<Product>>({ url: `/product/products/search${buildQuery(params as Record<string, unknown>)}` }),
@@ -39,6 +63,9 @@ export const productApi = {
     request<PaginatedResult<Review>>({ url: `/product/reviews/product/${productId}${buildQuery(params as Record<string, unknown>)}` }),
   getReviewStats: (productId: number | string) =>
     request<ReviewStats>({ url: `/product/reviews/stats/${productId}` }),
-  createReview: (data: { productId: number; rating: number; content: string; images?: string[] }) =>
-    request<Review>({ url: '/product/reviews', method: 'POST', data }),
+  createReview: (data: CreateReviewPayload) =>
+    request<Review>({ url: '/product/reviews', method: 'POST', data: data as unknown as Record<string, unknown> }),
+  /** R08：查我在某订单行的评价（含下架理由；未评价 data=null） */
+  getOwnReviewByOrderItem: (orderItemId: number) =>
+    request<OwnReview | null>({ url: `/product/reviews/order-item/${orderItemId}` }),
 }

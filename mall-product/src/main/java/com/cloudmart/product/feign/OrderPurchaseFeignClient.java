@@ -1,8 +1,10 @@
 package com.cloudmart.product.feign;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.product.dto.OrderItemEligibility;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
@@ -19,6 +21,13 @@ public interface OrderPurchaseFeignClient {
     @GetMapping("/purchase-eligibility")
     ApiResponse<List<Long>> purchaseEligibility(@RequestParam("userId") Long userId,
                                                 @RequestParam("skuId") Long skuId);
+
+    /**
+     * R08 订单行级评价资格：返回行权威事实（orderId/productId/skuId），不存在或未完成 data=null。
+     */
+    @GetMapping("/items/{orderItemId}/review-eligibility")
+    ApiResponse<OrderItemEligibility> reviewEligibility(@RequestParam("userId") Long userId,
+                                                        @PathVariable("orderItemId") Long orderItemId);
 
     /** N-5 问大家：已购标识（回答人"已购"徽标快照；fail-open 由 fallback 兜 false） */
     @GetMapping("/internal/orders/has-purchased-product")

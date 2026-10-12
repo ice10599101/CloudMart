@@ -14,6 +14,7 @@ import { history, useParams } from 'umi'
 import { fetchOrderById, cancelOrder, confirmReceipt, requestRefund } from '@/api/order'
 import { applyAfterSale, cancelAfterSale, getAfterSaleDetail, type AfterSaleCase } from '@/api/afterSale'
 import { type Order, type OrderStatus, ORDER_STATUS_LABELS } from '@/types'
+import OrderItemReview from '@/components/OrderItemReview'
 
 const cssVars = {
   '--color-bg-primary': 'var(--color-bg-base)',
@@ -540,6 +541,18 @@ export default function OrderDetail() {
                     ¥{item.price.toFixed(2)}
                   </div>
                   <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>x{item.quantity}</div>
+                  {/* R08：仅已完成订单展示评价入口（订单行锚点，每一行一次评价） */}
+                  {order.status === 'COMPLETED' && item.skuId && (
+                    <OrderItemReview
+                      orderId={order.id}
+                      item={{
+                        id: item.id,
+                        productId: item.productId,
+                        skuId: item.skuId,
+                        productName: item.productName,
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             ))}

@@ -5,6 +5,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.product.dto.CreateReviewRequest;
+import com.cloudmart.product.dto.OrderItemEligibility;
 import com.cloudmart.product.dto.ReviewDTO;
 import com.cloudmart.product.dto.ReviewStatsDTO;
 import com.cloudmart.product.entity.Product;
@@ -66,7 +67,7 @@ class ReviewServiceTest {
         Long userId = 1001L;
         List<String> images = List.of("https://img.example.com/1.jpg");
         CreateReviewRequest request = new CreateReviewRequest(
-                2001L, 3001L, 4001L, 5, "非常好", images);
+                20001L, 2001L, 3001L, 4001L, 5, "非常好", images);
 
         Product product = new Product();
         product.setId(3001L);
@@ -88,9 +89,10 @@ class ReviewServiceTest {
         sku.setId(4001L);
         sku.setAttributes("颜色:红色;尺码:XL");
         when(skuMapper.selectById(4001L)).thenReturn(sku);
-        // REVIEW-01：资格放行（userId=1001L 对 skuId=4001L 有已完成订单 2001L）
-        when(orderPurchaseFeignClient.purchaseEligibility(1001L, 4001L))
-                .thenReturn(ApiResponse.ok(List.of(2001L)));
+        // R08：订单行资格放行（userId=1001L 的 orderItemId=20001L 行事实：order=2001/product=3001/sku=4001）
+        when(orderPurchaseFeignClient.reviewEligibility(1001L, 20001L))
+                .thenReturn(ApiResponse.ok(
+                        new OrderItemEligibility(20001L, 2001L, 3001L, 4001L, "测试商品", null)));
 
         ReviewDTO result = reviewService.createReview(userId, request);
 
@@ -114,16 +116,17 @@ class ReviewServiceTest {
     void createReview_WhenDuplicateReview_ShouldThrowBusinessException() {
         Long userId = 1001L;
         CreateReviewRequest request = new CreateReviewRequest(
-                2001L, 3001L, 4001L, 5, "非常好", null);
+                20001L, 2001L, 3001L, 4001L, 5, "非常好", null);
 
         Product product = new Product();
         product.setId(3001L);
         when(productMapper.selectById(3001L)).thenReturn(product);
 
         when(reviewMapper.selectCount(any())).thenReturn(1L);
-        // REVIEW-01：先过资格校验
-        when(orderPurchaseFeignClient.purchaseEligibility(1001L, 4001L))
-                .thenReturn(ApiResponse.ok(List.of(2001L)));
+        // R08：先过订单行资格校验
+        when(orderPurchaseFeignClient.reviewEligibility(1001L, 20001L))
+                .thenReturn(ApiResponse.ok(
+                        new OrderItemEligibility(20001L, 2001L, 3001L, 4001L, "测试商品", null)));
 
         assertThatThrownBy(() -> reviewService.createReview(userId, request))
                 .isInstanceOf(BusinessException.class)
@@ -138,7 +141,7 @@ class ReviewServiceTest {
     void createReview_WhenProductNotFound_ShouldThrowBusinessException() {
         Long userId = 1001L;
         CreateReviewRequest request = new CreateReviewRequest(
-                2001L, 9999L, 4001L, 5, "非常好", null);
+                20001L, 2001L, 9999L, 4001L, 5, "非常好", null);
 
         when(productMapper.selectById(9999L)).thenReturn(null);
 

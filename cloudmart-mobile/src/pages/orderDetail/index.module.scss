@@ -574,3 +574,69 @@
   font-size: $font-size-sm;
   color: $color-text-secondary;
 }
+
+// ==================== R08 商品评价 ====================
+.itemBottomRight {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+}
+
+.itemReviewBtn {
+  padding: 6rpx 20rpx;
+  border: 1rpx solid var(--color-primary);
+  border-radius: $radius-full;
+}
+
+.itemReviewText {
+  font-size: $font-size-xs;
+  color: var(--color-primary);
+}
+
+.reviewStars {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  margin-bottom: $spacing-md;
+}
+
+.reviewStar {
+  font-size: 48rpx;
+  line-height: 1;
+  color: var(--color-text-tertiary);
+}
+
+.reviewStarActive {
+  font-size: 48rpx;
+  line-height: 1;
+  color: var(--color-warning, #ff9f0a);
+}
+
+.reviewRatingLabel {
+  margin-left: $spacing-sm;
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+.reviewContentText {
+  display: block;
+  font-size: $font-size-md;
+  color: var(--color-text);
+  line-height: 1.6;
+  margin-bottom: $spacing-sm;
+}
+
+.reviewHideReason {
+  display: block;
+  font-size: $font-size-sm;
+  color: var(--color-accent-red);
+  line-height: 1.5;
+  margin-bottom: $spacing-sm;
+}
+
+.reviewTimeText {
+  display: block;
+  font-size: $font-size-xs;
+  color: var(--color-text-tertiary);
+  margin-bottom: $spacing-sm;
+}

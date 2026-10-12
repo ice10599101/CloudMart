@@ -84,27 +84,38 @@ class ReviewServiceImplTest {
         return sku;
     }
 
+    /** R08 订单行资格事实（userId=200, orderItemId=1000, order=100, product=1, sku=10） */
+    private com.cloudmart.product.dto.OrderItemEligibility eligibility(long orderItemId,
+                                                                       long orderId, long productId, long skuId) {
+        return new com.cloudmart.product.dto.OrderItemEligibility(
+                orderItemId, orderId, productId, skuId, "测试商品", "颜色:红色");
+    }
+
+    private CreateReviewRequest validRequest() {
+        return new CreateReviewRequest(1000L, 100L, 1L, 10L, 5, "Great product!", List.of("img1.jpg"));
+    }
+
     @Nested
     @DisplayName("createReview")
     class CreateReviewTests {
 
         @Test
-        @DisplayName("valid request -> creates review and returns ReviewDTO")
+        @DisplayName("R08 valid request -> 以订单行锚点创建评价并返回 DTO")
         void createReview_ValidRequest_ShouldCreateAndReturnDTO() {
             Product product = buildProduct(1L);
             ProductSku sku = buildSku(10L);
             when(productMapper.selectById(1L)).thenReturn(product);
             when(reviewMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
             when(skuMapper.selectById(10L)).thenReturn(sku);
-            when(orderPurchaseFeignClient.purchaseEligibility(200L, 10L))
-                    .thenReturn(ApiResponse.ok(List.of(100L)));
+            when(orderPurchaseFeignClient.reviewEligibility(200L, 1000L))
+                    .thenReturn(ApiResponse.ok(eligibility(1000L, 100L, 1L, 10L)));
 
-            CreateReviewRequest request = new CreateReviewRequest(100L, 1L, 10L, 5, "Great product!", List.of("img1.jpg"));
-            ReviewDTO result = reviewService.createReview(200L, request);
+            ReviewDTO result = reviewService.createReview(200L, validRequest());
 
             assertThat(result.productId()).isEqualTo(1L);
             assertThat(result.userId()).isEqualTo(200L);
             assertThat(result.orderId()).isEqualTo(100L);
+            assertThat(result.orderItemId()).isEqualTo(1000L);
             assertThat(result.skuId()).isEqualTo(10L);
             assertThat(result.skuAttributes()).isEqualTo("颜色:红色;尺码:XL");
             assertThat(result.rating()).isEqualTo(5);
@@ -118,7 +129,7 @@ class ReviewServiceImplTest {
         void createReview_ProductNotFound_ShouldThrowBusinessException() {
             when(productMapper.selectById(999L)).thenReturn(null);
 
-            CreateReviewRequest request = new CreateReviewRequest(100L, 999L, 10L, 5, "Good", null);
+            CreateReviewRequest request = new CreateReviewRequest(1000L, 100L, 999L, 10L, 5, "Good", null);
 
             assertThatThrownBy(() -> reviewService.createReview(200L, request))
                     .isInstanceOf(BusinessException.class)
@@ -127,18 +138,45 @@ class ReviewServiceImplTest {
         }
 
         @Test
-        @DisplayName("already reviewed -> throws REVIEW_ALREADY_EXISTS")
+        @DisplayName("R08 无完成订单行资格（data=null）-> REVIEW_NOT_ELIGIBLE，fail-closed 不落评价")
+        void createReview_NoEligibility_Rejected() {
+            when(productMapper.selectById(1L)).thenReturn(buildProduct(1L));
+            when(orderPurchaseFeignClient.reviewEligibility(200L, 1000L))
+                    .thenReturn(ApiResponse.ok(null));
+
+            assertThatThrownBy(() -> reviewService.createReview(200L, validRequest()))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("REVIEW_NOT_ELIGIBLE"));
+            verify(reviewMapper, never()).insert(any(ProductReview.class));
+        }
+
+        @Test
+        @DisplayName("R08 跨商品 SKU 错配（请求 productId/skuId 与订单行事实不符）-> 拒绝")
+        void createReview_SkuProductMismatch_Rejected() {
+            when(productMapper.selectById(2L)).thenReturn(buildProduct(2L));
+            // 订单行事实是 product=1/sku=10，请求伪造成 product=2
+            when(orderPurchaseFeignClient.reviewEligibility(200L, 1000L))
+                    .thenReturn(ApiResponse.ok(eligibility(1000L, 100L, 1L, 10L)));
+
+            CreateReviewRequest forged = new CreateReviewRequest(1000L, 100L, 2L, 10L, 5, "fake", null);
+
+            assertThatThrownBy(() -> reviewService.createReview(200L, forged))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("REVIEW_NOT_ELIGIBLE"));
+            verify(reviewMapper, never()).insert(any(ProductReview.class));
+        }
+
+        @Test
+        @DisplayName("already reviewed order item -> throws REVIEW_ALREADY_EXISTS")
         void createReview_AlreadyReviewed_ShouldThrowBusinessException() {
-            Product product = buildProduct(1L);
-            when(productMapper.selectById(1L)).thenReturn(product);
+            when(productMapper.selectById(1L)).thenReturn(buildProduct(1L));
             when(reviewMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
-            // REVIEW-01：先过资格校验（userId=200L 对 skuId=10L 有已完成订单 100L）
-            when(orderPurchaseFeignClient.purchaseEligibility(200L, 10L))
-                    .thenReturn(ApiResponse.ok(List.of(100L)));
+            when(orderPurchaseFeignClient.reviewEligibility(200L, 1000L))
+                    .thenReturn(ApiResponse.ok(eligibility(1000L, 100L, 1L, 10L)));
 
-            CreateReviewRequest request = new CreateReviewRequest(100L, 1L, 10L, 5, "Good", null);
-
-            assertThatThrownBy(() -> reviewService.createReview(200L, request))
+            assertThatThrownBy(() -> reviewService.createReview(200L, validRequest()))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("REVIEW_ALREADY_EXISTS"));
             verify(reviewMapper, never()).insert(any(ProductReview.class));
@@ -147,15 +185,13 @@ class ReviewServiceImplTest {
         @Test
         @DisplayName("null images -> review created without images")
         void createReview_NullImages_ShouldCreateWithoutImages() {
-            Product product = buildProduct(1L);
-            ProductSku sku = buildSku(10L);
-            when(productMapper.selectById(1L)).thenReturn(product);
+            when(productMapper.selectById(1L)).thenReturn(buildProduct(1L));
             when(reviewMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
-            when(skuMapper.selectById(10L)).thenReturn(sku);
-            when(orderPurchaseFeignClient.purchaseEligibility(200L, 10L))
-                    .thenReturn(ApiResponse.ok(List.of(100L)));
+            when(skuMapper.selectById(10L)).thenReturn(buildSku(10L));
+            when(orderPurchaseFeignClient.reviewEligibility(200L, 1000L))
+                    .thenReturn(ApiResponse.ok(eligibility(1000L, 100L, 1L, 10L)));
 
-            CreateReviewRequest request = new CreateReviewRequest(100L, 1L, 10L, 4, "OK", null);
+            CreateReviewRequest request = new CreateReviewRequest(1000L, 100L, 1L, 10L, 4, "OK", null);
             ReviewDTO result = reviewService.createReview(200L, request);
 
             assertThat(result.images()).isNull();
@@ -210,17 +246,48 @@ class ReviewServiceImplTest {
     class UpdateReviewStatusTests {
 
         @Test
-        @DisplayName("review exists -> updates status")
-        void updateReviewStatus_Exists_ShouldUpdate() {
+        @DisplayName("R08 下架（status=0）带理由 -> 落 status=0 + hideReason")
+        void updateReviewStatus_hideWithReason() {
             ProductReview review = new ProductReview();
             review.setId(1L);
             review.setStatus(1);
             when(reviewMapper.selectById(1L)).thenReturn(review);
 
-            reviewService.updateReviewStatus(1L, 0);
+            reviewService.updateReviewStatus(1L, 0, "含违规导流内容");
 
             assertThat(review.getStatus()).isEqualTo(0);
+            assertThat(review.getHideReason()).isEqualTo("含违规导流内容");
             verify(reviewMapper).updateById(review);
+        }
+
+        @Test
+        @DisplayName("R08 下架无理由 -> REVIEW_HIDE_REASON_REQUIRED 不更新")
+        void updateReviewStatus_hideWithoutReason_Rejected() {
+            ProductReview review = new ProductReview();
+            review.setId(1L);
+            review.setStatus(1);
+            when(reviewMapper.selectById(1L)).thenReturn(review);
+
+            assertThatThrownBy(() -> reviewService.updateReviewStatus(1L, 0, "  "))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("REVIEW_HIDE_REASON_REQUIRED"));
+            verify(reviewMapper, never()).updateById(any(ProductReview.class));
+        }
+
+        @Test
+        @DisplayName("R08 恢复显示（status=1）-> 清空 hideReason")
+        void updateReviewStatus_restore_clearsReason() {
+            ProductReview review = new ProductReview();
+            review.setId(1L);
+            review.setStatus(0);
+            review.setHideReason("旧理由");
+            when(reviewMapper.selectById(1L)).thenReturn(review);
+
+            reviewService.updateReviewStatus(1L, 1, null);
+
+            assertThat(review.getStatus()).isEqualTo(1);
+            assertThat(review.getHideReason()).isNull();
         }
 
         @Test
@@ -228,7 +295,7 @@ class ReviewServiceImplTest {
         void updateReviewStatus_NotFound_ShouldThrowBusinessException() {
             when(reviewMapper.selectById(999L)).thenReturn(null);
 
-            assertThatThrownBy(() -> reviewService.updateReviewStatus(999L, 0))
+            assertThatThrownBy(() -> reviewService.updateReviewStatus(999L, 0, "x"))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("REVIEW_NOT_FOUND"));
         }

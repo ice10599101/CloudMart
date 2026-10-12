@@ -3,6 +3,7 @@ package com.cloudmart.product.service.impl;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.product.dto.CreateReviewRequest;
+import com.cloudmart.product.dto.OrderItemEligibility;
 import com.cloudmart.product.dto.ReviewDTO;
 import com.cloudmart.product.entity.Product;
 import com.cloudmart.product.entity.ProductReview;
@@ -38,6 +39,7 @@ class ReviewEligibilityTest {
 
     private static final Long USER_ID = 42L;
     private static final Long ORDER_ID = 9001L;
+    private static final Long ORDER_ITEM_ID = 90010L;
     private static final Long PRODUCT_ID = 300L;
     private static final Long SKU_ID = 200L;
 
@@ -64,19 +66,21 @@ class ReviewEligibilityTest {
         when(productMapper.selectById(PRODUCT_ID)).thenReturn(product);
     }
 
-    private CreateReviewRequest request(Long orderId) {
-        return new CreateReviewRequest(orderId, PRODUCT_ID, SKU_ID, 5, "很好", List.of());
+    private CreateReviewRequest request(Long orderItemId, Long orderId) {
+        return new CreateReviewRequest(orderItemId, orderId, PRODUCT_ID, SKU_ID, 5, "很好", List.of());
     }
 
-    private void stubEligible(Long... orderIds) {
-        when(orderPurchaseFeignClient.purchaseEligibility(USER_ID, SKU_ID))
-                .thenReturn(ApiResponse.ok(List.of(orderIds)));
+    /** R08：订单服务返回该订单行权威事实（orderId/productId/skuId 与请求一致才放行） */
+    private void stubEligible(Long orderId) {
+        when(orderPurchaseFeignClient.reviewEligibility(USER_ID, ORDER_ITEM_ID))
+                .thenReturn(ApiResponse.ok(
+                        new OrderItemEligibility(ORDER_ITEM_ID, orderId, PRODUCT_ID, SKU_ID, "测试商品", null)));
     }
 
     @Test
     @DisplayName("已购（订单在资格列表中）→ 评价成功入库")
     void createReview_eligible_ok() {
-        stubEligible(ORDER_ID, 8888L);
+        stubEligible(ORDER_ID);
         when(reviewMapper.selectCount(any())).thenReturn(0L);
         when(skuMapper.selectById(SKU_ID)).thenReturn(null);
         org.mockito.Mockito.doAnswer(inv -> {
@@ -85,7 +89,7 @@ class ReviewEligibilityTest {
             return 1;
         }).when(reviewMapper).insert(any(ProductReview.class));
 
-        ReviewDTO dto = reviewService.createReview(USER_ID, request(ORDER_ID));
+        ReviewDTO dto = reviewService.createReview(USER_ID, request(ORDER_ITEM_ID, ORDER_ID));
 
         assertThat(dto).isNotNull();
         ArgumentCaptor<ProductReview> captor = ArgumentCaptor.forClass(ProductReview.class);
@@ -95,22 +99,23 @@ class ReviewEligibilityTest {
     }
 
     @Test
-    @DisplayName("未购（该 SKU 无已完成订单）→ 拒绝")
+    @DisplayName("未购（该订单行无可评价资格，data=null）→ 拒绝")
     void createReview_neverPurchased_rejected() {
-        stubEligible();
+        when(orderPurchaseFeignClient.reviewEligibility(USER_ID, ORDER_ITEM_ID))
+                .thenReturn(ApiResponse.ok(null));
 
-        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request(ORDER_ID)))
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request(ORDER_ITEM_ID, ORDER_ID)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "REVIEW_NOT_ELIGIBLE");
         verify(reviewMapper, never()).insert(any(ProductReview.class));
     }
 
     @Test
-    @DisplayName("他人订单（orderId 不在本人资格列表）→ 拒绝")
+    @DisplayName("他人订单（订单行事实 orderId 与请求不符）→ 拒绝")
     void createReview_othersOrder_rejected() {
         stubEligible(7777L);
 
-        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request(ORDER_ID)))
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request(ORDER_ITEM_ID, ORDER_ID)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "REVIEW_NOT_ELIGIBLE");
     }
@@ -118,9 +123,9 @@ class ReviewEligibilityTest {
     @Test
     @DisplayName("订单服务不可用 → fail-closed 拒绝评价")
     void createReview_orderServiceDown_failsClosed() {
-        when(orderPurchaseFeignClient.purchaseEligibility(anyLong(), anyLong())).thenReturn(null);
+        when(orderPurchaseFeignClient.reviewEligibility(anyLong(), anyLong())).thenReturn(null);
 
-        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request(ORDER_ID)))
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request(ORDER_ITEM_ID, ORDER_ID)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "REVIEW_NOT_ELIGIBLE");
     }
@@ -128,10 +133,10 @@ class ReviewEligibilityTest {
     @Test
     @DisplayName("订单服务显式失败（降级抛错）→ 异常透传拒绝")
     void createReview_orderServiceError_propagates() {
-        when(orderPurchaseFeignClient.purchaseEligibility(anyLong(), anyLong()))
+        when(orderPurchaseFeignClient.reviewEligibility(anyLong(), anyLong()))
                 .thenThrow(new BusinessException("ORDER_SERVICE_UNAVAILABLE", "订单服务暂不可用"));
 
-        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request(ORDER_ID)))
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request(ORDER_ITEM_ID, ORDER_ID)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "ORDER_SERVICE_UNAVAILABLE");
     }
@@ -142,9 +147,9 @@ class ReviewEligibilityTest {
         stubEligible(ORDER_ID);
         when(reviewMapper.selectCount(any())).thenReturn(0L);
         when(reviewMapper.insert(any(ProductReview.class)))
-                .thenThrow(new DuplicateKeyException("uk_user_order_product"));
+                .thenThrow(new DuplicateKeyException("uk_user_order_item"));
 
-        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request(ORDER_ID)))
+        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request(ORDER_ITEM_ID, ORDER_ID)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "REVIEW_ALREADY_EXISTS");
     }

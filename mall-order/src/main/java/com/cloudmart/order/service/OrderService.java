@@ -68,6 +68,11 @@ public interface OrderService {
     /** REVIEW-01：用户已完成且包含该 SKU 的订单 ID 列表（评价资格判定，服务令牌可达） */
     List<Long> findCompletedOrderIdsWithSku(Long userId, Long skuId);
 
+    /**
+     * R08：订单行级评价资格事实；行属主非 userId 或订单未 COMPLETED 返回 null。
+     */
+    com.cloudmart.order.dto.ReviewEligibilityItem findReviewEligibility(Long userId, Long orderItemId);
+
     /** T11 切片二 C：系统代批退款（售后质检通过自动流转；approveRefund 同逻辑无操作者限制） */
     OrderDTO approveRefundSystem(Long orderId);
 

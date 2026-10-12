@@ -12,8 +12,9 @@ import {
   type AfterSaleCase,
 } from '@/api/after-sale'
 import { fileApi } from '@/api/file'
+import { productApi, type OwnReview } from '@/api/product'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
-import type { Order } from '@/types'
+import type { Order, OrderItem } from '@/types'
 
 const STATUS_CONFIG: Record<number, { icon: string; label: string; colorKey: 'accentOrange' | 'accentRed' | 'accentGreen' | 'primary' | 'textTertiary' }> = {
   0: { icon: '💰', label: '待付款', colorKey: 'accentOrange' },
@@ -50,6 +51,34 @@ export default function OrderDetailPage() {
   const [afterSaleFileIds, setAfterSaleFileIds] = useState<string[]>([])
   const [afterSaleSubmitting, setAfterSaleSubmitting] = useState(false)
 
+  // R08：订单行评价（仅 status===3 已完成订单可评；每订单行限一条）
+  const [reviewMap, setReviewMap] = useState<Record<number, OwnReview>>({})
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [reviewLoading, setReviewLoading] = useState(false)
+  const [reviewItem, setReviewItem] = useState<OrderItem | null>(null)
+  const [viewReview, setViewReview] = useState<OwnReview | null>(null)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewContent, setReviewContent] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+
+  /** 已完成订单预载各订单行评价，用于按钮展示「评价/查看评价」；单项失败不阻塞页面 */
+  const fetchItemReviews = useCallback(async (currentOrder: Order) => {
+    if (currentOrder.status !== 3) return
+    const results = await Promise.allSettled(
+      currentOrder.items.map(async (item) => {
+        const res = await productApi.getOwnReviewByOrderItem(item.id)
+        return [item.id, res.data.data ?? null] as const
+      }),
+    )
+    const map: Record<number, OwnReview> = {}
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value[1]) {
+        map[result.value[0]] = result.value[1]
+      }
+    })
+    setReviewMap(map)
+  }, [])
+
   const fetchOrder = useCallback(async () => {
     if (!id) return
     setLoading(true)
@@ -58,13 +87,14 @@ export default function OrderDetailPage() {
       const data = res.data as { data?: Order }
       if (data?.data) {
         setOrder(data.data)
+        await fetchItemReviews(data.data)
       }
     } catch {
       Alert.alert('错误', '加载订单失败')
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, fetchItemReviews])
 
   const fetchAfterSaleCases = useCallback(async () => {
     if (!id) return
@@ -249,6 +279,65 @@ export default function OrderDetailPage() {
     }
   }
 
+  // ==================== R08：商品评价 ====================
+
+  /** 点击时按订单行拉取本人评价：有评价进只读弹层，无评价进填写弹层 */
+  const openReview = async (item: OrderItem) => {
+    setReviewItem(item)
+    setViewReview(null)
+    setReviewRating(5)
+    setReviewContent('')
+    setReviewOpen(true)
+    setReviewLoading(true)
+    try {
+      const res = await productApi.getOwnReviewByOrderItem(item.id)
+      const existing = res.data.data ?? null
+      setViewReview(existing)
+      if (existing) {
+        setReviewMap((prev) => ({ ...prev, [item.id]: existing }))
+      }
+    } catch {
+      // 错误提示由 request 拦截器统一 Alert/toast，这里仅收起弹层
+      setReviewOpen(false)
+    } finally {
+      setReviewLoading(false)
+    }
+  }
+
+  const submitReview = async () => {
+    if (!reviewItem || !order) return
+    if (reviewRating < 1 || reviewRating > 5) {
+      Alert.alert('提示', '请选择评分')
+      return
+    }
+    if (!reviewContent.trim()) {
+      Alert.alert('提示', '请填写评价内容')
+      return
+    }
+    setReviewSubmitting(true)
+    try {
+      const res = await productApi.createReview({
+        orderItemId: reviewItem.id,
+        orderId: order.id,
+        productId: reviewItem.productId,
+        skuId: reviewItem.skuId,
+        rating: reviewRating,
+        content: reviewContent.trim(),
+      })
+      const created = res.data.data
+      setReviewOpen(false)
+      if (created) {
+        setReviewMap((prev) => ({ ...prev, [reviewItem.id]: created }))
+      }
+      Alert.alert('提示', '评价成功')
+      fetchOrder()
+    } catch {
+      // 后端强校验（本人/COMPLETED/三要素一致/限一条）失败由 request 拦截器统一提示
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
+
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.bgBase, justifyContent: 'center', alignItems: 'center' }}>
@@ -417,6 +506,25 @@ export default function OrderDetailPage() {
                       x{item.quantity}
                     </Text>
                   </View>
+                  {order.status === 3 && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: Spacing.xs }}>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => openReview(item)}
+                        style={{
+                          paddingHorizontal: Spacing.lg,
+                          paddingVertical: Spacing.xs,
+                          borderRadius: BorderRadius.full,
+                          borderWidth: 1,
+                          borderColor: theme.primary,
+                        }}
+                      >
+                        <Text style={{ fontSize: FontSize.xs, color: theme.primary, fontWeight: '500' }}>
+                          {reviewMap[item.id] ? '查看评价' : '评价'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
               </TouchableOpacity>
             ))}
@@ -874,6 +982,138 @@ export default function OrderDetailPage() {
                 <Text style={{ fontSize: FontSize.sm, color: '#FFFFFF', fontWeight: '600' }}>{afterSaleSubmitting ? '提交中...' : '提交申请'}</Text>
               </TouchableOpacity>
             </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* R08：评价/查看评价弹窗（有评价只读，含下架理由；无评价填星级+内容提交） */}
+      <Modal visible={reviewOpen} transparent animationType="slide" onRequestClose={() => !reviewSubmitting && setReviewOpen(false)}>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => !reviewSubmitting && setReviewOpen(false)}
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+        >
+          <TouchableOpacity activeOpacity={1} style={{ backgroundColor: theme.bgContainer, borderTopLeftRadius: BorderRadius.xl, borderTopRightRadius: BorderRadius.xl, padding: Spacing.xl }}>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: theme.text }}>
+              {viewReview ? '查看评价' : '商品评价'}
+            </Text>
+            {reviewItem && (
+              <Text numberOfLines={1} style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: Spacing.xs }}>
+                {reviewItem.productName}
+              </Text>
+            )}
+
+            {reviewLoading ? (
+              <View style={{ paddingVertical: Spacing.xxl, alignItems: 'center' }}>
+                <ActivityIndicator color={theme.primary} />
+              </View>
+            ) : viewReview ? (
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.md }}>
+                  <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '500' }}>评分：</Text>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Text key={star} style={{ fontSize: FontSize.lg, color: star <= viewReview.rating ? theme.accentOrange : theme.textTertiary }}>
+                      ★
+                    </Text>
+                  ))}
+                  <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                    {viewReview.rating}/5
+                  </Text>
+                </View>
+                <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: Spacing.xs }}>
+                  {formatTime(viewReview.createdAt)}
+                </Text>
+                <Text style={{ fontSize: FontSize.md, color: theme.text, lineHeight: 22, marginTop: Spacing.sm }}>
+                  {viewReview.content}
+                </Text>
+                {viewReview.status === 0 && !!viewReview.hideReason && (
+                  <View style={{
+                    marginTop: Spacing.md,
+                    padding: Spacing.md,
+                    borderRadius: BorderRadius.md,
+                    borderWidth: 1,
+                    borderColor: theme.accentRed,
+                    backgroundColor: theme.bgBase,
+                  }}>
+                    <Text style={{ fontSize: FontSize.sm, color: theme.accentRed, fontWeight: '600' }}>该评价已下架</Text>
+                    <Text style={{ fontSize: FontSize.sm, color: theme.accentRed, marginTop: 2 }}>
+                      理由：{viewReview.hideReason}
+                    </Text>
+                  </View>
+                )}
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: Spacing.lg }}>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setReviewOpen(false)}
+                    style={{ paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: theme.border }}
+                  >
+                    <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>关闭</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.md }}>
+                  <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '500', marginRight: Spacing.sm }}>评分</Text>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <TouchableOpacity
+                      key={star}
+                      activeOpacity={0.7}
+                      onPress={() => setReviewRating(star)}
+                      style={{ paddingHorizontal: 4 }}
+                    >
+                      <Text style={{ fontSize: 28, color: star <= reviewRating ? theme.accentOrange : theme.textTertiary }}>
+                        ★
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                  <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary, marginLeft: Spacing.xs }}>
+                    {reviewRating}/5
+                  </Text>
+                </View>
+                <TextInput
+                  value={reviewContent}
+                  onChangeText={setReviewContent}
+                  placeholder="分享您的购买体验（必填）"
+                  placeholderTextColor={theme.textTertiary}
+                  maxLength={1000}
+                  multiline
+                  style={{
+                    marginTop: Spacing.md,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                    borderRadius: BorderRadius.md,
+                    paddingHorizontal: Spacing.md,
+                    paddingVertical: Spacing.sm,
+                    color: theme.text,
+                    fontSize: FontSize.sm,
+                    minHeight: 100,
+                    textAlignVertical: 'top',
+                    backgroundColor: theme.bgBase,
+                  }}
+                />
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.md, marginTop: Spacing.lg }}>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => setReviewOpen(false)}
+                    disabled={reviewSubmitting}
+                    style={{ paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: theme.border }}
+                  >
+                    <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>取消</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={reviewSubmitting ? undefined : submitReview}
+                    disabled={reviewSubmitting}
+                    style={{ paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: BorderRadius.xl, backgroundColor: theme.primary, opacity: reviewSubmitting ? 0.6 : 1 }}
+                  >
+                    <Text style={{ fontSize: FontSize.sm, color: '#FFFFFF', fontWeight: '600' }}>
+                      {reviewSubmitting ? '提交中...' : '提交评价'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>

@@ -15,10 +15,10 @@ describe('review API', () => {
   it('createReview() calls POST /product/reviews with data', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
 
-    await createReview({ orderId: 1, productId: 2, skuId: 3, rating: 5, content: 'Great!', images: ['img.jpg'] })
+    await createReview({ orderItemId: 10, orderId: 1, productId: 2, skuId: 3, rating: 5, content: 'Great!', images: ['img.jpg'] })
 
     expect(request.post).toHaveBeenCalledWith('/product/reviews', {
-      orderId: 1, productId: 2, skuId: 3, rating: 5, content: 'Great!', images: ['img.jpg'],
+      orderItemId: 10, orderId: 1, productId: 2, skuId: 3, rating: 5, content: 'Great!', images: ['img.jpg'],
     })
   })
 

@@ -31,6 +31,14 @@ public class OrderPurchaseFeignClientFallbackFactory implements FallbackFactory<
             }
 
             @Override
+            public ApiResponse<com.cloudmart.product.dto.OrderItemEligibility> reviewEligibility(
+                    Long userId, Long orderItemId) {
+                // R08 订单行资格同样 fail-closed：查不到购买事实绝不允许评价
+                log.error("mall-order 订单行评价资格查询失败: userId={}, orderItemId={}", userId, orderItemId, cause);
+                throw unavailable;
+            }
+
+            @Override
             public ApiResponse<Boolean> hasPurchasedProduct(Long userId, Long productId) {
                 // N-5 fail-open：徽标查询失败按未购处理，不阻塞回答
                 log.warn("N-5 已购标识查询失败（fail-open 按未购）: {}", cause.getMessage());

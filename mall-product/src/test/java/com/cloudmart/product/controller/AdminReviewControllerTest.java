@@ -42,12 +42,13 @@ class AdminReviewControllerTest {
     }
 
     private ReviewDTO buildReviewDTO() {
-        return new ReviewDTO(1L, 10L, 1L, "user***", null, 100L, 200L,
-                "颜色:红色", 5, "非常好的商品", List.of("img1.jpg"), 1, LocalDateTime.now());
+        return new ReviewDTO(1L, 10L, 1L, "user***", null, 100L, 1000L, 200L,
+                "颜色:红色", 5, "非常好的商品", List.of("img1.jpg"), 1, null, LocalDateTime.now());
     }
 
     private ReviewVO buildReviewVO() {
-        return new ReviewVO(1L, "user***", 5, "非常好的商品", List.of("img1.jpg"), 1, LocalDateTime.now());
+        return new ReviewVO(1L, "user***", 5, "非常好的商品", List.of("img1.jpg"), 1,
+                1000L, 100L, 200L, 10L, null, LocalDateTime.now());
     }
 
     @Nested

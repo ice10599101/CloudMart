@@ -19,7 +19,13 @@ public interface ReviewService {
 
     ReviewDTO getReviewById(Long id);
 
+    /** R08：作者按订单行查自己的评价（含下架理由）；未评价返回 null */
+    ReviewDTO getOwnReviewByOrderItem(Long userId, Long orderItemId);
+
     void updateReviewStatus(Long id, Integer status);
+
+    /** R08：管理端审核/下架（下架必填理由，作者可见） */
+    void updateReviewStatus(Long id, Integer status, String reason);
 
     void deleteReview(Long id);
 }

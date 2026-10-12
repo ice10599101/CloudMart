@@ -64,29 +64,35 @@ public class ReviewServiceImpl implements ReviewService {
             throw new BusinessException("PRODUCT_NOT_FOUND", "商品不存在");
         }
 
-        // REVIEW-01：购买资格权威校验——传入 orderId 必须属于该用户、已完成且包含该 SKU。
-        // 未购/他人订单/订单未完成/SKU 与订单不符一律拒绝；订单服务不可用 fail-closed
-        ApiResponse<List<Long>> eligibility =
-                orderPurchaseFeignClient.purchaseEligibility(userId, request.skuId());
-        if (eligibility == null || !eligibility.success() || eligibility.data() == null) {
-            throw new BusinessException("REVIEW_NOT_ELIGIBLE", "未找到可评价的已购订单");
+        // R08：以订单行为唯一资格锚点——订单服务权威返回行事实，
+        // 行属主=userId 且订单 COMPLETED 才可评价；订单服务不可用 fail-closed
+        ApiResponse<com.cloudmart.product.dto.OrderItemEligibility> eligibilityResp =
+                orderPurchaseFeignClient.reviewEligibility(userId, request.orderItemId());
+        if (eligibilityResp == null || !eligibilityResp.success() || eligibilityResp.data() == null) {
+            throw new BusinessException("REVIEW_NOT_ELIGIBLE", "未找到可评价的已完成订单行");
         }
-        if (!eligibility.data().contains(request.orderId())) {
-            throw new BusinessException("REVIEW_NOT_ELIGIBLE", "仅可评价已完成订单中购买的商品");
+        var fact = eligibilityResp.data();
+        // R08：请求三要素必须与订单行权威事实逐项一致，防伪造组合与跨商品 SKU 错配
+        if (!java.util.Objects.equals(fact.orderId(), request.orderId())
+                || !java.util.Objects.equals(fact.productId(), request.productId())
+                || !java.util.Objects.equals(fact.skuId(), request.skuId())) {
+            throw new BusinessException("REVIEW_NOT_ELIGIBLE",
+                    "评价商品/SKU/订单与购买记录不一致，请从订单详情发起评价");
         }
 
-        LambdaQueryWrapper<ProductReview> existsWrapper = new LambdaQueryWrapper<ProductReview>()
+        // R08：每订单行一次评价（预检 + uk_user_order_item 兜底并发）
+        Long existing = reviewMapper.selectCount(new LambdaQueryWrapper<ProductReview>()
                 .eq(ProductReview::getUserId, userId)
-                .eq(ProductReview::getOrderId, request.orderId())
-                .eq(ProductReview::getProductId, request.productId());
-        if (reviewMapper.selectCount(existsWrapper) > 0) {
-            throw new BusinessException("REVIEW_ALREADY_EXISTS", "您已评价过该商品");
+                .eq(ProductReview::getOrderItemId, request.orderItemId()));
+        if (existing != null && existing > 0) {
+            throw new BusinessException("REVIEW_ALREADY_EXISTS", "该订单商品您已评价过");
         }
 
         ProductReview review = new ProductReview();
         review.setProductId(request.productId());
         review.setUserId(userId);
         review.setOrderId(request.orderId());
+        review.setOrderItemId(request.orderItemId());
         review.setSkuId(request.skuId());
         review.setRating(request.rating());
         review.setContent(request.content());
@@ -103,9 +109,8 @@ public class ReviewServiceImpl implements ReviewService {
         try {
             reviewMapper.insert(review);
         } catch (org.springframework.dao.DuplicateKeyException e) {
-            // REVIEW-01：并发重复评价由 uk_user_order_product 唯一键兜底（同订单同商品唯一，
-            // 同单不同 SKU 可分别评），预检竞态窗口的重复插入转译为业务冲突
-            throw new BusinessException("REVIEW_ALREADY_EXISTS", "您已评价过该商品");
+            // R08：并发重复评价由 uk_user_order_item 兜底——同一订单行不可二次评价
+            throw new BusinessException("REVIEW_ALREADY_EXISTS", "该订单商品您已评价过");
         }
 
         ProductSku sku = skuMapper.selectById(request.skuId());
@@ -120,21 +125,21 @@ public class ReviewServiceImpl implements ReviewService {
                     ProductRewardObligation.TYPE_STARLIGHT, rewardStarlight, "评价返星光");
         }
 
-        return new ReviewDTO(
-                review.getId(),
-                review.getProductId(),
-                review.getUserId(),
-                null,
-                null,
-                review.getOrderId(),
-                review.getSkuId(),
-                skuAttributes,
-                review.getRating(),
-                review.getContent(),
-                request.images(),
-                review.getStatus(),
-                review.getCreatedAt()
-        );
+        return toDto(review, skuAttributes, null, request.images());
+    }
+
+    /** R08：作者查自己在某订单行的评价（含下架理由；用于订单详情评价状态与理由回显） */
+    @Override
+    public ReviewDTO getOwnReviewByOrderItem(Long userId, Long orderItemId) {
+        ProductReview review = reviewMapper.selectOne(new LambdaQueryWrapper<ProductReview>()
+                .eq(ProductReview::getUserId, userId)
+                .eq(ProductReview::getOrderItemId, orderItemId)
+                .last("LIMIT 1"));
+        if (review == null) {
+            return null;
+        }
+        ProductSku sku = review.getSkuId() == null ? null : skuMapper.selectById(review.getSkuId());
+        return toDto(review, sku != null ? sku.getAttributes() : null, null, parseImages(review.getImages()));
     }
 
     @Override
@@ -157,21 +162,10 @@ public class ReviewServiceImpl implements ReviewService {
                         .collect(Collectors.toMap(ProductSku::getId, ProductSku::getAttributes));
 
         List<ReviewDTO> dtos = reviewPage.getRecords().stream()
-                .map(review -> new ReviewDTO(
-                        review.getId(),
-                        review.getProductId(),
-                        review.getUserId(),
-                        buildMaskedUsername(review.getUserId()),
-                        null,
-                        review.getOrderId(),
-                        review.getSkuId(),
+                .map(review -> toDto(review,
                         skuAttributesMap.getOrDefault(review.getSkuId(), null),
-                        review.getRating(),
-                        review.getContent(),
-                        parseImages(review.getImages()),
-                        review.getStatus(),
-                        review.getCreatedAt()
-                ))
+                        buildMaskedUsername(review.getUserId()),
+                        parseImages(review.getImages())))
                 .toList();
 
         Page<ReviewDTO> resultPage = new Page<>(
@@ -244,21 +238,10 @@ public class ReviewServiceImpl implements ReviewService {
                         .collect(Collectors.toMap(ProductSku::getId, ProductSku::getAttributes));
 
         List<ReviewDTO> dtos = reviewPage.getRecords().stream()
-                .map(review -> new ReviewDTO(
-                        review.getId(),
-                        review.getProductId(),
-                        review.getUserId(),
-                        buildMaskedUsername(review.getUserId()),
-                        null,
-                        review.getOrderId(),
-                        review.getSkuId(),
+                .map(review -> toDto(review,
                         skuAttributesMap.getOrDefault(review.getSkuId(), null),
-                        review.getRating(),
-                        review.getContent(),
-                        parseImages(review.getImages()),
-                        review.getStatus(),
-                        review.getCreatedAt()
-                ))
+                        buildMaskedUsername(review.getUserId()),
+                        parseImages(review.getImages())))
                 .toList();
 
         Page<ReviewDTO> resultPage = new Page<>(
@@ -280,31 +263,35 @@ public class ReviewServiceImpl implements ReviewService {
             skuAttributes = sku != null ? sku.getAttributes() : null;
         }
 
-        return new ReviewDTO(
-                review.getId(),
-                review.getProductId(),
-                review.getUserId(),
-                buildMaskedUsername(review.getUserId()),
-                null,
-                review.getOrderId(),
-                review.getSkuId(),
-                skuAttributes,
-                review.getRating(),
-                review.getContent(),
-                parseImages(review.getImages()),
-                review.getStatus(),
-                review.getCreatedAt()
-        );
+        return toDto(review, skuAttributes, buildMaskedUsername(review.getUserId()),
+                parseImages(review.getImages()));
     }
 
     @Override
     @Transactional
     public void updateReviewStatus(Long id, Integer status) {
+        updateReviewStatus(id, status, null);
+    }
+
+    /**
+     * R08：管理端审核/下架——status=0（下架）必须给理由（<=200 字，作者可见）；
+     * 恢复显示（status=1）清空理由。
+     */
+    @Override
+    @Transactional
+    public void updateReviewStatus(Long id, Integer status, String reason) {
+        if (status == null || (status != 0 && status != 1)) {
+            throw new BusinessException("REVIEW_STATUS_INVALID", "评价状态仅支持 0=下架 或 1=显示");
+        }
         ProductReview review = reviewMapper.selectById(id);
         if (review == null) {
             throw new BusinessException("REVIEW_NOT_FOUND", "评价不存在");
         }
+        if (status == 0 && (reason == null || reason.isBlank())) {
+            throw new BusinessException("REVIEW_HIDE_REASON_REQUIRED", "下架评价必须填写理由");
+        }
         review.setStatus(status);
+        review.setHideReason(status == 0 ? reason.trim() : null);
         reviewMapper.updateById(review);
     }
 
@@ -324,6 +311,27 @@ public class ReviewServiceImpl implements ReviewService {
                 ? userIdStr.substring(userIdStr.length() - 4)
                 : userIdStr;
         return "用户****" + suffix;
+    }
+
+    /** R08 统一 DTO 组装（含订单行锚点与下架理由） */
+    private ReviewDTO toDto(ProductReview review, String skuAttributes, String username, List<String> images) {
+        return new ReviewDTO(
+                review.getId(),
+                review.getProductId(),
+                review.getUserId(),
+                username,
+                null,
+                review.getOrderId(),
+                review.getOrderItemId(),
+                review.getSkuId(),
+                skuAttributes,
+                review.getRating(),
+                review.getContent(),
+                images,
+                review.getStatus(),
+                review.getHideReason(),
+                review.getCreatedAt()
+        );
     }
 
     private List<String> parseImages(String imagesJson) {

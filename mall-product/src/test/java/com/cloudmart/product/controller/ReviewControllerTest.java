@@ -42,8 +42,8 @@ class ReviewControllerTest {
     void getProductReviews_ShouldReturn200AndEnvelope() throws Exception {
         ReviewDTO dto = new ReviewDTO(
                 1L, 3001L, 1001L, "用户****1001", null,
-                2001L, 4001L, "颜色:红色", 5, "非常好",
-                List.of(), 1, LocalDateTime.of(2026, 5, 13, 10, 0));
+                2001L, 1000L, 4001L, "颜色:红色", 5, "非常好",
+                List.of(), 1, null, LocalDateTime.of(2026, 5, 13, 10, 0));
 
         Page<ReviewDTO> page = new Page<>(1, 10, 1L);
         page.setRecords(List.of(dto));
@@ -51,7 +51,8 @@ class ReviewControllerTest {
         given(reviewService.getProductReviews(3001L, 1, 10)).willReturn(page);
 
         ReviewVO vo = new ReviewVO(1L, "用户****1001", 5, "非常好", List.of(),
-                1, LocalDateTime.of(2026, 5, 13, 10, 0));
+                1, 1000L, 2001L, 4001L, 3001L, null,
+                LocalDateTime.of(2026, 5, 13, 10, 0));
         given(productConverter.reviewDtoListToVOList(List.of(dto))).willReturn(List.of(vo));
 
         mockMvc.perform(get("/reviews/product/3001"))

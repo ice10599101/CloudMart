@@ -101,6 +101,19 @@ public class InternalOrderController {
         return ApiResponse.ok(orderService.findCompletedOrderIdsWithSku(userId, skuId));
     }
 
+    /**
+     * R08：订单行级评价资格——评价创建前 mall-product 以此为唯一事实锚点，
+     * 防伪造 orderId/productId/skuId 组合与跨商品 SKU 错配。
+     */
+    @GetMapping("/items/{orderItemId}/review-eligibility")
+    @Operation(summary = "订单行评价资格事实",
+            description = "userId+orderItemId；行属主且订单 COMPLETED 返回 orderItemId/orderId/productId/skuId/商品名，否则 data=null")
+    public ApiResponse<com.cloudmart.order.dto.ReviewEligibilityItem> reviewEligibility(
+            @Parameter(description = "用户 ID", required = true) @org.springframework.web.bind.annotation.RequestParam("userId") Long userId,
+            @Parameter(description = "订单行 ID", required = true) @org.springframework.web.bind.annotation.PathVariable("orderItemId") Long orderItemId) {
+        return ApiResponse.ok(orderService.findReviewEligibility(userId, orderItemId));
+    }
+
     /** 心愿关联商品闭环（§6）：还愿购买凭证校验——订单归属/已完成/含该商品条目 */
     @GetMapping("/purchase-evidence")
     @Operation(summary = "还愿购买凭证校验", description = "userId+productId+orderId；订单属主且已完成且包含该商品条目返回 true")

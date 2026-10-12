@@ -26,7 +26,7 @@ public class ReviewFeignClientFallbackFactory implements FallbackFactory<ReviewF
             }
 
             @Override
-            public ApiResponse<Void> updateReviewStatus(Long id, Integer status) {
+            public ApiResponse<Void> updateReviewStatus(Long id, java.util.Map<String, Object> body) {
                 throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
 

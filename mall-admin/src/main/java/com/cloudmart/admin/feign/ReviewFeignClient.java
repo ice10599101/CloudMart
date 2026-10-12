@@ -17,8 +17,10 @@ public interface ReviewFeignClient {
     @GetMapping("/{id}")
     ApiResponse<Object> getReview(@PathVariable("id") Long id);
 
+    /** R08：审核/下架（status=0 必带 reason），请求体透传 mall-product */
     @PutMapping("/{id}/status")
-    ApiResponse<Void> updateReviewStatus(@PathVariable("id") Long id, @RequestParam("status") Integer status);
+    ApiResponse<Void> updateReviewStatus(@PathVariable("id") Long id,
+                                         @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
 
     @DeleteMapping("/{id}")
     ApiResponse<Void> deleteReview(@PathVariable("id") Long id);

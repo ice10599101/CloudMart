@@ -73,6 +73,17 @@ public class ReviewController {
         return ApiResponse.ok(Map.of("hasReviewed", reviewed));
     }
 
+    /**
+     * R08：按订单行查作者自己的评价（订单详情"评价/查看评价/下架理由"用）；未评价 data=null。
+     */
+    @GetMapping("/order-item/{orderItemId}")
+    @Operation(summary = "查询我在某订单行的评价", description = "含订单行锚点与下架理由；未评价返回 data=null")
+    public ApiResponse<ReviewVO> getOwnReviewByOrderItem(
+            @Parameter(description = "订单行 ID", required = true) @PathVariable("orderItemId") Long orderItemId) {
+        ReviewDTO dto = reviewService.getOwnReviewByOrderItem(getCurrentUserId(), orderItemId);
+        return ApiResponse.ok(dto == null ? null : productConverter.reviewDtoToVO(dto));
+    }
+
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getPrincipal() == null) {

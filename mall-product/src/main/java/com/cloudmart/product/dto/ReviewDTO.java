@@ -10,11 +10,13 @@ public record ReviewDTO(
     String username,
     String userAvatar,
     Long orderId,
+    Long orderItemId,
     Long skuId,
     String skuAttributes,
     Integer rating,
     String content,
     List<String> images,
     Integer status,
+    String hideReason,
     LocalDateTime createdAt
 ) {}

@@ -785,9 +785,10 @@ public class AdminBusinessController {
     @PutMapping("/reviews/{id}/status")
     @OperLog(title = "评价管理", businessType = 2)
     @RequiresPermission("business:review:edit")
-    @Operation(summary = "更新评价状态", description = "隐藏或显示评价")
-    public ApiResponse<Void> updateReviewStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
-        return reviewFeignClient.updateReviewStatus(id, body.get("status"));
+    @Operation(summary = "更新评价状态", description = "R08 下架必须填写理由（作者可见）；恢复显示清空理由")
+    public ApiResponse<Void> updateReviewStatus(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        // 原样透传 {status, reason}，由 mall-product 强校验下架理由
+        return reviewFeignClient.updateReviewStatus(id, body);
     }
 
     @DeleteMapping("/reviews/{id}")

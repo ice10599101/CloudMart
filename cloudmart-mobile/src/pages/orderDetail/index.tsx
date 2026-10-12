@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, Image, ScrollView, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { orderApi } from '@/api/order'
+import { productApi, type OwnReview } from '@/api/product'
 import {
   applyAfterSale,
   listOrderAfterSales,
@@ -17,6 +18,8 @@ import styles from './index.module.scss'
 interface OrderItem {
   id: number
   productId: number
+  /** R08 评价提交需与订单行一致的 skuId（后端 OrderItemVO 实际返回） */
+  skuId: number
   productName: string
   productImage: string
   skuName: string
@@ -81,6 +84,16 @@ export default function OrderDetailPage() {
   const [afterSaleUploading, setAfterSaleUploading] = useState(false)
   const [afterSaleSubmitting, setAfterSaleSubmitting] = useState(false)
 
+  // R08：商品评价（仅已完成订单；按订单行查本人评价，决定“评价/查看评价”入口与弹层形态）
+  const [reviewMap, setReviewMap] = useState<Record<number, OwnReview | null>>({})
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [reviewItem, setReviewItem] = useState<OrderItem | null>(null)
+  const [reviewLoading, setReviewLoading] = useState(false)
+  const [existingReview, setExistingReview] = useState<OwnReview | null>(null)
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewContent, setReviewContent] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+
   useEffect(() => {
     if (id) {
       loadOrder()
@@ -92,12 +105,32 @@ export default function OrderDetailPage() {
     try {
       setLoading(true)
       const res = await orderApi.getDetail(id)
-      setOrder(res.data?.data as unknown as OrderDetail)
+      const detail = res.data?.data as unknown as OrderDetail
+      setOrder(detail)
+      // R08：已完成订单预取各订单行评价，用于“评价/查看评价”入口；失败 fail-open，默认显示“评价”
+      if (detail?.status === 3 && detail.items?.length > 0) {
+        loadOwnReviews(detail.items)
+      }
     } catch {
       Taro.showToast({ title: '加载失败', icon: 'none' })
     } finally {
       setLoading(false)
     }
+  }
+
+  /** R08：并发拉取已完成订单各订单行的本人评价（单项失败按未评价处理，不阻塞页面） */
+  const loadOwnReviews = async (items: OrderItem[]) => {
+    const entries = await Promise.all(
+      items.map(async (item) => {
+        try {
+          const res = await productApi.getOwnReviewByOrderItem(item.id)
+          return [item.id, res.data.success ? (res.data.data ?? null) : null] as const
+        } catch {
+          return [item.id, null] as const
+        }
+      }),
+    )
+    setReviewMap(Object.fromEntries(entries))
   }
 
   const loadAfterSaleCases = async () => {
@@ -277,6 +310,86 @@ export default function OrderDetailPage() {
     }
   }
 
+  // ==================== R08：商品评价 ====================
+
+  /** 点击入口：先查该订单行是否已有评价，决定弹层为只读态还是发表态 */
+  const openReview = async (item: OrderItem) => {
+    setReviewItem(item)
+    setExistingReview(null)
+    setReviewRating(5)
+    setReviewContent('')
+    setReviewOpen(true)
+    setReviewLoading(true)
+    try {
+      const res = await productApi.getOwnReviewByOrderItem(item.id)
+      if (res.data.success) {
+        setExistingReview(res.data.data ?? null)
+        setReviewMap((prev) => ({ ...prev, [item.id]: res.data.data ?? null }))
+      } else {
+        Taro.showToast({ title: res.data.error?.message ?? '评价查询失败', icon: 'none' })
+        setReviewOpen(false)
+        setReviewItem(null)
+      }
+    } catch {
+      Taro.showToast({ title: '评价查询失败', icon: 'none' })
+      setReviewOpen(false)
+      setReviewItem(null)
+    } finally {
+      setReviewLoading(false)
+    }
+  }
+
+  const closeReview = () => {
+    if (reviewSubmitting) return
+    setReviewOpen(false)
+    setReviewItem(null)
+  }
+
+  const submitReview = async () => {
+    if (!order || !reviewItem) return
+    if (!reviewContent.trim()) {
+      Taro.showToast({ title: '请填写评价内容', icon: 'none' })
+      return
+    }
+    setReviewSubmitting(true)
+    try {
+      const res = await productApi.createReview({
+        orderItemId: reviewItem.id,
+        orderId: order.id,
+        productId: reviewItem.productId,
+        skuId: reviewItem.skuId,
+        rating: reviewRating,
+        content: reviewContent.trim(),
+      })
+      if (!res.data.success) {
+        Taro.showToast({ title: res.data.error?.message ?? '评价提交失败', icon: 'none' })
+        return
+      }
+      const created = res.data.data
+      setReviewMap((prev) => ({
+        ...prev,
+        [reviewItem.id]: created
+          ? {
+              id: created.id,
+              rating: created.rating,
+              content: created.content,
+              images: created.images ?? null,
+              status: 1,
+              hideReason: null,
+              createdAt: created.createdAt,
+            }
+          : (prev[reviewItem.id] ?? null),
+      }))
+      Taro.showToast({ title: '评价成功', icon: 'success' })
+      setReviewOpen(false)
+      setReviewItem(null)
+    } catch {
+      Taro.showToast({ title: '评价提交失败', icon: 'none' })
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
+
   /** 状态进度条（对齐 Web 端：提交订单→支付成功→已发货→已完成） */
   const progressSteps = [
     { key: 'created', label: '提交订单', done: true },
@@ -362,7 +475,14 @@ export default function OrderDetailPage() {
                 <Text className={styles.itemSku}>{item.skuName}</Text>
                 <View className={styles.itemBottom}>
                   <Text className={styles.itemPrice}>¥{item.price}</Text>
-                  <Text className={styles.itemQuantity}>x{item.quantity}</Text>
+                  <View className={styles.itemBottomRight}>
+                    <Text className={styles.itemQuantity}>x{item.quantity}</Text>
+                    {order.status === 3 && (
+                      <View className={styles.itemReviewBtn} onClick={() => openReview(item)}>
+                        <Text className={styles.itemReviewText}>{reviewMap[item.id] ? '查看评价' : '评价'}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </View>
             </View>
@@ -620,6 +740,77 @@ export default function OrderDetailPage() {
               </View>
             </View>
           </ScrollView>
+        </View>
+      )}
+      {/* R08：评价弹层——loading / 只读查看（含下架理由）/ 发表 三态 */}
+      {reviewOpen && reviewItem && (
+        <View className={styles.refundMask} onClick={closeReview}>
+          <View className={styles.refundModal} onClick={(e) => e.stopPropagation()}>
+            {reviewLoading ? (
+              <>
+                <Text className={styles.refundTitle}>评价加载中</Text>
+                <Text className={styles.refundHint}>正在获取评价信息…</Text>
+              </>
+            ) : existingReview ? (
+              <>
+                <Text className={styles.refundTitle}>我的评价</Text>
+                <Text className={styles.refundHint}>{reviewItem.productName}</Text>
+                <View className={styles.reviewStars}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Text
+                      key={star}
+                      className={star <= existingReview.rating ? styles.reviewStarActive : styles.reviewStar}
+                    >
+                      {star <= existingReview.rating ? '★' : '☆'}
+                    </Text>
+                  ))}
+                  <Text className={styles.reviewRatingLabel}>评分：{existingReview.rating}星</Text>
+                </View>
+                <Text className={styles.reviewContentText}>{existingReview.content}</Text>
+                {existingReview.status === 0 && (
+                  <Text className={styles.reviewHideReason}>已被下架：{existingReview.hideReason || '暂无理由'}</Text>
+                )}
+                <Text className={styles.reviewTimeText}>{formatDateTime(existingReview.createdAt)}</Text>
+                <View className={styles.refundActions}>
+                  <View className={styles.refundSubmit} onClick={closeReview}>
+                    <Text className={styles.refundSubmitText}>关闭</Text>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <>
+                <Text className={styles.refundTitle}>评价商品</Text>
+                <Text className={styles.refundHint}>{reviewItem.productName}</Text>
+                <View className={styles.reviewStars}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Text
+                      key={star}
+                      className={star <= reviewRating ? styles.reviewStarActive : styles.reviewStar}
+                      onClick={() => setReviewRating(star)}
+                    >
+                      {star <= reviewRating ? '★' : '☆'}
+                    </Text>
+                  ))}
+                  <Text className={styles.reviewRatingLabel}>评分：{reviewRating}星</Text>
+                </View>
+                <Textarea
+                  className={styles.refundTextarea}
+                  value={reviewContent}
+                  maxlength={500}
+                  placeholder='分享你的使用感受吧（必填）'
+                  onInput={(e) => setReviewContent(e.detail.value)}
+                />
+                <View className={styles.refundActions}>
+                  <View className={styles.refundCancel} onClick={closeReview}>
+                    <Text className={styles.refundCancelText}>取消</Text>
+                  </View>
+                  <View className={styles.refundSubmit} onClick={reviewSubmitting ? undefined : submitReview}>
+                    <Text className={styles.refundSubmitText}>{reviewSubmitting ? '提交中...' : '提交评价'}</Text>
+                  </View>
+                </View>
+              </>
+            )}
+          </View>
         </View>
       )}
     </View>

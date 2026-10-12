@@ -4,7 +4,7 @@ import {
   ModalForm,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Tag, Popconfirm, Descriptions, Image, Rate } from 'antd'
+import { Button, Tag, Popconfirm, Descriptions, Image, Rate, Input, Space, Alert } from 'antd'
 import {
   getReviews,
   updateReviewStatus,
@@ -25,15 +25,17 @@ interface ReviewRecord {
   content: string
   images: string[]
   status: number
+  /** R08 下架理由（作者可见） */
+  hideReason?: string | null
   reply: string
   createdAt: string
   updatedAt: string
 }
 
+// R08：评价默认上架（status=1 展示中），违规由管理员下架（status=0，必带理由）
 const REVIEW_STATUS_MAP: Record<number, { label: string; color: string }> = {
-  0: { label: '待审核', color: 'warning' },
-  1: { label: '已通过', color: 'success' },
-  2: { label: '已拒绝', color: 'error' },
+  0: { label: '已下架', color: 'error' },
+  1: { label: '展示中', color: 'success' },
 }
 
 export default function Reviews() {
@@ -41,14 +43,33 @@ export default function Reviews() {
   const actionRef = useRef<ActionType>(null)
   const [detailVisible, setDetailVisible] = useState(false)
   const [currentReview, setCurrentReview] = useState<ReviewRecord | null>(null)
+  const [hideTarget, setHideTarget] = useState<ReviewRecord | null>(null)
+  const [hideReason, setHideReason] = useState('')
+  const [hiding, setHiding] = useState(false)
 
-  const handleStatusChange = async (id: number, status: number) => {
+  const handleRestore = async (id: number) => {
+    await updateReviewStatus(id, { status: 1, reason: '' })
+    message.success('已恢复展示')
+    actionRef.current?.reload()
+  }
+
+  const submitHide = async () => {
+    if (!hideTarget) return
+    if (!hideReason.trim()) {
+      message.error('下架必须填写理由（将同步告知作者）')
+      return
+    }
+    setHiding(true)
     try {
-      await updateReviewStatus(id, { status })
-      message.success(status === 1 ? '审核通过' : '已拒绝')
+      await updateReviewStatus(hideTarget.id, { status: 0, reason: hideReason.trim() })
+      message.success('已下架并记录理由')
+      setHideTarget(null)
+      setHideReason('')
       actionRef.current?.reload()
     } catch {
-      message.error('状态更新失败')
+      message.error('下架失败')
+    } finally {
+      setHiding(false)
     }
   }
 
@@ -101,6 +122,14 @@ export default function Reviews() {
         return <Tag color={statusInfo.color}>{statusInfo.label}</Tag>
       },
     },
+    {
+      title: '下架理由',
+      dataIndex: 'hideReason',
+      width: 180,
+      search: false,
+      ellipsis: true,
+      render: (_, record) => record.hideReason || <span style={{ color: '#bbb' }}>—</span>,
+    },
     { title: '评论时间', dataIndex: 'createdAt', width: 180, valueType: 'dateTime', search: false },
     {
       title: '操作',
@@ -118,21 +147,30 @@ export default function Reviews() {
             详情
           </Button>,
         ]
-        if (Number(record.status) === 0) {
+        if (Number(record.status) === 1) {
+          // R08：下架必须填写理由（后端强校验）
+          actions.push(
+            <Button
+              key="hide"
+              type="link"
+              size="small"
+              danger
+              onClick={() => {
+                setHideTarget(record)
+                setHideReason('')
+              }}
+            >
+              下架
+            </Button>,
+          )
+        } else {
           actions.push(
             <Popconfirm
-              key="approve"
-              title="确认通过该评论？"
-              onConfirm={() => handleStatusChange(record.id, 1)}
+              key="restore"
+              title="确认恢复该评价展示？"
+              onConfirm={() => handleRestore(record.id)}
             >
-              <Button type="link" size="small">通过</Button>
-            </Popconfirm>,
-            <Popconfirm
-              key="reject"
-              title="确认拒绝该评论？"
-              onConfirm={() => handleStatusChange(record.id, 2)}
-            >
-              <Button type="link" size="small" danger>拒绝</Button>
+              <Button type="link" size="small">恢复展示</Button>
             </Popconfirm>,
           )
         }
@@ -152,11 +190,11 @@ export default function Reviews() {
 
   return (
     <>
-      <ProTable<ReviewRecord>
+      <ProTable
         headerTitle="评论管理"
         actionRef={actionRef}
         rowKey="id"
-        scroll={{ x: 1200 }}
+        scroll={{ x: 1300 }}
         request={async (params) => {
           return safeProTableRequest<ReviewRecord>(() =>
             getReviews({
@@ -178,7 +216,7 @@ export default function Reviews() {
           open={detailVisible}
           onOpenChange={setDetailVisible}
           onFinish={async () => true}
-          modalProps={{ destroyOnHidden: true, footer: null, mask: { closable: false }, keyboard: false }}
+          modalProps={{ destroyOnHidden: true, footer: null, keyboard: false }}
           width={640}
           submitter={false}
         >
@@ -211,11 +249,44 @@ export default function Reviews() {
                 {REVIEW_STATUS_MAP[currentReview.status]?.label ?? '未知'}
               </Tag>
             </Descriptions.Item>
+            {currentReview.hideReason && (
+              <Descriptions.Item label="下架理由">{currentReview.hideReason}</Descriptions.Item>
+            )}
             <Descriptions.Item label="商家回复">{currentReview.reply || '暂无回复'}</Descriptions.Item>
             <Descriptions.Item label="评论时间">{currentReview.createdAt}</Descriptions.Item>
           </Descriptions>
         </ModalForm>
       )}
+
+      {/* R08 下架理由录入（必填，作者可在订单详情看到） */}
+      <ModalForm
+        title={`下架评论 #${hideTarget?.id ?? ''}`}
+        open={hideTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setHideTarget(null)
+        }}
+        onFinish={async () => {
+          await submitHide()
+          return true
+        }}
+        modalProps={{ destroyOnHidden: true, confirmLoading: hiding }}
+        width={480}
+      >
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="下架后该评价不在商品详情公开展示，理由会展示给评价作者，请如实填写。"
+        />
+        <Input.TextArea
+          value={hideReason}
+          onChange={(e) => setHideReason(e.target.value)}
+          rows={3}
+          maxLength={200}
+          showCount
+          placeholder="必填：下架理由（≤200 字，作者可见），如「图片含侵权导流二维码」"
+        />
+      </ModalForm>
     </>
   )
 }

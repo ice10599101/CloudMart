@@ -1472,6 +1472,18 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public com.cloudmart.order.dto.ReviewEligibilityItem findReviewEligibility(Long userId, Long orderItemId) {
+        com.cloudmart.order.entity.OrderItem item =
+                orderMapper.findCompletedOrderItemForReview(userId, orderItemId);
+        if (item == null) {
+            return null;
+        }
+        return new com.cloudmart.order.dto.ReviewEligibilityItem(
+                item.getId(), item.getOrderId(), item.getProductId(), item.getSkuId(),
+                item.getProductName(), item.getSkuAttributes());
+    }
+
+    @Override
     public boolean hasCompletedOrderWithProduct(Long userId, Long productId, Long orderId) {
         return orderMapper.countCompletedOrderWithProduct(userId, productId, orderId) > 0;
     }

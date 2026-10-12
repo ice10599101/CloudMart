@@ -155,6 +155,8 @@ export interface Order {
 export interface OrderItem {
   id: number
   productId: number
+  /** R08：后端 OrderItemVO 实际返回，评价提交需与订单行三要素一致 */
+  skuId: number
   productName: string
   productImage: string
   skuName?: string

@@ -58,12 +58,21 @@ public class AdminReviewController {
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('INTERNAL')")
-    @Operation(summary = "更新评价状态", description = "管理后台更新评价状态（0=隐藏，1=显示）")
+    @Operation(summary = "更新评价状态（R08 下架必填理由）",
+            description = "0=下架（reason 必填，作者可见），1=恢复显示（清空理由）")
     public ApiResponse<Void> updateReviewStatus(
             @Parameter(description = "评价ID", required = true) @PathVariable("id") Long id,
-            @Parameter(description = "状态值", required = true) @RequestParam("status") Integer status) {
-        reviewService.updateReviewStatus(id, status);
+            @RequestBody(required = false) ReviewStatusRequest body,
+            // 兼容旧 query 参数调用（无理由下架将被服务端拒绝，强制走带理由的新调用方）
+            @Parameter(description = "状态值（旧 query 兼容）") @RequestParam(value = "status", required = false) Integer queryStatus) {
+        Integer status = body != null ? body.status() : queryStatus;
+        String reason = body != null ? body.reason() : null;
+        reviewService.updateReviewStatus(id, status, reason);
         return ApiResponse.ok(null);
+    }
+
+    /** R08 评价审核/下架请求体 */
+    public record ReviewStatusRequest(Integer status, String reason) {
     }
 
     @DeleteMapping("/{id}")
