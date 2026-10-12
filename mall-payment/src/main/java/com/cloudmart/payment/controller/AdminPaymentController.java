@@ -71,6 +71,8 @@ public class AdminPaymentController {
         view.put("orderId", attempt.getOrderId());
         view.put("merchantPaymentNo", attempt.getMerchantPaymentNo());
         view.put("channel", attempt.getChannel());
+        view.put("scene", attempt.getScene());
+        view.put("requestKey", attempt.getRequestKey());
         view.put("status", attempt.getStatus());
         view.put("amount", attempt.getAmount());
         view.put("currency", attempt.getCurrency());

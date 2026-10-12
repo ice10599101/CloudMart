@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, history } from 'umi'
-import { Spin } from 'antd'
+import { Spin, Alert, Tag } from 'antd'
 import { message } from '@/utils/appMessage'
 import {
   AlipayCircleOutlined,
@@ -14,7 +14,15 @@ import {
   UndoOutlined,
   ExperimentOutlined,
 } from '@ant-design/icons'
-import { createPaymentAttempt, submitMockPaymentCallback, getPaymentAttemptByOrderId, type PaymentAttemptResult } from '@/api/payment'
+import {
+  createPaymentAttempt,
+  submitMockPaymentCallback,
+  getPaymentAttemptByOrderId,
+  getPaymentChannels,
+  newPaymentRequestKey,
+  type PaymentAttemptResult,
+  type PaymentChannel,
+} from '@/api/payment'
 import { fetchOrderById } from '@/api/order'
 import { type PaymentStatus, type Order, PAYMENT_STATUS_LABELS } from '@/types'
 
@@ -40,38 +48,31 @@ const cssVars = {
   '--radius-lg': '16px',
 } as React.CSSProperties
 
-const PAY_METHODS = [
-  {
-    value: 'ALIPAY',
-    label: '支付宝',
+// R09：渠道列表唯一来源是 GET /payment/channels——这里仅保留端上展示素材，
+// 任何未在后端白名单（凭据已配置）中的渠道都不会出现，禁止写死假按钮。
+const PAY_METHOD_META: Record<string, { icon: React.ReactNode; desc: string }> = {
+  ALIPAY: {
     icon: <AlipayCircleOutlined style={{ fontSize: 28, color: '#1677ff' }} />,
     desc: '推荐使用',
   },
-  {
-    value: 'WECHAT',
-    label: '微信支付',
+  WECHAT: {
     icon: <WechatOutlined style={{ fontSize: 28, color: '#07c160' }} />,
     desc: '快捷支付',
   },
-  {
-    value: 'BANK_CARD',
-    label: '银行卡',
+  BANK_CARD: {
     icon: <CreditCardOutlined style={{ fontSize: 28, color: 'var(--color-primary)' }} />,
     desc: '储蓄卡/信用卡',
   },
-  // PAY-01：MOCK 渠道仅测试环境存在（生产由后端启动自检拒绝），入口随环境隐藏
-  {
-    value: 'MOCK',
-    label: '模拟支付',
+  MOCK: {
     icon: <ExperimentOutlined style={{ fontSize: 28, color: '#FFA940' }} />,
     desc: '测试环境专用',
   },
-] as const
+}
 
-/** 生产环境隐藏 MOCK 渠道入口 */
-const VISIBLE_PAY_METHODS = PAY_METHODS.filter(
-  (method) => method.value !== 'MOCK' || process.env.NODE_ENV !== 'production',
-)
+const FALLBACK_METHOD_META = {
+  icon: <CreditCardOutlined style={{ fontSize: 28, color: 'var(--color-primary)' }} />,
+  desc: '在线支付',
+}
 
 const COUNTDOWN_SECONDS = 15 * 60
 
@@ -82,23 +83,27 @@ function formatTime(totalSeconds: number): string {
 }
 
 function PaymentMethodCard({
-  method,
+  channel,
   selected,
+  disabled,
   onSelect,
 }: {
-  method: typeof PAY_METHODS[number]
+  channel: PaymentChannel
   selected: boolean
+  disabled: boolean
   onSelect: () => void
 }) {
+  const meta = PAY_METHOD_META[channel.channel] ?? FALLBACK_METHOD_META
   return (
     <div
-      onClick={onSelect}
+      onClick={disabled ? undefined : onSelect}
       style={{
         padding: '20px 24px',
         background: selected ? 'rgba(var(--color-primary-rgb), 0.06)' : 'var(--color-bg-container)',
         borderRadius: 12,
         border: `1px solid ${selected ? 'rgba(var(--color-primary-rgb), 0.4)' : 'var(--color-border)'}`,
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
         transition: 'all 0.3s ease',
         boxShadow: selected ? '0 0 20px rgba(var(--color-primary-rgb), 0.1)' : 'none',
         display: 'flex',
@@ -107,7 +112,7 @@ function PaymentMethodCard({
         position: 'relative',
       }}
     >
-      {selected && (
+      {selected && !disabled && (
         <div
           style={{
             position: 'absolute',
@@ -125,12 +130,13 @@ function PaymentMethodCard({
           <CheckCircleOutlined style={{ fontSize: 13, color: 'var(--color-bg-base)' }} />
         </div>
       )}
-      <div style={{ flexShrink: 0 }}>{method.icon}</div>
-      <div>
-        <div style={{ color: 'var(--color-text-secondary)', fontSize: 16, fontWeight: 600, marginBottom: 2 }}>
-          {method.label}
+      <div style={{ flexShrink: 0 }}>{meta.icon}</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ color: 'var(--color-text-secondary)', fontSize: 16, fontWeight: 600, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+          {channel.name}
+          {channel.maintenance && <Tag color="orange" style={{ margin: 0 }}>维护中</Tag>}
         </div>
-        <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>{method.desc}</div>
+        <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>{meta.desc}</div>
       </div>
     </div>
   )
@@ -266,7 +272,9 @@ export default function PaymentPage() {
   const [payment, setPayment] = useState<PaymentAttemptResult | null>(null)
   // PAY-01：attempts 链路的终态（SUCCESS/FAILED）——台账独立于旧 payment 表，单独承载结果屏
   const [attemptOutcome, setAttemptOutcome] = useState<PaymentStatus | null>(null)
-  const [payMethod, setPayMethod] = useState<string>('ALIPAY')
+  // R09：可用渠道唯一来自 GET /payment/channels（空=暂不可支付，不展示假按钮）
+  const [channels, setChannels] = useState<PaymentChannel[]>([])
+  const [payMethod, setPayMethod] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
   const [remaining, setRemaining] = useState(COUNTDOWN_SECONDS)
@@ -277,8 +285,19 @@ export default function PaymentPage() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const { data: orderRes } = await fetchOrderById(orderId)
-      setOrder(orderRes.data)
+      const [orderResult, channelsResult] = await Promise.all([
+        fetchOrderById(orderId),
+        // R09：渠道可用性独立加载——渠道查询失败按"暂不可支付"处理，绝不回退到本地写死列表
+        getPaymentChannels('H5').catch(() => null),
+      ])
+      setOrder(orderResult.data.data)
+      const availableChannels = channelsResult?.data?.data ?? []
+      setChannels(availableChannels)
+      setPayMethod((prev) => {
+        const stillAvailable = availableChannels.find((c) => c.channel === prev && !c.maintenance)
+        if (stillAvailable) return prev
+        return availableChannels.find((c) => !c.maintenance)?.channel ?? ''
+      })
       try {
         // T01：收银台状态唯一真值源为 payment_attempt 台账（旧 payments 链路已删除）
         const { data: attemptRes } = await getPaymentAttemptByOrderId(orderId)
@@ -356,6 +375,9 @@ export default function PaymentPage() {
     }
   }, [])
 
+  const selectedChannel = channels.find((c) => c.channel === payMethod && !c.maintenance) ?? null
+  const hasSelectableChannel = channels.some((c) => !c.maintenance)
+
   const handlePay = async () => {
     if (!order || paying) return
     // R11：零元单建单即内部结算完成，收银台不发起收费渠道支付（fail-closed，防深链误入）
@@ -364,11 +386,26 @@ export default function PaymentPage() {
       history.replace(`/orders/${order.id}`)
       return
     }
+    // R09：只允许提交服务端返回的、非维护中的渠道
+    if (!selectedChannel) {
+      message.warning('当前暂无可支付渠道，请稍后再试')
+      return
+    }
     setPaying(true)
     try {
-      // PAY-01/T01：唯一支付链路（归属/状态/金额全部服务端判定，客户端金额不参与）；
-      // 失败显式报错，不再静默降级旧 createPayment
-      const { data: res } = await createPaymentAttempt({ orderId: order.id, channel: payMethod })
+      // PAY-01/T01/R09：唯一支付链路——只提交 orderId/channel/scene/requestKey，
+      // 金额服务端判定；requestKey 每次主动发起重新生成（换渠道=新意图，重发同键）。
+      // REDIRECT 动作才需要 H5 回跳地址（服务端白名单校验），其余动作不传。
+      const { data: res } = await createPaymentAttempt({
+        orderId: order.id,
+        channel: selectedChannel.channel,
+        scene: 'H5',
+        requestKey: newPaymentRequestKey(),
+        returnUrl: selectedChannel.action === 'REDIRECT' ? window.location.href : undefined,
+      })
+      if (res.data?.replacedPrevious) {
+        message.info('已切换支付渠道，原支付尝试已关闭')
+      }
       if (res.data?.mockCallback) {
         // MOCK 渠道（测试环境）：代渠道提交签名回调，入账结果以轮询查单为准
         await submitMockPaymentCallback(res.data.mockCallback)
@@ -565,51 +602,67 @@ export default function PaymentPage() {
           </div>
 
           <div style={{ padding: '20px 32px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {VISIBLE_PAY_METHODS.map((method) => (
-              <PaymentMethodCard
-                key={method.value}
-                method={method}
-                selected={payMethod === method.value}
-                onSelect={() => setPayMethod(method.value)}
+            {channels.length === 0 ? (
+              <Alert
+                type="warning"
+                showIcon
+                message="当前环境暂无可支付渠道"
+                description="支付通道尚未开放或正在维护，请稍后再试或联系客服处理，不要通过其他渠道转账。"
               />
-            ))}
+            ) : (
+              channels.map((channel) => (
+                <PaymentMethodCard
+                  key={channel.channel}
+                  channel={channel}
+                  selected={payMethod === channel.channel}
+                  disabled={channel.maintenance}
+                  onSelect={() => setPayMethod(channel.channel)}
+                />
+              ))
+            )}
           </div>
         </div>
 
         <button
           type="button"
           onClick={handlePay}
-          disabled={paying || isExpired}
+          disabled={paying || isExpired || !hasSelectableChannel}
           style={{
             width: '100%',
             padding: '16px 0',
             fontSize: 18,
             fontWeight: 700,
-            color: paying || isExpired ? 'var(--color-text-tertiary)' : 'var(--color-bg-base)',
-            background: paying || isExpired
+            color: paying || isExpired || !hasSelectableChannel ? 'var(--color-text-tertiary)' : 'var(--color-bg-base)',
+            background: paying || isExpired || !hasSelectableChannel
               ? 'var(--color-bg-footer)'
               : 'var(--color-gradient-primary)',
             border: 'none',
             borderRadius: 12,
-            cursor: paying || isExpired ? 'not-allowed' : 'pointer',
-            boxShadow: paying || isExpired ? 'none' : '0 0 30px rgba(var(--color-primary-rgb), 0.3)',
+            cursor: paying || isExpired || !hasSelectableChannel ? 'not-allowed' : 'pointer',
+            boxShadow: paying || isExpired || !hasSelectableChannel ? 'none' : '0 0 30px rgba(var(--color-primary-rgb), 0.3)',
             transition: 'all 0.3s ease',
             letterSpacing: 2,
           }}
           onMouseEnter={(e) => {
-            if (!paying && !isExpired) {
+            if (!paying && !isExpired && hasSelectableChannel) {
               e.currentTarget.style.boxShadow = '0 0 40px rgba(var(--color-primary-rgb), 0.5)'
               e.currentTarget.style.transform = 'translateY(-2px)'
             }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.boxShadow = paying || isExpired
+            e.currentTarget.style.boxShadow = paying || isExpired || !hasSelectableChannel
               ? 'none'
               : '0 0 30px rgba(var(--color-primary-rgb), 0.3)'
             e.currentTarget.style.transform = 'translateY(0)'
           }}
         >
-          {paying ? '支付中...' : isExpired ? '支付超时' : `确认支付 ¥${order.payAmount.toFixed(2)}`}
+          {paying
+            ? '支付中...'
+            : isExpired
+              ? '支付超时'
+              : hasSelectableChannel
+                ? `确认支付 ¥${order.payAmount.toFixed(2)}`
+                : '暂无可支付渠道'}
         </button>
 
         <div

@@ -6,32 +6,65 @@ vi.mock('@/utils/request', () => ({
 
 import request from '@/utils/request'
 import {
-  createPaymentAttempt, submitMockPaymentCallback, getPaymentAttemptByOrderId,
+  createPaymentAttempt,
+  submitMockPaymentCallback,
+  getPaymentAttemptByOrderId,
+  getPaymentChannels,
 } from './payment'
 
-// T01：旧 /payments 链路（createPayment/getPaymentByOrderId/simulateCallback/refundPayment）
-// 已删除，唯一支付 API 为 payment-attempts；旧路径无可执行 handler。
-describe('payment API (attempts only)', () => {
+// R09：渠道列表唯一来自 GET /payment/channels；创建尝试携带 scene+requestKey，
+// 金额仍由服务端按订单权威计算。
+describe('payment API', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('createPaymentAttempt() posts orderId + channel aligned with PaymentAttemptController', async () => {
+  it('getPaymentChannels(H5) calls GET /payment/channels?scene=H5', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
+
+    await getPaymentChannels('H5')
+
+    expect(request.get).toHaveBeenCalledWith('/payment/channels', { params: { scene: 'H5' } })
+  })
+
+  it('getPaymentChannels() 默认 H5 场景', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
+
+    await getPaymentChannels()
+
+    expect(request.get).toHaveBeenCalledWith('/payment/channels', { params: { scene: 'H5' } })
+  })
+
+  it('createPaymentAttempt() posts orderId/channel/scene/requestKey aligned with R09 contract', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
 
-    await createPaymentAttempt({ orderId: 7, channel: 'MOCK' })
+    await createPaymentAttempt({
+      orderId: 7,
+      channel: 'MOCK',
+      scene: 'H5',
+      requestKey: 'rk-abc',
+    })
 
-    expect(request.post).toHaveBeenCalledWith('/payment/payment-attempts', { orderId: 7, channel: 'MOCK' })
+    expect(request.post).toHaveBeenCalledWith('/payment/payment-attempts', {
+      orderId: 7,
+      channel: 'MOCK',
+      scene: 'H5',
+      requestKey: 'rk-abc',
+    })
   })
 
   it('createPaymentAttempt() 不接受客户端金额字段', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
 
-    // 金额由服务端按订单权威计算——请求体只有 orderId + channel
-    await createPaymentAttempt({ orderId: '90071992547409931', channel: 'MOCK' })
+    await createPaymentAttempt({
+      orderId: '90071992547409931',
+      channel: 'MOCK',
+      scene: 'H5',
+      requestKey: 'rk-big',
+    })
 
     const [, body] = vi.mocked(request.post).mock.calls[0]
-    expect(Object.keys(body as object).sort()).toEqual(['channel', 'orderId'])
+    expect((body as Record<string, unknown>).amount).toBeUndefined()
   })
 
   it('submitMockPaymentCallback() posts signed mock callback payload', async () => {

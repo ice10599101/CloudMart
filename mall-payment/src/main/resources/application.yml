@@ -78,6 +78,18 @@ rocketmq:
     group: ${spring.application.name}-producer-group
     send-message-timeout: 3000
 
+# R09 支付渠道：
+# mock-channel-enabled 生产（prod profile）必须为 false，否则启动自检直接失败；
+# 真实渠道凭据未配置前白名单为空，GET /channels 返回空列表，三端收银台展示"暂不可支付"。
+payment:
+  mock-channel-enabled: ${PAYMENT_MOCK_CHANNEL_ENABLED:true}
+  channels:
+    # 维护中渠道（逗号分隔，如 WECHAT,ALIPAY）：仍返回给端侧但置灰不可选
+    maintenance: ${PAYMENT_CHANNEL_MAINTENANCE:}
+  # H5 支付完成回跳地址前缀白名单（逗号分隔，如 https://www.cloudmart.example/pay/return,）。
+  # 默认空=任何非空 returnUrl 一律拒绝（fail-closed）；真实渠道部署时由环境显式注入。
+  return-url-allowed-prefixes: ${PAYMENT_RETURN_URL_ALLOWED_PREFIXES:}
+
 seata:
   enabled: true
   application-id: ${spring.application.name}

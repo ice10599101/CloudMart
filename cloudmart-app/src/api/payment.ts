@@ -1,10 +1,26 @@
 import request from '@/utils/request'
+import { generateAttachmentId } from '@/utils/postAttachments'
 
 /**
- * PAY-01/T01 支付尝试 API（mall-payment /payment/payment-attempts）。
- * 唯一支付链路：只提交 orderId + channel，归属/状态/金额全部服务端判定，
- * 客户端金额不参与。旧 orderApi.pay/getPayment 已随旧支付链路删除。
+ * R09/PAY-01 支付尝试 API（mall-payment /payment/payment-attempts）。
+ *
+ * 渠道列表唯一来自 GET /payment/channels?scene=APP（Expo 原生端固定 APP 场景）；
+ * 收银台禁止本地写死渠道。创建尝试提交 orderId/channel/scene/requestKey，
+ * 归属/状态/金额全部服务端判定，客户端金额不参与；同键稳定返回同一笔，换渠道换新键。
  */
+
+export type PaymentScene = 'H5' | 'MINIAPP' | 'APP'
+export type PaymentAction = 'REDIRECT' | 'QR' | 'SDK' | 'NONE'
+
+/** 可用支付渠道（凭据白名单+场景能力；空列表=暂不可支付；不含密钥） */
+export interface PaymentChannel {
+  channel: string
+  name: string
+  action: PaymentAction
+  scene: PaymentScene
+  /** 维护中：展示但置灰不可选 */
+  maintenance: boolean
+}
 
 /** MOCK 渠道回调载荷（仅测试环境由创建尝试返回，签名由服务端签发） */
 export interface MockCallbackPayload {
@@ -15,18 +31,40 @@ export interface MockCallbackPayload {
   signature: string
 }
 
-/** 创建尝试返回（收银台轮询真值源） */
+/** 创建尝试返回（R09：attemptId/status/action + 渠道/场景） */
 export interface PaymentAttemptResult {
+  attemptId: number | string
   merchantPaymentNo: string
+  channel: string
+  scene: PaymentScene
+  action: PaymentAction
   status: string
   amount: number | string
   expiresAt: string | null
+  /** R09：本次创建是否关闭了另一渠道的活动尝试（换渠道明示） */
+  replacedPrevious?: boolean
+  previousAttemptId?: number | string | null
   mockCallback?: MockCallbackPayload
 }
 
+/** 生成创建尝试幂等键（每次用户主动发起新尝试生成） */
+export function newPaymentRequestKey(): string {
+  return generateAttachmentId().replace(/-/g, '')
+}
+
 export const paymentApi = {
-  /** 创建支付尝试（单订单单活动尝试；只收 orderId + channel） */
-  createAttempt: (data: { orderId: number | string; channel: string }) =>
+  /** R09 查询当前场景可用渠道（收银台渠道唯一来源；原生端固定 APP） */
+  getChannels: (scene: PaymentScene = 'APP') =>
+    request<PaymentChannel[]>({ url: '/payment/channels', method: 'GET', params: { scene } }),
+
+  /** 创建支付尝试（单订单单活动尝试；只提交 orderId/channel/scene/requestKey） */
+  createAttempt: (data: {
+    orderId: number | string
+    channel: string
+    scene: PaymentScene
+    requestKey: string
+    returnUrl?: string
+  }) =>
     request<PaymentAttemptResult>({
       url: '/payment/payment-attempts',
       method: 'POST',

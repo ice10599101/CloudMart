@@ -3,19 +3,23 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { orderApi } from '@/api/order'
-import { paymentApi } from '@/api/payment'
+import { paymentApi, newPaymentRequestKey, type PaymentChannel } from '@/api/payment'
 import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Order } from '@/types'
 
-type PaymentMethod = 'ALIPAY' | 'WECHAT' | 'BANK_CARD'
 type PaymentStatus = 'IDLE' | 'PENDING' | 'SUCCESS' | 'FAILED'
 
-const PAYMENT_METHODS: { key: PaymentMethod; label: string; icon: string }[] = [
-  { key: 'ALIPAY', label: '支付宝', icon: '💳' },
-  { key: 'WECHAT', label: '微信支付', icon: '💬' },
-  { key: 'BANK_CARD', label: '银行卡', icon: '🏦' },
-]
+// R09：渠道列表唯一来自 GET /payment/channels?scene=APP——本字典仅提供端上展示素材，
+// 未在后端白名单（凭据已配置）的渠道不渲染，禁止本地写死假按钮。
+const PAY_METHOD_META: Record<string, { icon: string }> = {
+  ALIPAY: { icon: '💳' },
+  WECHAT: { icon: '💬' },
+  BANK_CARD: { icon: '🏦' },
+  MOCK: { icon: '🧪' },
+}
+
+const FALLBACK_METHOD_META = { icon: '🏦' }
 
 const COUNTDOWN_SECONDS = 15 * 60
 
@@ -24,7 +28,9 @@ export default function PaymentPage() {
   const { id } = useLocalSearchParams<{ id: string }>()
 
   const [order, setOrder] = useState<Order | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('ALIPAY')
+  // R09：可用渠道唯一来自 GET /payment/channels?scene=APP（空=暂不可支付，不展示假按钮）
+  const [channels, setChannels] = useState<PaymentChannel[]>([])
+  const [paymentMethod, setPaymentMethod] = useState<string>('')
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('IDLE')
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
@@ -35,7 +41,11 @@ export default function PaymentPage() {
     if (!id) return
     setLoading(true)
     try {
-      const res = await orderApi.getDetail(id)
+      // R09：渠道可用性并行加载；查询失败按"暂不可支付"处理，绝不回退本地写死列表
+      const [res, channelsRes] = await Promise.all([
+        orderApi.getDetail(id),
+        paymentApi.getChannels('APP').catch(() => null),
+      ])
       const data = res.data as { data?: Order }
       if (data?.data) {
         setOrder(data.data)
@@ -44,6 +54,13 @@ export default function PaymentPage() {
         const remaining = Math.max(0, COUNTDOWN_SECONDS - elapsed)
         setCountdown(remaining)
       }
+      const availableChannels = channelsRes?.data?.data ?? []
+      setChannels(availableChannels)
+      setPaymentMethod((prev) => {
+        const stillAvailable = availableChannels.find((c) => c.channel === prev && !c.maintenance)
+        if (stillAvailable) return prev
+        return availableChannels.find((c) => !c.maintenance)?.channel ?? ''
+      })
     } catch (error) {
       Alert.alert('错误', errorMessage(error, '加载订单失败'))
     } finally {
@@ -113,6 +130,9 @@ export default function PaymentPage() {
     return () => stopPolling()
   }, [stopPolling])
 
+  const selectedChannel = channels.find((c) => c.channel === paymentMethod && !c.maintenance) ?? null
+  const hasSelectableChannel = channels.some((c) => !c.maintenance)
+
   const handlePay = () => {
     if (!order) return
     // R11：零元单建单即内部结算完成，收银台不发起收费渠道支付（fail-closed，防深链误入）
@@ -122,18 +142,32 @@ export default function PaymentPage() {
       ])
       return
     }
-    Alert.alert('确认支付', `使用${PAYMENT_METHODS.find((m) => m.key === paymentMethod)?.label}支付 ¥${order.payAmount.toFixed(2)}？`, [
+    // R09：只允许提交服务端返回的、非维护中的渠道
+    if (!selectedChannel) {
+      Alert.alert('暂不可支付', '当前环境暂无可支付渠道，请稍后再试或联系客服')
+      return
+    }
+    Alert.alert('确认支付', `使用${selectedChannel.name}支付 ¥${order.payAmount.toFixed(2)}？`, [
       { text: '取消', style: 'cancel' },
       {
         text: '确定支付',
         onPress: async () => {
           setPaying(true)
           try {
-            // T01：唯一支付链路——只提交 orderId + channel，金额服务端判定；
-            // MOCK 渠道（测试环境）代渠道提交签名回调，入账结果以轮询查单为准
-            const res = await paymentApi.createAttempt({ orderId: id, channel: paymentMethod })
+            // T01/R09：唯一支付链路——只提交 orderId/channel/scene/requestKey，金额服务端判定；
+            // requestKey 每次主动发起重新生成（换渠道=新意图，重发同键）；APP 走 SDK/NONE，无回跳地址
+            const res = await paymentApi.createAttempt({
+              orderId: id,
+              channel: selectedChannel.channel,
+              scene: 'APP',
+              requestKey: newPaymentRequestKey(),
+            })
+            if (res.data?.data?.replacedPrevious) {
+              Alert.alert('已切换支付渠道', '原支付尝试已关闭，将使用新渠道继续支付')
+            }
             const mockCallback = res.data?.data?.mockCallback
             if (mockCallback) {
+              // MOCK 渠道（测试环境）代渠道提交签名回调，入账结果以轮询查单为准
               await paymentApi.submitMockCallback(mockCallback)
             }
             setPaymentStatus('PENDING')
@@ -346,42 +380,62 @@ export default function PaymentPage() {
             选择支付方式
           </Text>
           <View style={{ gap: Spacing.md }}>
-            {PAYMENT_METHODS.map((method) => {
-              const isSelected = paymentMethod === method.key
-              return (
-                <TouchableOpacity
-                  key={method.key}
-                  activeOpacity={0.7}
-                  onPress={() => setPaymentMethod(method.key)}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: theme.bgContainer,
-                    borderRadius: BorderRadius.lg,
-                    padding: Spacing.lg,
-                    borderWidth: 2,
-                    borderColor: isSelected ? theme.primary : 'transparent',
-                  }}
-                >
-                  <Text style={{ fontSize: 28, marginRight: Spacing.md }}>{method.icon}</Text>
-                  <Text style={{ flex: 1, fontSize: FontSize.lg, color: theme.text, fontWeight: '500' }}>
-                    {method.label}
-                  </Text>
-                  <View style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 11,
-                    borderWidth: 2,
-                    borderColor: isSelected ? theme.primary : theme.border,
-                    backgroundColor: isSelected ? theme.primary : 'transparent',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}>
-                    {isSelected && <Text style={{ fontSize: 12, color: '#FFFFFF' }}>✓</Text>}
-                  </View>
-                </TouchableOpacity>
-              )
-            })}
+            {channels.length === 0 ? (
+              <View style={{
+                backgroundColor: theme.bgContainer,
+                borderRadius: BorderRadius.lg,
+                padding: Spacing.lg,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}>
+                <Text style={{ fontSize: FontSize.lg, color: theme.text, fontWeight: '500', marginBottom: 4 }}>
+                  当前环境暂无可支付渠道
+                </Text>
+                <Text style={{ fontSize: FontSize.sm, color: theme.textTertiary }}>
+                  支付通道尚未开放或正在维护，请稍后再试或联系客服
+                </Text>
+              </View>
+            ) : (
+              channels.map((channel) => {
+                const isSelected = paymentMethod === channel.channel
+                const meta = PAY_METHOD_META[channel.channel] ?? FALLBACK_METHOD_META
+                return (
+                  <TouchableOpacity
+                    key={channel.channel}
+                    activeOpacity={0.7}
+                    disabled={channel.maintenance}
+                    onPress={() => setPaymentMethod(channel.channel)}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: theme.bgContainer,
+                      borderRadius: BorderRadius.lg,
+                      padding: Spacing.lg,
+                      borderWidth: 2,
+                      borderColor: isSelected ? theme.primary : 'transparent',
+                      opacity: channel.maintenance ? 0.5 : 1,
+                    }}
+                  >
+                    <Text style={{ fontSize: 28, marginRight: Spacing.md }}>{meta.icon}</Text>
+                    <Text style={{ flex: 1, fontSize: FontSize.lg, color: theme.text, fontWeight: '500' }}>
+                      {channel.name}{channel.maintenance ? '（维护中）' : ''}
+                    </Text>
+                    <View style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 11,
+                      borderWidth: 2,
+                      borderColor: isSelected ? theme.primary : theme.border,
+                      backgroundColor: isSelected ? theme.primary : 'transparent',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                      {isSelected && <Text style={{ fontSize: 12, color: '#FFFFFF' }}>✓</Text>}
+                    </View>
+                  </TouchableOpacity>
+                )
+              })
+            )}
           </View>
         </View>
       </ScrollView>
@@ -409,15 +463,15 @@ export default function PaymentPage() {
           </Text>
         </View>
         <TouchableOpacity
-          onPress={paying || countdown === 0 ? undefined : handlePay}
+          onPress={paying || countdown === 0 || !hasSelectableChannel ? undefined : handlePay}
           activeOpacity={0.8}
-          disabled={paying || countdown === 0}
+          disabled={paying || countdown === 0 || !hasSelectableChannel}
           style={{
             paddingHorizontal: Spacing.xxl,
             paddingVertical: Spacing.md,
             borderRadius: BorderRadius.xl,
             backgroundColor: theme.primary,
-            opacity: paying || countdown === 0 ? 0.5 : 1,
+            opacity: paying || countdown === 0 || !hasSelectableChannel ? 0.5 : 1,
             minWidth: 140,
             alignItems: 'center',
           }}
@@ -425,7 +479,9 @@ export default function PaymentPage() {
           {paying ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={{ fontSize: FontSize.lg, color: '#FFFFFF', fontWeight: '600' }}>确认支付</Text>
+            <Text style={{ fontSize: FontSize.lg, color: '#FFFFFF', fontWeight: '600' }}>
+              {countdown === 0 ? '订单已超时' : hasSelectableChannel ? '确认支付' : '暂无可支付渠道'}
+            </Text>
           )}
         </TouchableOpacity>
       </View>

@@ -2,13 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { orderApi } from '@/api/order'
-import { paymentApi } from '@/api/payment'
+import { paymentApi, newPaymentRequestKey, type PaymentChannel, type PaymentScene } from '@/api/payment'
 import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
 
-type PaymentMethod = 'ALIPAY' | 'WECHAT' | 'BANK_CARD' | 'MOCK'
 type PaymentStatus = 'IDLE' | 'PENDING' | 'SUCCESS' | 'FAILED'
 
 interface OrderItem {
@@ -40,24 +39,19 @@ interface PaymentInfo {
   paidAt?: string
 }
 
-const PAYMENT_METHODS: Array<{
-  key: PaymentMethod
-  name: string
-  desc: string
-  icon: string
-  iconClass: string
-}> = [
-  { key: 'ALIPAY', name: '支付宝', desc: '推荐使用', icon: '💳', iconClass: styles.methodIconAlipay },
-  { key: 'WECHAT', name: '微信支付', desc: '微信安全支付', icon: '💬', iconClass: styles.methodIconWechat },
-  { key: 'BANK_CARD', name: '银行卡', desc: '储蓄卡/信用卡', icon: '🏦', iconClass: styles.methodIconBank },
-  // PAY-01：MOCK 渠道仅测试环境存在（生产由后端启动自检拒绝），入口随环境隐藏
-  { key: 'MOCK', name: '模拟支付', desc: '测试环境专用', icon: '🧪', iconClass: styles.methodIconBank },
-]
+// R09：渠道列表唯一来自 GET /payment/channels——本字典仅提供端上展示素材（图标/描述），
+// 未在后端白名单（凭据已配置）的渠道不渲染，禁止本地写死假按钮。
+const PAY_METHOD_META: Record<string, { desc: string; icon: string; iconClass: string }> = {
+  ALIPAY: { desc: '推荐使用', icon: '💳', iconClass: styles.methodIconAlipay },
+  WECHAT: { desc: '微信安全支付', icon: '💬', iconClass: styles.methodIconWechat },
+  BANK_CARD: { desc: '储蓄卡/信用卡', icon: '🏦', iconClass: styles.methodIconBank },
+  MOCK: { desc: '测试环境专用', icon: '🧪', iconClass: styles.methodIconBank },
+}
 
-/** 生产环境隐藏 MOCK 渠道入口 */
-const VISIBLE_PAYMENT_METHODS = PAYMENT_METHODS.filter(
-  (method) => method.key !== 'MOCK' || process.env.NODE_ENV !== 'production',
-)
+const FALLBACK_METHOD_META = { desc: '在线支付', icon: '🏦', iconClass: styles.methodIconBank }
+
+/** R09：Taro H5 构建=H5 场景，微信小程序构建=MINIAPP 场景 */
+const PAYMENT_SCENE: PaymentScene = Taro.getEnv() === Taro.ENV_TYPE.WEB ? 'H5' : 'MINIAPP'
 
 const COUNTDOWN_SECONDS = 15 * 60
 
@@ -75,8 +69,10 @@ export default function PaymentPage() {
   const id = Taro.getCurrentInstance().router?.params?.id || ''
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [, setPaymentInfo] = useState<PaymentInfo | null>(null)
+  // R09：可用渠道唯一来自 GET /payment/channels（空=暂不可支付，不展示假按钮）
+  const [channels, setChannels] = useState<PaymentChannel[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('ALIPAY')
+  const [selectedMethod, setSelectedMethod] = useState<string>('')
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('IDLE')
   const [countdown, setCountdown] = useState(0)
   const [paying, setPaying] = useState(false)
@@ -88,8 +84,19 @@ export default function PaymentPage() {
     if (!id) return
     try {
       setLoading(true)
-      const res = await orderApi.getDetail(id)
-      setOrder(res.data?.data as unknown as OrderDetail)
+      const [orderRes, channelsRes] = await Promise.all([
+        orderApi.getDetail(id),
+        // R09：渠道查询失败按"暂不可支付"处理，绝不回退本地写死列表
+        paymentApi.getChannels(PAYMENT_SCENE).catch(() => null),
+      ])
+      setOrder(orderRes.data?.data as unknown as OrderDetail)
+      const availableChannels = channelsRes?.data?.data ?? []
+      setChannels(availableChannels)
+      setSelectedMethod((prev) => {
+        const stillAvailable = availableChannels.find((c) => c.channel === prev && !c.maintenance)
+        if (stillAvailable) return prev
+        return availableChannels.find((c) => !c.maintenance)?.channel ?? ''
+      })
     } catch (err) {
       Taro.showToast({ title: errorMessage(err, '加载失败'), icon: 'none' })
     } finally {
@@ -184,6 +191,9 @@ export default function PaymentPage() {
     }
   }, [])
 
+  const selectedChannel = channels.find((c) => c.channel === selectedMethod && !c.maintenance) ?? null
+  const hasSelectableChannel = channels.some((c) => !c.maintenance)
+
   const handlePay = () => {
     // R11：零元单建单即内部结算完成，收银台不发起收费渠道支付（fail-closed，防深链误入）
     if (order?.paymentRequired === false) {
@@ -191,17 +201,36 @@ export default function PaymentPage() {
       setTimeout(() => Taro.redirectTo({ url: `/pages/orderDetail/index?id=${id}` }), 800)
       return
     }
+    // R09：只允许提交服务端返回的、非维护中的渠道
+    if (!selectedChannel) {
+      Taro.showToast({ title: '当前暂无可支付渠道', icon: 'none' })
+      return
+    }
     Taro.showModal({
       title: '确认支付',
-      content: `确认使用${PAYMENT_METHODS.find((m) => m.key === selectedMethod)?.name}支付 ¥${order?.payAmount ?? '0.00'}？`,
+      content: `确认使用${selectedChannel.name}支付 ¥${order?.payAmount ?? '0.00'}？`,
       success: async (res) => {
         if (!res.confirm) return
 
         setPaying(true)
         try {
-          // T01：唯一支付链路（归属/状态/金额全部服务端判定，客户端金额不参与）；
-          // 失败显式报错，不再静默降级旧 orderApi.pay
-          const attemptRes = await paymentApi.createAttempt({ orderId: id, channel: selectedMethod })
+          // T01/R09：唯一支付链路——只提交 orderId/channel/scene/requestKey，金额服务端判定；
+          // requestKey 每次主动发起重新生成（换渠道=新意图，重发同键）；
+          // H5 REDIRECT 才带回跳地址（浏览器环境，服务端白名单校验）
+          const h5ReturnUrl =
+            PAYMENT_SCENE === 'H5' && selectedChannel.action === 'REDIRECT' && typeof window !== 'undefined'
+              ? window.location.href
+              : undefined
+          const attemptRes = await paymentApi.createAttempt({
+            orderId: id,
+            channel: selectedChannel.channel,
+            scene: PAYMENT_SCENE,
+            requestKey: newPaymentRequestKey(),
+            returnUrl: h5ReturnUrl,
+          })
+          if (attemptRes.data?.data?.replacedPrevious) {
+            Taro.showToast({ title: '已切换支付渠道，原尝试已关闭', icon: 'none' })
+          }
           const mockCallback = attemptRes.data?.data?.mockCallback
           if (mockCallback) {
             // MOCK 渠道（测试环境）：代渠道提交签名回调，入账结果以轮询查单为准
@@ -370,24 +399,40 @@ export default function PaymentPage() {
             <Text className={styles.sectionTitle}>支付方式</Text>
           </View>
           <View className={styles.methodList}>
-            {VISIBLE_PAYMENT_METHODS.map((method) => (
-              <View
-                key={method.key}
-                className={`${styles.methodCard} ${selectedMethod === method.key ? styles.selected : ''}`}
-                onClick={() => setSelectedMethod(method.key)}
-              >
-                <View className={`${styles.methodIcon} ${method.iconClass}`}>
-                  <Text>{method.icon}</Text>
-                </View>
+            {channels.length === 0 ? (
+              <View className={styles.methodCard}>
                 <View className={styles.methodInfo}>
-                  <Text className={styles.methodName}>{method.name}</Text>
-                  <Text className={styles.methodDesc}>{method.desc}</Text>
-                </View>
-                <View className={`${styles.methodCheck} ${selectedMethod === method.key ? styles.checked : ''}`}>
-                  {selectedMethod === method.key && <Text className={styles.checkIcon}>✓</Text>}
+                  <Text className={styles.methodName}>当前环境暂无可支付渠道</Text>
+                  <Text className={styles.methodDesc}>支付通道尚未开放或正在维护，请稍后再试或联系客服</Text>
                 </View>
               </View>
-            ))}
+            ) : (
+              channels.map((channel) => {
+                const meta = PAY_METHOD_META[channel.channel] ?? FALLBACK_METHOD_META
+                const isSelected = selectedMethod === channel.channel
+                return (
+                  <View
+                    key={channel.channel}
+                    className={`${styles.methodCard} ${isSelected ? styles.selected : ''}`}
+                    onClick={channel.maintenance ? undefined : () => setSelectedMethod(channel.channel)}
+                    style={channel.maintenance ? { opacity: 0.5 } : undefined}
+                  >
+                    <View className={`${styles.methodIcon} ${meta.iconClass}`}>
+                      <Text>{meta.icon}</Text>
+                    </View>
+                    <View className={styles.methodInfo}>
+                      <Text className={styles.methodName}>
+                        {channel.name}{channel.maintenance ? '（维护中）' : ''}
+                      </Text>
+                      <Text className={styles.methodDesc}>{meta.desc}</Text>
+                    </View>
+                    <View className={`${styles.methodCheck} ${isSelected ? styles.checked : ''}`}>
+                      {isSelected && <Text className={styles.checkIcon}>✓</Text>}
+                    </View>
+                  </View>
+                )
+              })
+            )}
           </View>
         </View>
       </ScrollView>
@@ -399,10 +444,18 @@ export default function PaymentPage() {
           <Text className={styles.payAmount}>¥{order.payAmount}</Text>
         </View>
         <View
-          className={`${styles.payBtn} ${isExpired || paying ? styles.disabled : ''}`}
-          onClick={isExpired || paying ? undefined : handlePay}
+          className={`${styles.payBtn} ${isExpired || paying || !hasSelectableChannel ? styles.disabled : ''}`}
+          onClick={isExpired || paying || !hasSelectableChannel ? undefined : handlePay}
         >
-          <Text className={styles.payBtnText}>{paying ? '支付中...' : '确认支付'}</Text>
+          <Text className={styles.payBtnText}>
+            {paying
+              ? '支付中...'
+              : isExpired
+                ? '订单已超时'
+                : hasSelectableChannel
+                  ? '确认支付'
+                  : '暂无可支付渠道'}
+          </Text>
         </View>
       </View>
     </View>

@@ -22,6 +22,12 @@ public class PaymentAttempt {
 
     private String channel;
 
+    /** R09 支付场景：H5/MINIAPP/APP */
+    private String scene;
+
+    /** R09 创建尝试幂等键（同键稳定返回同一笔尝试） */
+    private String requestKey;
+
     private BigDecimal amount;
 
     private String currency;
