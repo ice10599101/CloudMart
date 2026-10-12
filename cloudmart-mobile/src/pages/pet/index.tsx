@@ -33,6 +33,7 @@ import {
   type PetOnboardingProgress,
   type PetActionItem,
   type PetEquipPreview,
+  type PetBootstrap,
 } from '@/api/pet'
 import { notificationApi } from '@/api/notification'
 import { getPersistedIntentKey } from '@/utils/request'
@@ -49,6 +50,7 @@ import styles from './index.module.scss'
 import { CARE_ERROR_HINT } from './panels/shared'
 import { CareerPanel } from './panels/CareerPanel'
 import { DailyQuestPanel } from './panels/DailyQuestPanel'
+import { ActivityCenterPanel } from './panels/ActivityCenterPanel'
 import { SocialPanel } from './panels/SocialPanel'
 import { HomePanel } from './panels/HomePanel'
 import { MemoryPanel } from './panels/MemoryPanel'
@@ -149,12 +151,13 @@ const SHARE_TYPES: Array<{ key: Parameters<typeof petApi.getShareCard>[0]; label
 type PanelKey =
   | 'home' | 'care' | 'work' | 'study' | 'bottle' | 'battle'
   | 'chat' | 'achievements' | 'rankings' | 'reminders'
-  | 'daily' | 'social' | 'memory'
+  | 'daily' | 'social' | 'memory' | 'center'
 
 const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
   { key: 'home', label: '家园', emoji: '🏠' },
   { key: 'memory', label: '记忆', emoji: '🧠' },
   { key: 'daily', label: '任务', emoji: '✅' },
+  { key: 'center', label: '活动中心', emoji: '📋' },
   { key: 'work', label: '打工', emoji: '💼' },
   { key: 'study', label: '读书', emoji: '📚' },
   { key: 'bottle', label: '捞瓶', emoji: '🍾' },
@@ -172,7 +175,7 @@ const PANEL_TITLE = Object.fromEntries(PANELS.map((item) => [item.key, item.labe
 /** 功能宫格分组（对齐 Web 端 PANEL_GROUPS：La Maison / Croissance / Les Amis / Archives） */
 const MENU_GROUPS: Array<{ label: string; hint: string; keys: PanelKey[] }> = [
   { label: 'La Maison', hint: '小家与记忆', keys: ['home', 'memory'] },
-  { label: 'Croissance', hint: '养成', keys: ['daily', 'work', 'study', 'bottle', 'battle', 'care'] },
+  { label: 'Croissance', hint: '养成', keys: ['daily', 'center', 'work', 'study', 'bottle', 'battle', 'care'] },
   { label: 'Les Amis', hint: '往来', keys: ['social', 'chat'] },
   { label: 'Archives', hint: '记录', keys: ['achievements', 'rankings', 'reminders'] },
 ]
@@ -289,6 +292,9 @@ export default function PetPage() {
   const [rankingType, setRankingType] = useState<PetRankingType>('LEVEL')
   const [reminders, setReminders] = useState<PetReminder[]>([])
   const [reminderUnread, setReminderUnread] = useState(0)
+  // R18：bootstrap 启动快照——serverNow/businessDate/capabilities/quotas/
+  // actionAvailability/pendingOperations 全部以后端为权威，失败置 null（不阻断主流程）
+  const [bootstrap, setBootstrap] = useState<PetBootstrap | null>(null)
   const [onboarding, setOnboarding] = useState<PetOnboardingProgress | null>(null)
 
   useEffect(() => {
@@ -593,6 +599,16 @@ export default function PetPage() {
   const refreshGenerationRef = useRef(0)
   const refresh = useCallback(async () => {
     const generation = ++refreshGenerationRef.current
+    // R18：bootstrap 与主宠并行加载；快照失败不阻断页面（门控按"未知不隐藏"降级，写操作仍由服务端裁决）
+    void petApi.getBootstrap()
+      .then(({ data: bootRes }) => {
+        if (generation === refreshGenerationRef.current && bootRes.success && bootRes.data) {
+          setBootstrap(bootRes.data)
+        }
+      })
+      .catch(() => {
+        if (generation === refreshGenerationRef.current) setBootstrap(null)
+      })
     try {
       const { data: res } = await petApi.getMyPet()
       if (generation !== refreshGenerationRef.current) {
@@ -821,6 +837,21 @@ export default function PetPage() {
 
   const runInteraction = async (action: 'feed' | 'play' | 'clean' | 'rest') => {
     if (acting) return
+    // R18：照料动作受 bootstrap actionAvailability/quotas 门控（忙碌/额度用完前端即拦截，
+    //  bootstrap 未加载时不拦截，最终仍由服务端权威裁决）
+    const availability = bootstrap?.actionAvailability
+    if (availability?.busy) {
+      toast('它正忙着呢，等活动结束再照顾它吧')
+      return
+    }
+    if (action === 'feed' && availability && !availability.canFeed) {
+      toast('今日喂食奖励次数已用完')
+      return
+    }
+    if (action === 'play' && availability && !availability.canPlay) {
+      toast('今日玩耍奖励次数已用完')
+      return
+    }
     setActing(true)
     try {
       const { data: res } =
@@ -1159,10 +1190,31 @@ export default function PetPage() {
 
         {/* 养成动作（喂食长按可选背包食物） */}
         <View className={cream.actionsRow}>
-          <CreamButton disabled={acting} onClick={() => runInteraction('feed')} onLongPress={() => void openFoodPicker()}>🍖 喂食</CreamButton>
-          <CreamButton disabled={acting} onClick={() => runInteraction('play')}>🎾 玩耍</CreamButton>
-          <CreamButton disabled={acting} onClick={() => runInteraction('clean')}>🫧 清洁</CreamButton>
-          <CreamButton disabled={acting} onClick={() => runInteraction('rest')}>💤 休息</CreamButton>
+          <CreamButton
+            disabled={acting || (bootstrap?.actionAvailability.busy ?? false) || (bootstrap ? !bootstrap.actionAvailability.canFeed : false)}
+            onClick={() => runInteraction('feed')}
+            onLongPress={() => void openFoodPicker()}
+          >
+            🍖 喂食{typeof bootstrap?.quotas?.feed === 'number' ? `(${bootstrap.quotas.feed})` : ''}
+          </CreamButton>
+          <CreamButton
+            disabled={acting || (bootstrap?.actionAvailability.busy ?? false) || (bootstrap ? !bootstrap.actionAvailability.canPlay : false)}
+            onClick={() => runInteraction('play')}
+          >
+            🎾 玩耍{typeof bootstrap?.quotas?.playReward === 'number' ? `(${bootstrap.quotas.playReward})` : ''}
+          </CreamButton>
+          <CreamButton
+            disabled={acting || (bootstrap?.actionAvailability.busy ?? false)}
+            onClick={() => runInteraction('clean')}
+          >
+            🫧 清洁
+          </CreamButton>
+          <CreamButton
+            disabled={acting || (bootstrap?.actionAvailability.busy ?? false)}
+            onClick={() => runInteraction('rest')}
+          >
+            💤 休息
+          </CreamButton>
         </View>
         <View className={cream.actionsRow}>
           <CreamButton variant="ghost" onClick={openProfile}>🎀 档案</CreamButton>
@@ -1254,7 +1306,11 @@ export default function PetPage() {
                   <View key={key} className={cream.menuItem} onClick={() => setPanel(key)}>
                     <Text className={cream.menuItemEmoji}>{meta.emoji}</Text>
                     <Text className={cream.menuItemLabel}>
-                      {meta.label}{key === 'reminders' && reminderUnread > 0 ? `(${reminderUnread})` : ''}
+                      {meta.label}
+                      {key === 'reminders' && reminderUnread > 0 ? `(${reminderUnread})` : ''}
+                      {key === 'center' && (bootstrap?.pendingOperations?.pendingActivityClaims ?? 0) > 0
+                        ? `(${bootstrap?.pendingOperations?.pendingActivityClaims})`
+                        : ''}
                     </Text>
                   </View>
                 )
@@ -1268,8 +1324,16 @@ export default function PetPage() {
         <CreamSheet title={PANEL_TITLE[panel]} onClose={() => setPanel(null)}>
         <View className={styles.panelBody}>
           {panel === 'daily' && <DailyQuestPanel onRefresh={refresh} />}
+        {panel === 'center' && <ActivityCenterPanel onRefresh={refresh} />}
         {panel === 'social' && <SocialPanel pet={pet} onRefresh={refresh} />}
-        {panel === 'memory' && <MemoryPanel petId={pet?.petId ?? null} onRefresh={refresh} />}
+        {panel === 'memory' && (
+          <MemoryPanel
+            petId={pet?.petId ?? null}
+            onRefresh={refresh}
+            diaryEnabled={bootstrap?.capabilities?.diary ?? true}
+            albumEnabled={bootstrap?.capabilities?.albumBinding ?? true}
+          />
+        )}
         {panel === 'home' && (
             <View className={styles.tips}>
               {/* 三期：家园（房间布置 / 家具 / 拜访） */}
@@ -1830,8 +1894,14 @@ export default function PetPage() {
                         ) : (
                           <Button
                             className={styles.miniBtn}
-                            disabled={!event.claimable || carePending === `event-${event.code}`}
-                            onClick={() => runCare(`event-${event.code}`, () => petApi.claimEvent(event.code), '奖励到手啦！')}
+                            disabled={!event.claimable || carePending === `event-${event.occurrenceId ?? event.code}`}
+                            onClick={() => runCare(
+                              `event-${event.occurrenceId ?? event.code}`,
+                              // R18：期次事件以 occurrenceId 为唯一归属；仅历史/当日型事件回退 code
+                              event.occurrenceId
+                                ? () => petApi.claimEventOccurrence(event.occurrenceId as string)
+                                : () => petApi.claimEvent(event.code),
+                              '奖励到手啦！')}
                           >
                             {event.claimable ? '领取奖励' : `还差 ${Math.max(0, event.targetValue - event.progress)} 次`}
                           </Button>

@@ -56,11 +56,18 @@ import {
   type PetPersona,
   type PetFriendFeedItem,
   type PetDiaryPage,
+  type PetDiaryEntry,
   type PetMemory,
   type PetSeasonRanking,
   type PetSeasonHistoryItem,
   type PetNotifyPref,
   type PetOnboardingProgress,
+  type PetBootstrap,
+  type PetActivityCenterSummary,
+  type PetActivityRow,
+  type PetClaimBatchItem,
+  type PetAlbumAssetView,
+  type PetContentVisibility,
 } from '@/api/pet'
 import { petApiV2 } from '@/api/pet'
 import { growthApi } from '@/api/growth'
@@ -106,7 +113,7 @@ const RARITY_LABEL: Record<string, string> = {
 }
 
 type PanelKey =
-  | 'home' | 'care' | 'daily' | 'social' | 'work' | 'study' | 'bottle' | 'battle'
+  | 'home' | 'care' | 'daily' | 'center' | 'social' | 'work' | 'study' | 'bottle' | 'battle'
   | 'chat' | 'achievements' | 'rankings' | 'reminders' | 'companion'
 
 /** 养成面板子页签（原文档 §89：商城/背包/技能/进化/活动 + §1.1 串门 + 多宠物 + 三期职业） */
@@ -156,6 +163,7 @@ const PANELS: { key: PanelKey; label: string; emoji: string }[] = [
   { key: 'home', label: '家园', emoji: '🏠' },
   { key: 'care', label: '养成', emoji: '🎒' },
   { key: 'daily', label: '任务', emoji: '✅' },
+  { key: 'center', label: '活动中心', emoji: '📋' },
   { key: 'social', label: '社交', emoji: '🤝' },
   { key: 'work', label: '打工', emoji: '💼' },
   { key: 'study', label: '读书', emoji: '📚' },
@@ -174,7 +182,7 @@ const PANEL_ITEM = Object.fromEntries(PANELS.map((item) => [item.key, item])) as
 /** 分组宫格（对齐 Web/Taro：La Maison / Croissance / Les Amis / Archives） */
 const MENU_GROUPS: Array<{ label: string; hint: string; keys: PanelKey[] }> = [
   { label: 'La Maison', hint: '小家与陪伴', keys: ['home', 'companion'] },
-  { label: 'Croissance', hint: '养成', keys: ['daily', 'work', 'study', 'bottle', 'battle', 'care'] },
+  { label: 'Croissance', hint: '养成', keys: ['daily', 'center', 'work', 'study', 'bottle', 'battle', 'care'] },
   { label: 'Les Amis', hint: '往来', keys: ['social', 'chat'] },
   { label: 'Archives', hint: '记录', keys: ['achievements', 'rankings', 'reminders'] },
 ]
@@ -302,6 +310,9 @@ export default function PetScreen() {
   const [loading, setLoading] = useState(true)
   const [pet, setPet] = useState<PetInfo | null>(null)
   const [noPet, setNoPet] = useState(false)
+  // R18：bootstrap 启动快照——serverNow/businessDate/capabilities/quotas/
+  // actionAvailability/pendingOperations 以后端为权威，失败置 null（不阻断主流程）
+  const [bootstrap, setBootstrap] = useState<PetBootstrap | null>(null)
   const [gameReady, setGameReady] = useState(false)
   const [gameFailed, setGameFailed] = useState(!gameUrl)
   const stageFrameRef = useRef<any>(null)
@@ -428,6 +439,16 @@ export default function PetScreen() {
   const companionActiveRef = useRef(false)
   const refresh = useCallback(async () => {
     const generation = ++refreshGenerationRef.current
+    // R18：bootstrap 与主宠并行加载；快照失败不阻断页面（门控按"未知不隐藏"降级，写操作仍由服务端裁决）
+    void petApi.getBootstrap()
+      .then(({ data: bootRes }) => {
+        if (generation === refreshGenerationRef.current && bootRes.success && bootRes.data) {
+          setBootstrap(bootRes.data)
+        }
+      })
+      .catch(() => {
+        if (generation === refreshGenerationRef.current) setBootstrap(null)
+      })
     try {
       const { data: res } = await petApi.getMyPet()
       if (generation !== refreshGenerationRef.current) {
@@ -751,6 +772,22 @@ export default function PetScreen() {
 
   const runInteraction = async (action: 'feed' | 'play' | 'clean' | 'rest') => {
     if (!pet) return
+    // R18：照料动作受 bootstrap actionAvailability/quotas 门控（忙碌/额度用完前端即拦截，
+    //  bootstrap 未加载时不拦截，最终仍由服务端权威裁决）
+    const availability = bootstrap?.actionAvailability
+    if (availability?.busy) {
+      showBubbleTimed('它正忙着呢，等活动结束再照顾它吧')
+      if (gameReady) postToGame({ source: 'pet-host', type: 'actionResult', action, ok: false, message: '忙碌中' })
+      return
+    }
+    if (action === 'feed' && availability && !availability.canFeed) {
+      showBubbleTimed('今日喂食奖励次数已用完')
+      return
+    }
+    if (action === 'play' && availability && !availability.canPlay) {
+      showBubbleTimed('今日玩耍奖励次数已用完')
+      return
+    }
     try {
       const { data: res } =
         action === 'feed' ? await petApi.feed()
@@ -1367,8 +1404,19 @@ export default function PetScreen() {
 
       {/* 互动按钮（Cocos 意图与原生按钮共用同一 API） */}
       <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md, flexWrap: 'wrap' }}>
-        <CreamButton onPress={() => runInteraction('feed')} onLongPress={() => void openFoodPicker()}>🍖 喂食</CreamButton>
-        <ChipButton label="🎾 玩耍" primary onPress={() => runInteraction('play')} />
+        <CreamButton
+          disabled={(bootstrap?.actionAvailability.busy ?? false) || (bootstrap ? !bootstrap.actionAvailability.canFeed : false)}
+          onPress={() => runInteraction('feed')}
+          onLongPress={() => void openFoodPicker()}
+        >
+          {`🍖 喂食${typeof bootstrap?.quotas.feed === 'number' ? `(${bootstrap.quotas.feed})` : ''}`}
+        </CreamButton>
+        <ChipButton
+          label={`🎾 玩耍${typeof bootstrap?.quotas.playReward === 'number' ? `(${bootstrap.quotas.playReward})` : ''}`}
+          primary
+          disabled={(bootstrap?.actionAvailability.busy ?? false) || (bootstrap ? !bootstrap.actionAvailability.canPlay : false)}
+          onPress={() => runInteraction('play')}
+        />
         <ChipButton label="🫧 清洁" primary onPress={() => runInteraction('clean')} />
         <ChipButton label="💤 休息" primary onPress={() => runInteraction('rest')} />
         <ChipButton label="🎀 档案" onPress={openProfile} />
@@ -1380,7 +1428,12 @@ export default function PetScreen() {
         groups={MENU_GROUPS}
         items={PANEL_ITEM}
         active={panel}
-        badgeOf={(key) => (key === 'reminders' ? reminderUnread : 0)}
+        badgeOf={(key) => {
+          // R18：活动中心角标取 bootstrap 待领数（权威快照），提醒角标保持原口径
+          if (key === 'reminders') return reminderUnread
+          if (key === 'center') return bootstrap?.pendingOperations?.pendingActivityClaims ?? 0
+          return 0
+        }}
         onSelect={(key) => setPanel(key as PanelKey)}
       />
 
@@ -1828,8 +1881,14 @@ export default function PetScreen() {
                         <ChipButton
                           label={event.claimable ? '领取奖励' : `还差 ${Math.max(0, event.targetValue - event.progress)} 次`}
                           primary
-                          disabled={!event.claimable || carePending === `event-${event.code}`}
-                          onPress={() => runCare(`event-${event.code}`, () => petApi.claimEvent(event.code), '奖励到手啦！')}
+                          disabled={!event.claimable || carePending === `event-${event.occurrenceId ?? event.code}`}
+                          onPress={() => runCare(
+                            `event-${event.occurrenceId ?? event.code}`,
+                            // R18：期次事件以 occurrenceId 为唯一归属；仅历史/当日型事件回退 code
+                            event.occurrenceId
+                              ? () => petApi.claimEventOccurrence(event.occurrenceId as string)
+                              : () => petApi.claimEvent(event.code),
+                            '奖励到手啦！')}
                         />
                       )}
                     </View>
@@ -2046,8 +2105,15 @@ export default function PetScreen() {
           </View>
         )}
 
+        {panel === 'center' && <ActivityCenterPanel onRefresh={refresh} />}
+
         {panel === 'companion' && pet && (
-          <CompanionPanel petId={pet.petId} onRefresh={refresh} />
+          <CompanionPanel
+            petId={pet.petId}
+            onRefresh={refresh}
+            diaryEnabled={bootstrap?.capabilities?.diary ?? true}
+            albumEnabled={bootstrap?.capabilities?.albumBinding ?? true}
+          />
         )}
 
         {panel === 'achievements' && (
@@ -2385,6 +2451,165 @@ function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
         <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
           工作经历：{panel.history.map((item) => `${item.name}（${item.workCount} 次）`).join(' · ')}
         </Text>
+      )}
+    </View>
+  )
+}
+
+/**
+ * R18 活动中心面板（对齐 Web/Taro 数据口径）：activity-center 聚合摘要 +
+ * activities 明细 + claim-batch 逐项终态。空列表/故障/功能数据三态分离。
+ */
+const ACTIVITY_TYPE_LABEL_APP: Record<string, string> = {
+  WORK: '打工', STUDY: '读书', BOTTLE: '捞瓶', BATTLE: '对战',
+}
+const BATCH_ITEM_LABEL_APP: Record<PetClaimBatchItem['status'], string> = {
+  CLAIMED: '已领取', ALREADY_CLAIMED: '此前已领', NOT_READY: '尚未完成', FAILED: '领取失败',
+}
+
+function ActivityCenterPanel({ onRefresh }: { onRefresh: () => void }) {
+  const colors = { ...useTheme(), ...PetCreamTheme }
+  const [loadState, setLoadState] = useState<'LOADING' | 'READY' | 'ERROR'>('LOADING')
+  const [summary, setSummary] = useState<PetActivityCenterSummary | null>(null)
+  const [activities, setActivities] = useState<PetActivityRow[]>([])
+  const [batchResults, setBatchResults] = useState<PetClaimBatchItem[] | null>(null)
+  const [batchPending, setBatchPending] = useState(false)
+  const [singlePendingId, setSinglePendingId] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoadState('LOADING')
+    try {
+      const [centerRes, listRes] = await Promise.all([
+        petApi.getActivityCenter(),
+        petApi.listActivities(),
+      ])
+      setSummary(centerRes.data.data ?? null)
+      setActivities(listRes.data.data ?? [])
+      setBatchResults(null)
+      setLoadState('READY')
+    } catch {
+      setLoadState('ERROR')
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  const claimableIds = activities.filter((item) => item.canClaim).map((item) => item.activityId)
+
+  const runBatch = async () => {
+    if (claimableIds.length === 0 || batchPending) return
+    setBatchPending(true)
+    try {
+      const { data: res } = await petApi.claimActivitiesBatch(claimableIds)
+      const results = res.data ?? []
+      setBatchResults(results)
+      const failed = results.filter((item) => item.status === 'FAILED').length
+      Alert.alert('批量领取', failed > 0 ? `${failed} 项领取失败，可稍后重试` : '批量领取完成')
+      await load()
+      onRefresh()
+    } catch (error) {
+      Alert.alert('批量领取失败', errorMessage(error, '请稍后再试'))
+    } finally {
+      setBatchPending(false)
+    }
+  }
+
+  const runSingle = async (activity: PetActivityRow) => {
+    setSinglePendingId(String(activity.activityId))
+    try {
+      await petApi.claimActivity(activity.activityId)
+      await load()
+      onRefresh()
+    } catch (error) {
+      Alert.alert('领取失败', errorMessage(error, '请稍后再试'))
+    } finally {
+      setSinglePendingId(null)
+    }
+  }
+
+  const cardStyle = {
+    padding: Spacing.sm, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(200, 155, 90, 0.35)',
+    backgroundColor: '#FFFDF8', gap: 4, marginBottom: Spacing.sm,
+  } as const
+
+  if (loadState === 'LOADING') {
+    return <ActivityIndicator color={colors.primary} />
+  }
+  if (loadState === 'ERROR') {
+    return (
+      <View style={cardStyle}>
+        <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>活动中心暂时不可用</Text>
+        <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>网络或服务异常，重试后仍失败请稍后再来</Text>
+        <ChipButton label="重新加载" primary onPress={() => void load()} />
+      </View>
+    )
+  }
+
+  return (
+    <View>
+      <View style={cardStyle}>
+        <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+          {`📅 营业日 ${summary?.businessDate ?? '—'}`}
+        </Text>
+        <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+          {`待领取活动 ${summary?.pendingClaimsCount ?? 0} 项`}
+          {summary?.eventSummary?.claimableCount ? ` · 事件奖励可领 ${summary.eventSummary.claimableCount} 项` : ''}
+          {summary?.accountBusyActivity?.activity ? ' · 当前宠物活动进行中' : ''}
+          {summary?.accountBusyActivity?.custody ? ' · 账号有托管活动' : ''}
+        </Text>
+      </View>
+      {activities.length === 0 ? (
+        <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+          当前没有进行中的限时活动，新活动开放后会出现在这里
+        </Text>
+      ) : (
+        <View>
+          <ChipButton
+            label={claimableIds.length > 0 ? `一键领取（${claimableIds.length} 项）` : '没有待领取的活动'}
+            primary
+            disabled={claimableIds.length === 0 || batchPending}
+            onPress={() => void runBatch()}
+          />
+          {activities.map((activity) => (
+            <View key={String(activity.activityId)} style={cardStyle}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.sm }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+                    {activity.petName ? `${activity.petName} · ` : ''}{activity.configName ?? activity.activityType}
+                  </Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+                    {ACTIVITY_TYPE_LABEL_APP[activity.activityType] ?? activity.activityType}
+                  </Text>
+                </View>
+                {activity.status === 'CLAIMED' || !activity.canClaim ? (
+                  <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+                    {activity.status === 'CLAIMED' ? '已领取' : '进行中'}
+                  </Text>
+                ) : (
+                  <ChipButton
+                    label={singlePendingId === String(activity.activityId) ? '领取中…' : '领取'}
+                    primary
+                    disabled={singlePendingId === String(activity.activityId)}
+                    onPress={() => void runSingle(activity)}
+                  />
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+      {batchResults && batchResults.length > 0 && (
+        <View style={cardStyle}>
+          <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>本次领取结果</Text>
+          {batchResults.map((item) => (
+            <Text key={String(item.activityId)} style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+              {`活动 ${item.activityId}：${BATCH_ITEM_LABEL_APP[item.status]}`}
+              {item.status === 'FAILED' && item.message ? `（${item.message}）` : ''}
+            </Text>
+          ))}
+        </View>
       )}
     </View>
   )
@@ -3311,7 +3536,16 @@ function fmtCompanionSeconds(seconds: number): string {
   return m > 0 ? `${m} 分钟` : `${total} 秒`
 }
 
-function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefresh: () => void }) {
+function CompanionPanel(
+  { petId, onRefresh, diaryEnabled = true, albumEnabled = true }: {
+    petId: number | string
+    onRefresh: () => void
+    /** R18：bootstrap.capabilities.diary —— 关闭时显示不可用说明而非假入口 */
+    diaryEnabled?: boolean
+    /** R18：bootstrap.capabilities.albumBinding */
+    albumEnabled?: boolean
+  },
+) {
   const colors = { ...useTheme(), ...PetCreamTheme }
   const [tab, setTab] = useState<CompanionTab>('anniversary')
   const [pending, setPending] = useState<string | null>(null)
@@ -3321,7 +3555,9 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
   const [feedUnread, setFeedUnread] = useState(0)
   const [diary, setDiary] = useState<PetDiaryPage | null>(null)
   const [diaryCursor, setDiaryCursor] = useState<string | null>(null)
-  const [assets, setAssets] = useState<{ id: number | string; url: string; diaryEntryId: number | string | null; bindStatus?: string }[]>([])
+  const [assets, setAssets] = useState<Array<{ id: number | string; url: string; diaryEntryId: number | string | null; bindStatus?: string; version?: number; caption?: string | null; visibility?: PetContentVisibility | null }>>([])
+  // R18：相册说明行内编辑（PATCH 带 expectedVersion）
+  const [captionEdit, setCaptionEdit] = useState<{ assetId: string; version: number; value: string } | null>(null)
   const [memories, setMemories] = useState<PetMemory[]>([])
   const [editId, setEditId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -3437,12 +3673,16 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
     try {
       const { data: res } = await petApi.listAlbumAssets(petId)
       setAssets(res.data
-        .filter((item) => item.bindStatus !== 'DELETED')
+        .filter((item: PetAlbumAssetView) => item.bindStatus !== 'DELETED')
         .map((item) => ({
           id: item.assetId,
           url: item.bindStatus === 'BOUND' ? (item.previewUrl ?? '') : '',
           diaryEntryId: item.diaryEntryId,
           bindStatus: item.bindStatus,
+          // R18：保留版本/说明/可见性，供 PATCH CAS 编辑
+          version: item.version,
+          caption: item.caption,
+          visibility: item.visibility,
         })))
     } catch {
       // 展示型数据：忽略
@@ -3504,6 +3744,78 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
     const res = await run(`album-del:${assetId}`, () => petApi.deleteAlbumAsset(petId, assetId))
     if (res) setAssets((prev) => prev.filter((item) => item.id !== assetId))
   }, [petId, run])
+
+  /** R18：日记可见性选项（与后端 DiaryVisibility 三态一致） */
+  const VISIBILITY_CHOICES: Array<{ label: string; value: PetContentVisibility }> = [
+    { label: '公开', value: 'PUBLIC' },
+    { label: '仅主人可见', value: 'OWNER_ONLY' },
+    { label: '私密', value: 'PRIVATE' },
+  ]
+  const visibilityText = (value: string | null | undefined) =>
+    VISIBILITY_CHOICES.find((item) => item.value === value)?.label ?? '私密'
+
+  /** R18：日记可见性 CAS 更新（expectedVersion 来自列表；409 冲突提示刷新） */
+  const changeDiaryVisibility = useCallback(async (entry: PetDiaryEntry) => {
+    Alert.alert(
+      '修改可见性',
+      '选择该日记的可见范围',
+      VISIBILITY_CHOICES.map((choice) => ({
+        text: choice.label,
+        onPress: async () => {
+          if (choice.value === entry.visibility) return
+          const res = await run(`diary-vis:${entry.id}`, () => petApi.updateDiaryVisibility(petId, entry.id, {
+            visibility: choice.value,
+            expectedVersion: entry.version,
+          }))
+          if (res) void loadDiary(true)
+        },
+      })),
+    )
+  }, [loadDiary, petId, run])
+
+  /** R18：相册编辑入口（说明行内/可见性操作表；version 缺失拒绝猜测） */
+  const editAsset = useCallback((asset: typeof assets[number]) => {
+    if (typeof asset.version !== 'number') return
+    Alert.alert(
+      '编辑照片',
+      undefined,
+      [
+        { text: '编辑说明', onPress: () => setCaptionEdit({ assetId: String(asset.id), version: asset.version as number, value: asset.caption ?? '' }) },
+        {
+          text: '修改可见性',
+          onPress: () => Alert.alert(
+            '修改可见性',
+            undefined,
+            VISIBILITY_CHOICES.map((choice) => ({
+              text: choice.label,
+              onPress: async () => {
+                if (choice.value === asset.visibility) return
+                const res = await run(`album-vis:${asset.id}`, () => petApi.updateAlbumAsset(petId, asset.id, {
+                  visibility: choice.value,
+                  expectedVersion: asset.version as number,
+                }))
+                if (res) void loadAlbum()
+              },
+            })),
+          ),
+        },
+        { text: '取消', style: 'cancel' },
+      ],
+    )
+  }, [loadAlbum, petId, run])
+
+  /** R18：保存照片说明 */
+  const saveCaptionEdit = useCallback(async () => {
+    if (!captionEdit) return
+    const res = await run('album-caption', () => petApi.updateAlbumAsset(petId, captionEdit.assetId, {
+      caption: captionEdit.value.trim(),
+      expectedVersion: captionEdit.version,
+    }))
+    if (res) {
+      setCaptionEdit(null)
+      void loadAlbum()
+    }
+  }, [captionEdit, loadAlbum, petId, run])
 
   const saveMemory = useCallback(async (memory: PetMemory) => {
     const value = editValue.trim()
@@ -3653,6 +3965,9 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
 
       {tab === 'diary' && (
         <View style={{ gap: Spacing.sm }}>
+          {!diaryEnabled ? (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>成长日记功能暂未开放</Text>
+          ) : (
           <View style={{ gap: Spacing.xs }}>
             <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>成长日记</Text>
             <Text style={{ color: colors.textTertiary, fontSize: 10 }}>由宠物的大事自动生成，客户端不能代写</Text>
@@ -3660,9 +3975,11 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
               <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>还没有日记，陪它做点什么吧</Text>
             ) : diary!.items.map((entry) => (
               <View key={entry.id} style={cardStyle}>
-                <Text style={{ color: colors.primary, fontSize: 10 }}>
-                  {`${entry.type}${entry.visibility !== 'PUBLIC' ? ' · 仅自己可见' : ''}${entry.assetIds?.length ? ` · 含 ${entry.assetIds.length} 张照片` : ''} · ${entry.createdAt.slice(5, 16).replace('T', ' ')}`}
-                </Text>
+                <TouchableOpacity onPress={() => void changeDiaryVisibility(entry)}>
+                  <Text style={{ color: colors.primary, fontSize: 10 }}>
+                    {`${entry.type} · ${visibilityText(entry.visibility)}（修改）${entry.assetIds?.length ? ` · 含 ${entry.assetIds.length} 张照片` : ''} · ${entry.createdAt.slice(5, 16).replace('T', ' ')}`}
+                  </Text>
+                </TouchableOpacity>
                 <Text style={{ color: colors.text, fontSize: FontSize.xs, lineHeight: 18 }}>{entry.content}</Text>
               </View>
             ))}
@@ -3670,17 +3987,43 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
               <ChipButton label="加载更多" onPress={() => void loadDiary(false)} />
             )}
           </View>
+          )}
 
+          {!albumEnabled ? (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>相册绑定功能暂未开放</Text>
+          ) : (
           <View style={{ gap: Spacing.xs }}>
             <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>相册</Text>
             <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
-              每只宠物 100 张；服务端暂无相册列表接口，这里只显示本次上传的
+              每只宠物 100 张；照片与说明服务端持久化，BOUND 后可编辑说明与可见性
             </Text>
             <ChipButton
               label={pending === 'album' ? '上传中…' : '上传照片'}
               disabled={pending === 'album'}
               onPress={() => void uploadPhoto()}
             />
+            {captionEdit && (
+              <View style={cardStyle}>
+                <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+                  {`编辑照片说明（${captionEdit.assetId}）`}
+                </Text>
+                <TextInput
+                  value={captionEdit.value}
+                  onChangeText={(value) => setCaptionEdit((prev) => prev ? { ...prev, value } : prev)}
+                  maxLength={200}
+                  placeholder="给这张照片写句说明"
+                  placeholderTextColor={colors.textTertiary}
+                  style={{
+                    borderWidth: 1, borderColor: colors.border, borderRadius: BorderRadius.sm,
+                    color: colors.text, padding: Spacing.xs, fontSize: FontSize.xs,
+                  }}
+                />
+                <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+                  <ChipButton label="保存" primary disabled={pending === 'album-caption'} onPress={() => void saveCaptionEdit()} />
+                  <ChipButton label="取消" onPress={() => setCaptionEdit(null)} />
+                </View>
+              </View>
+            )}
             {assets.length > 0 && assets.map((item) => (
               <View key={item.id} style={[cardStyle, { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }]}>
                 {item.bindStatus === 'BOUND' ? (
@@ -3697,8 +4040,12 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
                 )}
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={{ color: colors.textTertiary, fontSize: 10 }}>
-                    {item.diaryEntryId ? `日记 #${item.diaryEntryId}` : '未挂日记'}
+                    {item.caption ? item.caption : (item.diaryEntryId ? `日记 #${item.diaryEntryId}` : '未挂日记')}
+                    {` · ${visibilityText(item.visibility)}`}
                   </Text>
+                  {item.bindStatus === 'BOUND' && typeof item.version === 'number' ? (
+                    <ChipButton label="编辑" onPress={() => editAsset(item)} />
+                  ) : null}
                   {item.bindStatus && item.bindStatus !== 'BOUND' ? (
                     <ChipButton label={item.bindStatus === 'FAILED' ? '重试绑定' : '绑定处理中…'}
                       onPress={() => item.bindStatus === 'FAILED' ? void retryAssetBinding(item.id) : undefined} />
@@ -3708,6 +4055,7 @@ function CompanionPanel({ petId, onRefresh }: { petId: number | string; onRefres
               </View>
             ))}
           </View>
+          )}
         </View>
       )}
 

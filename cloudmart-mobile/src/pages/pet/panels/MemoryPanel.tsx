@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Image, Text, Textarea, View } from '@tarojs/components'
-import { petCompanionApi, type PetDiaryEntry, type PetMemory, type PetNotifyPref } from '@/api/pet'
+import {
+  petApi,
+  petCompanionApi,
+  type PetAlbumAssetView,
+  type PetContentVisibility,
+  type PetDiaryEntry,
+  type PetMemory,
+  type PetNotifyPref,
+} from '@/api/pet'
 import { fileApi } from '@/api/file'
 import { errorMessage } from '@/utils/request'
 import styles from '../index.module.scss'
@@ -22,18 +30,46 @@ function formatDateTime(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', { hour12: false })
 }
 
-export function MemoryPanel({ petId, onRefresh }: { petId: number | string | null; onRefresh?: () => void }) {
+/** R18：后端能力清单关闭时的显式不可用态（区别于空列表与加载失败） */
+const FEATURE_DISABLED_NOTE: Record<'diary' | 'album', string> = {
+  diary: '成长日记功能暂未开放',
+  album: '相册绑定功能暂未开放',
+}
+
+const VISIBILITY_OPTIONS: Array<{ label: string; value: PetContentVisibility }> = [
+  { label: '公开', value: 'PUBLIC' },
+  { label: '仅主人可见', value: 'OWNER_ONLY' },
+  { label: '私密', value: 'PRIVATE' },
+]
+
+function visibilityLabel(value: PetContentVisibility | string | null | undefined): string {
+  return VISIBILITY_OPTIONS.find((item) => item.value === value)?.label ?? '私密'
+}
+
+export function MemoryPanel(
+  { petId, onRefresh, diaryEnabled = true, albumEnabled = true }: {
+    petId: number | string | null
+    onRefresh?: () => void
+    /** R18：bootstrap.capabilities.diary —— 关闭时显示不可用说明而非假入口 */
+    diaryEnabled?: boolean
+    /** R18：bootstrap.capabilities.albumBinding */
+    albumEnabled?: boolean
+  },
+) {
   const [tab, setTab] = useState<MemoryTab>('diary')
 
   const [diary, setDiary] = useState<PetDiaryEntry[]>([])
   const [diaryCursor, setDiaryCursor] = useState<string | null>(null)
   const [diaryHasMore, setDiaryHasMore] = useState(false)
   const [diaryLoading, setDiaryLoading] = useState(false)
+  const [diaryPatchingId, setDiaryPatchingId] = useState<number | string | null>(null)
 
-  const [album, setAlbum] = useState<Array<{ assetId: string; entryId: string | null;
-    bindStatus?: string; previewUrl?: string | null }>>([])
+  const [album, setAlbum] = useState<PetAlbumAssetView[]>([])
   const [albumLoading, setAlbumLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  // R18：相册说明行内编辑（Taro showModal 不保证支持输入框）
+  const [captionEdit, setCaptionEdit] = useState<{ assetId: string; version: number; value: string } | null>(null)
+  const [captionSaving, setCaptionSaving] = useState(false)
 
   const [memories, setMemories] = useState<PetMemory[]>([])
   const [memoriesLoading, setMemoriesLoading] = useState(false)
@@ -72,12 +108,8 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
     try {
       const { data: res } = await petCompanionApi.listAlbumAssets(petId)
       if (res.data) {
-        setAlbum(res.data.map((item) => ({
-          assetId: item.assetId,
-          entryId: item.diaryEntryId,
-          bindStatus: item.bindStatus,
-          previewUrl: item.previewUrl,
-        })))
+        // R18：保留 caption/visibility/version，供编辑 PATCH 做 CAS
+        setAlbum(res.data)
       }
     } catch {
       // 相册后台加载失败保留已有列表
@@ -160,6 +192,80 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
     }
   }
 
+  /** R18：日记可见性 CAS 更新（expectedVersion 用列表回传版本；409 冲突提示刷新） */
+  const changeDiaryVisibility = async (entry: PetDiaryEntry) => {
+    if (!petId) return
+    try {
+      const chosen = await Taro.showActionSheet({ itemList: VISIBILITY_OPTIONS.map((item) => item.label) })
+      const visibility = VISIBILITY_OPTIONS[chosen.tapIndex]?.value
+      if (!visibility || visibility === entry.visibility) return
+      setDiaryPatchingId(entry.id)
+      await petApi.updateDiaryVisibility(petId, entry.id, {
+        visibility,
+        expectedVersion: entry.version,
+      })
+      Taro.showToast({ title: '可见性已更新', icon: 'success' })
+      await loadDiary(true)
+    } catch (err) {
+      const code = (err as { code?: string }).code
+      if (code && code !== 'ERR_CANCEL') {
+        Taro.showToast({
+          title: code === 'OPTIMISTIC_LOCK_CONFLICT' || code === 'VERSION_CONFLICT'
+            ? '内容已被修改，请刷新后重试'
+            : errorMessage(err, '更新失败，请稍后再试'),
+          icon: 'none',
+        })
+      }
+    } finally {
+      setDiaryPatchingId(null)
+    }
+  }
+
+  /** R18：相册说明保存（行内编辑；PATCH 带 expectedVersion） */
+  const saveCaptionEdit = async () => {
+    if (!petId || !captionEdit) return
+    setCaptionSaving(true)
+    try {
+      await petApi.updateAlbumAsset(petId, captionEdit.assetId, {
+        caption: captionEdit.value.trim(),
+        expectedVersion: captionEdit.version,
+      })
+      Taro.showToast({ title: '说明已更新', icon: 'success' })
+      setCaptionEdit(null)
+      await loadAlbum()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '保存失败，请刷新后重试'), icon: 'none' })
+    } finally {
+      setCaptionSaving(false)
+    }
+  }
+
+  /** R18：相册编辑入口：编辑说明（行内）或修改可见性（操作表）；version 缺失拒绝猜测 */
+  const editAlbumAsset = async (asset: PetAlbumAssetView) => {
+    if (!petId || typeof asset.version !== 'number') return
+    try {
+      const action = await Taro.showActionSheet({ itemList: ['编辑说明', '修改可见性'] })
+      if (action.tapIndex === 0) {
+        setCaptionEdit({ assetId: asset.assetId, version: asset.version, value: asset.caption ?? '' })
+        return
+      }
+      const chosen = await Taro.showActionSheet({ itemList: VISIBILITY_OPTIONS.map((item) => item.label) })
+      const visibility = VISIBILITY_OPTIONS[chosen.tapIndex]?.value
+      if (!visibility || visibility === asset.visibility) return
+      await petApi.updateAlbumAsset(petId, asset.assetId, {
+        visibility,
+        expectedVersion: asset.version,
+      })
+      Taro.showToast({ title: '可见性已更新', icon: 'success' })
+      await loadAlbum()
+    } catch (err) {
+      const code = (err as { code?: string }).code
+      if (code && code !== 'ERR_CANCEL') {
+        Taro.showToast({ title: errorMessage(err, '更新失败，请稍后再试'), icon: 'none' })
+      }
+    }
+  }
+
   const saveMemoryEdit = async (memory: PetMemory) => {
     if (!petId || !editValue.trim()) {
       Taro.showToast({ title: '记忆内容不能为空', icon: 'none' })
@@ -202,7 +308,11 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
         </View>
       ) : tab === 'diary' ? (
         <View>
-          {diary.length === 0 && !diaryLoading ? (
+          {!diaryEnabled ? (
+            <View className={styles.memoryEmpty}>
+              <Text>{FEATURE_DISABLED_NOTE.diary}</Text>
+            </View>
+          ) : diary.length === 0 && !diaryLoading ? (
             <View className={styles.memoryEmpty}>
               <Text>还没有日记，和宠物互动后会自动记录哦</Text>
             </View>
@@ -210,8 +320,12 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
             diary.map((entry) => (
               <View key={entry.id} className={styles.memoryCard}>
                 <View className={styles.memoryCardHead}>
-                  <Text className={entry.visibility === 'PUBLIC' ? styles.memoryPublic : styles.memoryPrivate}>
-                    {entry.visibility === 'PUBLIC' ? '公开' : '私密'}
+                  <Text
+                    className={entry.visibility === 'PUBLIC' ? styles.memoryPublic : styles.memoryPrivate}
+                    onClick={diaryPatchingId === entry.id ? undefined : () => void changeDiaryVisibility(entry)}
+                  >
+                    {visibilityLabel(entry.visibility)}
+                    {' · 修改'}
                   </Text>
                   <Text className={styles.memoryTime}>{formatDateTime(entry.createdAt)}</Text>
                 </View>
@@ -219,7 +333,7 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
               </View>
             ))
           )}
-          {diaryHasMore && (
+          {diaryHasMore && diaryEnabled && (
             <Button size='mini' loading={diaryLoading} onClick={() => loadDiary(false)}>
               加载更多
             </Button>
@@ -227,59 +341,94 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
         </View>
       ) : tab === 'album' ? (
         <View>
-          <Button size='mini' type='primary' loading={uploading} onClick={handleUpload}>
-            上传照片（≤5MB，每用户 100 张）
-          </Button>
-          <View className={styles.albumGrid}>
-            {album.map((asset) => (
-              <View key={asset.assetId} className={styles.albumCell}>
-                {asset.bindStatus === 'BOUND' ? (
-                  <Image
-                    className={styles.albumImage}
-                    src={asset.previewUrl ?? `/file/assets/${asset.assetId}/download`}
-                    mode='aspectFill'
-                    onClick={() =>
-                      Taro.previewImage({ urls: [asset.previewUrl ?? `/file/assets/${asset.assetId}/download`] })
-                    }
+          {!albumEnabled ? (
+            <View className={styles.memoryEmpty}>
+              <Text>{FEATURE_DISABLED_NOTE.album}</Text>
+            </View>
+          ) : (
+            <>
+              <Button size='mini' type='primary' loading={uploading} onClick={handleUpload}>
+                上传照片（≤5MB，每用户 100 张）
+              </Button>
+              {captionEdit && (
+                <View className={styles.memoryCard}>
+                  <Text className={styles.memoryKey}>编辑照片说明（{captionEdit.assetId}）</Text>
+                  <Textarea
+                    className={styles.memoryEditInput}
+                    value={captionEdit.value}
+                    maxlength={200}
+                    onInput={(e) => setCaptionEdit((prev) => prev ? { ...prev, value: e.detail.value } : prev)}
                   />
-                ) : (
-                  <View className={styles.albumImage} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 10, color: '#999' }}>
-                      {asset.bindStatus === 'FAILED' ? '绑定失败' : '绑定中'}
+                  <View className={styles.memoryActions}>
+                    <Button size='mini' type='primary' loading={captionSaving} onClick={() => void saveCaptionEdit()}>
+                      保存
+                    </Button>
+                    <Button size='mini' disabled={captionSaving} onClick={() => setCaptionEdit(null)}>
+                      取消
+                    </Button>
+                  </View>
+                </View>
+              )}
+              <View className={styles.albumGrid}>
+                {album.map((asset) => (
+                  <View key={asset.assetId} className={styles.albumCell}>
+                    {asset.bindStatus === 'BOUND' ? (
+                      <Image
+                        className={styles.albumImage}
+                        src={asset.previewUrl ?? `/file/assets/${asset.assetId}/download`}
+                        mode='aspectFill'
+                        onClick={() =>
+                          Taro.previewImage({ urls: [asset.previewUrl ?? `/file/assets/${asset.assetId}/download`] })
+                        }
+                      />
+                    ) : (
+                      <View className={styles.albumImage} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontSize: 10, color: '#999' }}>
+                          {asset.bindStatus === 'FAILED' ? '绑定失败' : '绑定中'}
+                        </Text>
+                      </View>
+                    )}
+                    {asset.bindStatus === 'BOUND' && typeof asset.version === 'number' ? (
+                      <Text
+                        className={styles.albumDelete}
+                        onClick={() => void editAlbumAsset(asset)}
+                      >
+                        编辑{asset.visibility ? ` · ${visibilityLabel(asset.visibility)}` : ''}
+                      </Text>
+                    ) : null}
+                    {asset.bindStatus && asset.bindStatus !== 'BOUND' ? (
+                      <Text
+                        className={styles.albumDelete}
+                        onClick={() => {
+                          if (asset.bindStatus === 'FAILED' && petId) void retryBinding(asset.assetId)
+                        }}
+                      >
+                        {asset.bindStatus === 'FAILED' ? '重试绑定' : '处理中…'}
+                      </Text>
+                    ) : null}
+                    <Text
+                      className={styles.albumDelete}
+                      onClick={() =>
+                        petId &&
+                        petCompanionApi.deleteAlbumAsset(petId, asset.assetId)
+                          .then(() => {
+                            Taro.showToast({ title: '已删除', icon: 'none' })
+                            loadAlbum()
+                          })
+                          .catch((err) => Taro.showToast({ title: errorMessage(err, '删除失败'), icon: 'none' }))
+                      }
+                    >
+                      删除
                     </Text>
                   </View>
-                )}
-                {asset.bindStatus && asset.bindStatus !== 'BOUND' ? (
-                  <Text
-                    className={styles.albumDelete}
-                    onClick={() => {
-                      if (asset.bindStatus === 'FAILED' && petId) void retryBinding(asset.assetId)
-                    }}
-                  >
-                    {asset.bindStatus === 'FAILED' ? '重试绑定' : '处理中…'}
-                  </Text>
-                ) : null}
-                <Text
-                  className={styles.albumDelete}
-                  onClick={() =>
-                    petId &&
-                    petCompanionApi.deleteAlbumAsset(petId, asset.assetId)
-                      .then(() => {
-                        Taro.showToast({ title: '已删除', icon: 'none' })
-                        loadAlbum()
-                      })
-                      .catch((err) => Taro.showToast({ title: errorMessage(err, '删除失败'), icon: 'none' }))
-                  }
-                >
-                  删除
-                </Text>
+                ))}
               </View>
-            ))}
-          </View>
-          {album.length === 0 && !albumLoading && (
-            <View className={styles.memoryEmpty}>
-              <Text>相册还是空的</Text>
-            </View>
+              {album.length === 0 && !albumLoading && (
+                <View className={styles.memoryEmpty}>
+                  <Text>相册还是空的</Text>
+                </View>
+              )}
+            </>
           )}
         </View>
       ) : tab === 'memories' ? (

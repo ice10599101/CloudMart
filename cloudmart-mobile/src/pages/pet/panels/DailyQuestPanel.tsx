@@ -103,7 +103,13 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
         size='mini'
         style={{ marginBottom: '12rpx' }}
         loading={pending === 'claim-all'}
-        onClick={() => run('claim-all', () => petCompanionApi.claimAllDailyQuests(), (data) => {
+        onClick={() => run(
+          'claim-all',
+          // R18：有任务集版本走 setId+claim-all（期次归属明确），旧集合回退旧路由
+          () => panel.setId
+            ? petCompanionApi.claimAllDailyQuestsInSet(panel.setId)
+            : petCompanionApi.claimAllDailyQuests(),
+          (data) => {
           const payload = data as { results?: Array<{ status: string }>; chest?: { status: string } }
           const claimed = (payload.results ?? []).filter((item) => item.status === 'CLAIMED').length
           const failed = (payload.results ?? []).filter((item) => item.status === 'FAILED').length

@@ -375,6 +375,9 @@ export interface PetEventItem {
   startsAt: string | null
   endsAt: string | null
   claimedAt: string | null
+  /** R18：期次驱动事件的领取标识（有值时领取走 /event-occurrences，禁止用 code 推测归属） */
+  occurrenceId?: string | null
+  claimDeadlineAt?: string | null
 }
 
 /** 串门邻居 */
@@ -565,7 +568,9 @@ export const petApi = {
   evolve: () => request<PetEvolutionStatus>({ url: '/pet/evolution/evolve', method: 'POST' }),
 
   /** 社区宠物活动列表 */
-  listEvents: () => request<PetEventItem[]>({ url: '/pet/events' }),
+  /** R18：支持按状态视图拉取（AVAILABLE/CLAIMABLE/HISTORY），含 occurrenceId */
+  listEvents: (status?: 'AVAILABLE' | 'CLAIMABLE' | 'HISTORY') =>
+    request<PetEventItem[]>({ url: `/pet/events${status ? `?status=${status}` : ''}` }),
   /** 领取活动奖励 */
   claimEvent: (eventCode: string) =>
     request<PetEventItem>({ url: `/pet/events/${eventCode}/claim`, method: 'POST' }),
@@ -821,8 +826,7 @@ export const petApi = {
     request<PetAlbumAsset>({ url: `/pet/pets/${petId}/album`, method: 'POST', data: { fileId, diaryEntryId } }),
   /** PET-13/T31：独立相册列表（服务端权威，上传/重启后仍可见） */
   listAlbumAssets: (petId: number | string) =>
-    request<Array<{ assetId: string; previewUrl: string | null; diaryEntryId: string | null; auditStatus: string; bindStatus: string }>>(
-      { url: `/pet/pets/${petId}/album` }),
+    request<PetAlbumAssetView[]>({ url: `/pet/pets/${petId}/album` }),
   /** PET-13/T32：BINDING/FAILED 条目重试绑定（远端引用键幂等，重试安全） */
   retryAlbumAsset: (petId: number | string, assetId: number | string) =>
     request<PetAlbumAsset>({ url: `/pet/pets/${petId}/album/${assetId}/retry-binding`, method: 'POST' }),
@@ -853,6 +857,39 @@ export const petApi = {
   /** F2 赛季排行：无进行中赛季 season=null；历届为结算快照名次 */
   getSeasonRanking: () => request<PetSeasonRanking>({ url: '/pet/rankings/season' }),
   getSeasonHistory: () => request<PetSeasonHistoryItem[]>({ url: '/pet/rankings/season/history' }),
+
+  // ==================== R18 批次A-C2 新契约（生产页面统一从 petApi 调用；petApiV2 为委托别名） ====================
+
+  /** 启动聚合快照：serverNow/businessDate/capabilities/quotas/actionAvailability/pendingOperations */
+  getBootstrap: (petId?: number | string) =>
+    request<PetBootstrap>({ url: '/pet/bootstrap' + (petId ? `?petId=${petId}` : '') }),
+  /** 活动中心聚合摘要 */
+  getActivityCenter: (petId?: number | string) =>
+    request<PetActivityCenterSummary>({ url: '/pet/activity-center' + (petId ? `?petId=${petId}` : '') }),
+  /** 批量领取活动：逐项终态，不忽略单项失败 */
+  claimActivitiesBatch: (activityIds: Array<number | string>) =>
+    request<PetClaimBatchItem[]>({ url: '/pet/activities/claim-batch', method: 'POST', data: { activityIds } }),
+  /** R18 期次事件领取（occurrenceId 为唯一归属） */
+  claimEventOccurrence: (occurrenceId: number | string) =>
+    request<PetEventItem & PetEventOccurrenceView>({
+      url: `/pet/event-occurrences/${occurrenceId}/claim`, method: 'POST',
+    }),
+  /** R18 日记可见性 CAS 更新 */
+  updateDiaryVisibility: (
+    petId: number | string, entryId: number | string,
+    data: { visibility: PetContentVisibility; expectedVersion: number },
+  ) =>
+    request<{ entryId: number | string; visibility: string; version: number }>({
+      url: `/pet/pets/${petId}/diary/${entryId}`, method: 'PATCH', data,
+    }),
+  /** R18 相册说明/可见性 CAS 更新 */
+  updateAlbumAsset: (
+    petId: number | string, assetId: number | string,
+    data: { caption?: string; visibility?: PetContentVisibility; expectedVersion: number },
+  ) =>
+    request<Record<string, unknown>>({
+      url: `/pet/pets/${petId}/album/${assetId}`, method: 'PATCH', data,
+    }),
 }
 
 // ==================== 三期类型（与服务端 VO 对齐） ====================
@@ -1309,15 +1346,32 @@ export interface PetNotifyPref {
   updatedAt: string
 }
 
+/** R18：内容可见性三态（与后端 DiaryVisibility 一致；PATCH 携带 expectedVersion 做 CAS） */
+export type PetContentVisibility = 'PUBLIC' | 'OWNER_ONLY' | 'PRIVATE'
+
 /** 成长日记条目（N02；type 为领域事件类型） */
 export interface PetDiaryEntry {
   id: number
   petId: number
   type: string
   content: string
-  visibility: 'PUBLIC' | 'PRIVATE'
+  visibility: PetContentVisibility
   assetIds: number[] | null
   createdAt: string
+  /** R18：乐观锁版本（编辑可见性时原样回传 expectedVersion） */
+  version: number
+}
+
+/** R18：相册列表项（后端 AlbumAssetVO 投影；caption/visibility/version 供 PATCH CAS） */
+export interface PetAlbumAssetView {
+  assetId: string
+  previewUrl: string | null
+  diaryEntryId: string | null
+  auditStatus: string
+  bindStatus: string
+  caption?: string | null
+  visibility?: PetContentVisibility | null
+  version?: number
 }
 
 /** 日记游标分页信封（后端 Map：items/nextCursor/hasMore） */
@@ -1446,36 +1500,30 @@ export interface PetEventOccurrenceView {
   claimDeadlineAt: string | null
 }
 
+/**
+ * R18：新契约统一到 petApi 单一出口；petApiV2 仅保留为委托别名
+ * （历史调用方与契约测试不改），禁止再在此对象内实现独立请求逻辑。
+ */
 export const petApiV2 = {
-  getBootstrap: (petId?: number | string) =>
-    request<PetBootstrap>({ url: '/pet/bootstrap' + (petId ? `?petId=${petId}` : '') }),
-  getActivityCenter: (petId?: number | string) =>
-    request<PetActivityCenterSummary>({ url: '/pet/activity-center' + (petId ? `?petId=${petId}` : '') }),
-  claimActivitiesBatch: (activityIds: Array<number | string>) =>
-    request<PetClaimBatchItem[]>({ url: '/pet/activities/claim-batch', method: 'POST', data: { activityIds } }),
+  getBootstrap: (petId?: number | string) => petApi.getBootstrap(petId),
+  getActivityCenter: (petId?: number | string) => petApi.getActivityCenter(petId),
+  claimActivitiesBatch: (activityIds: Array<number | string>) => petApi.claimActivitiesBatch(activityIds),
   listMyReports: () => request<PetReportMine[]>({ url: '/pet/reports/mine' }),
   getChatRequestStatus: (requestKey: string) =>
     request<PetChatRequestStatus>({ url: `/pet/chat/requests/${encodeURIComponent(requestKey)}` }),
   updateDiaryVisibility: (
-    petId: number | string, entryId: number | string,
-    data: { visibility: 'PUBLIC' | 'OWNER_ONLY' | 'PRIVATE'; expectedVersion: number },
-  ) =>
-    request<{ entryId: number | string; visibility: string; version: number }>({
-      url: `/pet/pets/${petId}/diary/${entryId}`, method: 'PATCH', data,
-    }),
+    petId: number | string,
+    entryId: number | string,
+    data: { visibility: PetContentVisibility; expectedVersion: number },
+  ) => petApi.updateDiaryVisibility(petId, entryId, data),
   updateAlbumAsset: (
-    petId: number | string, assetId: number | string,
-    data: { caption?: string; visibility?: 'PUBLIC' | 'OWNER_ONLY' | 'PRIVATE'; expectedVersion: number },
-  ) =>
-    request<Record<string, unknown>>({
-      url: `/pet/pets/${petId}/album/${assetId}`, method: 'PATCH', data,
-    }),
+    petId: number | string,
+    assetId: number | string,
+    data: { caption?: string; visibility?: PetContentVisibility; expectedVersion: number },
+  ) => petApi.updateAlbumAsset(petId, assetId, data),
   listEventsByStatus: (status: 'AVAILABLE' | 'CLAIMABLE' | 'HISTORY') =>
     request<(PetEventItem & PetEventOccurrenceView)[]>({ url: `/pet/events?status=${status}` }),
-  claimEventOccurrence: (occurrenceId: number | string) =>
-    request<PetEventItem & PetEventOccurrenceView>({
-      url: `/pet/event-occurrences/${occurrenceId}/claim`, method: 'POST',
-    }),
+  claimEventOccurrence: (occurrenceId: number | string) => petApi.claimEventOccurrence(occurrenceId),
   claimQuestInSet: (setId: string, questId: string) =>
     request<Record<string, unknown>>({
       url: `/pet/daily-quest-sets/${encodeURIComponent(setId)}/quests/${encodeURIComponent(questId)}/claim`,
