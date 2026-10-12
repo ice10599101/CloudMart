@@ -64,6 +64,8 @@ public class GrowthServiceImpl implements GrowthService {
     private final CheckInBitMapService checkInBitMapService;
     private final UserBadgeMapper userBadgeMapper;
     private final UserEnrichmentService userEnrichmentService;
+    /** R22 用户业务时区（权威来源 mall-wish，短缓存 fail-open） */
+    private final com.cloudmart.community.service.support.UserTimezoneResolver userTimezoneResolver;
 
     /** 合法头像框 key（前端 AVATAR_FRAMES 与之对应） */
     private static final Set<String> ALLOWED_AVATAR_FRAMES =
@@ -72,9 +74,19 @@ public class GrowthServiceImpl implements GrowthService {
     @Override
     @Transactional
     public CheckInResultVO checkIn(Long userId) {
-        LocalDate today = LocalDate.now();
+        // R22：业务日按用户 IANA 时区归属（不再取服务器日）
+        java.time.ZoneId businessZone = userTimezoneResolver.resolve(userId);
+        LocalDate today = com.cloudmart.common.time.UserBusinessCalendar.today(businessZone);
+        java.time.LocalDateTime dayStartUtc =
+                com.cloudmart.common.time.UserBusinessCalendar.businessDayStartUtcDateTime(today, businessZone);
 
-        // C05：DB 事实先行——uk(user_id, check_in_date) 判重（并发/重复签到只有一个赢家），
+        // R22 防跨时区双签：以 UTC 事实时刻对当前业务日界判定——用户改时区后只要当前业务日界
+        // （0 点 UTC）之后已有成功签到即拒绝；历史签到事实不回溯
+        if (dailyCheckInMapper.countCheckedInSinceUtc(userId, dayStartUtc) > 0) {
+            throw new BusinessException("ALREADY_CHECKED_IN", "今日已签到");
+        }
+
+        // C05：DB 事实先行——uk(user_id, check_in_date) 判重（并发同业务日二次插入撞键兜底），
         // Redis Bitmap 降级为投影（失败不阻断签到，可由管理端重建）
         DailyCheckIn checkIn = new DailyCheckIn();
         checkIn.setUserId(userId);
@@ -116,13 +128,14 @@ public class GrowthServiceImpl implements GrowthService {
         );
     }
 
-    /** T09：今日签到状态以数据库唯一事实为准（位图仅投影）。 */
+    /** R22：今日签到状态以"用户当前业务日界 UTC 之后是否有事实"判定（防跨时区口径不一致）。 */
     @Override
     public boolean isCheckedInToday(Long userId) {
-        Long count = dailyCheckInMapper.selectCount(new LambdaQueryWrapper<DailyCheckIn>()
-                .eq(DailyCheckIn::getUserId, userId)
-                .eq(DailyCheckIn::getCheckInDate, LocalDate.now()));
-        return count != null && count > 0;
+        java.time.ZoneId businessZone = userTimezoneResolver.resolve(userId);
+        LocalDate today = com.cloudmart.common.time.UserBusinessCalendar.today(businessZone);
+        java.time.LocalDateTime dayStartUtc =
+                com.cloudmart.common.time.UserBusinessCalendar.businessDayStartUtcDateTime(today, businessZone);
+        return dailyCheckInMapper.countCheckedInSinceUtc(userId, dayStartUtc) > 0;
     }
 
     @Override
@@ -240,7 +253,11 @@ public class GrowthServiceImpl implements GrowthService {
             return new com.cloudmart.community.service.ExpGrantResult(exp, 0, false, null);
         }
 
-        LocalDate businessDate = LocalDate.now();
+        // R22：业务日按用户时区归属；日界 UTC 时刻用于跨时区事实兜底
+        java.time.ZoneId businessZone = userTimezoneResolver.resolve(userId);
+        LocalDate businessDate = com.cloudmart.common.time.UserBusinessCalendar.today(businessZone);
+        java.time.LocalDateTime dayStartUtc =
+                com.cloudmart.common.time.UserBusinessCalendar.businessDayStartUtcDateTime(businessDate, businessZone);
         com.cloudmart.community.entity.ExpDailyQuota quota = lockOrCreateTodayQuota(userId, businessDate);
 
         // 行锁内判重：锁已串行同用户当天发奖，此处可见并发赢家已提交的奖励事实
@@ -249,7 +266,11 @@ public class GrowthServiceImpl implements GrowthService {
             return com.cloudmart.community.service.ExpGrantResult.duplicate(exp);
         }
 
-        int alreadyGranted = quota.getGranted() == null ? 0 : quota.getGranted();
+        // 已占用基准：R22 取「当日配额行 granted」与「当前业务日界 UTC 起 exp_logs 事实总和」的较大者——
+        // 跨时区切换后配额行可能落在新 business_date（granted=0），事实总和兜底保证跨区窗口合计不超 200
+        int rowGranted = quota.getGranted() == null ? 0 : quota.getGranted();
+        int factSum = expLogMapper.sumCreditedSinceUtc(userId, dayStartUtc);
+        int alreadyGranted = Math.max(rowGranted, factSum);
         int remaining = Math.max(0, DAILY_EXP_CAP - alreadyGranted);
         int credited = Math.min(exp, remaining);
         boolean capped = credited < exp;
@@ -502,7 +523,9 @@ public class GrowthServiceImpl implements GrowthService {
      */
     @Override
     public int getContinuousDays(Long userId) {
-        LocalDate today = LocalDate.now();
+        // R22：连续天数按用户业务日行走（与 checkIn 归属日同一口径）
+        java.time.ZoneId businessZone = userTimezoneResolver.resolve(userId);
+        LocalDate today = com.cloudmart.common.time.UserBusinessCalendar.today(businessZone);
         if (isCheckedInToday(userId)) {
             return countContinuousDaysFromDb(userId, today);
         }

@@ -131,6 +131,9 @@ cloudmart:
       - prefix: /internal
         issuers: [mall-user, mall-job, mall-wish, mall-notification]
         scope: community:internal
+    # R22：查询用户业务时区（mall-wish wish_user_stat 权威时区）
+    outbound-scopes:
+      mall-wish: wish:profile
 
 # E03：公开文档按需关闭——生产部署注入 SPRINGDOC_API_DOCS_ENABLED=false 与
 # SPRINGDOC_SWAGGER_UI_ENABLED=false；dev/test 保持默认开启

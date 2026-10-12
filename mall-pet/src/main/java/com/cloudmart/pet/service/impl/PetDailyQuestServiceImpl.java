@@ -101,7 +101,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                                     org.springframework.beans.factory.ObjectProvider<PetDailyQuestService> selfProvider,
                                     com.cloudmart.pet.repository.PetDailyQuestSetMapper setMapper,
                                     com.cloudmart.pet.config.PetMetrics metrics,
-                                    com.cloudmart.pet.service.PetSeasonPassService seasonPassService) {
+                                    com.cloudmart.pet.service.PetSeasonPassService seasonPassService,
+                                    com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver) {
         this.petService = petService;
         this.stateService = stateService;
         this.configMapper = configMapper;
@@ -118,6 +119,18 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         this.setMapper = setMapper;
         this.metrics = metrics;
         this.seasonPassService = seasonPassService;
+        this.timezoneResolver = timezoneResolver;
+    }
+
+    /** R22 任务集/进度归属的用户业务日 */
+    private final com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver;
+
+    private java.time.LocalDate businessDateFor(Long userId) {
+        return petClock.businessDate(timezoneResolver.resolve(userId));
+    }
+
+    private java.time.LocalDate businessDateFor(Pet pet) {
+        return businessDateFor(pet.getUserId());
     }
 
     @Override
@@ -202,7 +215,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     @Override
     public com.cloudmart.pet.vo.ClaimAllResult claimAll(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
-        return doClaimAll(userId, pet, ensureQuestSet(pet, petClock.businessDate()));
+        return doClaimAll(userId, pet, ensureQuestSet(pet, businessDateFor(userId)));
     }
 
     /** PET-09：批领绑定任务集（T17/T19：在途操作绑定原 set/pet，切宠不错对象） */
@@ -277,7 +290,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     @Transactional
     public PetDailyQuestVO claimChest(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
-        return doClaimChest(pet, ensureQuestSet(pet, petClock.businessDate()));
+        return doClaimChest(pet, ensureQuestSet(pet, businessDateFor(userId)));
     }
 
     /** PET-09：按集领取宝箱（T17：切宠/宽限期绑定原集与原宠物） */
@@ -299,7 +312,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     @Transactional
     public Long currentSetId(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
-        return ensureQuestSet(pet, petClock.businessDate()).getId();
+        return ensureQuestSet(pet, businessDateFor(userId)).getId();
     }
 
     /** 宝箱领取主体（claimChest 与 claimChestInSet 共用；宠物/集由调用方绑定） */
@@ -381,7 +394,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         }
         try {
             ensureToday(pet);
-            credit(pet, codesOfType(pet, type), amount, petClock.businessDate());
+            credit(pet, codesOfType(pet, type), amount, businessDateFor(pet));
         } catch (Exception e) {
             // 埋点失败不影响主玩法（进度可丢，玩法不可断）
             log.warn("每日任务埋点失败（忽略）: petId={}, type={}, amount={}", pet.getId(), type, amount, e);
@@ -396,7 +409,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             return false;
         }
         try {
-            LocalDate factDate = petClock.businessDateOf(sourceTime);
+            // R22：延迟事件按事件发生时刻在"用户业务时区"下归属（文档：延迟事件归属一致）
+            LocalDate factDate = petClock.businessDateOf(sourceTime, timezoneResolver.resolve(pet.getUserId()));
             // PET-10：收据先行（uk(quest_type, event_id) 数据库权威去重），先以 PENDING 落库——
             // 与主动作同事务提交；投影失败不回滚主动作，落 FAILED 交由调度重试/管理重放恢复
             com.cloudmart.pet.entity.PetQuestEventReceipt receipt = new com.cloudmart.pet.entity.PetQuestEventReceipt();
@@ -418,9 +432,10 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             // PET-10/T20：投影与回执 APPLIED 同事务提交——credit 失败整事务回滚会连同主动作回滚，
             // 因此投影异常在此转为 FAILED（同事务落库，主动作继续），进度由可靠重试恢复
             try {
-                if (factDate.equals(petClock.businessDate())) {
+                // R22：事实归属日（事件发生时用户业务日）与当前用户业务日一致才投影当日任务
+                if (factDate.equals(businessDateFor(pet))) {
                     ensureToday(pet);
-                    credit(pet, codesOfType(pet, type), amount, factDate);
+                    credit(pet, codesOfType(pet, type, factDate), amount, factDate);
                     receipt.setStatus("APPLIED");
                     receiptMapper.updateById(receipt);
                     return true;
@@ -642,7 +657,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
      * 配置停用/改类型后进度口径漂移）；存量无快照行回退当前配置类型。
      */
     private List<String> codesOfType(Pet pet, PetQuestType type) {
-        return codesOfType(pet, type, petClock.businessDate());
+        return codesOfType(pet, type, businessDateFor(pet));
     }
 
     /** PET-09：进度投影按目标业务日的任务行快照（历史补算投影当日行，credit 仍有日期过滤兜底） */
@@ -694,7 +709,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
      * R32：生成时冻结奖励快照（运营改配置不改变已生成任务的经济结果）；
      * 接入 cancelDisabledQuests——配置停用/缺失的未完成项显式转 CANCELLED（原方法无调用方）。 */
     private List<PetDailyQuest> ensureToday(Pet pet) {
-        LocalDate today = petClock.businessDate();
+        LocalDate today = businessDateFor(pet);
         // PET-09：任务集每宠每业务日生成一次（uk 幂等），生成时冻结等级与宝箱奖励——
         // 当日升级/配置编辑不扩大既有集合（T16），任务行经 set_id 绑定到集
         PetDailyQuestSet questSet = ensureQuestSet(pet, today);

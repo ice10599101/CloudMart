@@ -102,6 +102,12 @@ class PetDailyQuestServiceImplTest {
         java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
         org.mockito.Mockito.lenient().when(petClock.businessDate()).thenReturn(today);
         org.mockito.Mockito.lenient().when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any())).thenReturn(today);
+        // R22：生产代码改走用户时区重载
+        org.mockito.Mockito.lenient().when(petClock.businessDate(org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
+                .thenReturn(today);
+        org.mockito.Mockito.lenient().when(petClock.businessDateOf(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
+                .thenReturn(today);
         org.mockito.Mockito.lenient().when(petClock.businessDateStartUtc(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
         org.mockito.Mockito.lenient().when(petClock.nowUtc()).thenReturn(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
@@ -144,7 +150,8 @@ class PetDailyQuestServiceImplTest {
                 },
                 setMapper,
                 org.mockito.Mockito.mock(com.cloudmart.pet.config.PetMetrics.class),
-                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetSeasonPassService.class));
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetSeasonPassService.class),
+                timezoneResolver);
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         // PET-09：按集领取解析集绑定宠物；进度投影按当日任务行（codesOfType 走行快照）
         lenient().when(petMapperMock.selectById(org.mockito.ArgumentMatchers.eq(1L))).thenReturn(pet());
@@ -152,6 +159,16 @@ class PetDailyQuestServiceImplTest {
         lenient().when(configMapper.selectOne(any())).thenReturn(config());
         lenient().when(stateService.grantExp(any(), anyInt())).thenReturn(0);
         lenient().when(intimacyService.gain(any(), any())).thenReturn(0);
+    }
+
+    /** R22：用户业务时区解析桩（默认上海业务区） */
+    private final com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver =
+            org.mockito.Mockito.mock(com.cloudmart.pet.service.support.UserPetTimezoneResolver.class);
+
+    {
+        // 实例初始化块：mock 在字段构造后、@BeforeEach 构造 questService 前完成默认时区打桩
+        org.mockito.Mockito.lenient().when(timezoneResolver.resolve(org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(java.time.ZoneId.of("Asia/Shanghai"));
     }
 
     @Test
@@ -254,8 +271,10 @@ class PetDailyQuestServiceImplTest {
     @org.junit.jupiter.api.DisplayName("PET-10/T20：进度投影失败 → 回执转 FAILED 排期重试，主动作不感知异常")
     void projectionFailureMarksReceiptFailed() {
         java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
-        org.mockito.Mockito.lenient().when(petClock.businessDate()).thenReturn(java.time.LocalDate.now());
-        org.mockito.Mockito.lenient().when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any()))
+        org.mockito.Mockito.lenient().when(petClock.businessDate(org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
+                .thenReturn(java.time.LocalDate.now());
+        org.mockito.Mockito.lenient().when(petClock.businessDateOf(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
                 .thenReturn(java.time.LocalDate.now());
         org.mockito.Mockito.lenient().when(petClock.nowUtc())
                 .thenReturn(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
@@ -565,8 +584,10 @@ class PetDailyQuestServiceImplTest {
     @org.junit.jupiter.api.DisplayName("R32 recordFact：同事实幂等——uk 撞键返回 false 不重复计数")
     void recordFactDedupsSameEventId() {
         java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
-        org.mockito.Mockito.lenient().when(petClock.businessDate()).thenReturn(java.time.LocalDate.now());
-        org.mockito.Mockito.lenient().when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any()))
+        org.mockito.Mockito.lenient().when(petClock.businessDate(org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
+                .thenReturn(java.time.LocalDate.now());
+        org.mockito.Mockito.lenient().when(petClock.businessDateOf(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
                 .thenReturn(java.time.LocalDate.now());
         org.mockito.Mockito.lenient().when(questMapper.update(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any())).thenReturn(1);
@@ -592,8 +613,11 @@ class PetDailyQuestServiceImplTest {
     void recordFactSkipsStaleFact() {
         java.time.LocalDateTime past = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusDays(3);
         java.time.LocalDate today = java.time.LocalDate.now();
-        org.mockito.Mockito.when(petClock.businessDate()).thenReturn(today);
-        org.mockito.Mockito.when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any()))
+        // R22：当前用户业务日=today；历史事实按用户时区归属 3 天前 → 不相等，SKIPPED
+        org.mockito.Mockito.when(petClock.businessDate(org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
+                .thenReturn(today);
+        org.mockito.Mockito.when(petClock.businessDateOf(
+                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
                 .thenReturn(today.minusDays(3));
         // 历史日无任务行：credit 命中 0
         org.mockito.Mockito.when(questMapper.update(org.mockito.ArgumentMatchers.any(),

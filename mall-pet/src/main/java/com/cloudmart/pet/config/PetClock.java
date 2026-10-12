@@ -47,6 +47,19 @@ public class PetClock {
         return LocalDate.now(clock.withZone(businessZone()));
     }
 
+    /**
+     * R22 指定用户业务时区下的当前业务日（每日配额/任务归属按用户 IANA 时区）。
+     * zone 为用户权威时区（由 UserPetTimezoneResolver 解析，已含默认回退）。
+     */
+    public LocalDate businessDate(ZoneId zone) {
+        return LocalDate.now(clock.withZone(zone));
+    }
+
+    /** R22 指定 UTC 时间点在指定用户时区下的业务日（延迟事件按发生时间归属） */
+    public LocalDate businessDateOf(LocalDateTime utcTime, ZoneId zone) {
+        return utcTime.atOffset(ZoneOffset.UTC).atZoneSameInstant(zone).toLocalDate();
+    }
+
     /** 指定 UTC 时间点对应的业务日（事件按发生时间归属，不按消费时间） */
     public LocalDate businessDateOf(LocalDateTime utcTime) {
         return utcTime.atOffset(ZoneOffset.UTC).atZoneSameInstant(businessZone()).toLocalDate();

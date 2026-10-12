@@ -253,6 +253,10 @@ cloudmart:
       - prefix: /internal/account-erasure
         issuers: [mall-user]
         scope: wish:erasure
+      # R22：用户业务时区查询（mall-community 签到/日配额、mall-pet 每日次数统一用户业务日）
+      - prefix: /internal/users
+        issuers: [mall-community, mall-pet]
+        scope: wish:profile
     # T09：跨域经验发奖出站签名（iss=mall-wish, aud=mall-community, scope=community:internal）
     outbound-scopes:
       mall-community: community:internal

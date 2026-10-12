@@ -76,6 +76,9 @@ class GrowthServiceImplTest {
     @Mock
     private com.cloudmart.community.service.UserEnrichmentService userEnrichmentService;
 
+    @Mock
+    private com.cloudmart.community.service.support.UserTimezoneResolver userTimezoneResolver;
+
     private GrowthServiceImpl growthService;
 
     private static final Long USER_ID = 1L;
@@ -102,7 +105,10 @@ class GrowthServiceImplTest {
         growthService = new GrowthServiceImpl(
                 userLevelMapper, levelConfigMapper, dailyCheckInMapper, expLogMapper,
                 expDailyQuotaMapper, rankingService,
-                checkInBitMapService, userBadgeMapper, userEnrichmentService);
+                checkInBitMapService, userBadgeMapper, userEnrichmentService, userTimezoneResolver);
+        // R22：默认业务时区（个别用例可覆盖为其他时区验证业务日界）
+        org.mockito.Mockito.lenient().when(userTimezoneResolver.resolve(anyLong()))
+                .thenReturn(java.time.ZoneId.of("Asia/Shanghai"));
         // R21 发奖通用桩（lenient：非发奖用例不触发也不报错）：
                 // 当日配额行存在且未占用、累加成功、奖励事实不重复——个别用例按需覆盖
         org.mockito.Mockito.lenient().when(expDailyQuotaMapper.selectForUpdate(anyLong(), any()))
@@ -110,6 +116,10 @@ class GrowthServiceImplTest {
         org.mockito.Mockito.lenient().when(expDailyQuotaMapper.addGranted(anyLong(), any(), anyInt()))
                 .thenReturn(1);
         org.mockito.Mockito.lenient().when(expLogMapper.selectCount(any())).thenReturn(0L);
+        // R22：默认业务日界内无已入账经验（跨时区兜底基准 0）、无已签到事实
+        org.mockito.Mockito.lenient().when(expLogMapper.sumCreditedSinceUtc(anyLong(), any())).thenReturn(0);
+        org.mockito.Mockito.lenient().when(dailyCheckInMapper.countCheckedInSinceUtc(anyLong(), any()))
+                .thenReturn(0L);
     }
 
     /** R21 构造当日配额行 */
@@ -211,11 +221,10 @@ class GrowthServiceImplTest {
         }
 
         @Test
-        @DisplayName("should throw when already checked in today")
+        @DisplayName("R22: 当前业务日界 UTC 后已有签到（含改时区）→ 前置拒绝，不落新行不置位图")
         void checkIn_alreadyCheckedIn_throwsException() {
-            // C05：重复签到以 DB uk(user_id, check_in_date) 判定（Bitmap 位已置不再是判据）
-            when(dailyCheckInMapper.insert(any(DailyCheckIn.class)))
-                    .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_user_date"));
+            // R22：UTC 事实时刻对当前业务日界判定（改时区双签走此路径），无需等 uk 撞键
+            when(dailyCheckInMapper.countCheckedInSinceUtc(eq(USER_ID), any())).thenReturn(1L);
 
             assertThatThrownBy(() -> growthService.checkIn(USER_ID))
                     .isInstanceOf(BusinessException.class)
@@ -223,6 +232,20 @@ class GrowthServiceImplTest {
                         BusinessException be = (BusinessException) ex;
                         assertThat(be.getCode()).isEqualTo("ALREADY_CHECKED_IN");
                     });
+
+            verify(dailyCheckInMapper, never()).insert(any(DailyCheckIn.class));
+            verify(checkInBitMapService, never()).setBit(eq(USER_ID), any(LocalDate.class));
+        }
+
+        @Test
+        @DisplayName("C05 兜底：UTC 前置判定漏网（计数 0）但 uk 撞键 → 仍拒绝并不置位图")
+        void checkIn_duplicateKey_stillRejected() {
+            when(dailyCheckInMapper.insert(any(DailyCheckIn.class)))
+                    .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_user_date"));
+
+            assertThatThrownBy(() -> growthService.checkIn(USER_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "ALREADY_CHECKED_IN");
 
             verify(checkInBitMapService, never()).setBit(eq(USER_ID), any(LocalDate.class));
         }
@@ -264,8 +287,8 @@ class GrowthServiceImplTest {
         @Test
         @DisplayName("should return true when user has checked in")
         void isCheckedInToday_true() {
-            // T09：今日签到状态以 DB 唯一事实为准（位图仅投影）
-            when(dailyCheckInMapper.selectCount(any())).thenReturn(1L);
+            // R22：以当前业务日界 UTC 之后的签到事实计数判定
+            when(dailyCheckInMapper.countCheckedInSinceUtc(anyLong(), any())).thenReturn(1L);
 
             boolean result = growthService.isCheckedInToday(USER_ID);
 
@@ -275,8 +298,6 @@ class GrowthServiceImplTest {
         @Test
         @DisplayName("should return false when user has not checked in")
         void isCheckedInToday_false() {
-            when(dailyCheckInMapper.selectCount(any())).thenReturn(0L);
-
             boolean result = growthService.isCheckedInToday(USER_ID);
 
             assertThat(result).isFalse();
@@ -512,9 +533,9 @@ class GrowthServiceImplTest {
         @Test
         @DisplayName("should return continuous days when checked in today")
         void getContinuousDays_checkedInToday() {
-            // T09：连续天数走 DB 事实（今天已签从今天起算）
+            // T09/R22：连续天数走 DB 事实（今天按用户业务日已签从今天起算）
             LocalDate today = LocalDate.now();
-            when(dailyCheckInMapper.selectCount(any())).thenReturn(1L);
+            when(dailyCheckInMapper.countCheckedInSinceUtc(anyLong(), any())).thenReturn(1L);
             when(dailyCheckInMapper.selectList(any())).thenReturn(dbRecords(
                     today, today.minusDays(1), today.minusDays(2),
                     today.minusDays(3), today.minusDays(4)));
@@ -528,7 +549,8 @@ class GrowthServiceImplTest {
         @DisplayName("T09：今天未签但昨天已签 → 展示可延续天数（签到后延续）")
         void getContinuousDays_yesterdaySigned_extendable() {
             LocalDate today = LocalDate.now();
-            when(dailyCheckInMapper.selectCount(any())).thenReturn(0L, 1L);
+            // 今日业务日界后无签到（前置判定 0）；昨天行存在（selectCount 仅用于昨日检查）
+            when(dailyCheckInMapper.selectCount(any())).thenReturn(1L);
             when(dailyCheckInMapper.selectList(any())).thenReturn(dbRecords(
                     today.minusDays(1), today.minusDays(2)));
 

@@ -39,11 +39,21 @@ public class PetQuotaService {
     private final PetDailyQuotaMapper quotaMapper;
     private final PetClock petClock;
     private final com.cloudmart.pet.config.PetMetrics metrics;
+    /** R22 每日配额按用户业务日归属 */
+    private final com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver;
 
-    public PetQuotaService(PetDailyQuotaMapper quotaMapper, PetClock petClock, com.cloudmart.pet.config.PetMetrics metrics) {
+    public PetQuotaService(PetDailyQuotaMapper quotaMapper, PetClock petClock,
+                           com.cloudmart.pet.config.PetMetrics metrics,
+                           com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver) {
         this.quotaMapper = quotaMapper;
         this.petClock = petClock;
         this.metrics = metrics;
+        this.timezoneResolver = timezoneResolver;
+    }
+
+    /** R22：配额业务日按用户 IANA 时区（每日次数随用户本地日界重置） */
+    private LocalDate businessDate(Long userId) {
+        return petClock.businessDate(timezoneResolver.resolve(userId));
     }
 
     /**
@@ -53,7 +63,7 @@ public class PetQuotaService {
         if (limit <= 0) {
             return false;
         }
-        LocalDate businessDate = petClock.businessDate();
+        LocalDate businessDate = businessDate(userId);
         int updated = quotaMapper.update(null, new LambdaUpdateWrapper<PetDailyQuota>()
                 .setSql("used = used + 1")
                 .eq(PetDailyQuota::getUserId, userId)
@@ -97,7 +107,7 @@ public class PetQuotaService {
                 .eq(PetDailyQuota::getUserId, userId)
                 .eq(PetDailyQuota::getQuotaType, type.name())
                 .eq(PetDailyQuota::getTargetId, targetId)
-                .eq(PetDailyQuota::getBusinessDate, petClock.businessDate()));
+                .eq(PetDailyQuota::getBusinessDate, businessDate(userId)));
     }
 
     /**
@@ -111,13 +121,13 @@ public class PetQuotaService {
                     .eq(PetDailyQuota::getUserId, userId)
                     .eq(PetDailyQuota::getQuotaType, type.name())
                     .eq(PetDailyQuota::getTargetId, targetId)
-                    .eq(PetDailyQuota::getBusinessDate, petClock.businessDate()));
+                    .eq(PetDailyQuota::getBusinessDate, businessDate(userId)));
             if (updated == 0) {
                 PetDailyQuota row = new PetDailyQuota();
                 row.setUserId(userId);
                 row.setQuotaType(type.name());
                 row.setTargetId(targetId);
-                row.setBusinessDate(petClock.businessDate());
+                row.setBusinessDate(businessDate(userId));
                 row.setUsed(1);
                 try {
                     quotaMapper.insert(row);
@@ -127,7 +137,7 @@ public class PetQuotaService {
                             .eq(PetDailyQuota::getUserId, userId)
                             .eq(PetDailyQuota::getQuotaType, type.name())
                             .eq(PetDailyQuota::getTargetId, targetId)
-                            .eq(PetDailyQuota::getBusinessDate, petClock.businessDate()));
+                            .eq(PetDailyQuota::getBusinessDate, businessDate(userId)));
                 }
             }
         } catch (Exception e) {
@@ -141,7 +151,7 @@ public class PetQuotaService {
                 .eq(PetDailyQuota::getUserId, userId)
                 .eq(PetDailyQuota::getQuotaType, type.name())
                 .eq(PetDailyQuota::getTargetId, targetId)
-                .eq(PetDailyQuota::getBusinessDate, petClock.businessDate()));
+                .eq(PetDailyQuota::getBusinessDate, businessDate(userId)));
         return row != null && row.getUsed() != null ? row.getUsed() : 0;
     }
 
