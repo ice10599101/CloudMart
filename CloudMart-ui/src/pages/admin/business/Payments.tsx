@@ -244,8 +244,18 @@ export default function Payments() {
       width: 100,
       search: false,
       render: (_, record) => (
-        <Tag color={record.status === 'DONE' ? 'green' : record.status === 'RUNNING' ? 'blue' : 'red'}>
-          {record.status}
+        <Tag
+          color={
+            record.status === 'DONE'
+              ? 'green'
+              : record.status === 'RUNNING'
+                ? 'blue'
+                : record.status === 'PARTIAL'
+                  ? 'orange'
+                  : 'red'
+          }
+        >
+          {record.status === 'PARTIAL' ? 'PARTIAL（依赖不可达，自动续扫中）' : record.status}
         </Tag>
       ),
     },

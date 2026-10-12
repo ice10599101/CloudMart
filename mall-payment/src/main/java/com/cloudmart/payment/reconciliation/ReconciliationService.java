@@ -10,12 +10,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.lang.management.ManagementFactory;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 对账服务（OPS-01/T01）：支付尝试 ↔ 订单一致性的持久化核对。
+ * 对账服务（OPS-01/T01/R26）：支付尝试 ↔ 订单一致性的持久化核对。
  *
  * <p>唯一真值源为 payment_attempt 台账（旧 payments 表已删除，T01）。
  * 核对规则（首期覆盖资金最高风险面）：</p>
@@ -26,9 +27,17 @@ import java.util.List;
  *       状态推进无资金凭证，HIGH。</li>
  * </ul>
  *
- * <p>扫描语义（T01：按游标遍历全部，不能只取首批）：两个核对方向均按 id 游标
- * 分页推进，直至扫描窗口耗尽。订单服务不可达的条目跳过不误报（差异必须两侧
- * 状态可核验才成立）。差异按 (run, diff_type, biz_id) 唯一——重复对账不产生重复差异。</p>
+ * <p>R26 可靠性语义：</p>
+ * <ul>
+ *   <li>执行租约：RUNNING 持约者每批心跳续期；进程 kill/崩溃后租约到期，
+ *       同日下次触发由其他执行器 CAS 接管，调度重复不双跑；</li>
+ *   <li>断点续扫：正向 last-id 游标、反向已完成页码逐批持久化，
+ *       PARTIAL/FAILED/失联接管均从断点继续，已核对计数不重计；</li>
+ *   <li>依赖分级：单笔状态查询不可达计 skipped 不误报；分页/台账端点不可达
+ *       （区别于"真空页"）→ PARTIAL 而非 DONE/FAILED，保留断点同日续扫；</li>
+ *   <li>差异证据不删：重试/接管保留全部差异行（唯一键去重），
+ *       绝不后台改写人工处置结论。</li>
+ * </ul>
  */
 @Slf4j
 @Service
@@ -38,7 +47,12 @@ public class ReconciliationService {
     private final ReconciliationRunMapper runMapper;
     private final ReconciliationDifferenceMapper differenceMapper;
     private final OrderFeignClient orderFeignClient;
+    private final com.cloudmart.payment.repository.RefundOrderMapper refundOrderMapper;
+    private final com.cloudmart.payment.feign.InventoryReconFeignClient inventoryReconFeignClient;
     private final int batchSize;
+    private final int leaseSeconds;
+    /** 租约持有者标识：pid@host（日志可追踪接管方） */
+    private final String instanceId;
 
     public ReconciliationService(PaymentAttemptMapper attemptMapper,
                                  ReconciliationRunMapper runMapper,
@@ -46,7 +60,8 @@ public class ReconciliationService {
                                  OrderFeignClient orderFeignClient,
                                  com.cloudmart.payment.repository.RefundOrderMapper refundOrderMapper,
                                  com.cloudmart.payment.feign.InventoryReconFeignClient inventoryReconFeignClient,
-                                 @Value("${ops.reconciliation.batch-size:200}") int batchSize) {
+                                 @Value("${ops.reconciliation.batch-size:200}") int batchSize,
+                                 @Value("${ops.reconciliation.lease-seconds:300}") int leaseSeconds) {
         this.attemptMapper = attemptMapper;
         this.runMapper = runMapper;
         this.differenceMapper = differenceMapper;
@@ -54,53 +69,135 @@ public class ReconciliationService {
         this.refundOrderMapper = refundOrderMapper;
         this.inventoryReconFeignClient = inventoryReconFeignClient;
         this.batchSize = batchSize;
+        this.leaseSeconds = leaseSeconds;
+        this.instanceId = ManagementFactory.getRuntimeMXBean().getName();
     }
 
-    private final com.cloudmart.payment.repository.RefundOrderMapper refundOrderMapper;
-    private final com.cloudmart.payment.feign.InventoryReconFeignClient inventoryReconFeignClient;
+    /** 依赖服务整页/整批不可达（区别于单笔不可核验）：保留断点转 PARTIAL，等待同日续扫 */
+    static final class DependencyUnreachableException extends RuntimeException {
+        DependencyUnreachableException(String message) {
+            super(message);
+        }
 
-    /** FAILED 重试的运行租约：execute=false 时 run 为应直接返回的既有运行（DONE/RUNNING 幂等） */
+        DependencyUnreachableException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    /** FAILED/PARTIAL 重试或失联接管：execute=false 时 run 为应直接返回的既有运行 */
     private record RunLease(ReconciliationRun run, boolean execute) {}
 
     /**
-     * 幂等进入对账运行：DONE/RUNNING 返回既有运行（当日不重扫，防调度与手动并发双跑）；
-     * FAILED 复用 uk(business_date,scope) 约束下的同一运行行 CAS 认领重置（当日可重试），
-     * 并清理上次中断留下的半程差异（重扫后全量重建，不残留过期证据）。
+     * 幂等进入对账运行：
+     * DONE → 幂等返回；RUNNING 租约有效 → 幂等返回；RUNNING 租约过期 → CAS 接管（续跑）；
+     * PARTIAL/FAILED → CAS 认领续跑（保留统计/游标/差异）；并发认领失败 → 幂等返回。
      */
     private RunLease beginRun(LocalDate businessDate, String scope, String logTag) {
         ReconciliationRun existing = runMapper.findByDateAndScope(businessDate, scope);
-        if (existing != null && "FAILED".equals(existing.getStatus())) {
-            log.warn("[{}] 本业务日 {} 对账上次 FAILED（run={}），CAS 认领重置重试", logTag, scope, existing.getId());
-            if (runMapper.claimFailedRun(existing.getId()) == 0) {
-                // 并发下已被其他线程认领：视同 RUNNING，幂等返回
-                log.info("[{}] 本业务日 {} 对账已被并发执行认领（run={}），幂等返回", logTag, scope, existing.getId());
-                return new RunLease(runMapper.selectById(existing.getId()), false);
-            }
-            differenceMapper.delete(new LambdaQueryWrapper<ReconciliationDifference>()
-                    .eq(ReconciliationDifference::getRunId, existing.getId()));
-            existing.setStatus("RUNNING");
-            // 列 NOT NULL：重置为 0（本次尚未核对），与 claimFailedRun 的 SQL 保持同语义
-            existing.setTotalChecked(0);
-            existing.setTotalDiff(0);
-            existing.setStartedAt(LocalDateTime.now());
-            existing.setFinishedAt(null);
-            return new RunLease(existing, true);
-        }
         if (existing != null) {
-            log.info("[{}] 本业务日 {} 对账已执行（status={}，幂等返回既有运行 run={}）",
-                    logTag, scope, existing.getStatus(), existing.getId());
-            return new RunLease(existing, false);
+            switch (existing.getStatus()) {
+                case "DONE" -> {
+                    log.info("[{}] 本业务日 {} 对账已完成（run={}），幂等返回", logTag, scope, existing.getId());
+                    return new RunLease(existing, false);
+                }
+                case "RUNNING" -> {
+                    if (existing.getLeaseUntil() != null && existing.getLeaseUntil().isAfter(LocalDateTime.now())) {
+                        log.info("[{}] 本业务日 {} 对账正在执行（run={} owner={} 租约有效），幂等返回",
+                                logTag, scope, existing.getId(), existing.getLeaseOwner());
+                        return new RunLease(existing, false);
+                    }
+                    if (runMapper.takeoverStaleRun(existing.getId(), instanceId, leaseSeconds) == 0) {
+                        log.info("[{}] 失联运行 run={} 已被并发接管，幂等返回", logTag, existing.getId());
+                        return new RunLease(runMapper.selectById(existing.getId()), false);
+                    }
+                    log.warn("[{}] 接管失联对账运行 run={}（owner={}），从断点续扫",
+                            logTag, existing.getId(), existing.getLeaseOwner());
+                    return new RunLease(runMapper.selectById(existing.getId()), true);
+                }
+                case "PARTIAL", "FAILED" -> {
+                    if (runMapper.claimResumableRun(existing.getId(), instanceId, leaseSeconds) == 0) {
+                        log.info("[{}] 可恢复运行 run={} 已被并发认领，幂等返回", logTag, existing.getId());
+                        return new RunLease(runMapper.selectById(existing.getId()), false);
+                    }
+                    log.warn("[{}] 认领{}对账运行 run={}，从断点续扫（统计/差异保留）",
+                            logTag, existing.getStatus(), scope, existing.getId());
+                    return new RunLease(runMapper.selectById(existing.getId()), true);
+                }
+                default -> {
+                    log.error("[{}] 运行 run={} 状态未知 {}，按可恢复运行 CAS 认领",
+                            logTag, existing.getId(), existing.getStatus());
+                    if (runMapper.claimResumableRun(existing.getId(), instanceId, leaseSeconds) == 0) {
+                        return new RunLease(runMapper.selectById(existing.getId()), false);
+                    }
+                    return new RunLease(runMapper.selectById(existing.getId()), true);
+                }
+            }
         }
+        LocalDateTime now = LocalDateTime.now();
         ReconciliationRun run = new ReconciliationRun();
         run.setBusinessDate(businessDate);
         run.setScope(scope);
         run.setStatus("RUNNING");
+        run.setTotalChecked(0);
+        run.setTotalDiff(0);
+        run.setTotalSkipped(0);
+        run.setPaymentCursor(0L);
+        run.setRefundCursor(0L);
+        run.setInventoryCursor(0L);
+        run.setOrderPage(0);
+        run.setLeaseOwner(instanceId);
+        run.setLeaseUntil(now.plusSeconds(leaseSeconds));
+        run.setHeartbeatAt(now);
         // 时间统一取应用时钟：DB 默认值是 UTC 而应用是东八区，混用会导致
         // 同一行 started_at 与 finished_at 相差 8 小时（线上 run3 实测）
-        run.setStartedAt(LocalDateTime.now());
-        run.setCreatedAt(LocalDateTime.now());
+        run.setStartedAt(now);
+        run.setCreatedAt(now);
         runMapper.insert(run);
         return new RunLease(run, true);
+    }
+
+    /** 逐批心跳：续租约并持久化断点游标与累计计数（崩溃后最多丢失当前批的进度） */
+    private void persistProgress(ReconciliationRun run) {
+        LocalDateTime now = LocalDateTime.now();
+        run.setHeartbeatAt(now);
+        run.setLeaseUntil(now.plusSeconds(leaseSeconds));
+        runMapper.updateById(run);
+    }
+
+    /** 安全读取订单状态：null/失败信封/抛异常一律视为不可核验（由调用方计 skipped） */
+    private String queryOrderStatusQuietly(Long orderId, String logTag, Object bizRef) {
+        try {
+            ApiResponse<OrderInternalInfoDTO> orderResp = orderFeignClient.getOrderInfo(orderId);
+            if (orderResp != null && orderResp.success() && orderResp.data() != null) {
+                return orderResp.data().status();
+            }
+            log.warn("[{}] 订单状态查询返回不可核验信封 orderId={} ref={}", logTag, orderId, bizRef);
+            return "UNREACHABLE";
+        } catch (Exception queryError) {
+            log.warn("[{}] 订单状态查询失败，跳过该条 orderId={} ref={}: {}",
+                    logTag, orderId, bizRef, queryError.getMessage());
+            return "UNREACHABLE";
+        }
+    }
+
+    /**
+     * 反向扫描专用：分页拉取已支付订单。失败信封/抛异常是"端点不可达"而非"真空页"——
+     * 必须转 PARTIAL 保留断点，绝不能 break 后误标 DONE（R26 核心修复）。
+     */
+    private OrderFeignClient.PageDTO fetchPaidOrdersPage(int page, String logTag) {
+        ApiResponse<OrderFeignClient.PageDTO> resp;
+        try {
+            resp = orderFeignClient.listPaidOrders(page, batchSize);
+        } catch (Exception e) {
+            throw new DependencyUnreachableException(
+                    "[" + logTag + "] 反向扫描分页拉取失败 page=" + page + "（依赖不可达，保留断点）", e);
+        }
+        if (resp == null || !resp.success() || resp.data() == null) {
+            throw new DependencyUnreachableException(
+                    "[" + logTag + "] 反向扫描分页返回失败信封/空数据 page=" + page
+                            + "（区别于真空页，保留断点）");
+        }
+        return resp.data();
     }
 
     /** 执行一次支付↔订单对账（扫描最近 N 天 SUCCESS 支付核对订单状态）。 */
@@ -113,13 +210,13 @@ public class ReconciliationService {
         ReconciliationRun run = lease.run();
 
         try {
-            int checked = 0;
-            int skipped = 0;
-            int diffs = 0;
+            int checked = nz(run.getTotalChecked());
+            int skipped = nz(run.getTotalSkipped());
+            int diffs = nz(run.getTotalDiff());
             LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
 
-            // 核对一：SUCCESS 支付的订单必须已 PAID+（id 游标全量扫描，T01）
-            long lastId = 0;
+            // 核对一：SUCCESS 支付的订单必须已 PAID+（id 游标断点续扫）
+            long lastId = nz(run.getPaymentCursor());
             while (true) {
                 List<PaymentAttempt> batch = attemptMapper.selectList(
                         new LambdaQueryWrapper<PaymentAttempt>()
@@ -133,18 +230,11 @@ public class ReconciliationService {
                 }
                 for (PaymentAttempt attempt : batch) {
                     lastId = attempt.getId();
-                    String orderStatus;
-                    try {
-                        ApiResponse<OrderInternalInfoDTO> orderResp =
-                                orderFeignClient.getOrderInfo(attempt.getOrderId());
-                        orderStatus = orderResp != null && orderResp.success() && orderResp.data() != null
-                                ? orderResp.data().status() : "UNREACHABLE";
-                    } catch (Exception queryError) {
-                        // T11：依赖服务不可达计 skipped 不计 checked——差异必须两侧可核验，
-                        // 运营据此区分"核对干净"与"没查到"
+                    String orderStatus = queryOrderStatusQuietly(attempt.getOrderId(), "OPS01",
+                            "attemptId=" + attempt.getId());
+                    if ("UNREACHABLE".equals(orderStatus)) {
+                        // T11：依赖服务不可达计 skipped 不计 checked——差异必须两侧可核验
                         skipped++;
-                        log.warn("[OPS01] 订单状态查询失败，跳过该条 attemptId={}: {}",
-                                attempt.getId(), queryError.getMessage());
                         continue;
                     }
                     checked++;
@@ -157,22 +247,25 @@ public class ReconciliationService {
                             "{\"paymentStatus\":\"SUCCESS\",\"orderStatus\":\"" + orderStatus
                                     + "\",\"orderId\":" + attempt.getOrderId() + "}");
                 }
+                run.setPaymentCursor(lastId);
+                run.setTotalChecked(checked);
+                run.setTotalSkipped(skipped);
+                run.setTotalDiff(diffs);
+                persistProgress(run);
                 if (batch.size() < batchSize) {
                     break;
                 }
             }
 
-            // 核对二：PAID/SHIPPED/COMPLETED 订单必须有 SUCCESS 支付记录——
-            // 订单状态由订单侧分页扫描（经内部端点逐页），本地按 orderId 查支付
-            int page = 1;
+            // 核对二：PAID+ 订单必须有 SUCCESS 支付记录（断点页码续扫；页失败转 PARTIAL）
+            int page = nz(run.getOrderPage()) + 1;
             while (true) {
-                ApiResponse<OrderFeignClient.PageDTO> paidPage = orderFeignClient
-                        .listPaidOrders(page, batchSize);
-                if (paidPage == null || !paidPage.success() || paidPage.data() == null
-                        || paidPage.data().records().isEmpty()) {
+                OrderFeignClient.PageDTO paidPage = fetchPaidOrdersPage(page, "OPS01");
+                List<OrderInternalInfoDTO> records = paidPage.records();
+                if (records.isEmpty()) {
                     break;
                 }
-                for (OrderInternalInfoDTO order : paidPage.data().records()) {
+                for (OrderInternalInfoDTO order : records) {
                     checked++;
                     Long count = attemptMapper.selectCount(new LambdaQueryWrapper<PaymentAttempt>()
                             .eq(PaymentAttempt::getOrderId, order.orderId())
@@ -186,26 +279,21 @@ public class ReconciliationService {
                             "{\"orderStatus\":\"" + order.status() + "\",\"orderId\":"
                                     + order.orderId() + "}");
                 }
-                if (paidPage.data().records().size() < batchSize) {
+                run.setOrderPage(page);
+                run.setTotalChecked(checked);
+                run.setTotalDiff(diffs);
+                persistProgress(run);
+                if (records.size() < batchSize) {
                     break;
                 }
                 page++;
             }
 
-            run.setTotalChecked(checked);
-            run.setTotalDiff(diffs);
-            run.setTotalSkipped(skipped);
-            run.setStatus("DONE");
-            run.setFinishedAt(LocalDateTime.now());
-            runMapper.updateById(run);
-            log.info("[OPS01] 对账完成 run={} checked={} diffs={} skipped={}", run.getId(), checked, diffs, skipped);
-            return run;
+            return finishDone(run, checked, diffs, skipped, "OPS01");
+        } catch (DependencyUnreachableException e) {
+            return finishPartial(run, "OPS01", e);
         } catch (Exception e) {
-            run.setStatus("FAILED");
-            run.setFinishedAt(LocalDateTime.now());
-            runMapper.updateById(run);
-            log.error("[OPS01] 对账执行失败 run={}", run.getId(), e);
-            throw e;
+            return finishFailed(run, "OPS01", e);
         }
     }
 
@@ -213,7 +301,6 @@ public class ReconciliationService {
      * T11：退款层对账—— refund_order 台账（SUCCEEDED）与订单状态双向核对：
      *   ① 退款单 SUCCEEDED → 订单必须 REFUNDED（未推进=事件丢失，HIGH）；
      *   ② 订单 REFUNDED → 必须存在 SUCCEEDED 退款单（无台账=资金事实缺失，HIGH）。
-     * 渠道（provider）层流水首期 MOCK 同构同步确认，真实渠道接入后补渠道层核对。
      */
     public ReconciliationRun runRefundReconciliation(int scanDays) {
         LocalDate businessDate = LocalDate.now();
@@ -224,13 +311,13 @@ public class ReconciliationService {
         ReconciliationRun run = lease.run();
 
         try {
-            int checked = 0;
-            int skipped = 0;
-            int diffs = 0;
+            int checked = nz(run.getTotalChecked());
+            int skipped = nz(run.getTotalSkipped());
+            int diffs = nz(run.getTotalDiff());
             LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
 
             // ① 退款单 SUCCEEDED → 订单 REFUNDED
-            long lastId = 0;
+            long lastId = nz(run.getRefundCursor());
             while (true) {
                 List<com.cloudmart.payment.entity.RefundOrder> batch =
                         refundOrderMapper.scanForReconciliation(since, lastId, batchSize);
@@ -242,17 +329,10 @@ public class ReconciliationService {
                     if (!"SUCCEEDED".equals(refund.getStatus())) {
                         continue;
                     }
-                    String orderStatus;
-                    try {
-                        ApiResponse<OrderInternalInfoDTO> orderResp =
-                                orderFeignClient.getOrderInfo(refund.getOrderId());
-                        orderStatus = orderResp != null && orderResp.success() && orderResp.data() != null
-                                ? orderResp.data().status() : "UNREACHABLE";
-                    } catch (Exception queryError) {
-                        // T11：依赖服务不可达计 skipped，不计入已核对
+                    String orderStatus = queryOrderStatusQuietly(refund.getOrderId(), "T11",
+                            "refundNo=" + refund.getRefundNo());
+                    if ("UNREACHABLE".equals(orderStatus)) {
                         skipped++;
-                        log.warn("[T11] 退款对账订单查询失败，跳过 refundNo={}: {}",
-                                refund.getRefundNo(), queryError.getMessage());
                         continue;
                     }
                     checked++;
@@ -266,27 +346,31 @@ public class ReconciliationService {
                                     + "\",\"orderStatus\":\"" + orderStatus
                                     + "\",\"orderId\":" + refund.getOrderId() + "}");
                 }
+                run.setRefundCursor(lastId);
+                run.setTotalChecked(checked);
+                run.setTotalSkipped(skipped);
+                run.setTotalDiff(diffs);
+                persistProgress(run);
                 if (batch.size() < batchSize) {
                     break;
                 }
             }
 
-            // ② REFUNDED 订单 → 必须有 SUCCEEDED 退款单（订单侧经分页内部端点）
-            int page = 1;
+            // ② REFUNDED 订单 → 必须有 SUCCEEDED 退款单
+            int page = nz(run.getOrderPage()) + 1;
             while (true) {
-                ApiResponse<OrderFeignClient.PageDTO> paidPage = orderFeignClient
-                        .listPaidOrders(page, batchSize);
-                if (paidPage == null || !paidPage.success() || paidPage.data() == null
-                        || paidPage.data().records().isEmpty()) {
+                OrderFeignClient.PageDTO paidPage = fetchPaidOrdersPage(page, "T11");
+                List<OrderInternalInfoDTO> records = paidPage.records();
+                if (records.isEmpty()) {
                     break;
                 }
-                for (OrderInternalInfoDTO order : paidPage.data().records()) {
+                for (OrderInternalInfoDTO order : records) {
                     if (!"REFUNDED".equals(order.status())) {
                         continue;
                     }
                     checked++;
                     Long succeeded = refundOrderMapper.selectCount(
-                            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.payment.entity.RefundOrder>()
+                            new LambdaQueryWrapper<com.cloudmart.payment.entity.RefundOrder>()
                                     .eq(com.cloudmart.payment.entity.RefundOrder::getOrderId, order.orderId())
                                     .eq(com.cloudmart.payment.entity.RefundOrder::getStatus, "SUCCEEDED"));
                     if (succeeded != null && succeeded > 0) {
@@ -297,36 +381,29 @@ public class ReconciliationService {
                             "订单 REFUNDED 但无 SUCCEEDED 退款单",
                             "{\"orderStatus\":\"REFUNDED\",\"orderId\":" + order.orderId() + "}");
                 }
-                if (paidPage.data().records().size() < batchSize) {
+                run.setOrderPage(page);
+                run.setTotalChecked(checked);
+                run.setTotalDiff(diffs);
+                persistProgress(run);
+                if (records.size() < batchSize) {
                     break;
                 }
                 page++;
             }
 
-            run.setTotalChecked(checked);
-            run.setTotalDiff(diffs);
-            run.setTotalSkipped(skipped);
-            run.setStatus("DONE");
-            run.setFinishedAt(java.time.LocalDateTime.now());
-            runMapper.updateById(run);
-            log.info("[T11] 退款对账完成 run={} checked={} diffs={} skipped={}", run.getId(), checked, diffs, skipped);
-            return run;
+            return finishDone(run, checked, diffs, skipped, "T11");
+        } catch (DependencyUnreachableException e) {
+            return finishPartial(run, "T11", e);
         } catch (Exception e) {
-            run.setStatus("FAILED");
-            run.setFinishedAt(java.time.LocalDateTime.now());
-            runMapper.updateById(run);
-            log.error("[T11] 退款对账执行失败 run={}", run.getId(), e);
-            throw e;
+            return finishFailed(run, "T11", e);
         }
     }
 
     /**
      * T11：库存层对账——预占台账与订单状态双向核对：
-     *   ① 台账 RESERVED 且预占创建超 24h → 订单必须非 CLOSED/非已取消
-     *      （台账滞留=确认/释放事件丢失，HIGH；订单不存在=MEDIUM）；
-     *   ② 台账 RELEASED/CONFIRMED 但订单 CANCELLED/REFUNDED 与 CONFIRMED 矛盾
-     *      （CONFIRMED+取消订单=资金货两失风险，HIGH）。
-     * 台账查询失败 fail-closed 跳过该批（不误报），差异唯一键防重。
+     *   ① 台账 RESERVED 且预占创建超 24h 但订单已关闭（滞留=事件丢失，HIGH）；
+     *   ② 台账 CONFIRMED 但订单 CANCELLED/REFUNDED（资金货两失风险，HIGH）。
+     * 台账端点不可达 → PARTIAL（断点保留），不再静默 0。
      */
     public ReconciliationRun runInventoryReconciliation(int scanDays) {
         LocalDate businessDate = LocalDate.now();
@@ -337,18 +414,21 @@ public class ReconciliationService {
         ReconciliationRun run = lease.run();
 
         try {
-            int checked = 0;
-            int skipped = 0;
-            int diffs = 0;
+            int checked = nz(run.getTotalChecked());
+            int skipped = nz(run.getTotalSkipped());
+            int diffs = nz(run.getTotalDiff());
             LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
-            long lastId = 0;
+            long lastId = nz(run.getInventoryCursor());
             while (true) {
-                // 台账扫描失败必须显式 FAIL（run=FAILED），不得按空批顺延——
-                // "扫不到"与"没有可核对的行"对运营是两个不同的事实，静默 0 会掩盖调用链故障
-                ApiResponse<java.util.List<com.cloudmart.payment.dto.ReservationScanDTO>> scanResp =
-                        inventoryReconFeignClient.scanReservations(since, lastId, batchSize);
+                // "扫不到"与"没有可核对的行"必须区分：端点失败转 PARTIAL，不按空批顺延
+                ApiResponse<java.util.List<com.cloudmart.payment.dto.ReservationScanDTO>> scanResp;
+                try {
+                    scanResp = inventoryReconFeignClient.scanReservations(since, lastId, batchSize);
+                } catch (Exception e) {
+                    throw new DependencyUnreachableException("[T11] 库存台账扫描请求异常", e);
+                }
                 if (scanResp == null || !scanResp.success() || scanResp.data() == null) {
-                    throw new IllegalStateException("[T11] 库存台账扫描返回失败信封: "
+                    throw new DependencyUnreachableException("[T11] 库存台账扫描返回失败信封: "
                             + (scanResp == null || scanResp.error() == null ? "null"
                             : scanResp.error().code() + " " + scanResp.error().message()));
                 }
@@ -358,20 +438,9 @@ public class ReconciliationService {
                 }
                 for (com.cloudmart.payment.dto.ReservationScanDTO row : batch) {
                     lastId = Math.max(lastId, row.orderId() == null ? lastId : row.orderId());
-                    String orderStatus;
-                    try {
-                        ApiResponse<OrderInternalInfoDTO> orderResp =
-                                orderFeignClient.getOrderInfo(row.orderId());
-                        orderStatus = orderResp != null && orderResp.success() && orderResp.data() != null
-                                ? orderResp.data().status() : "UNREACHABLE";
-                    } catch (Exception queryError) {
-                        skipped++;
-                        log.warn("[T11] 库存对账订单查询失败，跳过 orderId={}: {}",
-                                row.orderId(), queryError.getMessage());
-                        continue;
-                    }
+                    String orderStatus = queryOrderStatusQuietly(row.orderId(), "T11",
+                            "reservation orderId=" + row.orderId());
                     if ("UNREACHABLE".equals(orderStatus)) {
-                        // 状态不可核验：计 skipped，与"核对一致"分开统计
                         skipped++;
                         continue;
                     }
@@ -388,9 +457,6 @@ public class ReconciliationService {
                                         + "\",\"orderId\":" + row.orderId() + "}");
                         continue;
                     }
-                    if ("RESERVED".equals(row.status()) && orderStatus.equals("UNREACHABLE")) {
-                        continue;
-                    }
                     if ("CONFIRMED".equals(row.status()) && orderGone) {
                         diffs += recordDiff(run.getId(), "RESERVATION_CONFIRMED_ORDER_CANCELLED",
                                 String.valueOf(row.orderId()), "HIGH",
@@ -399,26 +465,62 @@ public class ReconciliationService {
                                         + "\",\"orderId\":" + row.orderId() + "}");
                     }
                 }
+                run.setInventoryCursor(lastId);
+                run.setTotalChecked(checked);
+                run.setTotalSkipped(skipped);
+                run.setTotalDiff(diffs);
+                persistProgress(run);
                 if (batch.size() < batchSize) {
                     break;
                 }
             }
 
-            run.setTotalChecked(checked);
-            run.setTotalDiff(diffs);
-            run.setTotalSkipped(skipped);
-            run.setStatus("DONE");
-            run.setFinishedAt(LocalDateTime.now());
-            runMapper.updateById(run);
-            log.info("[T11] 库存对账完成 run={} checked={} diffs={} skipped={}", run.getId(), checked, diffs, skipped);
-            return run;
+            return finishDone(run, checked, diffs, skipped, "T11-INV");
+        } catch (DependencyUnreachableException e) {
+            return finishPartial(run, "T11-INV", e);
         } catch (Exception e) {
-            run.setStatus("FAILED");
-            run.setFinishedAt(LocalDateTime.now());
-            runMapper.updateById(run);
-            log.error("[T11] 库存对账执行失败 run={}", run.getId(), e);
-            throw e;
+            return finishFailed(run, "T11-INV", e);
         }
+    }
+
+    private int nz(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private long nz(Long value) {
+        return value == null ? 0L : value;
+    }
+
+    private ReconciliationRun finishDone(ReconciliationRun run, int checked, int diffs, int skipped, String tag) {
+        run.setTotalChecked(checked);
+        run.setTotalDiff(diffs);
+        run.setTotalSkipped(skipped);
+        run.setStatus("DONE");
+        run.setFinishedAt(LocalDateTime.now());
+        persistProgress(run);
+        log.info("[{}] 对账完成 run={} checked={} diffs={} skipped={}", tag, run.getId(), checked, diffs, skipped);
+        return run;
+    }
+
+    /** 依赖不可达：PARTIAL 保留断点（finishedAt 留空），同日下次触发从游标续扫 */
+    private ReconciliationRun finishPartial(ReconciliationRun run, String tag, DependencyUnreachableException e) {
+        run.setStatus("PARTIAL");
+        run.setFinishedAt(null);
+        persistProgress(run);
+        log.warn("[{}] 对账依赖不可达 run={} 转 PARTIAL，断点保留待同日续扫: paymentCursor={} refundCursor={} "
+                        + "inventoryCursor={} orderPage={} checked={} skipped={} reason={}",
+                tag, run.getId(), run.getPaymentCursor(), run.getRefundCursor(),
+                run.getInventoryCursor(), run.getOrderPage(), run.getTotalChecked(), run.getTotalSkipped(),
+                e.getMessage());
+        return run;
+    }
+
+    private ReconciliationRun finishFailed(ReconciliationRun run, String tag, Exception e) {
+        run.setStatus("FAILED");
+        run.setFinishedAt(LocalDateTime.now());
+        runMapper.updateById(run);
+        log.error("[{}] 对账执行失败 run={}（可从断点重试）", tag, run.getId(), e);
+        throw new IllegalStateException("对账执行失败 run=" + run.getId() + ": " + e.getMessage(), e);
     }
 
     private boolean isPaidOrBeyond(String orderStatus) {
@@ -427,7 +529,7 @@ public class ReconciliationService {
                 || "REFUNDED".equals(orderStatus);
     }
 
-    /** 差异唯一（run+type+biz_id），重复对账不产生重复差异。 */
+    /** 差异唯一（run+type+biz_id），重复对账/断点续扫不产生重复差异，人工处置证据原样保留。 */
     private int recordDiff(Long runId, String type, String bizId, String severity,
                            String detail, String evidence) {
         Long exists = differenceMapper.selectCount(new LambdaQueryWrapper<ReconciliationDifference>()
