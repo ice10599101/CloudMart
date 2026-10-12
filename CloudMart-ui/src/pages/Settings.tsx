@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Switch, Input, Button, Select, Modal } from 'antd'
 import { message } from '@/utils/appMessage'
 import { LockOutlined, MailOutlined, BellOutlined, DownloadOutlined,
-  StarOutlined,
+  StarOutlined, SendOutlined, TeamOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import { getUserProfile, changePassword } from '@/api/user'
@@ -467,6 +467,34 @@ export default function SettingsPage() {
                 <StarOutlined /> 星光流水
               </div>
               <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>收入/支出明细，游标分页</div>
+            </div>
+            <span style={{ color: 'var(--color-primary)', fontSize: 13 }}>前往 →</span>
+          </div>
+
+          <div
+            style={linkRowStyle}
+            onClick={() => history.push('/starlight/transfer')}
+            role="link"
+          >
+            <div>
+              <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <SendOutlined /> 星光转赠
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>向好友转赠星光，单笔 10-100</div>
+            </div>
+            <span style={{ color: 'var(--color-primary)', fontSize: 13 }}>前往 →</span>
+          </div>
+
+          <div
+            style={linkRowStyle}
+            onClick={() => history.push('/invite')}
+            role="link"
+          >
+            <div>
+              <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TeamOutlined /> 邀请有礼
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginTop: 2 }}>邀请好友赢星光奖励，绑定邀请码</div>
             </div>
             <span style={{ color: 'var(--color-primary)', fontSize: 13 }}>前往 →</span>
           </div>

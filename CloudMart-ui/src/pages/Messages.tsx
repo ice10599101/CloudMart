@@ -154,6 +154,10 @@ function navigateToBiz(item: EnrichedNotification) {
     history.push(`/wish/${item.bizId}`)
   } else if (item.bizType === 'CAPSULE' && item.bizId) {
     history.push(`/wish/capsules/${item.bizId}`)
+  } else if (item.bizType === 'STARLIGHT_TRANSFER') {
+    history.push('/starlight/transfer')
+  } else if (item.bizType === 'INVITE_REWARD') {
+    history.push('/invite')
   }
 }
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
 import { Input, Select, DatePicker, Button, Modal, ConfigProvider, Empty, Spin, Pagination } from 'antd'
-import { StarOutlined, TrophyOutlined, BookOutlined, GiftOutlined, FireOutlined, RiseOutlined, LineChartOutlined } from '@ant-design/icons'
+import { StarOutlined, TrophyOutlined, BookOutlined, GiftOutlined, FireOutlined, RiseOutlined, LineChartOutlined, SendOutlined, TeamOutlined } from '@ant-design/icons'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
@@ -374,6 +374,12 @@ function ProfileTab() {
         <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
           <Button size="small" icon={<StarOutlined />} onClick={() => history.push('/wish/starlight-log')}>
             星光流水
+          </Button>
+          <Button size="small" icon={<SendOutlined />} onClick={() => history.push('/starlight/transfer')}>
+            星光转赠
+          </Button>
+          <Button size="small" icon={<TeamOutlined />} onClick={() => history.push('/invite')}>
+            邀请有礼
           </Button>
           <Button size="small" icon={<GiftOutlined />} onClick={() => history.push('/gift/my')}>
             我的礼物

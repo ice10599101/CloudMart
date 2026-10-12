@@ -140,9 +140,43 @@ export interface ResourceLogItem {
     id: number | string
     type: 'EARN' | 'SPEND'
     amount: number
+    /** 来源（R19：INVITE_REWARD 邀请奖励等；旧流水可能缺省） */
+    source?: string
     reason: string
     balanceAfter: number
     createdAt: string
+}
+
+/** R19：星光转赠方向（当前用户视角：SENT=我转出 / RECEIVED=我收到） */
+export type StarlightTransferDirection = 'SENT' | 'RECEIVED'
+
+/** R19：星光转赠记录（契约对齐 GET /wish/starlight/transfers/my） */
+export interface StarlightTransferRecord {
+    id: number | string
+    fromUserId: number
+    toUserId: number
+    amount: number
+    message: string | null
+    direction: StarlightTransferDirection
+    createdAt: string
+    status: string
+    remainingToday: number
+}
+
+/** R19：每日转赠额度（契约对齐 GET /wish/starlight/transfers/limits） */
+export interface StarlightTransferLimits {
+    dailyCap: number
+    usedToday: number
+    remainingToday: number
+    businessDate: string
+}
+
+/** R19：发起转赠请求体（金额 10-100；requestKey 幂等键） */
+export interface CreateStarlightTransferPayload {
+    toUserId: number
+    amount: number
+    message?: string
+    requestKey: string
 }
 
 /** 等级提升事件（签到瞬间检测；未提升为 null，庆祝弹窗/本地推送依据） */
@@ -268,8 +302,24 @@ export const wishApi = {
 
     // ---- 个人星光资源（文档 L848：余额概览 + 流水）----
     getMyResources: () => request<MyResourcesData>({ url: '/wish/my/resources' }),
-    getMyResourceLogs: (params?: { type?: 'EARN' | 'SPEND'; cursor?: string | number; pageSize?: number }) =>
+    getMyResourceLogs: (params?: { type?: 'EARN' | 'SPEND'; source?: string; cursor?: string | number; pageSize?: number }) =>
         request<ResourceLogItem[]>({ url: `/wish/my/resources/logs${buildQuery((params ?? {}) as Record<string, unknown>)}` }),
+
+    // ---- R19 星光转赠（契约对齐 mall-wish StarlightTransferController）----
+    /** 每日转赠额度 */
+    getTransferLimits: () => request<StarlightTransferLimits>({ url: '/wish/starlight/transfers/limits' }),
+    /** 我的转赠记录（页码分页；按当前用户视角标注 direction） */
+    getMyTransfers: (params?: { page?: number; pageSize?: number }) =>
+        request<{ records: StarlightTransferRecord[]; total: number }>({
+            url: `/wish/starlight/transfers/my${buildQuery((params ?? {}) as Record<string, unknown>)}`,
+        }),
+    /** 发起转赠（单笔 10-100；requestKey 为客户端幂等键，服务端按身份+键去重） */
+    createTransfer: (data: CreateStarlightTransferPayload) =>
+        request<StarlightTransferRecord>({
+            url: '/wish/starlight/transfers',
+            method: 'POST',
+            data: data as unknown as Record<string, unknown>,
+        }),
 
     // ---- 每日签到（文档 2.6 / L1916：签到 +5 星光 + 等级提升事件）----
     dailySignin: () =>

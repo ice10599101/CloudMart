@@ -1,6 +1,13 @@
 import request from '@/utils/request'
 import type { User, Address, WishlistItem, PaginatedResult } from '@/types'
 
+/** R19：我的邀请信息（契约对齐 GET /user/invites/my） */
+export interface MyInviteInfo {
+  code: string
+  invitedCount: number
+  rewardPerInvite: number
+}
+
 function buildQuery(params?: Record<string, unknown>): string {
   if (!params) return ''
   const qs = Object.entries(params)
@@ -40,4 +47,15 @@ export const userApi = {
   addToWishlist: (productId: number) => request<void>({ url: `/product/wishlists/${productId}`, method: 'POST' }),
   removeFromWishlist: (productId: number) => request<void>({ url: `/product/wishlists/${productId}`, method: 'DELETE' }),
   checkWishlist: (productId: number) => request<boolean>({ url: `/product/wishlists/check/${productId}` }),
+
+  // ---- R19 用户邀请（契约对齐 mall-user InviteController）----
+  /** 我的邀请码与邀请统计 */
+  getMyInvites: () => request<MyInviteInfo>({ url: '/user/invites/my' }),
+  /** 绑定邀请人（成功后建立邀请关系，返回关系 ID） */
+  bindInvite: (code: string) =>
+    request<{ relationId: number | string }>({
+      url: '/user/invites/bind',
+      method: 'POST',
+      data: { code },
+    }),
 }

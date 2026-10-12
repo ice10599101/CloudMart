@@ -220,6 +220,24 @@ function NotificationItem({
             <Text style={{ fontSize: FontSize.xs, color: theme.primary }}>查看漂流瓶</Text>
           </TouchableOpacity>
         ) : null}
+        {item.bizType === 'STARLIGHT_TRANSFER' ? (
+          <TouchableOpacity
+            accessibilityLabel="查看星光转赠"
+            onPress={() => router.push('/starlight-transfer')}
+            style={{ alignSelf: 'flex-start', paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: theme.primary, marginTop: Spacing.sm }}
+          >
+            <Text style={{ fontSize: FontSize.xs, color: theme.primary }}>查看星光转赠</Text>
+          </TouchableOpacity>
+        ) : null}
+        {item.bizType === 'INVITE_REWARD' ? (
+          <TouchableOpacity
+            accessibilityLabel="查看邀请有礼"
+            onPress={() => router.push('/invite-center')}
+            style={{ alignSelf: 'flex-start', paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, borderWidth: 1, borderColor: theme.primary, marginTop: Spacing.sm }}
+          >
+            <Text style={{ fontSize: FontSize.xs, color: theme.primary }}>查看邀请有礼</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </TouchableOpacity>
   )
@@ -295,6 +313,16 @@ export default function NotificationsScreen() {
         } catch {
           // 标记已读失败仍允许跳转
         }
+      }
+
+      // R19：星光转赠 / 邀请奖励通知按 bizType 深链
+      if (item.bizType === 'STARLIGHT_TRANSFER') {
+        router.push('/starlight-transfer')
+        return
+      }
+      if (item.bizType === 'INVITE_REWARD') {
+        router.push('/invite-center')
+        return
       }
 
       switch (item.type) {

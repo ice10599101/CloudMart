@@ -146,11 +146,12 @@ export interface MyResourcesData {
     todaySpent: number
 }
 
-/** 星光流水条目（文档 L848；amount 恒为正，方向由 type 表达） */
+/** 星光流水条目（文档 L848；amount 恒为正，方向由 type 表达；source 为可选来源筛选维度，如 INVITE_REWARD） */
 export interface ResourceLogItem {
     id: number | string
     type: 'EARN' | 'SPEND'
     amount: number
+    source?: string
     reason: string
     balanceAfter: number
     createdAt: string
@@ -286,7 +287,7 @@ export const wishApi = {
 
     // ---- 个人星光资源（文档 L848：余额概览 + 流水）----
     getMyResources: () => request<MyResourcesData>({ url: '/wish/my/resources' }),
-    getMyResourceLogs: (params?: { type?: 'EARN' | 'SPEND'; cursor?: string | number; pageSize?: number }) =>
+    getMyResourceLogs: (params?: { type?: 'EARN' | 'SPEND'; source?: string; cursor?: string | number; pageSize?: number }) =>
         request<ResourceLogItem[]>({ url: `/wish/my/resources/logs${buildQuery((params ?? {}) as Record<string, unknown>)}` }),
 
     // ---- 每日签到（文档 2.6 / L1915：签到 +5 星光 + 等级提升事件）----
@@ -788,6 +789,65 @@ export const encounterApi = {
     interactLetter: (letterId: number | string, type: 'BLESS' | 'LIGHT', content?: string) =>
         request<EncounterLetter>({ url: `/wish/encounter-letters/${letterId}/interactions`, method: 'POST', data: { type, content } as unknown as Record<string, unknown> }),
 
+}
+
+// ========== R19 星光转赠（契约对齐 mall-wish StarlightTransferController） ==========
+
+/** 转赠方向：SENT=我转出 / RECEIVED=我收到 */
+export type StarlightTransferDirection = 'SENT' | 'RECEIVED'
+
+/** 转赠记录条目（POST /wish/starlight/transfers 与 GET .../my 的 records 元素） */
+export interface StarlightTransferItem {
+    id: number | string
+    fromUserId: number
+    toUserId: number
+    amount: number
+    message: string | null
+    direction: StarlightTransferDirection
+    createdAt: string
+    status: string
+    /** 转出成功后响应内联的当日剩余额度（列表项可空） */
+    remainingToday?: number
+}
+
+/** 每日转赠额度（GET /wish/starlight/transfers/limits） */
+export interface StarlightTransferLimits {
+    dailyCap: number
+    usedToday: number
+    remainingToday: number
+    businessDate: string
+}
+
+/** 转赠记录分页（GET /wish/starlight/transfers/my?page=&pageSize=） */
+export interface StarlightTransferPage {
+    records: StarlightTransferItem[]
+    total: number
+}
+
+/** 创建转赠载荷（amount 10..100 整数；message 最长 100；requestKey 为幂等键） */
+export interface CreateStarlightTransferPayload {
+    toUserId: number
+    amount: number
+    message?: string
+    requestKey: string
+}
+
+export const transferApi = {
+    /** 当日转赠额度（已用/上限/剩余/业务日期） */
+    getTransferLimits: () =>
+        request<StarlightTransferLimits>({ url: '/wish/starlight/transfers/limits' }),
+    /** 我的转赠记录（page/pageSize 分页） */
+    getMyTransfers: (page: number, pageSize: number) =>
+        request<StarlightTransferPage>({
+            url: `/wish/starlight/transfers/my${buildQuery({ page, pageSize })}`,
+        }),
+    /** 创建转赠（requestKey 幂等；成功返回记录 + remainingToday） */
+    createTransfer: (data: CreateStarlightTransferPayload) =>
+        request<StarlightTransferItem>({
+            url: '/wish/starlight/transfers',
+            method: 'POST',
+            data: data as unknown as Record<string, unknown>,
+        }),
 }
 
 export type { SigninMilestone, SigninMilestoneClaimResult } from '@/types'

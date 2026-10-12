@@ -67,6 +67,9 @@ export default defineConfig({
         { path: '/profile', component: '@/pages/UserCenter' },
         { path: '/settings/export', component: '@/pages/DataExport' },
         { path: '/wish/starlight-log', component: '@/pages/StarlightLog' },
+        // R19：星光转赠与邀请有礼
+        { path: '/starlight/transfer', component: '@/pages/StarlightTransfer' },
+        { path: '/invite', component: '@/pages/InviteCenter' },
         { path: '/settings', component: '@/pages/Settings' },
         { path: '/user/:id', component: '@/pages/UserProfile' },
         { path: '/topic/:id', component: '@/pages/TopicDetail' },

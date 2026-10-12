@@ -152,6 +152,8 @@ export default function MinePage() {
           <MenuRow icon="📍" label="收货地址" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/address') }} theme={theme} />
           <MenuRow icon="⭐" label="签到" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/checkin') }} theme={theme} />
           <MenuRow icon="✨" label="星光流水" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/starlight-log') }} theme={theme} />
+          <MenuRow icon="💫" label="星光转赠" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/starlight-transfer') }} theme={theme} />
+          <MenuRow icon="🎁" label="邀请有礼" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/invite-center') }} theme={theme} />
         </View>
 
         <View style={{ marginHorizontal: Spacing.lg, borderRadius: BorderRadius.lg, overflow: 'hidden', marginBottom: Spacing.lg }}>

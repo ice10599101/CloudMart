@@ -42,3 +42,23 @@ export const userApi = {
   removeFromWishlist: (productId: number | string) => request<void>({ url: `/product/wishlists/${productId}`, method: 'DELETE' }),
   checkWishlist: (productId: number | string) => request<boolean>({ url: `/product/wishlists/check/${productId}` }),
 }
+
+/** R19 我的邀请信息（GET /user/invites/my） */
+export interface MyInviteInfo {
+  code: string
+  invitedCount: number
+  rewardPerInvite: number
+}
+
+/** R19 用户邀请（契约对齐 mall-user InviteController） */
+export const inviteApi = {
+  /** 我的邀请码与邀请统计 */
+  getMyInvites: () => request<MyInviteInfo>({ url: '/user/invites/my' }),
+  /** 绑定邀请人（成功后建立邀请关系；重复绑定/自绑定由后端拒绝） */
+  bindInvite: (code: string) =>
+    request<{ relationId: number | string }>({
+      url: '/user/invites/bind',
+      method: 'POST',
+      data: { code } as unknown as Record<string, unknown>,
+    }),
+}

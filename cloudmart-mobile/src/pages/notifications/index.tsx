@@ -68,6 +68,15 @@ export default function NotificationsPage() {
       Taro.navigateTo({ url: `/pages/userProfile/index?userId=${n.actorId}` })
       return
     }
+    // R19：星光转赠 / 邀请奖励通知深链
+    if (n.bizType === 'STARLIGHT_TRANSFER') {
+      Taro.navigateTo({ url: '/pages/starlightTransfer/index' })
+      return
+    }
+    if (n.bizType === 'INVITE_REWARD') {
+      Taro.navigateTo({ url: '/pages/inviteCenter/index' })
+      return
+    }
     if (n.bizType === 'POST' && n.bizId) {
       Taro.navigateTo({ url: `/pages/postDetail/index?id=${n.bizId}` })
     }

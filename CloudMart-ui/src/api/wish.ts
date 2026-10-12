@@ -1332,6 +1332,8 @@ export interface ResourceLogItem {
   type: 'EARN' | 'SPEND'
   /** 数量恒为正，方向由 type 表达 */
   amount: number
+  /** 来源（如 INVITE_REWARD）；历史流水可能不返回 */
+  source?: string
   reason: string
   balanceAfter: number
   createdAt: string
@@ -1342,8 +1344,13 @@ export function getMyResources() {
   return request.get<ApiResponse<MyResourcesData>>('/wish/my/resources')
 }
 
-/** 星光流水（时间倒序 cursor 分页） */
-export function getMyResourceLogs(params?: { type?: 'EARN' | 'SPEND'; cursor?: string | number; pageSize?: number }) {
+/** 星光流水（时间倒序 cursor 分页；可按来源筛选，如邀请奖励 INVITE_REWARD） */
+export function getMyResourceLogs(params?: {
+  type?: 'EARN' | 'SPEND'
+  source?: string
+  cursor?: string | number
+  pageSize?: number
+}) {
   return request.get<ApiResponse<ResourceLogItem[]>>('/wish/my/resources/logs', { params })
 }
 

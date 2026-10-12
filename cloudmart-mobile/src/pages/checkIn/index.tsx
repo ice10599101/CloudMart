@@ -181,8 +181,20 @@ export default function CheckInPage() {
         </View>
       )}
 
-      {/* 星光流水入口（B12 P1：流水列表三端一致） */}
-      <View style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 24px 8px' }}>
+      {/* 星光相关入口（B12 P1 流水 + R19 转赠/邀请） */}
+      <View style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '16px', padding: '0 24px 8px' }}>
+        <Text
+          style={{ fontSize: 13, color: '#4a90d9' }}
+          onClick={() => Taro.navigateTo({ url: '/pages/starlightTransfer/index' })}
+        >
+          星光转赠 →
+        </Text>
+        <Text
+          style={{ fontSize: 13, color: '#4a90d9' }}
+          onClick={() => Taro.navigateTo({ url: '/pages/inviteCenter/index' })}
+        >
+          邀请有礼 →
+        </Text>
         <Text
           style={{ fontSize: 13, color: '#4a90d9' }}
           onClick={() => Taro.navigateTo({ url: '/pages/starlightLog/index' })}

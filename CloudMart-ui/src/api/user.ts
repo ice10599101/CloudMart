@@ -97,3 +97,24 @@ export function deleteAddress(addressId: number) {
 export function setDefaultAddress(addressId: number) {
   return request.put<ApiResponse<ShippingAddress>>(`/user/users/addresses/${addressId}/default`)
 }
+
+// ========== 用户邀请（R19 邀请有礼，契约对齐 mall-user InviteController） ==========
+
+export interface MyInviteInfo {
+  /** 本人邀请码 */
+  code: string
+  /** 已邀请人数 */
+  invitedCount: number
+  /** 每成功邀请一人的星光奖励 */
+  rewardPerInvite: number
+}
+
+/** 我的邀请信息（邀请码/已邀请人数/单人奖励） */
+export function getMyInvite() {
+  return request.get<ApiResponse<MyInviteInfo>>('/user/invites/my')
+}
+
+/** 绑定邀请人（一人仅可绑定一次，重复绑定由后端报错、拦截器统一提示） */
+export function bindInvite(code: string) {
+  return request.post<ApiResponse<{ relationId: number }>>('/user/invites/bind', { code })
+}
