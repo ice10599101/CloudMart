@@ -28,6 +28,8 @@ interface OrderDetail {
   totalAmount: number
   shippingFee: number
   payAmount: number
+  /** R11：零元单标记（false 时无需渠道支付） */
+  paymentRequired?: boolean
   items: OrderItem[]
   createdAt: string
 }
@@ -183,6 +185,12 @@ export default function PaymentPage() {
   }, [])
 
   const handlePay = () => {
+    // R11：零元单建单即内部结算完成，收银台不发起收费渠道支付（fail-closed，防深链误入）
+    if (order?.paymentRequired === false) {
+      Taro.showToast({ title: '该订单无需支付（已结算）', icon: 'none' })
+      setTimeout(() => Taro.redirectTo({ url: `/pages/orderDetail/index?id=${id}` }), 800)
+      return
+    }
     Taro.showModal({
       title: '确认支付',
       content: `确认使用${PAYMENT_METHODS.find((m) => m.key === selectedMethod)?.name}支付 ¥${order?.payAmount ?? '0.00'}？`,

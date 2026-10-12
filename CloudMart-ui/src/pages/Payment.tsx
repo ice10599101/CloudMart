@@ -358,6 +358,12 @@ export default function PaymentPage() {
 
   const handlePay = async () => {
     if (!order || paying) return
+    // R11：零元单建单即内部结算完成，收银台不发起收费渠道支付（fail-closed，防深链误入）
+    if (order.paymentRequired === false || order.status !== 'PENDING_PAYMENT') {
+      message.info('该订单无需支付（已结算）')
+      history.replace(`/orders/${order.id}`)
+      return
+    }
     setPaying(true)
     try {
       // PAY-01/T01：唯一支付链路（归属/状态/金额全部服务端判定，客户端金额不参与）；

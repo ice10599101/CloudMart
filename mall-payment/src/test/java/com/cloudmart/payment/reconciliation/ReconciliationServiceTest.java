@@ -155,6 +155,25 @@ class ReconciliationServiceTest {
     }
 
     @Test
+    @DisplayName("R11：零元 PAID 订单（zeroPay）无渠道支付凭证不报错（凭证是订单域 ZERO_PAY 事实）")
+    void reconcile_zeroPayOrder_noFalseDiff() {
+        when(attemptMapper.selectList(any())).thenReturn(List.of());
+        when(orderFeignClient.listPaidOrders(1, 200)).thenReturn(
+                ApiResponse.ok(new OrderFeignClient.PageDTO(
+                        List.of(new OrderInternalInfoDTO(ORDER_ID, USER_ID, "PAID",
+                                java.math.BigDecimal.ZERO, true)), 1)));
+        // 零元单确实没有 SUCCESS 支付尝试——但不应记差异
+        when(attemptMapper.selectCount(any())).thenReturn(0L);
+
+        ReconciliationRun run = service.runPaymentOrderReconciliation(7);
+
+        assertThat(run.getStatus()).isEqualTo("DONE");
+        assertThat(run.getTotalDiff()).isZero();
+        assertThat(run.getTotalChecked()).isEqualTo(1);
+        verify(differenceMapper, never()).insert(any(ReconciliationDifference.class));
+    }
+
+    @Test
     @DisplayName("差异唯一：重复 biz_id 不产生重复差异（断点续扫去重基础）")
     void reconcile_duplicateDiff_suppressed() {
         when(attemptMapper.selectList(any())).thenReturn(

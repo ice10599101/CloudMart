@@ -143,6 +143,8 @@ export interface Order {
   statusText: string
   totalAmount: number
   payAmount: number
+  /** R11：是否需要走收费渠道支付（false=全额优惠零元单，建单即内部结算完成） */
+  paymentRequired?: boolean
   items: OrderItem[]
   createdAt: string
   payTime?: string

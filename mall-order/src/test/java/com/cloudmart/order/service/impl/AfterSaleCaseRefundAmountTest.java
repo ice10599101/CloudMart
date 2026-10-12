@@ -199,6 +199,50 @@ class AfterSaleCaseRefundAmountTest {
     }
 
     @Test
+    @DisplayName("R11：非零元订单不允许 0 元退款（只能走真实渠道正金额）")
+    void approve_zeroAmountOnNonzeroOrder_rejected() {
+        caseEntity.setType(AfterSaleCase.TYPE_REFUND_ONLY);
+        when(caseMapper.selectById(11L)).thenReturn(caseEntity);
+
+        assertThatThrownBy(() -> service.approve(1L, 11L, BigDecimal.ZERO))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "AFTER_SALE_AMOUNT_INVALID");
+        verify(caseMapper, never()).approve(any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("R11：负金额一律拒绝")
+    void approve_negativeAmount_rejected() {
+        caseEntity.setType(AfterSaleCase.TYPE_REFUND_ONLY);
+        when(caseMapper.selectById(11L)).thenReturn(caseEntity);
+
+        assertThatThrownBy(() -> service.approve(1L, 11L, new BigDecimal("-0.01")))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "AFTER_SALE_AMOUNT_INVALID");
+    }
+
+    @Test
+    @DisplayName("R11：零元订单 0 元退款可受理——不调用收费渠道，仅出 AFTER_SALE_REFUND_SUBMIT"
+            + "（消费者识别金额 0 走域内结算）")
+    void approve_zeroAmountOnZeroPayOrder_approvedWithoutChannel() {
+        order.setPayAmount(BigDecimal.ZERO);
+        caseEntity.setType(AfterSaleCase.TYPE_REFUND_ONLY);
+        caseEntity.setRefundNo("RFC11");
+        caseEntity.setRefundAmount(BigDecimal.ZERO);
+        when(caseMapper.selectById(11L)).thenReturn(caseEntity);
+        when(caseMapper.selectList(any())).thenReturn(List.of());
+        when(caseMapper.approve(eq(11L), eq(BigDecimal.ZERO), eq("RFC11"), eq(1L))).thenReturn(1);
+        when(eventMapper.selectList(any())).thenReturn(List.of());
+
+        service.approve(1L, 11L, BigDecimal.ZERO);
+
+        verify(caseMapper).approve(eq(11L), eq(BigDecimal.ZERO), eq("RFC11"), eq(1L));
+        ArgumentCaptor<EventEnvelope> captor = ArgumentCaptor.forClass(EventEnvelope.class);
+        verify(outboxService).record(captor.capture());
+        assertThat(captor.getValue().eventType()).isEqualTo("AFTER_SALE_REFUND_SUBMIT");
+    }
+
+    @Test
     @DisplayName("订单缺失或实付金额为空 → 拒绝受理（fail-closed）")
     void approve_orderMissing_rejected() {
         caseEntity.setType(AfterSaleCase.TYPE_REFUND_ONLY);

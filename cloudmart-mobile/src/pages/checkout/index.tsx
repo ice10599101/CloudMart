@@ -183,10 +183,17 @@ export default function CheckoutPage() {
         receiverPhone: address.phone,
         receiverAddress: `${address.province}${address.city}${address.district}${address.detail}`,
       })
-      const orderId = res.data?.data?.id
-      Taro.showToast({ title: '下单成功', icon: 'success' })
+      const created = res.data?.data
+      const orderId = created?.id
+      // R11：零元订单（全额优惠）建单即内部结算完成，不经过收费渠道，直达订单详情
+      const zeroPay = created?.paymentRequired === false
+      Taro.showToast({ title: zeroPay ? '下单成功，全额优惠已结算' : '下单成功', icon: 'success' })
       setTimeout(() => {
-        Taro.redirectTo({ url: `/pages/payment/index?id=${orderId}` })
+        Taro.redirectTo({
+          url: zeroPay
+            ? `/pages/orderDetail/index?id=${orderId}`
+            : `/pages/payment/index?id=${orderId}`,
+        })
       }, 1500)
     } catch (err) {
       Taro.showToast({ title: errorMessage(err, '下单失败'), icon: 'none' })

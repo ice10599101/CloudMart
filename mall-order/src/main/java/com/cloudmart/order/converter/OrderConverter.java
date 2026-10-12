@@ -15,6 +15,9 @@ import java.util.List;
 public interface OrderConverter {
 
     @Mapping(target = "items", source = "items")
+    // R11：是否需要收费渠道支付——应付 > 0 才为 true（零元单建单即内部结算完成）
+    @Mapping(target = "paymentRequired",
+            expression = "java(order.getPayAmount() != null && order.getPayAmount().compareTo(java.math.BigDecimal.ZERO) > 0)")
     OrderDTO toDTO(Order order, List<OrderItemDTO> items);
 
     OrderItemDTO toItemDTO(OrderItem orderItem);

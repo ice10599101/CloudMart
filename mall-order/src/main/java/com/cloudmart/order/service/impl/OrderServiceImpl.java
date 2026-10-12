@@ -1347,13 +1347,18 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
         Long orderId = order.getId();
+        // R11：先落零元标记（与推进同事务），对账据此识别零元凭证
+        order.setZeroPay(true);
+        orderMapper.update(null, new LambdaUpdateWrapper<Order>()
+                .eq(Order::getId, orderId)
+                .set(Order::getZeroPay, true));
         outboxService.record(new EventEnvelope(
                 "zero-pay-" + orderId, "ORDER_ZERO_PAY", 1, String.valueOf(orderId), 1,
                 System.currentTimeMillis(), null,
                 "{\"orderId\":" + orderId + ",\"payAmount\":\"0.00\",\"currency\":\"CNY\"}"));
         // 内部零元结算无渠道支付单：用确定性内部引用满足支付事实非空契约（R10）
         applyPaymentSucceeded(orderId, "0.00", "CNY", "ZERO-PAY-" + orderId);
-        log.info("[T18] 零元订单已直接结算（ZERO_PAY） orderId={}", orderId);
+        log.info("[T18/R11] 零元订单已直接结算（ZERO_PAY） orderId={}", orderId);
     }
 
     /** T03：报价新鲜度复核——价格/上架状态/优惠券重算；任一变化抛 QUOTE_STALE（409） */
@@ -1430,7 +1435,8 @@ public class OrderServiceImpl implements OrderService {
                         .orderByAsc(Order::getId));
         var records = result.getRecords().stream()
                 .map(o -> new com.cloudmart.order.dto.OrderInternalInfoDTO(
-                        o.getId(), o.getUserId(), o.getStatus(), o.getPayAmount()))
+                        o.getId(), o.getUserId(), o.getStatus(), o.getPayAmount(),
+                        Boolean.TRUE.equals(o.getZeroPay())))
                 .toList();
         return java.util.Map.entry(records, result.getTotal());
     }
@@ -1499,7 +1505,8 @@ public class OrderServiceImpl implements OrderService {
         if (order == null) {
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
         }
-        return new com.cloudmart.order.dto.OrderInternalInfoDTO(order.getId(), order.getUserId(), order.getStatus(), order.getPayAmount());
+        return new com.cloudmart.order.dto.OrderInternalInfoDTO(order.getId(), order.getUserId(),
+                order.getStatus(), order.getPayAmount(), Boolean.TRUE.equals(order.getZeroPay()));
     }
 
     /**

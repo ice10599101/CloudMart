@@ -399,8 +399,15 @@ export default function Checkout() {
         receiverPhone: selectedAddress.receiverPhone,
         receiverAddress: `${selectedAddress.province}${selectedAddress.city}${selectedAddress.district}${selectedAddress.detailAddress}`,
       })
-      message.success('订单创建成功')
-      history.push(`/payment/${orderRes.data.data.id}`)
+      // R11：零元订单（全额优惠）建单即内部结算完成，不经过收费渠道，直达订单详情
+      const created = orderRes.data.data
+      if (created.paymentRequired === false) {
+        message.success('下单成功，全额优惠已为您结算')
+        history.push(`/orders/${created.id}`)
+      } else {
+        message.success('订单创建成功')
+        history.push(`/payment/${created.id}`)
+      }
     } catch {
       message.error('订单创建失败')
     } finally {

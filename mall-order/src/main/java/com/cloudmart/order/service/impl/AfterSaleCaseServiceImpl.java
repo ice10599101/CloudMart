@@ -209,9 +209,6 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
     @Transactional
     public AfterSaleCaseVO approve(Long adminId, Long caseId, BigDecimal refundAmount) {
         AfterSaleCase entity = requireCase(caseId);
-        if (refundAmount == null || refundAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessException("AFTER_SALE_AMOUNT_INVALID", "批准退款金额必须为正");
-        }
         if (!AfterSaleCase.STATUS_PENDING.equals(entity.getStatus())) {
             throw new BusinessException("AFTER_SALE_STATUS_ERROR", "案件状态已变更，无法受理");
         }
@@ -219,6 +216,16 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
         Order order = orderMapper.selectByIdForUpdate(entity.getOrderId());
         if (order == null || order.getPayAmount() == null) {
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在或金额缺失，无法受理退款");
+        }
+        // R11：退款金额不允许为负；0 元仅适用于零元订单（全额优惠单售后：金额原路退 0，
+        // 库存/券按既有全额退款规则处理，不调用收费渠道）
+        if (refundAmount == null || refundAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("AFTER_SALE_AMOUNT_INVALID", "批准退款金额不能为负");
+        }
+        if (refundAmount.compareTo(BigDecimal.ZERO) == 0
+                && order.getPayAmount().compareTo(BigDecimal.ZERO) != 0) {
+            throw new BusinessException("AFTER_SALE_AMOUNT_INVALID",
+                    "0 元退款仅适用于零元订单；非零元订单退款金额必须为正");
         }
         BigDecimal orderPayAmount = validateRefundAmount(entity, order, refundAmount);
 
@@ -232,11 +239,12 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
 
         if (AfterSaleCase.TYPE_REFUND_ONLY.equals(entity.getType())) {
             // T04：退款提交与审批同事务入 Outbox——远程付款不嵌在长事务；退货退款
-            // 在质检通过（recordInspection PASSED）后提交
+            // 在质检通过（recordInspection PASSED）后提交。R11：0 元案同样出事件，
+            // 由提交消费者识别并走域内零元结算，不调用收费渠道
             outboxService.record(EventEnvelope.of("AFTER_SALE_REFUND_SUBMIT", 1,
                     String.valueOf(entity.getId()), 1, null, refundSubmitPayload(requireCase(caseId))));
         }
-        log.info("[T04] 售后案件已受理 caseNo={} refundNo={} amount={}",
+        log.info("[T04/R11] 售后案件已受理 caseNo={} refundNo={} amount={}",
                 entity.getCaseNo(), refundNo, refundAmount);
         return toVO(requireCase(caseId), order.getOrderNo());
     }

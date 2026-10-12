@@ -63,6 +63,9 @@ public class Order {
     /** 已退累计金额（T04）：case 退款成功回填，与 refund_status 同事务推进 */
     private BigDecimal refundedAmount;
 
+    /** R11：零元结算标记——全额优惠合法零元单，内部 ZERO_PAY 结算（无收费渠道支付单） */
+    private Boolean zeroPay;
+
     private LocalDateTime completedAt;
 
     @TableField(fill = FieldFill.INSERT)

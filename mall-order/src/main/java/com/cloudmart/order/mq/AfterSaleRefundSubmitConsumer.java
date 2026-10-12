@@ -8,6 +8,7 @@ import com.cloudmart.order.config.RocketMQConfig;
 import com.cloudmart.order.entity.AfterSaleCase;
 import com.cloudmart.order.feign.RefundFeignClient;
 import com.cloudmart.order.repository.AfterSaleCaseMapper;
+import com.cloudmart.order.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
@@ -46,6 +47,7 @@ public class AfterSaleRefundSubmitConsumer implements RocketMQListener<Map<Strin
     private final InboxService inboxService;
     private final AfterSaleCaseMapper caseMapper;
     private final RefundFeignClient refundFeignClient;
+    private final OrderService orderService;
 
     @Override
     @Transactional
@@ -100,6 +102,14 @@ public class AfterSaleRefundSubmitConsumer implements RocketMQListener<Map<Strin
 
     /** 提交支付内部退款（订单/金额/币种以案件事实为准；refundNo 服务端派生） */
     private void submitCaseRefund(AfterSaleCase entity) {
+        // R11：零元订单的 0 元退款不调用收费渠道——直接走域内退款完成推进
+        //（案件 APPROVED→REFUNDED、订单全额退汇总→REFUNDED、库存/券按全额规则处理）；
+        // Inbox 去重 + 案件 CAS 保证重试幂等。
+        if (entity.getRefundAmount() != null
+                && entity.getRefundAmount().compareTo(BigDecimal.ZERO) == 0) {
+            orderService.onAfterSaleRefundCompleted(entity.getRefundNo());
+            return;
+        }
         Map<String, Object> refundRequest = new HashMap<>();
         refundRequest.put("refundNo", entity.getRefundNo());
         refundRequest.put("orderId", entity.getOrderId());

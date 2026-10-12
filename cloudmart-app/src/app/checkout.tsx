@@ -177,10 +177,17 @@ export default function CheckoutPage() {
               receiverPhone: address.phone,
               receiverAddress: `${address.province}${address.city}${address.district}${address.detail}`,
             })
-            const orderId = (res.data?.data as { id?: number })?.id ?? res.data?.data
+            const created = res.data?.data as { id?: number; paymentRequired?: boolean } | undefined
+            const orderId = created?.id
             if (orderId) {
-              // 下单成功进收银台（对齐 Web 端流程）
-              router.replace(`/payment?id=${orderId}`)
+              // R11：零元订单（全额优惠）建单即内部结算完成，不经过收费渠道，直达订单详情
+              if (created?.paymentRequired === false) {
+                Alert.alert('下单成功', '全额优惠已为您结算')
+                router.replace(`/order-detail?id=${orderId}`)
+              } else {
+                // 下单成功进收银台
+                router.replace(`/payment?id=${orderId}`)
+              }
             } else {
               Alert.alert('成功', '订单创建成功')
               router.back()

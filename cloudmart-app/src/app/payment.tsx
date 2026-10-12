@@ -115,6 +115,13 @@ export default function PaymentPage() {
 
   const handlePay = () => {
     if (!order) return
+    // R11：零元单建单即内部结算完成，收银台不发起收费渠道支付（fail-closed，防深链误入）
+    if (order.paymentRequired === false) {
+      Alert.alert('无需支付', '该订单为全额优惠零元单，已结算完成', [
+        { text: '查看订单', onPress: () => router.replace(`/order-detail?id=${id}`) },
+      ])
+      return
+    }
     Alert.alert('确认支付', `使用${PAYMENT_METHODS.find((m) => m.key === paymentMethod)?.label}支付 ¥${order.payAmount.toFixed(2)}？`, [
       { text: '取消', style: 'cancel' },
       {

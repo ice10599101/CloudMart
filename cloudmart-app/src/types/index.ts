@@ -142,6 +142,8 @@ export interface Order {
   /** T05：退款汇总状态（NONE/PARTIAL/FULL）与已退累计金额 */
   refundStatus?: 'NONE' | 'PARTIAL' | 'FULL' | string
   refundedAmount?: number
+  /** R11：是否需要走收费渠道支付（false=全额优惠零元单，建单即内部结算完成） */
+  paymentRequired?: boolean
   items: OrderItem[]
   createdAt: string
   payTime?: string

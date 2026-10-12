@@ -267,6 +267,11 @@ public class ReconciliationService {
                 }
                 for (OrderInternalInfoDTO order : records) {
                     checked++;
+                    // R11：零元单凭证是订单域 ZERO_PAY 内部结算事实（无渠道支付单），
+                    // 不应报"无 SUCCESS 支付凭证"
+                    if (order.zeroPay()) {
+                        continue;
+                    }
                     Long count = attemptMapper.selectCount(new LambdaQueryWrapper<PaymentAttempt>()
                             .eq(PaymentAttempt::getOrderId, order.orderId())
                             .eq(PaymentAttempt::getStatus, "SUCCESS"));
