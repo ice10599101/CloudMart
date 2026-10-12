@@ -1,6 +1,7 @@
 package com.cloudmart.community.controller;
 
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.community.service.ExpGrantResult;
 import com.cloudmart.community.service.GrowthService;
 import com.cloudmart.community.vo.UserLevelVO;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,8 +26,9 @@ import static org.mockito.Mockito.when;
 /**
  * T09：跨域经验发放校验——稳定业务 ID 必填、来源白名单（服务端从 sourceBizId
  * 派生，不信任自报）、数额边界；唯一键 (user, source, bizId) 保证同事实只发一次。
+ * R21：端点回传真实到账 credited（不再回显请求理论值）。
  */
-@DisplayName("InternalGrowthController 经验发放校验（T09）")
+@DisplayName("InternalGrowthController 经验发放校验（T09/R21）")
 class InternalGrowthControllerTest {
 
     private InternalGrowthController controller;
@@ -52,14 +54,36 @@ class InternalGrowthControllerTest {
                 42L, 3, 1200, 1200L, "探路者", "icon.png", 1500, "行者", 0.8));
     }
 
+    /** R21：默认足额到账（requested=credited） */
+    private void stubGranted(int exp) {
+        when(growthService.grantExp(anyLong(), eq(exp), any(), anyLong(), any()))
+                .thenReturn(ExpGrantResult.granted(exp, exp));
+    }
+
     @Test
-    @DisplayName("合法发放：source 从 sourceBizId 服务端派生（WISH_SIGNIN:123:EXP → bizId=123）")
+    @DisplayName("合法发放：source 从 sourceBizId 服务端派生（WISH_SIGNIN:123:EXP → bizId=123），回传 credited")
     void grantExp_valid_derivesSourceServerSide() {
         stubLevel();
+        stubGranted(10);
         var resp = controller.grantExp(body("WISH_SIGNIN:123:EXP", 10));
 
         assertThat(resp.success()).isTrue();
-        verify(growthService).addExp(eq(42L), eq(10), eq("WISH_SIGNIN"), eq(123L), any());
+        verify(growthService).grantExp(eq(42L), eq(10), eq("WISH_SIGNIN"), eq(123L), any());
+        assertThat(resp.data()).containsEntry("expReward", 10).containsEntry("requestedExp", 10);
+    }
+
+    @Test
+    @DisplayName("R21：日上限截断时回传 credited（<请求值）与 cappedReason，不伪装足额")
+    void grantExp_capped_returnsCredited() {
+        stubLevel();
+        when(growthService.grantExp(anyLong(), eq(30), any(), anyLong(), any()))
+                .thenReturn(ExpGrantResult.granted(30, 5));
+        var resp = controller.grantExp(body("WISH_MILESTONE:7:EXP", 30));
+
+        assertThat(resp.success()).isTrue();
+        assertThat(resp.data()).containsEntry("expReward", 5)
+                .containsEntry("requestedExp", 30)
+                .containsEntry("cappedReason", ExpGrantResult.REASON_DAILY_CAP);
     }
 
     @Test
@@ -68,7 +92,7 @@ class InternalGrowthControllerTest {
         assertThatThrownBy(() -> controller.grantExp(body(null, 10)))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "EXP_GRANT_INVALID");
-        verify(growthService, never()).addExp(anyLong(), anyInt(), any(), anyLong(), any());
+        verify(growthService, never()).grantExp(anyLong(), anyInt(), any(), anyLong(), any());
     }
 
     @Test
@@ -79,7 +103,7 @@ class InternalGrowthControllerTest {
                 .hasFieldOrPropertyWithValue("code", "EXP_GRANT_INVALID");
         assertThatThrownBy(() -> controller.grantExp(body("WISH_ADMIN:1:EXP", 10)))
                 .isInstanceOf(BusinessException.class);
-        verify(growthService, never()).addExp(anyLong(), anyInt(), any(), anyLong(), any());
+        verify(growthService, never()).grantExp(anyLong(), anyInt(), any(), anyLong(), any());
     }
 
     @Test
@@ -90,7 +114,7 @@ class InternalGrowthControllerTest {
                 .hasFieldOrPropertyWithValue("code", "EXP_GRANT_INVALID");
         assertThatThrownBy(() -> controller.grantExp(body("WISH_SIGNIN:1:EXP", 501)))
                 .isInstanceOf(BusinessException.class);
-        verify(growthService, never()).addExp(anyLong(), anyInt(), any(), anyLong(), any());
+        verify(growthService, never()).grantExp(anyLong(), anyInt(), any(), anyLong(), any());
     }
 
     @Test
@@ -102,21 +126,23 @@ class InternalGrowthControllerTest {
                 .isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> controller.grantExp(body("WISH_SIGNIN:123:STAR", 10)))
                 .isInstanceOf(BusinessException.class);
-        verify(growthService, never()).addExp(anyLong(), anyInt(), any(), anyLong(), any());
+        verify(growthService, never()).grantExp(anyLong(), anyInt(), any(), anyLong(), any());
     }
 
     @Test
-    @DisplayName("重复发放（同 sourceBizId）由唯一键吸收：addExp 幂等跳过不抛异常")
+    @DisplayName("重复发放（同 sourceBizId）由下游幂等：grantExp 返回 duplicate，端点不抛异常且 credited=0")
     void grantExp_duplicate_idempotentByUniqueKey() {
         stubLevel();
-        Mockito.doNothing().when(growthService).addExp(anyLong(), anyInt(), any(), anyLong(), any());
+        when(growthService.grantExp(anyLong(), eq(30), eq("WISH_MILESTONE"), eq(9L), any()))
+                .thenReturn(ExpGrantResult.duplicate(30));
 
         var first = controller.grantExp(body("WISH_MILESTONE:9:EXP", 30));
         var replay = controller.grantExp(body("WISH_MILESTONE:9:EXP", 30));
 
         assertThat(first.success()).isTrue();
+        assertThat(first.data()).containsEntry("expReward", 0).containsEntry("deduplicated", true);
         assertThat(replay.success()).isTrue();
-        verify(growthService, Mockito.times(2)).addExp(eq(42L), eq(30), eq("WISH_MILESTONE"),
+        verify(growthService, Mockito.times(2)).grantExp(eq(42L), eq(30), eq("WISH_MILESTONE"),
                 eq(9L), any());
     }
 }

@@ -28,7 +28,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +58,8 @@ public class GrowthServiceImpl implements GrowthService {
     private final LevelConfigMapper levelConfigMapper;
     private final DailyCheckInMapper dailyCheckInMapper;
     private final ExpLogMapper expLogMapper;
+    /** R21 日配额行锁原子占用 */
+    private final com.cloudmart.community.repository.ExpDailyQuotaMapper expDailyQuotaMapper;
     private final RankingService rankingService;
     private final CheckInBitMapService checkInBitMapService;
     private final UserBadgeMapper userBadgeMapper;
@@ -97,7 +98,9 @@ public class GrowthServiceImpl implements GrowthService {
         checkIn.setExpReward(expReward);
         dailyCheckInMapper.updateById(checkIn);
 
-        addExp(userId, expReward, "CHECK_IN", checkIn.getId(), "每日签到");
+        // R21：签到经验同样受日配额原子约束，VO 回传真实到账（不再把理论值当已发放）
+        com.cloudmart.community.service.ExpGrantResult grant =
+                grantExp(userId, expReward, "CHECK_IN", checkIn.getId(), "每日签到");
 
         UserLevel userLevel = getOrCreateUserLevel(userId);
         LevelConfig currentConfig = findLevelConfig(userLevel.getLevel());
@@ -105,7 +108,7 @@ public class GrowthServiceImpl implements GrowthService {
         return new CheckInResultVO(
                 true,
                 continuousDays,
-                expReward,
+                grant.credited(),
                 userLevel.getTotalExp(),
                 userLevel.getLevel(),
                 currentConfig != null ? currentConfig.getTitle() : "",
@@ -218,56 +221,127 @@ public class GrowthServiceImpl implements GrowthService {
     @Override
     @Transactional
     public void addExp(Long userId, int exp, String source, Long bizId, String description) {
-        // P1-7：日累计上限——超限只记日志不发经验；并发窗口内可能轻微超出上限（非资金类不变量，可接受）
-        if (exp > 0 && isDailyExpCapped(userId)) {
-            log.info("P1-7 用户当日经验已达上限 {}，跳过发放: userId={}, source={}, bizId={}",
-                    DAILY_EXP_CAP, userId, source, bizId);
-            return;
-        }
-
-        // C05：奖励事实先行——uk(user_id, source, biz_id) 判重（并发/重试不双发奖）
-        ExpLog expLog = new ExpLog();
-        expLog.setUserId(userId);
-        expLog.setExpChange(exp);
-        expLog.setSource(source);
-        expLog.setBizId(bizId);
-        expLog.setDescription(description);
-        try {
-            expLogMapper.insert(expLog);
-        } catch (org.springframework.dao.DuplicateKeyException duplicate) {
-            log.info("经验奖励事实已存在（幂等跳过）, userId={}, source={}, bizId={}", userId, source, bizId);
-            return;
-        }
-
-        // C05：原子增量替代实体读改写（并发丢更新缺陷修复）
-        getOrCreateUserLevel(userId);
-        userLevelMapper.incrementExp(userId, exp);
-
-        // 重算等级（基于增量后的权威值；仅升级时条件推进）
-        UserLevel latest = getOrCreateUserLevel(userId);
-        int newLevel = calculateLevel(latest.getExp());
-        if (newLevel > latest.getLevel()) {
-            userLevelMapper.advanceLevel(userId, newLevel);
-            log.info("User {} leveled up: {} -> {}, exp={}", userId, latest.getLevel(), newLevel, latest.getExp());
-        }
-
-        try {
-            rankingService.addExpToRanking(userId, exp);
-        } catch (Exception e) {
-            log.warn("更新排行榜失败，不影响主流程: userId={}, exp={}", userId, exp, e);
-        }
+        grantExp(userId, exp, source, bizId, description);
     }
 
-    /** P1-7：统计当日已发放经验（ExpLog 按 user_id + createdAt 过滤），达到上限即不再发放 */
-    private boolean isDailyExpCapped(Long userId) {
-        LocalDateTime dayStart = LocalDate.now().atStartOfDay();
-        int todayExp = expLogMapper.selectList(new LambdaQueryWrapper<ExpLog>()
-                        .eq(ExpLog::getUserId, userId)
-                        .ge(ExpLog::getCreatedAt, dayStart))
-                .stream()
-                .mapToInt(l -> l.getExpChange() == null ? 0 : l.getExpChange())
-                .sum();
-        return todayExp >= DAILY_EXP_CAP;
+    /**
+     * R21 经验发放（权威实现）：
+     * 1) 对当日配额行 SELECT ... FOR UPDATE——同用户当天所有发奖串行，100 并发合计不突破 200；
+     * 2) 锁内按 (source,bizId) 判重（并发同事实请求第二个拿锁后必见首笔事实），幂等返回 credited=0；
+     * 3) credited = min(requested, 200 - 已占用)，配额原子累加；
+     * 4) 零收益（被 cap 截断到 0）且 bizId 非空也写 exp_logs 留事实，重复请求不再重放；
+     * 5) 排行榜 ZINCRBY 延迟到事务提交后（afterCommit）按 credited 累加，事务回滚不留投影残影。
+     */
+    @Override
+    @Transactional
+    public com.cloudmart.community.service.ExpGrantResult grantExp(
+            Long userId, int exp, String source, Long bizId, String description) {
+        if (exp <= 0) {
+            return new com.cloudmart.community.service.ExpGrantResult(exp, 0, false, null);
+        }
+
+        LocalDate businessDate = LocalDate.now();
+        com.cloudmart.community.entity.ExpDailyQuota quota = lockOrCreateTodayQuota(userId, businessDate);
+
+        // 行锁内判重：锁已串行同用户当天发奖，此处可见并发赢家已提交的奖励事实
+        if (bizId != null && existsRewardFact(userId, source, bizId)) {
+            log.info("R21 经验奖励事实已存在（幂等不重发）: userId={}, source={}, bizId={}", userId, source, bizId);
+            return com.cloudmart.community.service.ExpGrantResult.duplicate(exp);
+        }
+
+        int alreadyGranted = quota.getGranted() == null ? 0 : quota.getGranted();
+        int remaining = Math.max(0, DAILY_EXP_CAP - alreadyGranted);
+        int credited = Math.min(exp, remaining);
+        boolean capped = credited < exp;
+        if (capped) {
+            log.info("R21 用户当日经验触顶截断: userId={}, source={}, requested={}, credited={}, alreadyGranted={}",
+                    userId, source, exp, credited, alreadyGranted);
+        }
+
+        // 零收益但有事实锚点（bizId 非空）也要落一条 exp_change=0 的事实——重复请求被 uk 拦截不再重放；
+        // bizId 为空（如被赞/获粉聚合事件）且 credited=0 时无判重意义，不刷 0 行
+        if (credited > 0 || bizId != null) {
+            ExpLog expLog = new ExpLog();
+            expLog.setUserId(userId);
+            expLog.setExpChange(credited);
+            expLog.setSource(source);
+            expLog.setBizId(bizId);
+            expLog.setDescription(description);
+            expLogMapper.insert(expLog);
+        }
+
+        if (credited > 0) {
+            // 行锁内原子累加占用额度
+            expDailyQuotaMapper.addGranted(userId, businessDate, credited);
+
+            // C05：原子增量替代实体读改写（并发丢更新缺陷修复）
+            getOrCreateUserLevel(userId);
+            userLevelMapper.incrementExp(userId, credited);
+
+            // 重算等级（基于增量后的权威值；仅升级时条件推进）
+            UserLevel latest = getOrCreateUserLevel(userId);
+            int newLevel = calculateLevel(latest.getExp());
+            if (newLevel > latest.getLevel()) {
+                userLevelMapper.advanceLevel(userId, newLevel);
+                log.info("User {} leveled up: {} -> {}, exp={}", userId, latest.getLevel(), newLevel, latest.getExp());
+            }
+
+            // R21：排行榜投影延迟到事务提交后，按实际 credited 累加（回滚不留残影）
+            registerRankingProjection(userId, credited);
+        }
+
+        return com.cloudmart.community.service.ExpGrantResult.granted(exp, credited);
+    }
+
+    /** R21：取当日配额行并加行锁；不存在则首建 granted=0 后重新加锁（并发首建撞 uk 后重读） */
+    private com.cloudmart.community.entity.ExpDailyQuota lockOrCreateTodayQuota(Long userId, LocalDate businessDate) {
+        com.cloudmart.community.entity.ExpDailyQuota quota =
+                expDailyQuotaMapper.selectForUpdate(userId, businessDate);
+        if (quota != null) {
+            return quota;
+        }
+        com.cloudmart.community.entity.ExpDailyQuota created = new com.cloudmart.community.entity.ExpDailyQuota();
+        created.setUserId(userId);
+        created.setBusinessDate(businessDate);
+        created.setGranted(0);
+        try {
+            expDailyQuotaMapper.insert(created);
+        } catch (org.springframework.dao.DuplicateKeyException concurrentCreate) {
+            // 并发首建：另一事务已插入，落入下方重读加锁
+            log.debug("R21 日配额行并发首建，重读加锁: userId={}, date={}", userId, businessDate);
+        }
+        return expDailyQuotaMapper.selectForUpdate(userId, businessDate);
+    }
+
+    /** (user_id, source, biz_id) 奖励事实是否已存在（bizId 非空时才有判重意义） */
+    private boolean existsRewardFact(Long userId, String source, Long bizId) {
+        Long count = expLogMapper.selectCount(new LambdaQueryWrapper<ExpLog>()
+                .eq(ExpLog::getUserId, userId)
+                .eq(ExpLog::getSource, source)
+                .eq(ExpLog::getBizId, bizId));
+        return count != null && count > 0;
+    }
+
+    /** R21：排行榜投影仅在事务提交后按实际 credited 累加（失败仅告警，可由后台重建投影） */
+    private void registerRankingProjection(Long userId, int credited) {
+        Runnable projection = () -> {
+            try {
+                rankingService.addExpToRanking(userId, credited);
+            } catch (Exception e) {
+                log.warn("R21 排行榜投影失败（不影响经验事实，可重建）: userId={}, exp={}", userId, credited, e);
+            }
+        };
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            projection.run();
+                        }
+                    });
+        } else {
+            projection.run();
+        }
     }
 
     @Override

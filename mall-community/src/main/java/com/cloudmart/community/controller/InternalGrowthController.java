@@ -72,12 +72,18 @@ public class InternalGrowthController {
         String description = body.get("description") != null
                 ? String.valueOf(body.get("description")) : ALLOWED_SOURCES.get(source);
 
-        growthService.addExp(userId, exp, source, bizId, description);
+        // R21：返回真实到账 credited（日上限截断/重复事实时可能小于请求值），调用方不得再回显理论值
+        com.cloudmart.community.service.ExpGrantResult grant =
+                growthService.grantExp(userId, exp, source, bizId, description);
         UserLevelVO level = growthService.getUserLevel(userId);
 
-        log.info("内部经验发放成功, userId={}, exp={}, source={}, level={}", userId, exp, source, level.level());
+        log.info("内部经验发放完成, userId={}, requested={}, credited={}, deduplicated={}, source={}, level={}",
+                userId, grant.requested(), grant.credited(), grant.deduplicated(), source, level.level());
         return ApiResponse.ok(Map.of(
-                "expReward", exp,
+                "expReward", grant.credited(),
+                "requestedExp", grant.requested(),
+                "deduplicated", grant.deduplicated(),
+                "cappedReason", grant.cappedReason() == null ? "" : grant.cappedReason(),
                 "level", level.level(),
                 "totalExp", level.totalExp(),
                 "levelTitle", level.levelTitle() != null ? level.levelTitle() : ""));

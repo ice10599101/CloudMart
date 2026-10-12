@@ -31,6 +31,13 @@ public interface GrowthService {
 
     void addExp(Long userId, int exp, String source, Long bizId, String description);
 
+    /**
+     * R21 经验发放（带真实到账结果）：日配额按 (用户, 业务日) 行锁原子占用，
+     * credited=min(requested, 当日剩余额度)；(source,bizId) 事实幂等；零收益也留事实。
+     * 排行榜投影仅在事务提交后按 credited 累加（回滚不留残影）。
+     */
+    ExpGrantResult grantExp(Long userId, int exp, String source, Long bizId, String description);
+
     Page<ExpLogVO> getExpLogs(Long userId, int page, int size);
 
     List<LevelConfigVO> getLevelConfigs();

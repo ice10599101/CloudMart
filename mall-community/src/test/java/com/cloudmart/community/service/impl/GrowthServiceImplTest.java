@@ -62,6 +62,9 @@ class GrowthServiceImplTest {
     private ExpLogMapper expLogMapper;
 
     @Mock
+    private com.cloudmart.community.repository.ExpDailyQuotaMapper expDailyQuotaMapper;
+
+    @Mock
     private RankingService rankingService;
 
     @Mock
@@ -97,8 +100,27 @@ class GrowthServiceImplTest {
     @BeforeEach
     void setUp() {
         growthService = new GrowthServiceImpl(
-                userLevelMapper, levelConfigMapper, dailyCheckInMapper, expLogMapper, rankingService,
+                userLevelMapper, levelConfigMapper, dailyCheckInMapper, expLogMapper,
+                expDailyQuotaMapper, rankingService,
                 checkInBitMapService, userBadgeMapper, userEnrichmentService);
+        // R21 发奖通用桩（lenient：非发奖用例不触发也不报错）：
+                // 当日配额行存在且未占用、累加成功、奖励事实不重复——个别用例按需覆盖
+        org.mockito.Mockito.lenient().when(expDailyQuotaMapper.selectForUpdate(anyLong(), any()))
+                .thenAnswer(inv -> buildQuota(inv.getArgument(0, Long.class), 0));
+        org.mockito.Mockito.lenient().when(expDailyQuotaMapper.addGranted(anyLong(), any(), anyInt()))
+                .thenReturn(1);
+        org.mockito.Mockito.lenient().when(expLogMapper.selectCount(any())).thenReturn(0L);
+    }
+
+    /** R21 构造当日配额行 */
+    private com.cloudmart.community.entity.ExpDailyQuota buildQuota(Long userId, int granted) {
+        com.cloudmart.community.entity.ExpDailyQuota quota =
+                new com.cloudmart.community.entity.ExpDailyQuota();
+        quota.setId(userId);
+        quota.setUserId(userId);
+        quota.setBusinessDate(LocalDate.now());
+        quota.setGranted(granted);
+        return quota;
     }
 
     private UserLevel buildUserLevel() {
@@ -312,33 +334,32 @@ class GrowthServiceImplTest {
             verify(rankingService).addExpToRanking(USER_ID, 10);
         }
 
-        /** P1-7：构造当日已发放经验流水（合计 totalExp） */
-        private List<ExpLog> buildTodayLogs(int totalExp) {
-            ExpLog log = new ExpLog();
-            log.setUserId(USER_ID);
-            log.setExpChange(totalExp);
-            log.setSource("COMMENT");
-            log.setBizId(999L);
-            log.setDescription("当日已有");
-            return List.of(log);
-        }
-
         @Test
-        @DisplayName("P1-7: 当日经验已达上限时不再发放（不落流水不加经验）")
-        void addExp_dailyCapExceeded_skipsAward() {
-            // 当日已发 200（=上限），新的评论奖励应被跳过
-            when(expLogMapper.selectList(any())).thenReturn(buildTodayLogs(200));
+        @DisplayName("R21: 当日配额已满（granted=200）→ credited=0：不加经验不投影，但落零收益事实")
+        void grantExp_dailyCapFull_creditsZeroButKeepsFact() {
+            // 行锁读到当日已占用 200（=上限）
+            when(expDailyQuotaMapper.selectForUpdate(anyLong(), any())).thenReturn(buildQuota(USER_ID, 200));
 
-            growthService.addExp(USER_ID, 10, "COMMENT", 201L, "发表评论");
+            com.cloudmart.community.service.ExpGrantResult result =
+                    growthService.grantExp(USER_ID, 10, "COMMENT", 201L, "发表评论");
 
-            verify(expLogMapper, never()).insert(any(ExpLog.class));
+            assertThat(result.requested()).isEqualTo(10);
+            assertThat(result.credited()).isZero();
+            assertThat(result.cappedReason()).isEqualTo("DAILY_EXP_CAP");
+            // 零收益但 bizId 非空：exp_logs 仍落 exp_change=0 的事实（重复请求被 uk 拦截）
+            org.mockito.ArgumentCaptor<ExpLog> captor = org.mockito.ArgumentCaptor.forClass(ExpLog.class);
+            verify(expLogMapper).insert(captor.capture());
+            assertThat(captor.getValue().getExpChange()).isZero();
+            // 不占额度、不加经验、不投影排行榜
+            verify(expDailyQuotaMapper, never()).addGranted(anyLong(), any(), anyInt());
             verify(userLevelMapper, never()).incrementExp(anyLong(), anyInt());
             verify(rankingService, never()).addExpToRanking(anyLong(), anyInt());
         }
 
         @Test
-        @DisplayName("P1-7: 当日经验未达上限时正常发放")
-        void addExp_belowDailyCap_awards() {
+        @DisplayName("R21: 195 已占用 + 请求 10 → 原子截断 credited=5（actual=min(10, 剩余5)）")
+        void grantExp_nearCap_partialCredit() {
+            when(expDailyQuotaMapper.selectForUpdate(anyLong(), any())).thenReturn(buildQuota(USER_ID, 195));
             when(userLevelMapper.selectOne(any())).thenReturn(buildUserLevel(),
                     buildUserLevelWith(55));
             when(userLevelMapper.incrementExp(eq(USER_ID), eq(5))).thenReturn(1);
@@ -346,14 +367,35 @@ class GrowthServiceImplTest {
                     buildLevelConfig(2, 30, "Rookie"),
                     buildLevelConfig(1, 0, "Novice")
             ));
-            // 当日已发 195（< 上限 200），5 点奖励仍可发放
-            when(expLogMapper.selectList(any())).thenReturn(buildTodayLogs(195));
 
-            growthService.addExp(USER_ID, 5, "LIKE_RECEIVED", 300L, "收到点赞");
+            com.cloudmart.community.service.ExpGrantResult result =
+                    growthService.grantExp(USER_ID, 10, "LIKE_RECEIVED", 300L, "收到点赞");
 
-            verify(expLogMapper).insert(any(ExpLog.class));
+            assertThat(result.requested()).isEqualTo(10);
+            assertThat(result.credited()).isEqualTo(5);
+            assertThat(result.cappedReason()).isEqualTo("DAILY_EXP_CAP");
+            // 流水/额度占用/经验增量/排行榜投影全部按实际 credited=5
+            org.mockito.ArgumentCaptor<ExpLog> captor = org.mockito.ArgumentCaptor.forClass(ExpLog.class);
+            verify(expLogMapper).insert(captor.capture());
+            assertThat(captor.getValue().getExpChange()).isEqualTo(5);
+            verify(expDailyQuotaMapper).addGranted(eq(USER_ID), any(), eq(5));
             verify(userLevelMapper).incrementExp(eq(USER_ID), eq(5));
             verify(rankingService).addExpToRanking(USER_ID, 5);
+        }
+
+        @Test
+        @DisplayName("R21: 同 (source,bizId) 事实已存在 → 幂等返回 deduplicated，不占额度不重发")
+        void grantExp_duplicateFact_idempotent() {
+            when(expLogMapper.selectCount(any())).thenReturn(1L);
+
+            com.cloudmart.community.service.ExpGrantResult result =
+                    growthService.grantExp(USER_ID, 10, "POST", 100L, "发布帖子");
+
+            assertThat(result.deduplicated()).isTrue();
+            assertThat(result.credited()).isZero();
+            verify(expLogMapper, never()).insert(any(ExpLog.class));
+            verify(expDailyQuotaMapper, never()).addGranted(anyLong(), any(), anyInt());
+            verify(userLevelMapper, never()).incrementExp(anyLong(), anyInt());
         }
     }
 
