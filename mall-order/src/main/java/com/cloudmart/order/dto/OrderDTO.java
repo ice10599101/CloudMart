@@ -27,9 +27,11 @@ public record OrderDTO(
     /** T05：已退累计金额 */
     java.math.BigDecimal refundedAmount,
     /** R11：是否需要走收费渠道支付——零元单（全额优惠）为 false，建单即内部结算完成 */
-    Boolean paymentRequired
+    Boolean paymentRequired,
+    /** R12：下单锁定的优惠明细快照（满减/券，供展示与售后/反查命中规则） */
+    List<DiscountLine> discountLines
 ) {
-    /** 兼容旧 17 参签名（退款汇总缺省 NONE/0；paymentRequired 按金额推导） */
+    /** 兼容旧 17 参签名（退款汇总缺省 NONE/0；paymentRequired 按金额推导；无优惠明细） */
     public OrderDTO(Long id, String orderNo, BigDecimal totalAmount, BigDecimal payAmount,
                     BigDecimal discountAmount, Long couponId, String status, String receiverName,
                     String receiverPhone, String receiverAddress, LocalDateTime shippedAt,
@@ -39,6 +41,7 @@ public record OrderDTO(
                 receiverName, receiverPhone, receiverAddress, shippedAt, completedAt,
                 refundReason, refundRejectReason, items, createdAt, updatedAt,
                 "NONE", java.math.BigDecimal.ZERO,
-                payAmount != null && payAmount.compareTo(java.math.BigDecimal.ZERO) > 0);
+                payAmount != null && payAmount.compareTo(java.math.BigDecimal.ZERO) > 0,
+                java.util.List.of());
     }
 }

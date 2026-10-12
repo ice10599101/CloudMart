@@ -18,6 +18,9 @@ public interface OrderConverter {
     // R11：是否需要收费渠道支付——应付 > 0 才为 true（零元单建单即内部结算完成）
     @Mapping(target = "paymentRequired",
             expression = "java(order.getPayAmount() != null && order.getPayAmount().compareTo(java.math.BigDecimal.ZERO) > 0)")
+    // R12：优惠明细快照 JSON → 结构化列表（供展示/售后/反查）
+    @Mapping(target = "discountLines",
+            expression = "java(com.cloudmart.order.dto.DiscountLine.parseJson(order.getDiscountLines()))")
     OrderDTO toDTO(Order order, List<OrderItemDTO> items);
 
     OrderItemDTO toItemDTO(OrderItem orderItem);
@@ -25,6 +28,8 @@ public interface OrderConverter {
     List<OrderItemDTO> toItemDTOList(List<OrderItem> orderItems);
 
     @Mapping(target = "items", source = "items")
+    @Mapping(target = "discountLines",
+            expression = "java(com.cloudmart.order.dto.DiscountLine.parseJson(order.getDiscountLines()))")
     OrderVO toVO(Order order, List<OrderItemVO> items);
 
     @Mapping(source = "skuImage", target = "productImage")

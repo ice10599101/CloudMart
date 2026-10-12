@@ -117,4 +117,18 @@ public class AdminTieredPromotionController {
         tieredPromotionMapper.deleteById(id);
         return ApiResponse.ok(null);
     }
+
+    /**
+     * R12：发布前预览指定购物篮在该活动下的命中结果——忽略活动状态/时间窗，
+     * DISABLED/未开始的活动同样可试算，辅助运营发布决策。
+     */
+    public record PreviewRequest(java.math.BigDecimal orderAmount) {}
+
+    @Operation(summary = "R12 发布前预览：按购物篮金额试算活动命中结果")
+    @PostMapping("/promotions/{id}/preview")
+    public ApiResponse<com.cloudmart.marketing.dto.CalculateDiscountResult> previewPromotion(
+            @Parameter(description = "活动ID") @PathVariable Long id,
+            @Valid @RequestBody PreviewRequest request) {
+        return ApiResponse.ok(tieredPromotionService.previewDiscount(id, request.orderAmount()));
+    }
 }

@@ -27,6 +27,9 @@ public class Order {
 
     private BigDecimal discountAmount;
 
+    /** R12：下单锁定的优惠明细快照 JSON（报价复制；售后分摊/命中规则反查依据） */
+    private String discountLines;
+
     private Long couponId;
 
     private Long activityId;

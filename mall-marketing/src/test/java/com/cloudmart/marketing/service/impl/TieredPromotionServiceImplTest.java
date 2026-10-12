@@ -333,4 +333,109 @@ class TieredPromotionServiceImplTest {
             assertThat(result.matched()).isFalse();
         }
     }
+
+    @Nested
+    @DisplayName("R12 购物篮自动匹配 matchBest / 发布前预览")
+    class R12MatchTests {
+
+        private TieredPromotion activePromo(Long id, String name) {
+            TieredPromotion p = new TieredPromotion();
+            p.setId(id);
+            p.setName(name);
+            p.setStatus("ENABLED");
+            p.setStartTime(NOW.minusDays(1));
+            p.setEndTime(NOW.plusDays(7));
+            return p;
+        }
+
+        private TieredPromotionRule rule(Long promotionId, Long ruleId, String min, String discount) {
+            TieredPromotionRule r = new TieredPromotionRule();
+            r.setId(ruleId);
+            r.setPromotionId(promotionId);
+            r.setMinAmount(new BigDecimal(min));
+            r.setDiscountAmount(new BigDecimal(discount));
+            return r;
+        }
+
+        @Test
+        @DisplayName("未达门槛：matched=false 且金额为 0")
+        void matchBest_belowThreshold_none() {
+            when(promotionMapper.selectList(any())).thenReturn(List.of(activePromo(1L, "满100减20")));
+            when(ruleMapper.selectList(any())).thenReturn(List.of());
+
+            TieredMatchResult result = service.matchBest(new TieredMatchRequest(new BigDecimal("99")));
+
+            assertThat(result.matched()).isFalse();
+            assertThat(result.discountAmount()).isEqualByComparingTo("0");
+        }
+
+        @Test
+        @DisplayName("单活动命中：返回活动/规则/门槛/金额")
+        void matchBest_singleMatched() {
+            when(promotionMapper.selectList(any())).thenReturn(List.of(activePromo(1L, "满100减20")));
+            when(ruleMapper.selectList(any())).thenReturn(List.of(rule(1L, 101L, "100", "20")));
+
+            TieredMatchResult result = service.matchBest(new TieredMatchRequest(new BigDecimal("100")));
+
+            assertThat(result.matched()).isTrue();
+            assertThat(result.promotionId()).isEqualTo(1L);
+            assertThat(result.matchedRuleId()).isEqualTo(101L);
+            assertThat(result.minAmount()).isEqualByComparingTo("100");
+            assertThat(result.discountAmount()).isEqualByComparingTo("20");
+        }
+
+        @Test
+        @DisplayName("两活动重叠：优惠金额更大者胜（确定性，非随机）")
+        void matchBest_twoOverlapping_biggestWins() {
+            when(promotionMapper.selectList(any())).thenReturn(List.of(
+                    activePromo(1L, "满100减20"), activePromo(2L, "满100减30")));
+            when(ruleMapper.selectList(any())).thenReturn(List.of(
+                    rule(1L, 101L, "100", "20"), rule(2L, 201L, "100", "30")));
+
+            TieredMatchResult result = service.matchBest(new TieredMatchRequest(new BigDecimal("100")));
+
+            assertThat(result.promotionId()).isEqualTo(2L);
+            assertThat(result.discountAmount()).isEqualByComparingTo("30");
+        }
+
+        @Test
+        @DisplayName("同活动多档可达：只取最高阶梯（规则顺序无关）")
+        void matchBest_samePromotionMultipleTiers_picksHighest() {
+            when(promotionMapper.selectList(any())).thenReturn(List.of(activePromo(1L, "阶梯满减")));
+            when(ruleMapper.selectList(any())).thenReturn(java.util.List.of(
+                    rule(1L, 102L, "200", "50"), rule(1L, 101L, "100", "20")));
+
+            TieredMatchResult result = service.matchBest(new TieredMatchRequest(new BigDecimal("300")));
+
+            assertThat(result.matchedRuleId()).isEqualTo(102L);
+            assertThat(result.discountAmount()).isEqualByComparingTo("50");
+        }
+
+        @Test
+        @DisplayName("DISABLED/时间窗外活动不参与匹配（DB 过滤后无生效活动→不查规则）")
+        void matchBest_disabledAndExpired_excluded() {
+            // SQL 已按 status/时间窗过滤——无生效活动时返回空集
+            when(promotionMapper.selectList(any())).thenReturn(List.of());
+
+            TieredMatchResult result = service.matchBest(new TieredMatchRequest(new BigDecimal("500")));
+
+            assertThat(result.matched()).isFalse();
+            verify(ruleMapper, times(0)).selectList(any());
+        }
+
+        @Test
+        @DisplayName("发布前预览：DISABLED 活动忽略状态/时间窗同样试算命中结果")
+        void previewDiscount_ignoresStatusAndWindow() {
+            TieredPromotion disabled = activePromo(5L, "待发布");
+            disabled.setStatus("DISABLED");
+            disabled.setStartTime(NOW.plusDays(30));
+            when(promotionMapper.selectById(5L)).thenReturn(disabled);
+            when(ruleMapper.selectList(any())).thenReturn(List.of(rule(5L, 501L, "200", "50")));
+
+            CalculateDiscountResult result = service.previewDiscount(5L, new BigDecimal("200"));
+
+            assertThat(result.matched()).isTrue();
+            assertThat(result.discountAmount()).isEqualByComparingTo("50");
+        }
+    }
 }

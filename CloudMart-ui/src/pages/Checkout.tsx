@@ -305,6 +305,8 @@ export default function Checkout() {
   const [selectedCouponId, setSelectedCouponId] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [loading, setLoading] = useState(true)
+  // R12：服务端报价预览（满减→券后的权威金额与优惠明细），仅用于展示；提交时再取新报价
+  const [serverQuote, setServerQuote] = useState<import('@/api/order').QuoteResult | null>(null)
 
   const skuIdsParam = searchParams.get('skuIds') || ''
   const selectedSkuIds = skuIdsParam
@@ -347,10 +349,39 @@ export default function Checkout() {
     fetchData()
   }, [fetchCart])
 
+  // R12：购物车行/选中券变化时拉服务端报价预览（满减+券权威结果）；
+  // 失败静默保留本地估算，不阻塞页面（提交时服务端仍 fail-closed 复核）
+  useEffect(() => {
+    if (checkedItems.length === 0) {
+      setServerQuote(null)
+      return
+    }
+    let cancelled = false
+    createQuote({
+      items: checkedItems.map((item) => ({ skuId: item.skuId, quantity: item.quantity })),
+      couponId: selectedCouponId ?? undefined,
+    })
+      .then((res) => {
+        if (!cancelled) setServerQuote(res.data.data)
+      })
+      .catch(() => {
+        if (!cancelled) setServerQuote(null)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCouponId, checkedItems.map((i) => `${i.skuId}:${i.quantity}`).join(',')])
+
   const totalPrice = checkedItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   )
+
+  // R12：优先使用服务端报价（满减→券权威结果）；无报价时退回本地券估算
+  const quoteLines = serverQuote?.discountLines ?? []
+  const serverDiscount = serverQuote ? Number(serverQuote.discountAmount) : null
+  const serverPay = serverQuote ? Number(serverQuote.payAmount) : null
 
   const selectedCoupon = coupons.find((c) => c.id === selectedCouponId)
   let discountAmount = 0
@@ -365,7 +396,8 @@ export default function Checkout() {
   }
 
   const freightAmount = 0
-  const payAmount = Math.max(0, totalPrice + freightAmount - discountAmount)
+  const shownDiscount = serverDiscount ?? discountAmount
+  const payAmount = serverPay ?? Math.max(0, totalPrice + freightAmount - discountAmount)
 
   const handleSubmit = async () => {
     if (!selectedAddressId) {
@@ -705,14 +737,27 @@ export default function Checkout() {
                     {freightAmount > 0 ? `¥${freightAmount.toFixed(2)}` : '免运费'}
                   </span>
                 </div>
-                {discountAmount > 0 && (
+                {shownDiscount > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                     <span style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>优惠</span>
                     <span style={{ color: 'var(--color-primary)', fontSize: 14 }}>
-                      -¥{discountAmount.toFixed(2)}
+                      -¥{shownDiscount.toFixed(2)}
                     </span>
                   </div>
                 )}
+                {quoteLines.map((line, idx) => (
+                  <div
+                    key={`${line.type}-${line.promotionId ?? line.couponId ?? idx}`}
+                    style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, paddingLeft: 12 }}
+                  >
+                    <span style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+                      {line.type === 'TIERED' ? `满减：${line.name ?? '活动'}${line.minAmount != null ? `（满 ¥${Number(line.minAmount).toFixed(0)}）` : ''}` : `优惠券：${line.name ?? ''}`}
+                    </span>
+                    <span style={{ color: 'var(--color-primary)', fontSize: 12 }}>
+                      -¥{Number(line.amount).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
 
                 <div
                   style={{

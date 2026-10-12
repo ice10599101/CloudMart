@@ -30,6 +30,9 @@ public class OrderQuote {
 
     private BigDecimal discountAmount;
 
+    /** R12：优惠明细快照 JSON（TIERED/COUPON 行；计算顺序 满减→券） */
+    private String discountLines;
+
     private BigDecimal payAmount;
 
     private Long couponId;

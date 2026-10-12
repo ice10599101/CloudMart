@@ -42,14 +42,23 @@ class QuoteServiceImplTest {
     private ProductFeignClient productFeignClient;
     private OrderQuoteMapper quoteMapper;
     private OrderQuoteItemMapper quoteItemMapper;
+    private com.cloudmart.order.feign.MarketingFeignClient marketingFeignClient;
+    private com.cloudmart.order.feign.CouponFeignClient couponFeignClient;
 
     @BeforeEach
     void setUp() {
         productFeignClient = mock(ProductFeignClient.class);
         quoteMapper = mock(OrderQuoteMapper.class);
         quoteItemMapper = mock(OrderQuoteItemMapper.class);
+        marketingFeignClient = mock(com.cloudmart.order.feign.MarketingFeignClient.class);
+        couponFeignClient = org.mockito.Mockito.mock(com.cloudmart.order.feign.CouponFeignClient.class);
+        // R12：默认无满减命中（R12 用例按场景覆盖）
+        org.mockito.Mockito.lenient().when(marketingFeignClient.matchTiered(any())).thenReturn(
+                ApiResponse.ok(new com.cloudmart.order.dto.TieredMatchResult(
+                        null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, false)));
         quoteService = new QuoteServiceImpl(productFeignClient, quoteMapper, quoteItemMapper,
-                new OrderCouponPolicy(org.mockito.Mockito.mock(com.cloudmart.order.feign.CouponFeignClient.class)), 300L);
+                new QuoteDiscountCalculator(marketingFeignClient, new OrderCouponPolicy(couponFeignClient),
+                        new tools.jackson.databind.ObjectMapper()), 300L);
     }
 
     /** R24：Feign 响应已强类型化——mock 直接构造 DTO，字符串形态由 Jackson 反序列化层负责 */
@@ -157,6 +166,70 @@ class QuoteServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "QUOTE_NOT_FOUND");
         verify(quoteItemMapper, never()).selectList(any());
+    }
+
+    @Nested
+    @DisplayName("R12 满减接入报价（商品金额→满减→券→应付）")
+    class R12TieredTests {
+
+        @Test
+        @DisplayName("命中满减：应付=商品金额-满减，discountLines 落活动/规则快照")
+        void createQuote_tieredMatched() {
+            when(productFeignClient.getSkusBatch(List.of(100L)))
+                    .thenReturn(ApiResponse.ok(List.of(sku(100L, 1L, "100.00", 1))));
+            when(marketingFeignClient.matchTiered(any())).thenReturn(ApiResponse.ok(
+                    new com.cloudmart.order.dto.TieredMatchResult(
+                            7L, "满100减20", 701L, new BigDecimal("100.00"),
+                            new BigDecimal("20.00"), true)));
+
+            OrderQuote quote = quoteService.createQuote(USER_ID,
+                    List.of(new QuoteService.QuoteItemInput(100L, 1)), null);
+
+            assertThat(quote.getTotalAmount()).isEqualByComparingTo("100.00");
+            assertThat(quote.getDiscountAmount()).isEqualByComparingTo("20.00");
+            assertThat(quote.getPayAmount()).isEqualByComparingTo("80.00");
+            assertThat(quote.getDiscountLines()).contains("\"promotionId\":7")
+                    .contains("\"matchedRuleId\":701")
+                    .contains("满100减20");
+        }
+
+        @Test
+        @DisplayName("满减与券叠加：券按满减后剩余金额减免，不重复减免满减部分")
+        void createQuote_tieredAndCouponStacked() {
+            when(productFeignClient.getSkusBatch(List.of(100L)))
+                    .thenReturn(ApiResponse.ok(List.of(sku(100L, 1L, "100.00", 1))));
+            when(marketingFeignClient.matchTiered(any())).thenReturn(ApiResponse.ok(
+                    new com.cloudmart.order.dto.TieredMatchResult(
+                            7L, "满100减20", 701L, new BigDecimal("100.00"),
+                            new BigDecimal("20.00"), true)));
+            // 直减 30 券（无门槛）——对满减后 80 基数减免 30
+            com.cloudmart.order.feign.CouponFeignClient.UserCouponDTO coupon =
+                    new com.cloudmart.order.feign.CouponFeignClient.UserCouponDTO(
+                            9001L, USER_ID, 5L, "UNUSED", null, null, null, null,
+                            "满80减30券", "AMOUNT_OFF", null, new BigDecimal("30.00"), null);
+            when(couponFeignClient.getCouponById(9001L)).thenReturn(ApiResponse.ok(coupon));
+
+            OrderQuote quote = quoteService.createQuote(USER_ID,
+                    List.of(new QuoteService.QuoteItemInput(100L, 1)), 9001L);
+
+            // 100 - 20（满减）- 30（券按剩余 80 基数直减）= 50
+            assertThat(quote.getPayAmount()).isEqualByComparingTo("50.00");
+            assertThat(quote.getDiscountAmount()).isEqualByComparingTo("50.00");
+            assertThat(quote.getDiscountLines()).contains("TIERED").contains("COUPON");
+        }
+
+        @Test
+        @DisplayName("营销服务不可达：fail-closed 拒绝报价（不漏算优惠导致少收款）")
+        void createQuote_marketingDown_rejected() {
+            when(productFeignClient.getSkusBatch(List.of(100L)))
+                    .thenReturn(ApiResponse.ok(List.of(sku(100L, 1L, "100.00", 1))));
+            when(marketingFeignClient.matchTiered(any())).thenReturn(null);
+
+            assertThatThrownBy(() -> quoteService.createQuote(USER_ID,
+                    List.of(new QuoteService.QuoteItemInput(100L, 1)), null))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "TIERED_PROMOTION_UNAVAILABLE");
+        }
     }
 
     @Nested

@@ -44,18 +44,18 @@ public class QuoteServiceImpl implements QuoteService {
     private final ProductFeignClient productFeignClient;
     private final OrderQuoteMapper quoteMapper;
     private final OrderQuoteItemMapper quoteItemMapper;
-    private final OrderCouponPolicy couponPolicy;
+    private final QuoteDiscountCalculator discountCalculator;
     private final long quoteTtlSeconds;
 
     public QuoteServiceImpl(ProductFeignClient productFeignClient,
                             OrderQuoteMapper quoteMapper,
                             OrderQuoteItemMapper quoteItemMapper,
-                            OrderCouponPolicy couponPolicy,
+                            QuoteDiscountCalculator discountCalculator,
                             @Value("${order.quote.ttl-seconds:300}") long quoteTtlSeconds) {
         this.productFeignClient = productFeignClient;
         this.quoteMapper = quoteMapper;
         this.quoteItemMapper = quoteItemMapper;
-        this.couponPolicy = couponPolicy;
+        this.discountCalculator = discountCalculator;
         this.quoteTtlSeconds = quoteTtlSeconds;
     }
 
@@ -140,14 +140,13 @@ public class QuoteServiceImpl implements QuoteService {
             total = total.add(item.getSubtotal());
         }
 
-        // T03：报价即订单金额快照——折扣在报价阶段按 COUPON-01 规则实算（与下单重算同一
-        // OrderCouponPolicy 实现），payAmount 成为权威应付；下单时重算不一致 → QUOTE_STALE
+        // T03/R12：报价即订单金额快照——统一优惠管线实算（商品金额→满减→券→应付），
+        // 与下单复核同一 QuoteDiscountCalculator；payAmount 权威，重算不一致 → QUOTE_STALE。
         quote.setTotalAmount(total);
-        BigDecimal discount = couponId == null
-                ? BigDecimal.ZERO
-                : couponPolicy.calculate(couponPolicy.validate(couponId, userId, total), total);
-        quote.setDiscountAmount(discount);
-        quote.setPayAmount(total.subtract(discount).max(BigDecimal.ZERO));
+        QuoteDiscountCalculator.Result discountResult = discountCalculator.calculate(userId, total, couponId);
+        quote.setDiscountAmount(discountResult.totalDiscount());
+        quote.setDiscountLines(discountResult.linesJson());
+        quote.setPayAmount(discountResult.payAmount());
         quoteMapper.insert(quote);
 
         for (OrderQuoteItem item : quoteItems) {

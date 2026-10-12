@@ -267,6 +267,13 @@ export function disableTieredPromotion(id: number | string) {
   return request.put(`/admin/business/marketing/tiered/promotions/${id}/disable`)
 }
 
+/** R12：发布前按购物篮金额预览指定活动命中结果（忽略活动状态/时间窗） */
+export function previewTieredPromotion(id: number | string, orderAmount: number) {
+  return request.post<
+    ApiResponse<{ matchedRuleId: number | null; minAmount: number | null; discountAmount: number; matched: boolean }>
+  >(`/admin/business/marketing/tiered/promotions/${id}/preview`, { orderAmount })
+}
+
 export function deleteTieredPromotion(id: number | string) {
   return request.delete(`/admin/business/marketing/tiered/promotions/${id}`)
 }

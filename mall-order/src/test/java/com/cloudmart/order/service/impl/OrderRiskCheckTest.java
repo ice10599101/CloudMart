@@ -69,19 +69,30 @@ class OrderRiskCheckTest {
         when(transactionTemplate.execute(any())).thenAnswer(inv ->
                 ((TransactionCallback<?>) inv.getArgument(0)).doInTransaction(null));
 
+        com.cloudmart.order.feign.MarketingFeignClient marketingFeignClient =
+                mock(com.cloudmart.order.feign.MarketingFeignClient.class);
+        // R12：默认无满减命中
+        when(marketingFeignClient.matchTiered(any())).thenReturn(ApiResponse.ok(
+                new com.cloudmart.order.dto.TieredMatchResult(
+                        null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, false)));
+        com.cloudmart.order.feign.CouponFeignClient couponFeignClient =
+                mock(com.cloudmart.order.feign.CouponFeignClient.class);
         orderService = new OrderServiceImpl(
                 orderMapper, orderItemMapper,
                 mock(com.cloudmart.order.converter.OrderConverter.class),
                 inventoryFeignClient,
                 mock(com.cloudmart.order.feign.CartFeignClient.class),
-                mock(com.cloudmart.order.feign.CouponFeignClient.class),
+                couponFeignClient,
                 mock(com.cloudmart.order.feign.RefundFeignClient.class),
-                new OrderCouponPolicy(org.mockito.Mockito.mock(com.cloudmart.order.feign.CouponFeignClient.class)),
+                new OrderCouponPolicy(couponFeignClient),
+                new QuoteDiscountCalculator(marketingFeignClient,
+                        new OrderCouponPolicy(couponFeignClient),
+                        new tools.jackson.databind.ObjectMapper()),
                 mock(com.cloudmart.order.feign.ProductFeignClient.class),
                 riskFeignClient,
                 mock(com.cloudmart.order.feign.WmsShippingFeignClient.class),
                 mock(com.cloudmart.order.feign.SeckillFeignClient.class),
-                mock(com.cloudmart.order.feign.MarketingFeignClient.class),
+                marketingFeignClient,
                 mock(com.cloudmart.order.service.AfterSaleCaseService.class),
                 redisTemplate,
                 mock(com.cloudmart.order.mq.OrderEventProducer.class),

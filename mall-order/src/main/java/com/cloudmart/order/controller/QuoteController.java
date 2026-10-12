@@ -4,6 +4,7 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.order.entity.OrderQuote;
 import com.cloudmart.order.service.QuoteService;
+import com.cloudmart.order.service.impl.QuoteDiscountCalculator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +36,7 @@ import java.util.Map;
 public class QuoteController {
 
     private final QuoteService quoteService;
+    private final QuoteDiscountCalculator discountCalculator;
 
     public record CreateQuoteRequest(
             @NotEmpty List<QuoteItem> items,
@@ -54,12 +56,17 @@ public class QuoteController {
                 .map(i -> new QuoteService.QuoteItemInput(i.skuId(), i.quantity()))
                 .toList();
         OrderQuote quote = quoteService.createQuote(userId, items, request.couponId());
-        return ApiResponse.ok(Map.of(
-                "quoteId", String.valueOf(quote.getId()),
-                "version", quote.getVersion(),
-                "expiresAt", quote.getExpiresAt().toString(),
-                "totalAmount", quote.getTotalAmount(),
-                "payAmount", quote.getPayAmount()));
+        // R12：discountAmount/discountLines 随报价返回，结算页展示满减门槛与优惠明细；
+        // LinkedHashMap 保证字段顺序稳定
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("quoteId", String.valueOf(quote.getId()));
+        body.put("version", quote.getVersion());
+        body.put("expiresAt", quote.getExpiresAt().toString());
+        body.put("totalAmount", quote.getTotalAmount());
+        body.put("discountAmount", quote.getDiscountAmount());
+        body.put("payAmount", quote.getPayAmount());
+        body.put("discountLines", discountCalculator.readLines(quote.getDiscountLines()));
+        return ApiResponse.ok(body);
     }
 
     @GetMapping("/{id}")

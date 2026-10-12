@@ -12,12 +12,26 @@ export interface QuoteRequest {
   couponId?: number | string
 }
 
+/** R12：优惠明细行（TIERED 阶梯满减 / COUPON 优惠券，计算顺序 满减→券） */
+export interface DiscountLine {
+  type: 'TIERED' | 'COUPON'
+  promotionId?: number | null
+  matchedRuleId?: number | null
+  couponId?: number | null
+  name?: string | null
+  minAmount?: number | string | null
+  amount: number | string
+}
+
 export interface QuoteResult {
   quoteId: string
   version: number
   expiresAt: string
   totalAmount: number | string
+  discountAmount: number | string
   payAmount: number | string
+  /** R12：满减/券优惠明细（结算页展示门槛与优惠金额） */
+  discountLines?: DiscountLine[]
 }
 
 export function createQuote(data: QuoteRequest) {

@@ -49,6 +49,8 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false)
   const [coupons, setCoupons] = useState<UserCoupon[]>([])
   const [selectedCouponId, setSelectedCouponId] = useState<number | null>(null)
+  // R12：服务端报价预览（满减→券权威金额与明细）
+  const [serverQuote, setServerQuote] = useState<Awaited<ReturnType<typeof orderApi.createQuote>>['data']['data'] | null>(null)
   const [couponOpen, setCouponOpen] = useState(false)
 
   const isDirectBuy = !!productIdParam
@@ -138,9 +140,32 @@ export default function CheckoutPage() {
   const itemTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const availableCoupons = coupons.filter((coupon) => itemTotal >= coupon.thresholdAmount && calcCouponDiscount(coupon, itemTotal) > 0)
   const selectedCoupon = availableCoupons.find((coupon) => coupon.id === selectedCouponId) ?? null
-  const couponDiscount = selectedCoupon ? calcCouponDiscount(selectedCoupon, itemTotal) : 0
+  const localCouponDiscount = selectedCoupon ? calcCouponDiscount(selectedCoupon, itemTotal) : 0
+  // R12：以服务端报价（满减+券）为准，无报价时退回本地券估算
+  const quoteLines = serverQuote?.discountLines ?? []
+  const serverDiscount = serverQuote ? Number(serverQuote.discountAmount ?? 0) : null
+  const itemsPayable = serverQuote ? Number(serverQuote.payAmount) : Math.max(itemTotal - localCouponDiscount, 0)
   const shippingFee = itemTotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE
-  const totalAmount = Math.max(itemTotal - couponDiscount, 0) + shippingFee
+  const totalAmount = itemsPayable + shippingFee
+
+  // R12：购物车行/券变化时拉服务端报价（失败静默保留本地估算，提交时服务端 fail-closed 复核）
+  useEffect(() => {
+    if (items.length === 0) {
+      setServerQuote(null)
+      return
+    }
+    let cancelled = false
+    orderApi.createQuote({
+      items: items.map((i) => ({ skuId: i.skuId, quantity: i.quantity })),
+      couponId: selectedCouponId ?? undefined,
+    }).then((res) => {
+      if (!cancelled) setServerQuote(res.data?.data ?? null)
+    }).catch(() => {
+      if (!cancelled) setServerQuote(null)
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCouponId, items.map((i) => `${i.skuId}:${i.quantity}`).join(',')])
 
   const couponLabel = (coupon: UserCoupon) =>
     coupon.templateType === 'PERCENT_OFF' && coupon.discountRate != null
@@ -314,12 +339,24 @@ export default function CheckoutPage() {
             <Text style={{ fontSize: FontSize.md, color: theme.textSecondary }}>商品合计</Text>
             <Text style={{ fontSize: FontSize.md, color: theme.text }}>¥{itemTotal.toFixed(2)}</Text>
           </View>
-          {couponDiscount > 0 && (
+          {(serverDiscount ?? localCouponDiscount) > 0 && (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm }}>
-              <Text style={{ fontSize: FontSize.md, color: theme.textSecondary }}>优惠券</Text>
-              <Text style={{ fontSize: FontSize.md, color: theme.accentGreen }}>-¥{couponDiscount.toFixed(2)}</Text>
+              <Text style={{ fontSize: FontSize.md, color: theme.textSecondary }}>优惠合计</Text>
+              <Text style={{ fontSize: FontSize.md, color: theme.accentGreen }}>
+                -¥{(serverDiscount ?? localCouponDiscount).toFixed(2)}
+              </Text>
             </View>
           )}
+          {quoteLines.map((line, idx) => (
+            <View key={`${line.type}-${idx}`} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs, paddingLeft: Spacing.sm }}>
+              <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary }}>
+                {line.type === 'TIERED'
+                  ? `满减${line.minAmount != null ? `（满¥${Number(line.minAmount).toFixed(0)}）` : ''}${line.name ? `·${line.name}` : ''}`
+                  : `优惠券${line.name ? `·${line.name}` : ''}`}
+              </Text>
+              <Text style={{ fontSize: FontSize.xs, color: theme.accentGreen }}>-¥{Number(line.amount).toFixed(2)}</Text>
+            </View>
+          ))}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm }}>
             <Text style={{ fontSize: FontSize.md, color: theme.textSecondary }}>运费</Text>
             <Text style={{ fontSize: FontSize.md, color: shippingFee === 0 ? theme.accentGreen : theme.text }}>

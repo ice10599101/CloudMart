@@ -60,6 +60,12 @@ export default function CheckoutPage() {
   const [coupons, setCoupons] = useState<UserCoupon[]>([])
   const [selectedCouponId, setSelectedCouponId] = useState<number | null>(null)
   const [couponOpen, setCouponOpen] = useState(false)
+  // R12：服务端报价预览（满减→券权威金额与明细），提交时再取新报价
+  const [serverQuote, setServerQuote] = useState<{
+    discountAmount?: number | string
+    payAmount?: number | string
+    discountLines?: Array<{ type: string; name?: string | null; minAmount?: number | string | null; amount: number | string }>
+  } | null>(null)
   useAuthGuard()
 
   useEffect(() => {
@@ -150,8 +156,32 @@ export default function CheckoutPage() {
     [coupons, subtotal],
   )
   const selectedCoupon = availableCoupons.find((c) => c.id === selectedCouponId) ?? null
-  const discount = selectedCoupon ? calcCouponDiscount(selectedCoupon, subtotal) : 0
-  const payable = Math.max(subtotal - discount, 0)
+  const localDiscount = selectedCoupon ? calcCouponDiscount(selectedCoupon, subtotal) : 0
+  // R12：以服务端报价（满减+券）为准，无报价时退回本地券估算
+  const quoteLines = serverQuote?.discountLines ?? []
+  const discount = serverQuote ? Number(serverQuote.discountAmount ?? 0) || 0 : localDiscount
+  const payable = serverQuote
+    ? Math.max(Number(serverQuote.payAmount ?? subtotal), 0)
+    : Math.max(subtotal - localDiscount, 0)
+
+  // R12：购物车行/券变化时拉服务端报价（失败静默保留本地估算）
+  useEffect(() => {
+    if (items.length === 0) {
+      setServerQuote(null)
+      return
+    }
+    let cancelled = false
+    orderApi.createQuote({
+      items: items.map((i) => ({ skuId: i.skuId, quantity: i.quantity })),
+      couponId: selectedCouponId ?? undefined,
+    }).then((res) => {
+      if (!cancelled) setServerQuote(res.data?.data ?? null)
+    }).catch(() => {
+      if (!cancelled) setServerQuote(null)
+    })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCouponId, items.map((i) => `${i.skuId}:${i.quantity}`).join(',')])
 
   const couponLabel = (c: UserCoupon) =>
     c.templateType === 'PERCENT_OFF' && c.discountRate != null
@@ -316,10 +346,22 @@ export default function CheckoutPage() {
           <Text className={styles.summaryLabel}>商品金额</Text>
           <Text className={styles.summaryValue}>¥{subtotal.toFixed(2)}</Text>
         </View>
-        <View className={styles.summaryRow}>
-          <Text className={styles.summaryLabel}>优惠券</Text>
-          <Text className={styles.summaryValue}>-¥{discount.toFixed(2)}</Text>
-        </View>
+        {discount > 0 && (
+          <View className={styles.summaryRow}>
+            <Text className={styles.summaryLabel}>优惠合计</Text>
+            <Text className={styles.summaryValue}>-¥{discount.toFixed(2)}</Text>
+          </View>
+        )}
+        {quoteLines.map((line, idx) => (
+          <View key={`${line.type}-${idx}`} className={styles.summaryRow}>
+            <Text className={styles.summaryLabel}>
+              {line.type === 'TIERED'
+                ? `满减${line.minAmount != null ? `（满¥${Number(line.minAmount).toFixed(0)}）` : ''}${line.name ? `·${line.name}` : ''}`
+                : `优惠券${line.name ? `·${line.name}` : ''}`}
+            </Text>
+            <Text className={styles.summaryValue}>-¥{Number(line.amount).toFixed(2)}</Text>
+          </View>
+        ))}
         <View className={styles.summaryRow}>
           <Text className={styles.summaryLabel}>应付</Text>
           <Text className={styles.summaryPayable}>¥{payable.toFixed(2)}</Text>

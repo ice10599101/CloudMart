@@ -8,7 +8,7 @@ import {
   ProFormList,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Tag, Popconfirm } from 'antd'
+import { Button, Tag, Popconfirm, Modal, InputNumber, Alert } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   getTieredPromotions,
@@ -17,6 +17,7 @@ import {
   enableTieredPromotion,
   disableTieredPromotion,
   deleteTieredPromotion,
+  previewTieredPromotion,
 } from '@/api/admin/business'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
@@ -50,7 +51,28 @@ export default function TieredPromotion() {
   const actionRef = useRef<ActionType>(null)
   const [modalVisible, setModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState<TieredPromotionRecord | null>(null)
+  // R12：发布前试算
+  const [previewRecord, setPreviewRecord] = useState<TieredPromotionRecord | null>(null)
+  const [previewAmount, setPreviewAmount] = useState<number | null>(100)
+  const [previewResult, setPreviewResult] = useState<{ matched: boolean; discountAmount?: number; minAmount?: number | null } | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
+
+  const runPreview = async (id: number, amount: number | null) => {
+    if (!amount || amount <= 0) {
+      message.warning('请输入有效的购物篮金额')
+      return
+    }
+    setPreviewLoading(true)
+    try {
+      const res = await previewTieredPromotion(id, amount)
+      setPreviewResult(res.data.data)
+    } catch {
+      setPreviewResult(null)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
 
   const handleSubmit = async (values: Record<string, any>) => {
     return confirmSubmit(async () => {
@@ -121,9 +143,21 @@ export default function TieredPromotion() {
     {
       title: '操作',
       valueType: 'option',
-      width: 220,
+      width: 290,
       fixed: 'right',
       render: (_, record) => [
+        <Button
+          key="preview"
+          type="link"
+          size="small"
+          onClick={() => {
+            setPreviewRecord(record)
+            setPreviewAmount(100)
+            setPreviewResult(null)
+          }}
+        >
+          预览试算
+        </Button>,
         <Button
           key="edit"
           type="link"
@@ -265,6 +299,40 @@ export default function TieredPromotion() {
           />
         </ProFormList>
       </ModalForm>
+
+      {/* R12：发布前预览——忽略活动状态/时间窗，按购物篮金额试算命中阶梯 */}
+      <Modal
+        title={`发布前预览：${previewRecord?.name ?? ''}`}
+        open={!!previewRecord}
+        onCancel={() => setPreviewRecord(null)}
+        onOk={() => previewRecord && runPreview(previewRecord.id, previewAmount)}
+        confirmLoading={previewLoading}
+        okText="试算"
+      >
+        <div style={{ marginBottom: 12, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+          试算不受启用状态与活动时间窗限制，仅供发布前确认规则配置。
+        </div>
+        <InputNumber
+          style={{ width: '100%' }}
+          min={0.01}
+          precision={2}
+          addonBefore="购物篮金额 ¥"
+          value={previewAmount}
+          onChange={(v) => setPreviewAmount(v)}
+        />
+        {previewResult && (
+          <Alert
+            style={{ marginTop: 12 }}
+            type={previewResult.matched ? 'success' : 'warning'}
+            showIcon
+            message={
+              previewResult.matched
+                ? `命中阶梯（满 ¥${previewResult.minAmount}），本单减 ¥${previewResult.discountAmount}`
+                : '该金额未达到任何阶梯门槛，无减免'
+            }
+          />
+        )}
+      </Modal>
     </>
   )
 }

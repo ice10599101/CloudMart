@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class TieredPromotionServiceImpl implements TieredPromotionService {
@@ -160,6 +161,92 @@ public class TieredPromotionServiceImpl implements TieredPromotionService {
 
         TieredPromotionRule bestRule = rules.getFirst();
         return new CalculateDiscountResult(bestRule.getId(), bestRule.getMinAmount(), bestRule.getDiscountAmount(), true);
+    }
+
+    @Override
+    public TieredMatchResult matchBest(TieredMatchRequest request) {
+        if (request == null || request.orderAmount() == null
+                || request.orderAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            return TieredMatchResult.none();
+        }
+        LocalDateTime now = LocalDateTime.now();
+        List<TieredPromotion> active = promotionMapper.selectList(
+                new LambdaQueryWrapper<TieredPromotion>()
+                        .eq(TieredPromotion::getStatus, "ENABLED")
+                        .le(TieredPromotion::getStartTime, now)
+                        .ge(TieredPromotion::getEndTime, now));
+        if (active.isEmpty()) {
+            return TieredMatchResult.none();
+        }
+        // 单次查询拉回所有生效活动的可达规则，内存按活动分组取各活动最高阶梯后再全局择优
+        // （多活动重叠：优惠金额 desc → 门槛 desc → promotionId asc，确定性可复现）
+        Map<Long, TieredPromotion> promoIndex = active.stream()
+                .collect(java.util.stream.Collectors.toMap(TieredPromotion::getId, p -> p, (a, b) -> a));
+        List<TieredPromotionRule> reachable = ruleMapper.selectList(
+                new LambdaQueryWrapper<TieredPromotionRule>()
+                        .in(TieredPromotionRule::getPromotionId, promoIndex.keySet())
+                        .le(TieredPromotionRule::getMinAmount, request.orderAmount()));
+        TieredMatchResult best = TieredMatchResult.none();
+        for (TieredPromotionRule rule : reachable) {
+            TieredPromotion promotion = promoIndex.get(rule.getPromotionId());
+            if (promotion == null || isSameOrWorse(rule, best)
+                    || (currentPromotionWins(best, rule, promotion))) {
+                continue;
+            }
+            best = new TieredMatchResult(promotion.getId(), promotion.getName(), rule.getId(),
+                    rule.getMinAmount(), rule.getDiscountAmount(), true);
+        }
+        return best;
+    }
+
+    /** 候选规则不优于当前最优：金额更小，或金额相同且门槛更低，或再相同活动 ID 更大。 */
+    private boolean isSameOrWorse(TieredPromotionRule candidate, TieredMatchResult current) {
+        if (!current.matched()) {
+            return false;
+        }
+        int byDiscount = candidate.getDiscountAmount().compareTo(current.discountAmount());
+        if (byDiscount != 0) {
+            return byDiscount < 0;
+        }
+        int byMin = candidate.getMinAmount().compareTo(current.minAmount());
+        if (byMin != 0) {
+            return byMin < 0;
+        }
+        return candidate.getPromotionId() > current.promotionId();
+    }
+
+    /** 同活动内已选过一条规则时，跳过该活动的其他可达规则（每活动只取最高阶梯）。 */
+    private boolean currentPromotionWins(TieredMatchResult current, TieredPromotionRule candidate,
+                                        TieredPromotion promotion) {
+        return current.matched() && current.promotionId().equals(promotion.getId())
+                && candidate.getDiscountAmount().compareTo(current.discountAmount()) <= 0;
+    }
+
+    @Override
+    public CalculateDiscountResult previewDiscount(Long promotionId, BigDecimal orderAmount) {
+        TieredPromotion promotion = promotionMapper.selectById(promotionId);
+        if (promotion == null) {
+            throw new BusinessException("PROMOTION_NOT_FOUND", "满减活动不存在");
+        }
+        if (orderAmount == null || orderAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return new CalculateDiscountResult(null, BigDecimal.ZERO, BigDecimal.ZERO, false);
+        }
+        TieredPromotionRule rule = bestRule(promotionId, orderAmount);
+        if (rule == null) {
+            return new CalculateDiscountResult(null, BigDecimal.ZERO, BigDecimal.ZERO, false);
+        }
+        return new CalculateDiscountResult(rule.getId(), rule.getMinAmount(),
+                rule.getDiscountAmount(), true);
+    }
+
+    /** 取活动内满足门槛的最高阶梯规则（无则 null）。 */
+    private TieredPromotionRule bestRule(Long promotionId, BigDecimal orderAmount) {
+        List<TieredPromotionRule> rules = ruleMapper.selectList(
+                new LambdaQueryWrapper<TieredPromotionRule>()
+                        .eq(TieredPromotionRule::getPromotionId, promotionId)
+                        .le(TieredPromotionRule::getMinAmount, orderAmount)
+                        .orderByDesc(TieredPromotionRule::getMinAmount));
+        return rules.isEmpty() ? null : rules.getFirst();
     }
 
     private void validateRules(List<TieredRuleRequest> rules) {
