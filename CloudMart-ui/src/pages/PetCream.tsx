@@ -37,6 +37,7 @@ import {
     feedPet,
     feedPetItem,
     getPetActions,
+    getPetBootstrap,
     getPetChatPersona,
     getPetReminderUnreadCount,
     getPetSeasonHistory,
@@ -123,6 +124,9 @@ import SocialBoard from '@/components/pet-cream/SocialBoard'
 import CompanionBoard from '@/components/pet-cream/CompanionBoard'
 import PlayBoard from '@/components/pet-cream/PlayBoard'
 import MiscBoard from '@/components/pet-cream/MiscBoard'
+import PveBoard from '@/components/pet-cream/PveBoard'
+import SeasonPassBoard from '@/components/pet-cream/SeasonPassBoard'
+import LinkedProductBoard from '@/components/pet-cream/LinkedProductBoard'
 import {
     CreamButton,
     CreamCard,
@@ -226,6 +230,7 @@ function parseAppearance(raw: string | undefined): { color: string; accessory: s
 type PanelKey = 'quests' | 'activities' | 'center' | 'career' | 'bottle' | 'achievements'
     | 'reminders' | 'rankings' | 'wallet' | 'battle' | 'shop' | 'inventory' | 'skills'
     | 'events' | 'chat' | 'home' | 'social' | 'companion' | 'play' | 'misc'
+    | 'pve' | 'seasonPass' | 'linkedProduct'
 
 type PanelGroup = 'maison' | 'croissance' | 'jeux' | 'marche' | 'amis' | 'archives'
 
@@ -249,8 +254,11 @@ const PANELS: Array<{ key: PanelKey; emoji: string; label: string; title: string
     { key: 'battle', emoji: '⚔️', label: '对战', title: '对战', group: 'croissance' },
     { key: 'skills', emoji: '✨', label: '技能·进化', title: '技能 · 进化', group: 'croissance' },
     { key: 'play', emoji: '🎪', label: '玩法', title: '玩法', group: 'jeux' },
+    { key: 'pve', emoji: '📋', label: '协作副本', title: '协作 PVE', group: 'jeux' },
+    { key: 'seasonPass', emoji: '🎫', label: '通行证', title: '赛季通行证', group: 'jeux' },
     { key: 'shop', emoji: '🛍️', label: '商城', title: '商城', group: 'marche' },
     { key: 'inventory', emoji: '🎒', label: '背包', title: '背包', group: 'marche' },
+    { key: 'linkedProduct', emoji: '🎁', label: '实物权益', title: '实物商品权益', group: 'marche' },
     { key: 'events', emoji: '🎈', label: '事件', title: '活动事件', group: 'marche' },
     { key: 'social', emoji: '👫', label: '社交', title: '社交', group: 'amis' },
     { key: 'chat', emoji: '💬', label: '聊天', title: '和它聊聊', group: 'amis' },
@@ -260,6 +268,16 @@ const PANELS: Array<{ key: PanelKey; emoji: string; label: string; title: string
     { key: 'wallet', emoji: '🪙', label: '钱包', title: '钱包', group: 'archives' },
     { key: 'misc', emoji: '🗂️', label: '更多', title: '更多', group: 'archives' },
 ]
+
+/**
+ * R19：功能开关门控——入口显隐严格由 bootstrap.capabilities 对应 key 决定；
+ * bootstrap 未加载或加载失败（capabilities=null）按"未知不隐藏"处理，写操作仍由服务端裁决。
+ */
+const PANEL_CAPABILITY: Partial<Record<PanelKey, string>> = {
+    pve: 'cooperativePve',
+    seasonPass: 'seasonPass',
+    linkedProduct: 'linkedProduct',
+}
 
 const RARITY_LABEL: Record<string, string> = {
     COMMON: '普通',
@@ -1884,6 +1902,19 @@ export default function PetCreamPage() {
     }, [pet])
     /** R23/T36：加载失败且无旧数据时展示重试页（500 不再伪装成未领养） */
     const [loadFailed, setLoadFailed] = useState(false)
+    /** R19：bootstrap 能力开关——控制协作副本/通行证/实物权益入口显隐；加载失败保持 null（未知不隐藏） */
+    const [capabilities, setCapabilities] = useState<Record<string, boolean> | null>(null)
+
+    // R19：启动快照只取 capabilities；失败不阻断主流程，门控按"未知不隐藏"降级
+    useEffect(() => {
+        getPetBootstrap()
+            .then(({ data: res }) => {
+                if (res.success) {
+                    setCapabilities(res.data.capabilities ?? {})
+                }
+            })
+            .catch(() => undefined)
+    }, [])
 
     const load = useCallback(async () => {
         const generation = ++loadGenerationRef.current
@@ -2078,6 +2109,12 @@ export default function PetCreamPage() {
 
     const activePanelMeta = PANELS.find(item => item.key === activePanel)
 
+    /** R19：capabilities 明确为 false 才隐藏入口；未加载/加载失败（null）按未知不隐藏 */
+    const panelVisible = useCallback((key: PanelKey) => {
+        const capabilityKey = PANEL_CAPABILITY[key]
+        return capabilityKey === undefined || capabilities?.[capabilityKey] !== false
+    }, [capabilities])
+
     if (loading) {
         return (
             <div className={`${styles.page} ${styles.centered}`}>
@@ -2211,7 +2248,7 @@ export default function PetCreamPage() {
 
                         <CreamCard variant="menu" label="Menu" title="功能面板">
                             {PANEL_GROUPS.map(group => {
-                                const items = PANELS.filter(item => item.group === group.key)
+                                const items = PANELS.filter(item => item.group === group.key && panelVisible(item.key))
                                 if (items.length === 0) {
                                     return null
                                 }
@@ -2346,6 +2383,15 @@ export default function PetCreamPage() {
                     ) : null}
                     {activePanel === 'play' && pet ? (
                         <PlayBoard myPetId={pet.petId} onChanged={() => void load()} />
+                    ) : null}
+                    {activePanel === 'pve' ? (
+                        <PveBoard enabled={capabilities?.cooperativePve !== false} />
+                    ) : null}
+                    {activePanel === 'seasonPass' ? (
+                        <SeasonPassBoard enabled={capabilities?.seasonPass !== false} />
+                    ) : null}
+                    {activePanel === 'linkedProduct' ? (
+                        <LinkedProductBoard enabled={capabilities?.linkedProduct !== false} />
                     ) : null}
                     {activePanel === 'misc' ? <MiscBoard onChanged={() => void load()} /> : null}
                     {activePanel === 'quests' ? <QuestsPanel onChanged={() => void load()} /> : null}

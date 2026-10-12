@@ -890,6 +890,54 @@ export const petApi = {
     request<Record<string, unknown>>({
       url: `/pet/pets/${petId}/album/${assetId}`, method: 'PATCH', data,
     }),
+
+  // ==================== R19：协作 PVE / 赛季通行证 / 实物商品双倍喂食（契约对齐 mall-pet） ====================
+
+  /** Boss 配置列表（数值服务端下发，前端禁止硬编码 HP/攻防） */
+  listPveBosses: () => request<PetPveBoss[]>({ url: '/pet/pve/bosses' }),
+  /** 发起协作副本（选 Boss；一人同时仅一个进行中副本） */
+  startPveRun: (bossCode: string) =>
+    request<PetPveRun>({ url: '/pet/pve', method: 'POST', data: { bossCode } }),
+  /** 招募大厅：OPEN 状态可加入副本分页（他人发起） */
+  listOpenPveRuns: (page = 1, size = 20) =>
+    request<PetPveRunPage>({ url: '/pet/pve/open', params: { page, size } }),
+  /** 我的副本（发起或参与，倒序） */
+  listMyPveRuns: (page = 1, size = 20) =>
+    request<PetPveRunPage>({ url: '/pet/pve/mine', params: { page, size } }),
+  /** 副本详情（参与者可见；OPEN 对外可看） */
+  getPveRun: (runId: number | string) =>
+    request<PetPveRun>({ url: `/pet/pve/${runId}` }),
+  /** 加入副本（队友；OPEN→FIGHTING，CAS 并发兜底） */
+  joinPveRun: (runId: number | string) =>
+    request<PetPveRun>({ url: `/pet/pve/${runId}/join`, method: 'POST' }),
+  /** 攻击一回合（nextActorUserId 判定行动权；同 requestKey 重放返回原回合结果） */
+  attackPveRun: (runId: number | string, requestKey?: string) =>
+    request<PetPveRun>({ url: `/pet/pve/${runId}/attack`, method: 'POST', data: { requestKey } }),
+  /** 发起人取消 OPEN 副本并释放参与占用 */
+  cancelPveRun: (runId: number | string) =>
+    request<PetPveRun>({ url: `/pet/pve/${runId}/cancel`, method: 'POST' }),
+
+  /** 我的赛季通行证（无进行中赛季 seasonId=null） */
+  getSeasonPass: () => request<PetSeasonPass>({ url: '/pet/season/pass' }),
+  /** 领取通行证档位奖励（达标 CAS；requestKey 支持可恢复交付，返回领取后的通行证） */
+  claimSeasonPassTier: (tier: number, requestKey?: string) =>
+    request<PetSeasonPass>({ url: `/pet/season/pass/claim${buildQuery({ tier, requestKey })}`, method: 'POST' }),
+
+  /** 核销实物商品兑换码 → 双倍喂食权益（同 requestKey 重放返回原操作；码须先在 coupon 侧由本人兑换） */
+  redeemLinkedProduct: (data: { redemptionCode: string; requestKey?: string }) =>
+    request<PetLinkedProductOperation>({
+      url: '/pet/linked-product/redeem',
+      method: 'POST',
+      data: data as unknown as Record<string, unknown>,
+    }),
+  /** 核销操作结果查询（仅本人；PENDING 操作顺带原单重试核验，幂等） */
+  getLinkedProductOperation: (operationId: string) =>
+    request<PetLinkedProductOperation>({
+      url: `/pet/linked-product/operations/${encodeURIComponent(operationId)}`,
+    }),
+  /** 我的双倍喂食权益（可用份数 + 明细：来源/失效时刻） */
+  getLinkedProductEntitlement: () =>
+    request<PetLinkedProductEntitlement>({ url: '/pet/linked-product/entitlement' }),
 }
 
 // ==================== 三期类型（与服务端 VO 对齐） ====================
@@ -1498,6 +1546,132 @@ export interface PetChatRequestStatus {
 export interface PetEventOccurrenceView {
   occurrenceId: string | null
   claimDeadlineAt: string | null
+}
+
+// ==================== R19：协作 PVE / 赛季通行证 / 实物商品双倍喂食（对齐 mall-pet VO） ====================
+
+/** PVE Boss 配置（PetPveBossVO：数值服务端权威下发，前端不硬编码） */
+export interface PetPveBoss {
+  bossCode: string
+  name: string
+  maxHp: number
+  attack: number
+  defense: number
+}
+
+/** 协作副本回合流水（PetPveRunVO.RoundLog） */
+export interface PetPveRoundLog {
+  round: number
+  actorName: string
+  action: string
+  damage: number
+  critical: boolean
+  dodged: boolean
+  targetName: string
+  targetRemainingHp: number
+}
+
+/** 协作 PVE 副本状态（CANCELLED 为 R03 发起人取消） */
+export type PetPveRunStatus = 'OPEN' | 'FIGHTING' | 'WON' | 'FAILED' | 'EXPIRED' | 'CANCELLED'
+
+/** 协作 PVE 副本视图（PetPveRunVO） */
+export interface PetPveRun {
+  runId: number | string
+  bossCode: string
+  bossName: string
+  bossMaxHp: number
+  bossHp: number
+  initiatorUserId: number | string
+  initiatorPetName: string | null
+  partnerUserId: number | string | null
+  partnerPetName: string | null
+  initiatorPetHp: number
+  /** 队友宠物当前 HP（未加入为 -1） */
+  partnerPetHp: number
+  status: PetPveRunStatus
+  /** 兼容字段：rewardStatus=SETTLED 时 true */
+  rewardGranted: boolean
+  recentRounds: PetPveRoundLog[]
+  createdAt: string
+  finishedAt: string | null
+  /** 已完成回合数 */
+  turnNo: number
+  /** 当前行动方用户 ID */
+  nextActorUserId: number | string | null
+  /** 当前请求者是否可行动 */
+  canAttack: boolean
+  /** 不可行动原因（NOT_YOUR_TURN/NOT_FIGHTING/RUN_OVER 等） */
+  blockedReason: string | null
+  /** 本回合行动截止 */
+  turnDeadlineAt: string | null
+  /** 副本总时限 */
+  runExpiresAt: string | null
+  /** 奖励聚合状态：NONE/PENDING/SETTLED */
+  rewardStatus: string
+  initiatorPetMaxHp: number
+  partnerPetMaxHp: number
+}
+
+/** MyBatis-Plus 分页信封 */
+export interface PetPveRunPage {
+  records: PetPveRun[]
+  total: number
+  current: number
+  size: number
+}
+
+/** 通行证档位（PetSeasonPassVO.Tier；CLAIM_PENDING 不计为已领取） */
+export interface PetSeasonPassTier {
+  tier: number
+  requiredExp: number
+  reached: boolean
+  claimed: boolean
+  rewardDesc: string
+  /** null=未领取 / CLAIM_PENDING（发放中，可补发）/ SETTLED */
+  claimStatus: 'CLAIM_PENDING' | 'SETTLED' | null
+}
+
+/** 赛季通行证视图（PetSeasonPassVO） */
+export interface PetSeasonPass {
+  /** 无进行中赛季为 null */
+  seasonId: number | null
+  seasonName: string | null
+  passExp: number
+  claimedTiers: number[]
+  tiers: PetSeasonPassTier[]
+  /** 领奖截止（null=随赛季结束） */
+  claimUntil: string | null
+  seasonEndsAt: string | null
+}
+
+/** 实物商品核销操作状态（R01 可恢复台账） */
+export type PetLinkedProductOperationStatus = 'VERIFYING' | 'DELIVERED' | 'REJECTED' | 'PENDING'
+
+/** 核销操作视图（PetLinkedProductController.operationBody） */
+export interface PetLinkedProductOperation {
+  operationId: string
+  status: PetLinkedProductOperationStatus | string
+  /** 未发放时为空串 */
+  entitlementId: number | string | ''
+  /** 拒绝原因码（PET_CODE_NOT_FOUND/PET_CODE_DISABLED/PET_CODE_NOT_EXCHANGED/PET_CODE_NOT_OWNED）；未拒绝为空串 */
+  rejectReasonCode: string
+  usable: boolean
+}
+
+/** 双倍喂食权益持有明细 */
+export interface PetLinkedProductEntitlementItem {
+  entitlementId: number | string
+  itemCode: string
+  sourceFactId: number | string
+  status: string
+  expiresAt: string | null
+}
+
+/** 双倍喂食权益汇总（usable 为列表快捷判定） */
+export interface PetLinkedProductEntitlement {
+  usable: boolean
+  usableCount: number
+  items: PetLinkedProductEntitlementItem[]
 }
 
 /**

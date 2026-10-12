@@ -1,33 +1,36 @@
 import { useState, useEffect, useCallback } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { petApi, type PveRunVO } from '@/api/pet'
+import { petApi, type PveBoss, type PveRunVO } from '@/api/pet'
 import { errorMessage } from '@/utils/request'
 import { PET_CREAM_STYLE } from '@/styles/petCream'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
 
 /**
- * 协作 PVE 副本（§6）：招募大厅（加入他人）+ 发起 + 战斗操作。
- * Boss 内置三只（forest_ogre/sand_worm/void_knight），轮流体感由服务端轮流行动约束。
+ * 协作 PVE 副本（§6/R03/R19）：招募大厅（加入他人）+ 发起 + 战斗操作。
+ * Boss 配置由 GET /pve/bosses 服务端权威下发，前端不硬编码 HP/攻击/防御；
+ * 轮流体感由服务端 turnNo/行动方约束，攻击按服务端结果渲染。
  */
-
-const BOSSES = [
-  { code: 'forest_ogre', name: '森林巨魔', hp: 600, desc: '入门 Boss，适合新宠物' },
-  { code: 'sand_worm', name: '流沙巨虫', hp: 900, desc: '进阶挑战，双人协作' },
-  { code: 'void_knight', name: '虚空骑士', hp: 1500, desc: '高难度，满编出击' },
-] as const
 
 type Tab = 'lobby' | 'mine'
 
 export default function PvePage() {
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
   const [tab, setTab] = useState<Tab>('lobby')
+  const [bosses, setBosses] = useState<PveBoss[]>([])
   const [openRuns, setOpenRuns] = useState<PveRunVO[]>([])
   const [myRuns, setMyRuns] = useState<PveRunVO[]>([])
   const [detail, setDetail] = useState<PveRunVO | null>(null)
   const [busy, setBusy] = useState(false)
   const [starting, setStarting] = useState<string | null>(null)
+
+  // R19：Boss 配置服务端下发（失败显示空态+提示，不回退内置数值）
+  useEffect(() => {
+    petApi.listPveBosses()
+      .then(({ data: res }) => setBosses(res.data ?? []))
+      .catch(() => setBosses([]))
+  }, [])
 
   const load = useCallback(async () => {
     try {
@@ -136,17 +139,19 @@ export default function PvePage() {
         {tab === 'lobby' && (
           <>
             <Text className={styles.sectionLabel}>发起副本</Text>
-            {BOSSES.map(boss => (
-              <View key={boss.code} className={styles.bossCard}>
+            {bosses.length === 0 ? (
+              <Text className={styles.empty}>Boss 配置加载中或暂未开放</Text>
+            ) : bosses.map(boss => (
+              <View key={boss.bossCode} className={styles.bossCard}>
                 <View className={styles.bossInfo}>
                   <Text className={styles.bossName}>👹 {boss.name}</Text>
-                  <Text className={styles.bossHp}>HP {boss.hp} · {boss.desc}</Text>
+                  <Text className={styles.bossHp}>{`HP ${boss.maxHp} · 攻击 ${boss.attack} · 防御 ${boss.defense}`}</Text>
                 </View>
                 <View
-                  className={`${styles.startBtn} ${starting === boss.code ? styles.startBtnBusy : ''}`}
-                  onClick={() => starting !== boss.code && start(boss.code)}
+                  className={`${styles.startBtn} ${starting === boss.bossCode ? styles.startBtnBusy : ''}`}
+                  onClick={() => starting !== boss.bossCode && start(boss.bossCode)}
                 >
-                  <Text className={styles.startBtnText}>{starting === boss.code ? '发起中...' : '发起'}</Text>
+                  <Text className={styles.startBtnText}>{starting === boss.bossCode ? '发起中...' : '发起'}</Text>
                 </View>
               </View>
             ))}

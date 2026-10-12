@@ -17,6 +17,12 @@ import {
   interactDriftBottle,
   listDriftBottleComments,
   addDriftBottleComment,
+  getNearbyMode,
+  setNearbyMode,
+  reportEncounterTrace,
+  listEncounterLetters,
+  markEncounterLetterRead,
+  interactEncounterLetter,
 } from './wish'
 
 describe('wish API 漂流瓶', () => {
@@ -131,6 +137,74 @@ describe('wish API 漂流瓶', () => {
       content: '你好',
       parentId: 10,
       isAnonymous: true,
+    })
+  })
+})
+
+describe('wish API 擦肩信笺', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('getNearbyMode() calls GET /wish/map/nearby-mode', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as never)
+
+    await getNearbyMode()
+
+    expect(request.get).toHaveBeenCalledWith('/wish/map/nearby-mode')
+  })
+
+  it('setNearbyMode() posts enabled flag', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as never)
+
+    await setNearbyMode(true)
+
+    expect(request.post).toHaveBeenCalledWith('/wish/map/nearby-mode', { enabled: true })
+  })
+
+  it('reportEncounterTrace() posts lat/lng coordinates', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as never)
+
+    await reportEncounterTrace(23.1291, 113.2644)
+
+    expect(request.post).toHaveBeenCalledWith('/wish/map/trace', { lat: 23.1291, lng: 113.2644 })
+  })
+
+  it('listEncounterLetters() calls GET /wish/map/encounter-letters', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as never)
+
+    await listEncounterLetters()
+
+    expect(request.get).toHaveBeenCalledWith('/wish/map/encounter-letters')
+  })
+
+  it('markEncounterLetterRead() calls PUT /{id}/read', async () => {
+    vi.mocked(request.put).mockResolvedValue({ data: {} } as never)
+
+    await markEncounterLetterRead(3001)
+
+    expect(request.put).toHaveBeenCalledWith('/wish/encounter-letters/3001/read')
+  })
+
+  it('interactEncounterLetter() posts BLESS with optional content', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as never)
+
+    await interactEncounterLetter(3001, 'BLESS', '愿你如愿')
+
+    expect(request.post).toHaveBeenCalledWith('/wish/encounter-letters/3001/interactions', {
+      type: 'BLESS',
+      content: '愿你如愿',
+    })
+  })
+
+  it('interactEncounterLetter() posts LIGHT without content', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as never)
+
+    await interactEncounterLetter(3001, 'LIGHT')
+
+    expect(request.post).toHaveBeenCalledWith('/wish/encounter-letters/3001/interactions', {
+      type: 'LIGHT',
+      content: undefined,
     })
   })
 })

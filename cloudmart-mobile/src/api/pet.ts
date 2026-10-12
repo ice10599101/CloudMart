@@ -207,6 +207,15 @@ export interface PveRunPage {
   size: number
 }
 
+/** R19：Boss 配置（GET /pve/bosses 服务端下发；前端不硬编码数值） */
+export interface PveBoss {
+  bossCode: string
+  name: string
+  maxHp: number
+  attack: number
+  defense: number
+}
+
 /** 赛季通行证（§6 契约对齐 mall-pet PetSeasonPassVO） */
 export interface SeasonPassVO {
   seasonId: number | null
@@ -635,14 +644,19 @@ export const petApi = {
     request<PetRankingResult>({ url: '/pet/rankings', data: { type } }),
   /** 宠物动态分享卡片（文案服务端生成） */
   // ==================== 实物商品联动（§6）：兑换码→双倍喂食 ====================
-  /** 核销兑换码（商城实物零食随附；换取下一次喂食效果 x2） */
-  redeemLinkedProduct: (redemptionCode: string, itemCode?: string) =>
-      request<{ entitlementId: number; usable: boolean }>({ url: '/pet/linked-product/redeem', method: 'POST', data: { redemptionCode, itemCode } as unknown as Record<string, unknown> }),
+  /** 核销兑换码（商城实物零食随附；换取下一次喂食效果 x2；requestKey 幂等） */
+  redeemLinkedProduct: (redemptionCode: string, requestKey?: string) =>
+      request<{ operationId?: number | string; usable?: boolean; status?: string }>({
+        url: '/pet/linked-product/redeem', method: 'POST',
+        data: { redemptionCode, requestKey: requestKey ?? '' } as unknown as Record<string, unknown>,
+      }),
   /** 我的双倍喂食权益状态 */
   getLinkedProductEntitlement: () =>
       request<{ usable: boolean }>({ url: '/pet/linked-product/entitlement' }),
 
-  // ==================== 协作 PVE 副本（§6） ====================
+  // ==================== 协作 PVE 副本（§6/R03/R19） ====================
+  /** Boss 配置（服务端权威下发，前端不硬编码 HP/攻击/防御） */
+  listPveBosses: () => request<PveBoss[]>({ url: '/pet/pve/bosses' }),
   /** 发起副本（选 Boss；一人同时仅一个进行中） */
   startPveRun: (bossCode: string) =>
       request<PveRunVO>({ url: '/pet/pve', method: 'POST', data: { bossCode } as unknown as Record<string, unknown> }),
@@ -661,6 +675,9 @@ export const petApi = {
   /** 我的副本 */
   listMyPveRuns: (page?: number, pageSize?: number) =>
       request<PveRunPage>({ url: '/pet/pve/mine', params: { page: page ?? 1, pageSize: pageSize ?? 10 } as Record<string, unknown> }),
+  /** 取消 OPEN 副本（仅发起人；R03 状态机） */
+  cancelPveRun: (runId: number | string) =>
+      request<PveRunVO>({ url: `/pet/pve/${runId}/cancel`, method: 'POST' }),
 
   /** 赛季通行证（§6）：我的通行证（无进行中赛季 seasonId=null） */
   getSeasonPass: () => request<SeasonPassVO>({ url: '/pet/season/pass' }),

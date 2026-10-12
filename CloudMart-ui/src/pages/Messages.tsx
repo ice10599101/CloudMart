@@ -158,6 +158,8 @@ function navigateToBiz(item: EnrichedNotification) {
     history.push('/starlight/transfer')
   } else if (item.bizType === 'INVITE_REWARD') {
     history.push('/invite')
+  } else if (item.bizType === 'ENCOUNTER_LETTER' || item.type === 'ENCOUNTER_LETTER') {
+    history.push('/encounter-letters')
   }
 }
 

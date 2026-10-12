@@ -1080,9 +1080,62 @@ export function listWarmEvents(params: { lat?: number; lng?: number; radius?: nu
   })
 }
 
-// ========== 擦肩而过·附近模式（Sprint 3.3，契约对齐 mall-wish EncounterController；信笺用户侧已由漂流瓶替代） ==========
+// ========== 擦肩而过·附近模式（Sprint 3.3，R19 恢复接入；契约对齐 mall-wish EncounterController） ==========
 
-// 擦肩而过（附近模式/轨迹上报/信笺）产品已下线（信笺被漂流瓶替代），端点 410，封装已移除
+/** 信笺状态：PENDING-待投递 / DELIVERED-可拆信 / READ-已拆信 */
+export type EncounterLetterStatus = 'PENDING' | 'DELIVERED' | 'READ'
+
+/** 匿名互动类型：BLESS 匿名祝福（免费）/ LIGHT 点亮对方心愿（扣星光 2） */
+export type EncounterInteractType = 'BLESS' | 'LIGHT'
+
+/** 相遇信笺（匿名化，无对方身份信息；PENDING 时 content 为 null） */
+export interface EncounterLetter {
+  letterId: number
+  wishTags: string[]
+  encounterTime: string
+  encounterGeohash6: string
+  status: EncounterLetterStatus | string
+  /** PENDING 时为 null；DELIVERED/READ 为诗意文案 */
+  content: string | null
+  deliveredAt: string | null
+}
+
+/** 附近模式开关（Redis 开关 24h 有效，上报自动续期；关闭立即生效） */
+export function setNearbyMode(enabled: boolean) {
+  return request.post<ApiResponse<null>>('/wish/map/nearby-mode', { enabled })
+}
+
+/** 附近模式状态查询（刷新回显；开关键 24h 过期视为关闭） */
+export function getNearbyMode() {
+  return request.get<ApiResponse<boolean>>('/wish/map/nearby-mode')
+}
+
+/** 轨迹上报（App 端每 5 分钟随定位上报；坐标服务端转 geohash6 存储，不留原始坐标） */
+export function reportEncounterTrace(lat: number, lng: number) {
+  return request.post<ApiResponse<null>>('/wish/map/trace', { lat, lng })
+}
+
+/** 收到的信笺列表（历史信笺，匿名化；后端返回全量 List，无分页参数） */
+export function listEncounterLetters() {
+  return request.get<ApiResponse<EncounterLetter[]>>('/wish/map/encounter-letters')
+}
+
+/** 拆信（DELIVERED → READ；PENDING 不可拆；返回含正文的信笺详情） */
+export function markEncounterLetterRead(letterId: number | string) {
+  return request.put<ApiResponse<EncounterLetter>>(`/wish/encounter-letters/${letterId}/read`)
+}
+
+/** 匿名互动（BLESS 免费 / LIGHT 点亮对方心愿扣星光 2；单信笺每日 1 次，429 为已互动） */
+export function interactEncounterLetter(
+  letterId: number | string,
+  type: EncounterInteractType,
+  content?: string,
+) {
+  return request.post<ApiResponse<EncounterLetter>>(`/wish/encounter-letters/${letterId}/interactions`, {
+    type,
+    content,
+  })
+}
 
 // ========== 漂流瓶（契约对齐 mall-wish DriftBottleController） ==========
 

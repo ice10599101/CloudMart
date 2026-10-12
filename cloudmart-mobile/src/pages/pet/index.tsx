@@ -151,13 +151,14 @@ const SHARE_TYPES: Array<{ key: Parameters<typeof petApi.getShareCard>[0]; label
 type PanelKey =
   | 'home' | 'care' | 'work' | 'study' | 'bottle' | 'battle'
   | 'chat' | 'achievements' | 'rankings' | 'reminders'
-  | 'daily' | 'social' | 'memory' | 'center'
+  | 'daily' | 'social' | 'memory' | 'center' | 'pve'
 
 const PANELS: Array<{ key: PanelKey; label: string; emoji: string }> = [
   { key: 'home', label: '家园', emoji: '🏠' },
   { key: 'memory', label: '记忆', emoji: '🧠' },
   { key: 'daily', label: '任务', emoji: '✅' },
   { key: 'center', label: '活动中心', emoji: '📋' },
+  { key: 'pve', label: '协作副本', emoji: '🗡️' },
   { key: 'work', label: '打工', emoji: '💼' },
   { key: 'study', label: '读书', emoji: '📚' },
   { key: 'bottle', label: '捞瓶', emoji: '🍾' },
@@ -175,7 +176,7 @@ const PANEL_TITLE = Object.fromEntries(PANELS.map((item) => [item.key, item.labe
 /** 功能宫格分组（对齐 Web 端 PANEL_GROUPS：La Maison / Croissance / Les Amis / Archives） */
 const MENU_GROUPS: Array<{ label: string; hint: string; keys: PanelKey[] }> = [
   { label: 'La Maison', hint: '小家与记忆', keys: ['home', 'memory'] },
-  { label: 'Croissance', hint: '养成', keys: ['daily', 'center', 'work', 'study', 'bottle', 'battle', 'care'] },
+  { label: 'Croissance', hint: '养成', keys: ['daily', 'center', 'pve', 'work', 'study', 'bottle', 'battle', 'care'] },
   { label: 'Les Amis', hint: '往来', keys: ['social', 'chat'] },
   { label: 'Archives', hint: '记录', keys: ['achievements', 'rankings', 'reminders'] },
 ]
@@ -472,10 +473,15 @@ export default function PetPage() {
     }
     setRedeeming(true)
     try {
-      const res = await petApi.redeemLinkedProduct(redeemCode.trim())
+      // R19：核销是资产类操作，带稳定幂等键（同码重试不产生重复台账）
+      const requestKey = getPersistedIntentKey('POST', '/pet/linked-product/redeem', { code: redeemCode.trim() })
+      const res = await petApi.redeemLinkedProduct(redeemCode.trim(), requestKey ?? undefined)
       setFeedDoubled(res.data.data?.usable === true)
       setRedeemCode('')
-      toast('核销成功！下一次喂食效果翻倍')
+      const status = res.data.data?.status
+      toast(status === 'VERIFYING' || status === 'PENDING'
+        ? '兑换码核验中，稍后在此查看结果'
+        : '核销成功！下一次喂食效果翻倍')
     } catch (error) {
       const code = (error as { code?: string }).code
       toast(code === 'PET_VALIDATION_ERROR' ? '兑换码无效或已核销' : '核销失败，请稍后再试')
@@ -1302,8 +1308,20 @@ export default function PetPage() {
               {group.keys.map((key) => {
                 const meta = PANELS.find((item) => item.key === key)
                 if (!meta) return null
+                // R19：协作副本为独立整页（非弹层），且受 bootstrap 能力开关门控（未知不隐藏）
+                if (key === 'pve' && bootstrap?.capabilities?.cooperativePve === false) return null
                 return (
-                  <View key={key} className={cream.menuItem} onClick={() => setPanel(key)}>
+                  <View
+                    key={key}
+                    className={cream.menuItem}
+                    onClick={() => {
+                      if (key === 'pve') {
+                        Taro.navigateTo({ url: '/pages/pve/index' })
+                        return
+                      }
+                      setPanel(key)
+                    }}
+                  >
                     <Text className={cream.menuItemEmoji}>{meta.emoji}</Text>
                     <Text className={cream.menuItemLabel}>
                       {meta.label}
@@ -1615,7 +1633,7 @@ export default function PetPage() {
           {panel === 'rankings' && (
             <View className={styles.rankList}>
               {/* 赛季通行证（§6）：入口卡（点击进通行证页） */}
-              {seasonPass && seasonPass.seasonId != null && (
+              {seasonPass && seasonPass.seasonId != null && bootstrap?.capabilities?.seasonPass !== false && (
                 <View className={styles.passEntryCard} onClick={() => Taro.navigateTo({ url: '/pages/seasonPass/index' })}>
                   <View className={styles.passEntryInfo}>
                     <Text className={styles.passEntryTitle}>🎟️ 赛季通行证</Text>
@@ -1760,6 +1778,8 @@ export default function PetPage() {
                       <Text className={styles.anniversaryText}>🔔 开启宠物纪念日提醒</Text>
                       <Text className={styles.anniversaryArrow}>›</Text>
                     </View>
+                    {/* R19：兑换入口受能力开关控制（已发权益状态仍展示；未知不隐藏） */}
+                    {bootstrap?.capabilities?.linkedProduct !== false && (
                     <View className={styles.redeemRow}>
                       <Input
                         className={styles.redeemInput}
@@ -1772,6 +1792,7 @@ export default function PetPage() {
                         <Text className={styles.redeemBtnText}>{redeeming ? '核销中...' : '核销'}</Text>
                       </View>
                     </View>
+                    )}
                   </View>
                   {inventory.length === 0 && <Text className={styles.tip}>背包还是空的，去商城逛逛吧～</Text>}
                   {inventory.map((item) => (

@@ -1796,3 +1796,210 @@ export function claimPetQuestChestInSet(setId: string) {
   return request.post<ApiResponse<PetDailyQuestPanel>>(
     `/pet/daily-quest-sets/${encodeURIComponent(setId)}/chest/claim`)
 }
+
+// ==================== R19：协作 PVE / 赛季通行证 / 实物商品联动（契约对齐 mall-pet vo 包） ====================
+
+/**
+ * 生成去横线的请求键：R19 写端点（attack/redeem/claim）按 requestKey 重放判重，
+ * 同键重复提交返回原结果；每次用户动作生成一个新键，不复用。
+ */
+function newPetRequestKey(): string {
+  return crypto.randomUUID().replace(/-/g, '')
+}
+
+/** 协作 PVE 回合流水（对齐 PetPveRunVO.RoundLog） */
+export interface PetPveRoundLog {
+  round: number
+  actorName: string
+  action: string
+  damage: number
+  critical: boolean
+  dodged: boolean
+  targetName: string
+  targetRemainingHp: number
+}
+
+/** 副本状态：OPEN 招募中 / FIGHTING 战斗中 / WON 讨伐成功 / FAILED 失败 / EXPIRED 过期 / CANCELLED 已取消 */
+export type PetPveStatus = 'OPEN' | 'FIGHTING' | 'WON' | 'FAILED' | 'EXPIRED' | 'CANCELLED'
+
+/** 协作 PVE 副本视图（对齐后端 PetPveRunVO） */
+export interface PetPveRun {
+  runId: number | string
+  bossCode: string
+  bossName: string
+  bossMaxHp: number
+  bossHp: number
+  initiatorUserId: number | string
+  initiatorPetName: string | null
+  partnerUserId: number | string | null
+  partnerPetName: string | null
+  initiatorPetHp: number
+  /** 未加入为 -1 */
+  partnerPetHp: number
+  status: PetPveStatus
+  /** 兼容字段：rewardStatus=SETTLED 时 true */
+  rewardGranted: boolean
+  recentRounds: PetPveRoundLog[]
+  createdAt: string | null
+  finishedAt: string | null
+  /** 已完成回合数 */
+  turnNo: number
+  /** 当前行动方用户 ID */
+  nextActorUserId: number | string | null
+  /** 当前请求者是否可行动（服务端权威） */
+  canAttack: boolean
+  /** 不可行动原因（NOT_YOUR_TURN/NOT_FIGHTING/RUN_OVER 等） */
+  blockedReason: string | null
+  turnDeadlineAt: string | null
+  runExpiresAt: string | null
+  /** 奖励聚合状态：NONE/PENDING/SETTLED */
+  rewardStatus: 'NONE' | 'PENDING' | 'SETTLED' | string
+  initiatorPetMaxHp: number
+  partnerPetMaxHp: number
+}
+
+/** Boss 配置（R03：数值服务端权威下发，前端不硬编码） */
+export interface PetPveBoss {
+  bossCode: string
+  name: string
+  maxHp: number
+  attack: number
+  defense: number
+}
+
+/** MyBatis-Plus 分页信封（records/total/current/size） */
+export interface PetPvePage {
+  records: PetPveRun[]
+  total: number
+  current: number
+  size: number
+}
+
+/** Boss 配置列表（GET /pet/pve/bosses） */
+export function listPveBosses() {
+  return request.get<ApiResponse<PetPveBoss[]>>('/pet/pve/bosses')
+}
+
+/** 发起副本（body {bossCode}；一人同时仅一个进行中副本） */
+export function startPveRun(bossCode: string) {
+  return request.post<ApiResponse<PetPveRun>>('/pet/pve', { bossCode })
+}
+
+/** 可加入副本分页（OPEN，他人发起；后端收 page/size，size 上限 50） */
+export function listOpenPveRuns(params: { page?: number; size?: number } = {}) {
+  return request.get<ApiResponse<PetPvePage>>('/pet/pve/open', { params })
+}
+
+/** 加入副本（OPEN→FIGHTING，CAS 并发兜底） */
+export function joinPveRun(runId: number | string) {
+  return request.post<ApiResponse<PetPveRun>>(`/pet/pve/${runId}/join`)
+}
+
+/** 攻击一回合（轮流行动；同 requestKey 重放返回原回合结果） */
+export function attackPveRun(runId: number | string, requestKey: string = newPetRequestKey()) {
+  return request.post<ApiResponse<PetPveRun>>(`/pet/pve/${runId}/attack`, { requestKey })
+}
+
+/** 发起人取消 OPEN 副本并释放参与占用 */
+export function cancelPveRun(runId: number | string) {
+  return request.post<ApiResponse<PetPveRun>>(`/pet/pve/${runId}/cancel`)
+}
+
+/** 我的副本分页（发起或参与，倒序） */
+export function listMyPveRuns(params: { page?: number; size?: number } = {}) {
+  return request.get<ApiResponse<PetPvePage>>('/pet/pve/mine', { params })
+}
+
+/** 副本详情（参与者可见；OPEN 对外可看；轮询场景传 silentError 静默瞬时失败） */
+export function getPveRun(runId: number | string, config?: { silentError?: boolean }) {
+  return request.get<ApiResponse<PetPveRun>>(`/pet/pve/${runId}`, config)
+}
+
+/** 通行证档位领取状态：null=未领取 / CLAIM_PENDING 交付中（不计已领） / SETTLED 已到账 */
+export type PetSeasonPassClaimStatus = 'CLAIM_PENDING' | 'SETTLED'
+
+/** 通行证档位（对齐 PetSeasonPassVO.Tier） */
+export interface PetSeasonPassTier {
+  tier: number
+  requiredExp: number
+  reached: boolean
+  /** 仅 SETTLED 计为已领取 */
+  claimed: boolean
+  rewardDesc: string
+  claimStatus: PetSeasonPassClaimStatus | null
+}
+
+/** 赛季通行证视图（对齐后端 PetSeasonPassVO；无进行中赛季 seasonId=null） */
+export interface PetSeasonPass {
+  seasonId: number | string | null
+  seasonName: string | null
+  passExp: number
+  claimedTiers: number[]
+  tiers: PetSeasonPassTier[]
+  /** 领奖截止（null=随赛季结束） */
+  claimUntil: string | null
+  seasonEndsAt: string | null
+}
+
+/** 我的赛季通行证（当前赛季 + 经验 + 档位阶梯） */
+export function getSeasonPass() {
+  return request.get<ApiResponse<PetSeasonPass>>('/pet/season/pass')
+}
+
+/** 领取通行证档位奖励（达标 CAS；同档重复返回原状态；返回领取后的通行证） */
+export function claimSeasonPassTier(tier: number, requestKey: string = newPetRequestKey()) {
+  return request.post<ApiResponse<PetSeasonPass>>('/pet/season/pass/claim', undefined, {
+    params: { tier, requestKey },
+  })
+}
+
+/** 实物兑换码核销操作状态：VERIFYING 核验中 / PENDING 待核验 / DELIVERED 已发放 / REJECTED 已拒绝 */
+export type PetLinkedProductOperationStatus = 'VERIFYING' | 'PENDING' | 'DELIVERED' | 'REJECTED'
+
+/** 核销操作视图（后端 Map 序列化；entitlementId/rejectReasonCode 为空时下发 ''） */
+export interface PetLinkedProductOperation {
+  operationId: string
+  status: PetLinkedProductOperationStatus | string
+  entitlementId: string
+  rejectReasonCode: string
+  usable: boolean
+}
+
+/** 双倍喂食权益明细条目（对齐 EntitlementItem） */
+export interface PetLinkedProductEntitlementItem {
+  entitlementId: number | string
+  itemCode: string
+  sourceFactId: number | string
+  /** AVAILABLE 可用 / CONSUMED 已使用 / EXPIRED 已过期 */
+  status: 'AVAILABLE' | 'CONSUMED' | 'EXPIRED' | string
+  expiresAt: string | null
+}
+
+/** 我的双倍喂食权益汇总（usableCount + 明细） */
+export interface PetLinkedProductEntitlement {
+  usable: boolean
+  usableCount: number
+  items: PetLinkedProductEntitlementItem[]
+}
+
+/** 核销实物商品兑换码（码须先在 coupon 侧由本人兑换；跨服务超时返回 PENDING，凭 operationId 重查） */
+export function redeemLinkedProduct(redemptionCode: string, requestKey: string = newPetRequestKey()) {
+  return request.post<ApiResponse<PetLinkedProductOperation>>('/pet/linked-product/redeem', {
+    redemptionCode,
+    requestKey,
+  })
+}
+
+/** 查询核销操作结果（仅本人；PENDING 顺带原单重试核验，幂等；轮询传 silentError） */
+export function getLinkedProductOperation(
+  operationId: number | string,
+  config?: { silentError?: boolean },
+) {
+  return request.get<ApiResponse<PetLinkedProductOperation>>(
+    `/pet/linked-product/operations/${encodeURIComponent(String(operationId))}`, config)
+}
+
+/** 我的双倍喂食权益（可用份数 + 来源/失效明细） */
+export function getLinkedProductEntitlement() {
+  return request.get<ApiResponse<PetLinkedProductEntitlement>>('/pet/linked-product/entitlement')
+}

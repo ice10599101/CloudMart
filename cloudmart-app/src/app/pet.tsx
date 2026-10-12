@@ -68,6 +68,11 @@ import {
   type PetClaimBatchItem,
   type PetAlbumAssetView,
   type PetContentVisibility,
+  type PetPveBoss,
+  type PetPveRun,
+  type PetSeasonPass,
+  type PetLinkedProductOperation,
+  type PetLinkedProductEntitlement,
 } from '@/api/pet'
 import { petApiV2 } from '@/api/pet'
 import { growthApi } from '@/api/growth'
@@ -76,6 +81,7 @@ import { fileApi } from '@/api/file'
 import * as ImagePicker from 'expo-image-picker'
 import { useAuthStore } from '@/store/auth'
 import { getPersistedIntentKey, errorMessage } from '@/utils/request'
+import { generateAttachmentId } from '@/utils/postAttachments'
 
 /**
  * 社区宠物主页（App 端，实施文档 §4/§34）。
@@ -115,6 +121,8 @@ const RARITY_LABEL: Record<string, string> = {
 type PanelKey =
   | 'home' | 'care' | 'daily' | 'center' | 'social' | 'work' | 'study' | 'bottle' | 'battle'
   | 'chat' | 'achievements' | 'rankings' | 'reminders' | 'companion'
+  // R19：双人协作 PVE / 赛季通行证 / 实物商品双倍喂食权益
+  | 'pve' | 'seasonpass' | 'linkedproduct'
 
 /** 养成面板子页签（原文档 §89：商城/背包/技能/进化/活动 + §1.1 串门 + 多宠物 + 三期职业） */
 type CareTab = 'shop' | 'inventory' | 'skills' | 'evolution' | 'events' | 'visit' | 'career' | 'pets'
@@ -169,9 +177,13 @@ const PANELS: { key: PanelKey; label: string; emoji: string }[] = [
   { key: 'study', label: '读书', emoji: '📚' },
   { key: 'bottle', label: '捞瓶', emoji: '🍾' },
   { key: 'battle', label: '对战', emoji: '⚔️' },
+  // R19：协作副本用 🗡️ 与旧单宠对战 ⚔️ 区分
+  { key: 'pve', label: '协作副本', emoji: '🗡️' },
   { key: 'chat', label: '聊天', emoji: '💬' },
   { key: 'achievements', label: '成就', emoji: '🏆' },
   { key: 'rankings', label: '榜单', emoji: '🥇' },
+  { key: 'seasonpass', label: '赛季通行证', emoji: '🎫' },
+  { key: 'linkedproduct', label: '实物权益', emoji: '🎁' },
   { key: 'reminders', label: '提醒', emoji: '🔔' },
   { key: 'companion', label: '陪伴', emoji: '🫶' },
 ]
@@ -182,10 +194,21 @@ const PANEL_ITEM = Object.fromEntries(PANELS.map((item) => [item.key, item])) as
 /** 分组宫格（对齐 Web/Taro：La Maison / Croissance / Les Amis / Archives） */
 const MENU_GROUPS: Array<{ label: string; hint: string; keys: PanelKey[] }> = [
   { label: 'La Maison', hint: '小家与陪伴', keys: ['home', 'companion'] },
-  { label: 'Croissance', hint: '养成', keys: ['daily', 'center', 'work', 'study', 'bottle', 'battle', 'care'] },
+  // R19：seasonpass 随每日任务成长、pve 邻接旧对战、linkedproduct 随喂养养成
+  { label: 'Croissance', hint: '养成', keys: ['daily', 'center', 'seasonpass', 'work', 'study', 'bottle', 'battle', 'pve', 'care', 'linkedproduct'] },
   { label: 'Les Amis', hint: '往来', keys: ['social', 'chat'] },
   { label: 'Archives', hint: '记录', keys: ['achievements', 'rankings', 'reminders'] },
 ]
+
+/**
+ * R19 菜单门控：capability 显式 false 才隐藏入口；bootstrap 缺失（加载失败）不隐藏，
+ * 写操作仍由服务端权威裁决（未知不隐藏，避免快照故障锁死功能）。
+ * cooperativePve 为整功能开关（入口隐藏 + 面板内"暂未开放"兜底）；
+ * seasonPass/linkedProduct 关闭时入口保留，面板内分别降级为只读/隐藏兑换。
+ */
+const MENU_HIDDEN_BY_CAPABILITY: Partial<Record<PanelKey, string>> = {
+  pve: 'cooperativePve',
+}
 
 const RANKING_TABS: { key: PetRankingType; label: string }[] = [
   { key: 'LEVEL', label: '等级榜' },
@@ -306,6 +329,8 @@ export default function PetScreen() {
   const gameUrl = process.env.EXPO_PUBLIC_PET_GAME_URL
   const webRef = useRef<WebView>(null)
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn)
+  // R19：协作副本取消按钮需判定发起人身份
+  const currentUserId = useAuthStore((state) => state.user?.id ?? null)
 
   const [loading, setLoading] = useState(true)
   const [pet, setPet] = useState<PetInfo | null>(null)
@@ -877,6 +902,21 @@ export default function PetScreen() {
   const activeRemaining = useCountdown(pet?.activityType ? pet.activityFinishedAt : null)
   const bottleRemaining = useCountdown(bottle?.fishing ? bottle.finishedAt : null)
 
+  // R19：宫格入口按 capability 显式 false 过滤；bootstrap 未加载/加载失败时全量展示
+  const visibleMenuGroups = useMemo(() => {
+    const caps = bootstrap?.capabilities
+    if (!caps) return MENU_GROUPS
+    return MENU_GROUPS
+      .map((group) => ({
+        ...group,
+        keys: group.keys.filter((key) => {
+          const capKey = MENU_HIDDEN_BY_CAPABILITY[key]
+          return !capKey || caps[capKey] !== false
+        }),
+      }))
+      .filter((group) => group.keys.length > 0)
+  }, [bootstrap])
+
   // 任务到期后自动刷新一次，让"可领取"自然出现
   const activityKey = pet?.activityFinishedAt ?? null
   useEffect(() => {
@@ -1425,7 +1465,7 @@ export default function PetScreen() {
       {/* 面板切换 */}
       {/* 分组功能宫格 */}
       <CreamMenuGrid
-        groups={MENU_GROUPS}
+        groups={visibleMenuGroups}
         items={PANEL_ITEM}
         active={panel}
         badgeOf={(key) => {
@@ -2106,6 +2146,19 @@ export default function PetScreen() {
         )}
 
         {panel === 'center' && <ActivityCenterPanel onRefresh={refresh} />}
+
+        {/* R19：双人协作 PVE（capability 显式关闭时面板内兜底"暂未开放"） */}
+        {panel === 'pve' && (
+          <PvePanel enabled={bootstrap?.capabilities?.cooperativePve !== false} currentUserId={currentUserId} />
+        )}
+        {/* R19：赛季通行证（capability 关闭时仅展示档位，不允许领取） */}
+        {panel === 'seasonpass' && (
+          <SeasonPassPanel claimEnabled={bootstrap?.capabilities?.seasonPass !== false} />
+        )}
+        {/* R19：实物商品双倍喂食（capability 关闭时权益照常展示，仅隐藏兑换码核销） */}
+        {panel === 'linkedproduct' && (
+          <LinkedProductPanel redeemEnabled={bootstrap?.capabilities?.linkedProduct !== false} />
+        )}
 
         {panel === 'companion' && pet && (
           <CompanionPanel
@@ -4172,6 +4225,682 @@ function CompanionPanel(
               </>
             ) : <ActivityIndicator color={colors.primary} />}
           </View>
+        </View>
+      )}
+    </View>
+  )
+}
+
+// ==================== R19 面板：协作 PVE / 赛季通行证 / 实物商品双倍喂食 ====================
+
+/** R19 写操作幂等键（去横线 UUID，项目惯例：payment/starlight-transfer 同口径） */
+function newR19RequestKey(): string {
+  return generateAttachmentId().replace(/-/g, '')
+}
+
+const PVE_STATUS_LABEL: Record<string, string> = {
+  OPEN: '招募中',
+  FIGHTING: '战斗中',
+  WON: '讨伐成功',
+  FAILED: '挑战失败',
+  EXPIRED: '已过期',
+  CANCELLED: '已取消',
+}
+
+const PVE_BLOCKED_REASON_LABEL: Record<string, string> = {
+  NOT_YOUR_TURN: '还没轮到你出手，请等待队友行动',
+  NOT_FIGHTING: '副本尚未进入战斗',
+  RUN_OVER: '副本已经结束',
+}
+
+/** R19 双人协作 PVE：招募大厅（加入他人）+ 发起副本 + 详情轮询（5s）+ 轮流攻击 */
+function PvePanel({ enabled, currentUserId }: { enabled: boolean; currentUserId: number | null }) {
+  const colors = { ...useTheme(), ...PetCreamTheme }
+  const [tab, setTab] = useState<'lobby' | 'mine'>('lobby')
+  const [bosses, setBosses] = useState<PetPveBoss[]>([])
+  const [openRuns, setOpenRuns] = useState<PetPveRun[]>([])
+  const [myRuns, setMyRuns] = useState<PetPveRun[]>([])
+  const [detail, setDetail] = useState<PetPveRun | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [startingBoss, setStartingBoss] = useState<string | null>(null)
+  // 攻击幂等键：网络结果未知时保留，原样重试由服务端返回原回合（R03 同 requestKey 重放）
+  const attackKeyRef = useRef<string | null>(null)
+
+  const loadLobby = useCallback(async () => {
+    const [bossRes, openRes] = await Promise.all([
+      petApi.listPveBosses(),
+      petApi.listOpenPveRuns(1, 20),
+    ])
+    setBosses(bossRes.data.data ?? [])
+    setOpenRuns(openRes.data.data?.records ?? [])
+  }, [])
+
+  const loadMine = useCallback(async () => {
+    const { data: res } = await petApi.listMyPveRuns(1, 20)
+    setMyRuns(res.data?.records ?? [])
+  }, [])
+
+  // 首次进入与切页签加载：setState 全部发生在 await 之后（cancelled 防竞态覆盖）
+  useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
+    void (async () => {
+      try {
+        if (tab === 'lobby') {
+          const [bossRes, openRes] = await Promise.all([
+            petApi.listPveBosses(),
+            petApi.listOpenPveRuns(1, 20),
+          ])
+          if (cancelled) return
+          setBosses(bossRes.data.data ?? [])
+          setOpenRuns(openRes.data.data?.records ?? [])
+        } else {
+          const { data: res } = await petApi.listMyPveRuns(1, 20)
+          if (cancelled) return
+          setMyRuns(res.data?.records ?? [])
+        }
+      } catch (error) {
+        if (!cancelled) Alert.alert('加载失败', errorMessage(error, '请检查网络后重试'))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [enabled, tab])
+
+  const switchTab = (nextTab: 'lobby' | 'mine') => {
+    if (nextTab === tab) return
+    setTab(nextTab)
+    setLoading(true)
+  }
+
+  /** 动作后静默刷新当前列表（后台刷新失败不弹框，下次切页签重载） */
+  const refreshActiveList = useCallback(() => {
+    const task = tab === 'lobby' ? loadLobby() : loadMine()
+    return task.catch(() => undefined)
+  }, [tab, loadLobby, loadMine])
+
+  const openDetail = useCallback(async (runId: number | string) => {
+    try {
+      const { data: res } = await petApi.getPveRun(runId)
+      setDetail(res.data)
+    } catch (error) {
+      Alert.alert('详情加载失败', errorMessage(error, '请稍后再试'))
+    }
+  }, [])
+
+  // 详情轮询：OPEN/FIGHTING 每 5s 拉取，终态/卸载/切走立即 clearInterval
+  // （参照 companionHeartbeat：tick 瞬时失败静默，下一轮重试；主动操作失败单独 Alert）
+  useEffect(() => {
+    if (!detail || (detail.status !== 'OPEN' && detail.status !== 'FIGHTING')) return
+    const timer = setInterval(() => {
+      void (async () => {
+        try {
+          const { data: res } = await petApi.getPveRun(detail.runId)
+          setDetail(res.data)
+        } catch {
+          // 轮询失败静默，下一轮重试
+        }
+      })()
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [detail])
+
+  const start = async (bossCode: string) => {
+    if (startingBoss) return
+    setStartingBoss(bossCode)
+    try {
+      const { data: res } = await petApi.startPveRun(bossCode)
+      setDetail(res.data)
+      Alert.alert('副本已发起', '等待队友加入，之后双方轮流攻击 Boss')
+      void refreshActiveList()
+    } catch (error) {
+      Alert.alert('发起失败', errorMessage(error, '可能已有进行中的副本，稍后再试'))
+    } finally {
+      setStartingBoss(null)
+    }
+  }
+
+  const join = async (run: PetPveRun) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const { data: res } = await petApi.joinPveRun(run.runId)
+      setDetail(res.data)
+      Alert.alert('已加入战斗', '双方轮流行动，击倒 Boss 后奖励自动发放')
+      void refreshActiveList()
+    } catch (error) {
+      Alert.alert('加入失败', errorMessage(error, '可能刚被别人加入，换一个试试'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const attack = async () => {
+    if (!detail || busy) return
+    setBusy(true)
+    try {
+      const requestKey = attackKeyRef.current ?? newR19RequestKey()
+      attackKeyRef.current = requestKey
+      const { data: res } = await petApi.attackPveRun(detail.runId, requestKey)
+      attackKeyRef.current = null
+      setDetail(res.data)
+      if (res.data.status === 'WON') Alert.alert('讨伐成功', 'Boss 已被击倒，奖励已发放')
+      else if (res.data.status === 'FAILED') Alert.alert('副本失败', '这次没能坚持住，下次再战')
+      void refreshActiveList()
+    } catch (error) {
+      // 网络结果未知：保留 requestKey 供原样重试（服务端同键返回原回合，不重复结算）；业务终态错误换新键
+      if ((error as { code?: string }).code !== 'NETWORK_ERROR') attackKeyRef.current = null
+      Alert.alert('攻击失败', errorMessage(error, '可能还没轮到你行动'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const cancel = async () => {
+    if (!detail || busy) return
+    setBusy(true)
+    try {
+      const { data: res } = await petApi.cancelPveRun(detail.runId)
+      setDetail(res.data)
+      void refreshActiveList()
+    } catch (error) {
+      Alert.alert('取消失败', errorMessage(error, '请稍后再试'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const cardStyle = {
+    padding: Spacing.sm, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(200, 155, 90, 0.35)',
+    backgroundColor: '#FFFDF8', gap: 4, marginBottom: Spacing.sm,
+  } as const
+
+  if (!enabled) {
+    return (
+      <View style={cardStyle}>
+        <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>协作副本暂未开放</Text>
+        <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>双人协战 Boss 玩法即将上线，开放后这里会亮起来</Text>
+      </View>
+    )
+  }
+
+  const renderRunCard = (run: PetPveRun, showJoin: boolean) => (
+    <View key={String(run.runId)} style={cardStyle}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+        <TouchableOpacity style={{ flex: 1, minWidth: 0 }} onPress={() => void openDetail(run.runId)}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm }}>
+            <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>{`👹 ${run.bossName}`}</Text>
+            <Text style={{ color: colors.primary, fontSize: FontSize.xs, flexShrink: 0 }}>
+              {PVE_STATUS_LABEL[run.status] ?? run.status}
+            </Text>
+          </View>
+          <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+            {`Boss HP ${Math.max(0, run.bossHp)}/${run.bossMaxHp}`}
+          </Text>
+          <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }} numberOfLines={1}>
+            {run.partnerPetName
+              ? `${run.initiatorPetName ?? '发起人'} × ${run.partnerPetName}`
+              : `${run.initiatorPetName ?? '发起人'} · 等待队友`}
+          </Text>
+        </TouchableOpacity>
+        {showJoin && run.status === 'OPEN'
+          && (currentUserId == null || String(run.initiatorUserId) !== String(currentUserId)) && (
+          <View style={{ flexShrink: 0 }}>
+            <ChipButton label={busy ? '处理中…' : '加入'} primary disabled={busy} onPress={() => void join(run)} />
+          </View>
+        )}
+      </View>
+    </View>
+  )
+
+  const renderDetail = (run: PetPveRun) => {
+    const isInitiator = currentUserId != null && String(run.initiatorUserId) === String(currentUserId)
+    const isPartner = currentUserId != null && run.partnerUserId != null
+      && String(run.partnerUserId) === String(currentUserId)
+    const bossPercent = run.bossMaxHp > 0 ? Math.max(0, Math.round((run.bossHp / run.bossMaxHp) * 100)) : 0
+    return (
+      <View style={{ gap: Spacing.sm }}>
+        <ChipButton label="‹ 返回列表" onPress={() => setDetail(null)} />
+        <View style={cardStyle}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm }}>
+            <Text style={{ color: colors.text, fontSize: FontSize.md, fontWeight: '700' }}>{`👹 ${run.bossName}`}</Text>
+            <Text style={{ color: colors.primary, fontSize: FontSize.xs }}>{PVE_STATUS_LABEL[run.status] ?? run.status}</Text>
+          </View>
+          <View style={{ height: 8, borderRadius: 999, backgroundColor: '#F2E3CE', overflow: 'hidden' }}>
+            <View style={{ height: 8, borderRadius: 999, backgroundColor: PetCreamSemantic.danger, width: `${bossPercent}%` }} />
+          </View>
+          <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+            {`Boss HP ${Math.max(0, run.bossHp)}/${run.bossMaxHp} · 已完成 ${run.turnNo} 回合`}
+          </Text>
+        </View>
+
+        <View style={cardStyle}>
+          <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>参战宠物</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+            {`🛡️ ${run.initiatorPetName ?? '发起人'} HP ${Math.max(0, run.initiatorPetHp)}${run.initiatorPetMaxHp > 0 ? `/${run.initiatorPetMaxHp}` : ''}（发起方）`}
+          </Text>
+          <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+            {run.partnerPetHp >= 0
+              ? `🛡️ ${run.partnerPetName ?? '队友'} HP ${Math.max(0, run.partnerPetHp)}${run.partnerPetMaxHp > 0 ? `/${run.partnerPetMaxHp}` : ''}`
+              : '🕳️ 等待队友加入'}
+          </Text>
+          {run.status === 'FIGHTING' && (
+            <Text style={{ color: run.canAttack ? PetCreamSemantic.success : colors.textTertiary, fontSize: FontSize.xs }}>
+              {run.canAttack
+                ? '轮到你出手了'
+                : PVE_BLOCKED_REASON_LABEL[run.blockedReason ?? ''] ?? '请等待当前行动方完成操作'}
+            </Text>
+          )}
+          {run.status === 'OPEN' && (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>招募中，队友加入后战斗开始</Text>
+          )}
+          {(run.status === 'WON' || run.status === 'FAILED') && (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+              {run.rewardStatus === 'SETTLED' || run.rewardGranted ? '奖励已结算发放' : '奖励结算处理中'}
+            </Text>
+          )}
+        </View>
+
+        <View style={cardStyle}>
+          <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>战斗回合</Text>
+          <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
+            {run.recentRounds.length === 0 ? (
+              <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>战斗尚未开始</Text>
+            ) : run.recentRounds.map((round, index) => (
+              <Text key={`${round.round}-${index}`} style={{ color: colors.textSecondary, fontSize: FontSize.xs, lineHeight: 18 }}>
+                {`R${round.round} ${round.actorName} ${round.action}${round.critical ? '（暴击）' : ''}${round.dodged ? '（被闪避）' : ''} ${round.targetName}，造成 ${round.damage} 伤害（余 ${Math.max(0, round.targetRemainingHp)}）`}
+              </Text>
+            ))}
+          </ScrollView>
+        </View>
+
+        {run.status === 'FIGHTING' && run.canAttack && (
+          <ChipButton label={busy ? '结算中…' : '🗡️ 攻击'} primary disabled={busy} onPress={() => void attack()} />
+        )}
+        {run.status === 'OPEN' && !isInitiator && !isPartner && (
+          <ChipButton label={busy ? '处理中…' : '⚔️ 加入战斗'} primary disabled={busy} onPress={() => void join(run)} />
+        )}
+        {run.status === 'OPEN' && isInitiator && (
+          <ChipButton label={busy ? '处理中…' : '取消副本'} disabled={busy} onPress={() => void cancel()} />
+        )}
+        <Text style={{ color: colors.textTertiary, fontSize: 10, textAlign: 'center' }}>
+          双方轮流行动；Boss 倒下后奖励自动发放，详情每 5 秒自动刷新
+        </Text>
+      </View>
+    )
+  }
+
+  if (detail) return renderDetail(detail)
+
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+        <ChipButton label="招募大厅" primary={tab === 'lobby'} onPress={() => switchTab('lobby')} />
+        <ChipButton label="我的副本" primary={tab === 'mine'} onPress={() => switchTab('mine')} />
+      </View>
+      {loading ? (
+        <ActivityIndicator color={colors.primary} />
+      ) : tab === 'lobby' ? (
+        <>
+          <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>发起副本</Text>
+          {bosses.map((boss) => (
+            <View key={boss.bossCode} style={cardStyle}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>{`👹 ${boss.name}`}</Text>
+                  <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+                    {`HP ${boss.maxHp} · 攻 ${boss.attack} · 防 ${boss.defense}`}
+                  </Text>
+                </View>
+                <View style={{ flexShrink: 0 }}>
+                  <ChipButton
+                    label={startingBoss === boss.bossCode ? '发起中…' : '发起'}
+                    primary
+                    disabled={startingBoss !== null}
+                    onPress={() => void start(boss.bossCode)}
+                  />
+                </View>
+              </View>
+            </View>
+          ))}
+          <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>等待队友的副本</Text>
+          {openRuns.length === 0 ? (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>暂无等待中的副本，发起一个吧</Text>
+          ) : openRuns.map((run) => renderRunCard(run, true))}
+        </>
+      ) : (
+        <>
+          {myRuns.length === 0 ? (
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>还没有参与过副本</Text>
+          ) : myRuns.map((run) => renderRunCard(run, false))}
+        </>
+      )}
+    </View>
+  )
+}
+
+/** R19 赛季通行证：赛季档位进度（服务端下发）+ 逐档领取；claimEnabled=false 时仅展示 */
+function SeasonPassPanel({ claimEnabled }: { claimEnabled: boolean }) {
+  const colors = { ...useTheme(), ...PetCreamTheme }
+  const [pass, setPass] = useState<PetSeasonPass | null>(null)
+  const [loadState, setLoadState] = useState<'LOADING' | 'READY' | 'ERROR'>('LOADING')
+  const [claimingTier, setClaimingTier] = useState<number | null>(null)
+  // 每档独立 requestKey：网络结果未知时保留原键，恢复后同键重放（R05 可恢复交付）
+  const claimKeyRef = useRef<Record<number, string>>({})
+
+  const load = useCallback(async () => {
+    setLoadState('LOADING')
+    try {
+      const { data: res } = await petApi.getSeasonPass()
+      setPass(res.data)
+      setLoadState('READY')
+    } catch (error) {
+      setLoadState('ERROR')
+      Alert.alert('通行证加载失败', errorMessage(error, '请稍后再试'))
+    }
+  }, [])
+
+  // 挂载加载：setState 发生在 await 之后（重试按钮直接调 load，二者共用同一请求逻辑）
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const { data: res } = await petApi.getSeasonPass()
+        if (!cancelled) {
+          setPass(res.data)
+          setLoadState('READY')
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLoadState('ERROR')
+          Alert.alert('通行证加载失败', errorMessage(error, '请稍后再试'))
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const claim = async (tier: number) => {
+    if (claimingTier !== null) return
+    setClaimingTier(tier)
+    try {
+      if (!claimKeyRef.current[tier]) claimKeyRef.current[tier] = newR19RequestKey()
+      const { data: res } = await petApi.claimSeasonPassTier(tier, claimKeyRef.current[tier])
+      delete claimKeyRef.current[tier]
+      setPass(res.data)
+      Alert.alert('领取成功', `第 ${tier} 档奖励已领取`)
+    } catch (error) {
+      // 网络结果未知保留原键（可原样重试）；业务终态错误（未达标/已领取）清除换新
+      if ((error as { code?: string }).code !== 'NETWORK_ERROR') delete claimKeyRef.current[tier]
+      Alert.alert('领取失败', errorMessage(error, '奖励可能还没达标或已领取'))
+    } finally {
+      setClaimingTier(null)
+    }
+  }
+
+  const cardStyle = {
+    padding: Spacing.sm, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(200, 155, 90, 0.35)',
+    backgroundColor: '#FFFDF8', gap: 4, marginBottom: Spacing.sm,
+  } as const
+
+  if (loadState === 'LOADING') return <ActivityIndicator color={colors.primary} />
+  if (loadState === 'ERROR') {
+    return (
+      <View style={cardStyle}>
+        <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>通行证暂时不可用</Text>
+        <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>网络或服务异常，重试后仍失败请稍后再来</Text>
+        <ChipButton label="重新加载" primary onPress={() => void load()} />
+      </View>
+    )
+  }
+  if (!pass || pass.seasonId == null) {
+    return (
+      <View style={cardStyle}>
+        <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>当前没有进行中的赛季</Text>
+        <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>新赛季开赛后，完成每日任务即可累积通行证经验</Text>
+      </View>
+    )
+  }
+
+  return (
+    <View>
+      <View style={cardStyle}>
+        <Text style={{ color: colors.text, fontSize: FontSize.md, fontWeight: '700' }}>{`🎫 ${pass.seasonName ?? '当前赛季'}`}</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{`通行证经验 ${pass.passExp} · 完成每日任务与全清宝箱累积`}</Text>
+        {!claimEnabled && (
+          <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>通行证奖励领取暂未开放，当前仅可查看进度</Text>
+        )}
+      </View>
+      {pass.tiers.map((tier) => {
+        const pending = tier.claimStatus === 'CLAIM_PENDING'
+        return (
+          <View key={tier.tier} style={cardStyle}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>
+                  {`第 ${tier.tier} 档`}
+                </Text>
+                <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+                  {`${tier.requiredExp} 经验 · ${tier.reached ? '已达标' : `还差 ${Math.max(0, tier.requiredExp - pass.passExp)}`}`}
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{tier.rewardDesc}</Text>
+              </View>
+              {tier.claimed ? (
+                <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs, flexShrink: 0 }}>已领取</Text>
+              ) : pending ? (
+                // R05：CLAIM_PENDING 是交付中，绝不能展示为"已领取"
+                <Text style={{ color: PetCreamSemantic.warning, fontSize: FontSize.xs, flexShrink: 0 }}>发放中…</Text>
+              ) : claimEnabled && tier.reached ? (
+                <View style={{ flexShrink: 0 }}>
+                  <ChipButton
+                    label={claimingTier === tier.tier ? '领取中…' : '领取'}
+                    primary
+                    disabled={claimingTier !== null}
+                    onPress={() => void claim(tier.tier)}
+                  />
+                </View>
+              ) : (
+                <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs, flexShrink: 0 }}>未达标</Text>
+              )}
+            </View>
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
+const LINKED_OP_STATUS_LABEL: Record<string, string> = {
+  VERIFYING: '核验中',
+  PENDING: '处理中',
+  DELIVERED: '已发放',
+  REJECTED: '已拒绝',
+}
+
+const LINKED_REJECT_REASON_LABEL: Record<string, string> = {
+  PET_CODE_NOT_FOUND: '兑换码不存在，请核对后重试',
+  PET_CODE_DISABLED: '兑换码已停用',
+  PET_CODE_NOT_EXCHANGED: '请先在商城完成兑换码兑换，再来核销',
+  PET_CODE_NOT_OWNED: '兑换码不属于当前账号',
+}
+
+const LINKED_ENTITLEMENT_STATUS_LABEL: Record<string, string> = {
+  AVAILABLE: '可用',
+  CONSUMED: '已使用',
+  EXPIRED: '已过期',
+}
+
+/** R19 实物商品双倍喂食：权益份数展示 + 兑换码核销（处理中可按操作 ID 查询恢复） */
+function LinkedProductPanel({ redeemEnabled }: { redeemEnabled: boolean }) {
+  const colors = { ...useTheme(), ...PetCreamTheme }
+  const [entitlement, setEntitlement] = useState<PetLinkedProductEntitlement | null>(null)
+  const [entitlementError, setEntitlementError] = useState(false)
+  const [code, setCode] = useState('')
+  const [redeeming, setRedeeming] = useState(false)
+  const [querying, setQuerying] = useState(false)
+  const [operation, setOperation] = useState<PetLinkedProductOperation | null>(null)
+  // 同一核销意图的 requestKey：结果未知时保留，原样重试由服务端按原操作收敛（不重复发放）
+  const requestKeyRef = useRef<string | null>(null)
+
+  const refreshEntitlement = useCallback(async () => {
+    try {
+      const { data: res } = await petApi.getLinkedProductEntitlement()
+      setEntitlement(res.data)
+      setEntitlementError(false)
+    } catch {
+      // 展示型数据：标记内联错误态供重试，不阻断核销操作
+      setEntitlementError(true)
+    }
+  }, [])
+
+  // 挂载加载：setState 发生在 await 之后（重试/核销后走 refreshEntitlement）
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const { data: res } = await petApi.getLinkedProductEntitlement()
+        if (!cancelled) {
+          setEntitlement(res.data)
+          setEntitlementError(false)
+        }
+      } catch {
+        // 展示型数据：标记内联错误态供重试，不阻断核销操作
+        if (!cancelled) setEntitlementError(true)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const handleDelivered = useCallback(async () => {
+    requestKeyRef.current = null
+    setCode('')
+    Alert.alert('核销成功', '双倍喂食权益已到账，下一次喂食效果翻倍')
+    await refreshEntitlement()
+  }, [refreshEntitlement])
+
+  const redeem = async () => {
+    const trimmed = code.trim()
+    if (redeeming) return
+    if (!trimmed) {
+      Alert.alert('请输入兑换码', '兑换码印在实物零食随附卡片上')
+      return
+    }
+    setRedeeming(true)
+    try {
+      if (!requestKeyRef.current) requestKeyRef.current = newR19RequestKey()
+      const { data: res } = await petApi.redeemLinkedProduct({
+        redemptionCode: trimmed,
+        requestKey: requestKeyRef.current ?? undefined,
+      })
+      const view = res.data
+      setOperation(view)
+      if (view.status === 'DELIVERED') {
+        await handleDelivered()
+      } else if (view.status === 'REJECTED') {
+        // 终态拒绝：释放本次意图键
+        requestKeyRef.current = null
+        Alert.alert('核销未通过', LINKED_REJECT_REASON_LABEL[view.rejectReasonCode] ?? '兑换码无效或已核销')
+      } else {
+        // VERIFYING/PENDING：coupon 跨服务核验中，凭操作 ID 查询恢复
+        Alert.alert('核销处理中', '权益正在核验，可稍后在下方查询处理结果')
+      }
+    } catch (error) {
+      // 网络结果未知：保留兑换码与 requestKey，用户原样重试，服务端同键返回原操作
+      Alert.alert('核销失败', errorMessage(error, '网络不稳定，可稍后原样重试，不会重复核销'))
+    } finally {
+      setRedeeming(false)
+    }
+  }
+
+  const queryOperation = async () => {
+    if (!operation || querying) return
+    setQuerying(true)
+    try {
+      const { data: res } = await petApi.getLinkedProductOperation(operation.operationId)
+      const view = res.data
+      setOperation(view)
+      if (view.status === 'DELIVERED') {
+        await handleDelivered()
+      } else if (view.status === 'REJECTED') {
+        requestKeyRef.current = null
+        Alert.alert('核销未通过', LINKED_REJECT_REASON_LABEL[view.rejectReasonCode] ?? '兑换码无效或已核销')
+      } else {
+        Alert.alert('仍在处理中', '权益核验尚未完成，请稍后再查询')
+      }
+    } catch (error) {
+      Alert.alert('查询失败', errorMessage(error, '请稍后再试'))
+    } finally {
+      setQuerying(false)
+    }
+  }
+
+  const cardStyle = {
+    padding: Spacing.sm, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(200, 155, 90, 0.35)',
+    backgroundColor: '#FFFDF8', gap: 4, marginBottom: Spacing.sm,
+  } as const
+  const processing = operation?.status === 'VERIFYING' || operation?.status === 'PENDING'
+
+  return (
+    <View>
+      <View style={cardStyle}>
+        <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>🎁 双倍喂食权益</Text>
+        {entitlementError ? (
+          <>
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>权益状态暂时加载失败</Text>
+            <ChipButton label="重新加载" onPress={() => void refreshEntitlement()} />
+          </>
+        ) : (
+          <>
+            <Text style={{ color: colors.primary, fontSize: FontSize.lg, fontWeight: '700' }}>
+              {`可用 ${entitlement?.usableCount ?? 0} 次`}
+            </Text>
+            <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>
+              {(entitlement?.usableCount ?? 0) > 0
+                ? '权益已就绪，下一次喂食效果翻倍（喂食时自动占用一条）'
+                : '暂无可用权益，购买实物零食随单获得兑换码'}
+            </Text>
+            {entitlement?.items?.map((item) => (
+              <Text key={String(item.entitlementId)} style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                {`· ${item.itemCode} · ${LINKED_ENTITLEMENT_STATUS_LABEL[item.status] ?? item.status}${item.expiresAt ? ` · 失效 ${item.expiresAt.slice(0, 16).replace('T', ' ')}` : ''}`}
+              </Text>
+            ))}
+          </>
+        )}
+      </View>
+
+      {redeemEnabled ? (
+        <View style={cardStyle}>
+          <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>兑换码核销</Text>
+          <TextInput
+            value={code}
+            onChangeText={setCode}
+            maxLength={64}
+            placeholder="输入实物零食随附的兑换码"
+            placeholderTextColor={colors.textTertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={{
+              paddingHorizontal: Spacing.md, paddingVertical: 10, borderRadius: BorderRadius.md,
+              borderWidth: 1, borderColor: colors.border, color: colors.text, backgroundColor: colors.bgContainer,
+            }}
+          />
+          <ChipButton label={redeeming ? '核销中…' : '核销兑换码'} primary disabled={redeeming} onPress={() => void redeem()} />
+          {operation && (
+            <View style={{ gap: 4, marginTop: Spacing.xs }}>
+              <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>
+                {`最近操作：${LINKED_OP_STATUS_LABEL[operation.status] ?? operation.status}（${operation.operationId}）`}
+              </Text>
+              {processing && (
+                <ChipButton label={querying ? '查询中…' : '查询处理结果'} primary disabled={querying} onPress={() => void queryOperation()} />
+              )}
+            </View>
+          )}
+        </View>
+      ) : (
+        <View style={cardStyle}>
+          <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>实物商品兑换暂未开放</Text>
         </View>
       )}
     </View>

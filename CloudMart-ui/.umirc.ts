@@ -96,6 +96,8 @@ export default defineConfig({
         { path: '/wish/leaderboard', component: '@/pages/Leaderboard' },
         { path: '/wish/map', component: '@/pages/WishMap' },
         { path: '/wish/drift-bottle', component: '@/pages/DriftBottle' },
+        // R19 擦肩信笺（附近模式信箱；轨迹上报仅 App 端）
+        { path: '/encounter-letters', component: '@/pages/EncounterLetters' },
         // P1-18：社区成长体系（签到/成长中心/经验排行榜；宠物多页由 /pet PetCream 面板体系承载）
         { path: '/community/checkin', component: '@/pages/GrowthCheckIn' },
         { path: '/community/growth', component: '@/pages/GrowthCenter' },
