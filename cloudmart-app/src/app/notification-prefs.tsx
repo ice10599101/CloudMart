@@ -1,8 +1,9 @@
-import { View, Text, ScrollView, Switch, ActivityIndicator, TouchableOpacity } from 'react-native'
+import { View, Text, ScrollView, Switch, ActivityIndicator, TouchableOpacity, Alert } from 'react-native'
 import { useState, useEffect } from "react"
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import type { NotificationChannel, NotificationType } from '@/types'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -50,7 +51,7 @@ export default function NotificationPrefsScreen() {
       return
     }
     wishApi.getNotificationPreferences()
-      .then((res) => { if (res.data?.success) setMatrix(res.data.data) })
+      .then((res) => { setMatrix(res.data.data) })
       .catch(() => undefined)
       .finally(() => setLoading(false))
   }, [isLoggedIn])
@@ -69,13 +70,12 @@ export default function NotificationPrefsScreen() {
         : [...prev.preferences, { type, channels: { [channel]: enabled } as Record<NotificationChannel, boolean> }],
     } : prev)
     try {
-      const res = await wishApi.updateNotificationPreferences([{ type, channel, enabled }])
-      if (!res.data?.success) throw new Error('save failed')
-    } catch {
+      await wishApi.updateNotificationPreferences([{ type, channel, enabled }])
+    } catch (error) {
       setMatrix((prev) => prev ? {
         preferences: prev.preferences.map((p) => (p.type === type ? { ...p, channels: { ...p.channels, [channel]: !enabled } } : p)),
       } : prev)
-      alert('保存失败，请稍后重试')
+      Alert.alert('提示', errorMessage(error, '保存失败，请稍后重试'))
     } finally {
       setSavingKey(null)
     }

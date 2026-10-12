@@ -10,6 +10,7 @@ import { fileApi } from '@/api/file'
 import type { Product } from '@/types'
 import { RichTextEditor, RichTextEditorRef } from '@/components/RichTextEditor'
 import { appendAttachmentNodes, generateAttachmentId, type SurveyAttachmentQuestion } from '@/utils/postAttachments'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 interface MediaItem {
@@ -120,8 +121,8 @@ export default function PublishPage() {
         setMediaList((prev) => [...prev, ...existingMedia])
       }
       editorRef.current?.setHTML(post.content || '')
-    } catch {
-      Alert.alert('错误', '加载帖子失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '加载帖子失败'))
     }
   }
 
@@ -192,8 +193,8 @@ export default function PublishPage() {
               try {
                 const resolved = await communityApi.resolveTags(tagNames)
                 tagIds = (resolved.data?.data ?? []).map((t) => t.id)
-              } catch {
-                Alert.alert('提示', '标签解析失败，本次不携带标签')
+              } catch (error) {
+                Alert.alert('提示', errorMessage(error, '标签解析失败，本次不携带标签'))
               }
             }
 
@@ -229,8 +230,8 @@ export default function PublishPage() {
                 },
               }])
             }
-          } catch (err: any) {
-            Alert.alert('发布失败', err?.message || '请稍后重试')
+          } catch (error) {
+            Alert.alert('发布失败', errorMessage(error, '请稍后重试'))
           } finally {
             setPublishing(false)
           }
@@ -283,8 +284,8 @@ export default function PublishPage() {
               }
             }
             Alert.alert('提示', '已保存草稿')
-          } catch {
-            Alert.alert('错误', '保存失败')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '保存失败'))
           } finally {
             setSaving(false)
           }
@@ -419,8 +420,8 @@ export default function PublishPage() {
     try {
       const res = await productApi.search({ keyword: productKeyword.trim(), page: 1, size: 8 })
       setProductOptions((res.data as { data?: { products?: Product[] } })?.data?.products ?? [])
-    } catch {
-      Alert.alert('提示', '商品搜索失败')
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '商品搜索失败'))
     } finally {
       setSearchingProducts(false)
     }
@@ -465,8 +466,8 @@ export default function PublishPage() {
       } else {
         Alert.alert('上传失败', '图片上传返回数据异常')
       }
-    } catch (err: any) {
-      Alert.alert('上传失败', err?.message || '请稍后重试')
+    } catch (error) {
+      Alert.alert('上传失败', errorMessage(error, '请稍后重试'))
     } finally {
       setUploading(false)
     }

@@ -5,6 +5,7 @@ import { growthApi } from '@/api/growth'
 import { useAuthStore } from '@/store/auth'
 import { useDecorationStore } from '@/store/decoration'
 import { storage } from '@/utils/storage'
+import { errorMessage } from '@/utils/request'
 import type { ExpLog, LevelConfig } from '@/types'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -102,9 +103,9 @@ export default function CheckInPage() {
     }
     try {
       await growthApi.setAvatarFrame(key)
-    } catch {
+    } catch (error) {
       // 后端同步失败：本地已生效，下次进入装饰接口会以服务端为准
-      Alert.alert('提示', '云端同步失败，已本地生效')
+      Alert.alert('提示', errorMessage(error, '云端同步失败，已本地生效'))
     }
   }
 
@@ -121,8 +122,8 @@ export default function CheckInPage() {
         Animated.timing(fadeAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
       ]).start(() => { setExpAnim(''); fadeAnim.setValue(1) })
       loadData()
-    } catch {
-      // Failed
+    } catch (error) {
+      Alert.alert('签到失败', errorMessage(error, '请稍后再试'))
     } finally {
       setCheckingIn(false)
     }

@@ -1,9 +1,10 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native'
 import { useState, useEffect, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
 import type { WishCollectionItem } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS } from '@/constants/wish-theme'
@@ -36,13 +37,11 @@ export default function WishCollectionsScreen() {
     else setLoadingMore(true)
     try {
       const res = await wishApi.listWishCollections(nextCursor ?? undefined, PAGE_SIZE)
-      if (res.data?.success) {
-        const list = res.data.data ?? []
-        const meta = res.data.meta as { nextCursor?: string | null } | undefined
-        setItems((prev) => (reset ? list : [...prev, ...list]))
-        setCursor(meta?.nextCursor ?? null)
-        setHasMore(Boolean(meta?.nextCursor))
-      }
+      const list = res.data.data ?? []
+      const meta = res.data.meta as { nextCursor?: string | null } | undefined
+      setItems((prev) => (reset ? list : [...prev, ...list]))
+      setCursor(meta?.nextCursor ?? null)
+      setHasMore(Boolean(meta?.nextCursor))
     } catch {
       if (reset) setItems([])
     } finally {
@@ -58,13 +57,10 @@ export default function WishCollectionsScreen() {
   const handleUncollect = async (item: WishCollectionItem) => {
     setRemovingId(item.wishId)
     try {
-      const res = await wishApi.uncollectWish(item.wishId)
-      if (res.data?.success) {
-        setItems((prev) => prev.filter((it) => it.wishId !== item.wishId))
-      }
-    } catch (err) {
-      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-      alert(errNode?.response?.data?.error?.message || '操作失败，请稍后重试')
+      await wishApi.uncollectWish(item.wishId)
+      setItems((prev) => prev.filter((it) => it.wishId !== item.wishId))
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '操作失败，请稍后重试'))
     } finally {
       setRemovingId(null)
     }

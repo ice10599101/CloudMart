@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useAuthStore } from '@/store/auth'
+import { errorMessage } from '@/utils/request'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
 
@@ -52,8 +53,8 @@ export default function RegisterPage() {
       setTimeout(() => {
         Taro.navigateBack()
       }, 1500)
-    } catch (err: any) {
-      Taro.showToast({ title: err?.response?.data?.error?.message || '注册失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '注册失败'), icon: 'none' })
     } finally {
       setLoading(false)
     }

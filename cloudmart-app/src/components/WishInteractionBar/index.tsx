@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, Modal, TextInput, Alert, Vibration, Platf
 import { wishApi } from '@/api/wish'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
-import type { ApiResponse, MyWishInteraction } from '@/types'
+import type { MyWishInteraction } from '@/types'
+import { errorMessage, isBusinessError } from '@/utils/request'
 
 /**
  * 心愿互动按钮组（Sprint 1.2；匿名星光 Sprint 2.6）。
@@ -51,15 +52,17 @@ function hapticLight() {
   }
 }
 
-/** 业务错误提示（APP 端 request 不统一弹错，组件自行 Alert） */
-function alertBusinessError(body: ApiResponse<unknown>) {
-  const code = body.error?.code ?? ''
-  const title = code === 'WISH_STARLIGHT_INSUFFICIENT'
-    ? '星光不足，可通过每日签到、打卡获取星光'
-    : code === 'WISH_ALREADY_INTERACTED'
-      ? '已同求过该心愿'
-      : body.error?.message ?? '操作失败，请稍后重试'
-  Alert.alert('提示', title)
+/** 业务错误提示（R25：request 失败统一 reject BusinessError，按 code 映射场景文案） */
+function alertInteractionError(error: unknown, fallback: string) {
+  if (isBusinessError(error) && error.code === 'WISH_STARLIGHT_INSUFFICIENT') {
+    Alert.alert('提示', '星光不足，可通过每日签到、打卡获取星光')
+    return
+  }
+  if (isBusinessError(error) && error.code === 'WISH_ALREADY_INTERACTED') {
+    Alert.alert('提示', '已同求过该心愿')
+    return
+  }
+  Alert.alert('错误', errorMessage(error, fallback))
 }
 
 export default function WishInteractionBar({
@@ -82,7 +85,7 @@ export default function WishInteractionBar({
     }
     try {
       const res = await wishApi.listMyInteractions(wishId)
-      if (res.data?.success) setMyInteractions(res.data.data)
+      setMyInteractions(res.data.data)
     } catch {
       // 状态接口失败不阻断详情展示，按钮按未互动处理
     }
@@ -124,16 +127,12 @@ export default function WishInteractionBar({
     hapticLight()
     try {
       const res = await wishApi.createInteraction(wishId, { type: 'LIGHT' })
-      if (res.data?.success) {
-        onCountsChange({ lightCount: res.data.data.lightCount })
-        refreshMyInteractions()
-        Alert.alert('已点亮 ✨', '为 TA 加了一束光')
-      } else if (res.data) {
-        alertBusinessError(res.data)
-        if (res.data.error?.code === 'WISH_ALREADY_INTERACTED') refreshMyInteractions()
-      }
-    } catch {
-      Alert.alert('错误', '点亮失败，请稍后重试')
+      onCountsChange({ lightCount: res.data.data.lightCount })
+      refreshMyInteractions()
+      Alert.alert('已点亮 ✨', '为 TA 加了一束光')
+    } catch (error) {
+      alertInteractionError(error, '点亮失败，请稍后重试')
+      if (isBusinessError(error) && error.code === 'WISH_ALREADY_INTERACTED') refreshMyInteractions()
     }
   }
 
@@ -141,16 +140,12 @@ export default function WishInteractionBar({
     hapticLight()
     try {
       const res = await wishApi.createInteraction(wishId, { type: 'SAME_WISH' })
-      if (res.data?.success) {
-        onCountsChange({ sameWishCount: res.data.data.sameWishCount })
-        refreshMyInteractions()
-        Alert.alert('已加入共同愿望 🤝')
-      } else if (res.data) {
-        alertBusinessError(res.data)
-        if (res.data.error?.code === 'WISH_ALREADY_INTERACTED') refreshMyInteractions()
-      }
-    } catch {
-      Alert.alert('错误', '同求失败，请稍后重试')
+      onCountsChange({ sameWishCount: res.data.data.sameWishCount })
+      refreshMyInteractions()
+      Alert.alert('已加入共同愿望 🤝')
+    } catch (error) {
+      alertInteractionError(error, '同求失败，请稍后重试')
+      if (isBusinessError(error) && error.code === 'WISH_ALREADY_INTERACTED') refreshMyInteractions()
     }
   }
 
@@ -167,16 +162,12 @@ export default function WishInteractionBar({
             hapticLight()
             try {
               const res = await wishApi.createInteraction(wishId, { type: 'ANON_STAR' })
-              if (res.data?.success) {
-                onCountsChange({ anonStarCount: res.data.data.anonStarCount })
-                refreshMyInteractions()
-                Alert.alert('已匿名送出星光 💫', 'TA 眼中你是一颗神秘星辰')
-              } else if (res.data) {
-                alertBusinessError(res.data)
-                if (res.data.error?.code === 'WISH_ALREADY_INTERACTED') refreshMyInteractions()
-              }
-            } catch {
-              Alert.alert('错误', '操作失败，请稍后重试')
+              onCountsChange({ anonStarCount: res.data.data.anonStarCount })
+              refreshMyInteractions()
+              Alert.alert('已匿名送出星光 💫', 'TA 眼中你是一颗神秘星辰')
+            } catch (error) {
+              alertInteractionError(error, '操作失败，请稍后重试')
+              if (isBusinessError(error) && error.code === 'WISH_ALREADY_INTERACTED') refreshMyInteractions()
             }
           },
         },
@@ -194,15 +185,11 @@ export default function WishInteractionBar({
         onPress: async () => {
           try {
             const res = await wishApi.revokeInteraction(wishId, mySameWish.id)
-            if (res.data?.success) {
-              onCountsChange({ sameWishCount: Math.max(0, counts.sameWishCount - 1) })
-              refreshMyInteractions()
-              Alert.alert('已取消同求')
-            } else if (res.data) {
-              alertBusinessError(res.data)
-            }
-          } catch {
-            Alert.alert('错误', '操作失败，请稍后重试')
+            onCountsChange({ sameWishCount: Math.max(0, counts.sameWishCount - 1) })
+            refreshMyInteractions()
+            Alert.alert('已取消同求')
+          } catch (error) {
+            alertInteractionError(error, '操作失败，请稍后重试')
           }
         },
       },
@@ -218,18 +205,14 @@ export default function WishInteractionBar({
     setBlessing(true)
     try {
       const res = await wishApi.createInteraction(wishId, { type: 'BLESS', content })
-      if (res.data?.success) {
-        hapticLight()
-        onCountsChange({ blessCount: res.data.data.blessCount })
-        refreshMyInteractions()
-        setBlessModalVisible(false)
-        onBlessed?.()
-        Alert.alert('祝福已送达 🌟')
-      } else if (res.data) {
-        alertBusinessError(res.data)
-      }
-    } catch {
-      Alert.alert('错误', '祝福失败，请稍后重试')
+      hapticLight()
+      onCountsChange({ blessCount: res.data.data.blessCount })
+      refreshMyInteractions()
+      setBlessModalVisible(false)
+      onBlessed?.()
+      Alert.alert('祝福已送达 🌟')
+    } catch (error) {
+      alertInteractionError(error, '祝福失败，请稍后重试')
     } finally {
       setBlessing(false)
     }

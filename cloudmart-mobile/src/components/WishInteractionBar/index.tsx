@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import { View, Text, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import type { MyWishInteraction } from '@/types'
 import styles from './index.module.scss'
 
@@ -34,12 +35,6 @@ interface WishInteractionBarProps {
   onBlessed?: () => void
 }
 
-/** 业务错误载体（移动端 request 不统一弹错，组件自行 toast） */
-interface ApiErrorLike {
-  success: boolean
-  error?: { code: string; message: string }
-}
-
 /** CSS 变量驱动粒子角度（避免 4 个粒子各写一套 keyframes） */
 function sparkStyle(index: number): CSSProperties {
   const angles = [-50, -20, 20, 50]
@@ -66,7 +61,7 @@ export default function WishInteractionBar({
     }
     try {
       const res = await wishApi.listMyInteractions(wishId)
-      if (res.data.success) setMyInteractions(res.data.data)
+      setMyInteractions(res.data.data)
     } catch {
       // 状态接口失败不阻断详情展示，按钮按未互动处理
     }
@@ -102,38 +97,38 @@ export default function WishInteractionBar({
     action()
   }
 
-  /** 业务错误 toast（星光不足/限频/已互动），其余 code 统一提示 message */
-  const toastBusinessError = (body: ApiErrorLike) => {
-    const err = body.error ?? { code: '', message: '操作失败，请稍后重试' }
-    const title = err.code === 'WISH_STARLIGHT_INSUFFICIENT'
+  /** 业务错误 toast（星光不足/限频/已互动），其余 code 透出服务端 message */
+  const toastBusinessError = (error: unknown) => {
+    const code = (error as { code?: string })?.code ?? ''
+    const title = code === 'WISH_STARLIGHT_INSUFFICIENT'
       ? '星光不足，可通过签到/打卡获取'
-      : err.code === 'WISH_ALREADY_INTERACTED'
+      : code === 'WISH_ALREADY_INTERACTED'
         ? '已同求过该心愿'
-        : err.message
+        : errorMessage(error, '操作失败，请稍后重试')
     Taro.showToast({ title, icon: 'none' })
-    if (err.code === 'WISH_ALREADY_INTERACTED') refreshMyInteractions()
+    if (code === 'WISH_ALREADY_INTERACTED') refreshMyInteractions()
   }
 
   const handleLight = async () => {
-    const res = await wishApi.createInteraction(wishId, { type: 'LIGHT' })
-    if (res.data.success) {
+    try {
+      const res = await wishApi.createInteraction(wishId, { type: 'LIGHT' })
       onCountsChange({ lightCount: res.data.data.lightCount })
       refreshMyInteractions()
       setBurstVisible(true)
       Taro.showToast({ title: '已点亮 ✨', icon: 'none' })
-    } else {
-      toastBusinessError(res.data)
+    } catch (err) {
+      toastBusinessError(err)
     }
   }
 
   const handleSameWish = async () => {
-    const res = await wishApi.createInteraction(wishId, { type: 'SAME_WISH' })
-    if (res.data.success) {
+    try {
+      const res = await wishApi.createInteraction(wishId, { type: 'SAME_WISH' })
       onCountsChange({ sameWishCount: res.data.data.sameWishCount })
       refreshMyInteractions()
       Taro.showToast({ title: '已加入共同愿望 🤝', icon: 'none' })
-    } else {
-      toastBusinessError(res.data)
+    } catch (err) {
+      toastBusinessError(err)
     }
   }
 
@@ -147,13 +142,13 @@ export default function WishInteractionBar({
     })
     if (!confirmed.confirm) return
 
-    const res = await wishApi.createInteraction(wishId, { type: 'ANON_STAR' })
-    if (res.data.success) {
+    try {
+      const res = await wishApi.createInteraction(wishId, { type: 'ANON_STAR' })
       onCountsChange({ anonStarCount: res.data.data.anonStarCount })
       refreshMyInteractions()
       Taro.showToast({ title: 'TA 眼中你是一颗神秘星辰 💫', icon: 'none' })
-    } else {
-      toastBusinessError(res.data)
+    } catch (err) {
+      toastBusinessError(err)
     }
   }
 
@@ -165,13 +160,13 @@ export default function WishInteractionBar({
     })
     if (!confirmed.confirm) return
 
-    const res = await wishApi.revokeInteraction(wishId, mySameWish.id)
-    if (res.data.success) {
+    try {
+      await wishApi.revokeInteraction(wishId, mySameWish.id)
       onCountsChange({ sameWishCount: Math.max(0, counts.sameWishCount - 1) })
       refreshMyInteractions()
       Taro.showToast({ title: '已取消同求', icon: 'none' })
-    } else {
-      toastBusinessError(res.data)
+    } catch (err) {
+      toastBusinessError(err)
     }
   }
 
@@ -186,15 +181,15 @@ export default function WishInteractionBar({
       Taro.showToast({ title: '写一句祝福吧', icon: 'none' })
       return
     }
-    const res = await wishApi.createInteraction(wishId, { type: 'BLESS', content })
-    if (res.data.success) {
+    try {
+      const res = await wishApi.createInteraction(wishId, { type: 'BLESS', content })
       onCountsChange({ blessCount: res.data.data.blessCount })
       refreshMyInteractions()
       setBlessPanelVisible(false)
       onBlessed?.()
       Taro.showToast({ title: '祝福已送达 🌟', icon: 'none' })
-    } else {
-      toastBusinessError(res.data)
+    } catch (err) {
+      toastBusinessError(err)
     }
   }
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { View, Text, Textarea, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { notificationApi } from '@/api/notification'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
@@ -106,8 +107,8 @@ export default function ChatPage() {
       } else {
         await loadMessages(conversationId, true)
       }
-    } catch {
-      Taro.showToast({ title: '发送失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '发送失败'), icon: 'none' })
     } finally {
       setSending(false)
     }
@@ -128,9 +129,7 @@ export default function ChatPage() {
           await notificationApi.recallMessage(msg.id)
           setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, isRecalled: true } : m)))
         } catch (err) {
-          const message =
-            (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '撤回失败'
-          Taro.showToast({ title: message, icon: 'none' })
+          Taro.showToast({ title: errorMessage(err, '撤回失败'), icon: 'none' })
         }
       },
     })

@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { communityApi } from '@/api/community'
 import { productApi } from '@/api/product'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Post, Product } from '@/types'
 
@@ -160,8 +161,8 @@ export default function SearchScreen() {
           try {
             await communityApi.clearSearchHistory()
             setSearchHistory([])
-          } catch {
-            Alert.alert('错误', '清除失败')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '清除失败'))
           }
         },
       },

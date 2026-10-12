@@ -1779,7 +1779,7 @@ function ChatPanel({ petName }: { petName: string }) {
             }
         } catch {
             // PET-14/§6.3：断网/超时（未知结果）——按原意图键查询终态，不生成新意图
-            const requestKey = getPersistedIntentKey('/pet/chat', { message: text })
+            const requestKey = getPersistedIntentKey('POST', '/pet/chat', { message: text })
             if (!requestKey) {
                 message.warning('网络不稳定，请重试')
                 return

@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { marketingApi } from '@/api/marketing'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 interface SeckillActivity {
@@ -270,10 +271,8 @@ export default function SeckillPage() {
               } else {
                 Alert.alert('抢购失败', finalResult.message || '请稍后重试')
               }
-            } catch (err) {
-              const message =
-                (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
-              Alert.alert('抢购失败', message || '请稍后重试')
+            } catch (error) {
+              Alert.alert('抢购失败', errorMessage(error, '请稍后重试'))
             } finally {
               setBuyingProductId(null)
             }

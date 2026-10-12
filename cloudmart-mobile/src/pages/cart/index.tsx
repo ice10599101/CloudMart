@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { cartApi } from '@/api/cart'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { CartItem } from '@/types'
@@ -63,8 +64,8 @@ export default function CartPage() {
       newItems[index] = { ...item, quantity: newQuantity }
       setItems(newItems)
       recalculate(newItems)
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -81,8 +82,8 @@ export default function CartPage() {
           setItems(newItems)
           recalculate(newItems)
           Taro.showToast({ title: '已移除', icon: 'success' })
-        } catch {
-          Taro.showToast({ title: '删除失败', icon: 'none' })
+        } catch (err) {
+          Taro.showToast({ title: errorMessage(err, '删除失败'), icon: 'none' })
         }
       },
     })
@@ -100,8 +101,8 @@ export default function CartPage() {
           setTotalPrice(0)
           setAllChecked(false)
           Taro.showToast({ title: '已清空', icon: 'success' })
-        } catch {
-          Taro.showToast({ title: '清空失败', icon: 'none' })
+        } catch (err) {
+          Taro.showToast({ title: errorMessage(err, '清空失败'), icon: 'none' })
         }
       },
     })
@@ -123,8 +124,8 @@ export default function CartPage() {
           await cartApi.clearChecked()
           await loadCart()
           Taro.showToast({ title: '已删除选中商品', icon: 'success' })
-        } catch {
-          Taro.showToast({ title: '删除失败', icon: 'none' })
+        } catch (err) {
+          Taro.showToast({ title: errorMessage(err, '删除失败'), icon: 'none' })
         }
       },
     })

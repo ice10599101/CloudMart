@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { cartApi } from '@/api/cart'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { CartItem } from '@/types'
 
@@ -239,9 +240,10 @@ export default function CartScreen() {
     if (item) {
       try {
         await cartApi.updateItem(id, { checked: !item.checked })
-      } catch {
+      } catch (error) {
         // 回滚
         setCartItems((prev) => prev.map((i) => (i.id === id ? { ...i, checked: item.checked } : i)))
+        Alert.alert('操作失败', errorMessage(error, '请稍后再试'))
       }
     }
   }, [cartItems])
@@ -251,8 +253,9 @@ export default function CartScreen() {
     setCartItems((prev) => prev.map((item) => ({ ...item, checked: newChecked && !item.invalid })))
     try {
       await Promise.all(selectableItems.map((item) => cartApi.updateItem(item.skuId ?? item.id, { checked: newChecked })))
-    } catch {
+    } catch (error) {
       setCartItems((prev) => prev.map((item) => ({ ...item, checked: !newChecked && !item.invalid })))
+      Alert.alert('操作失败', errorMessage(error, '请稍后再试'))
     }
   }, [isAllChecked, selectableItems])
 
@@ -260,11 +263,12 @@ export default function CartScreen() {
     setCartItems((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
     try {
       await cartApi.updateItem(id, { quantity })
-    } catch {
+    } catch (error) {
       const item = cartItems.find((i) => i.id === id)
       if (item) {
         setCartItems((prev) => prev.map((i) => (i.id === id ? { ...i, quantity: item.quantity } : i)))
       }
+      Alert.alert('操作失败', errorMessage(error, '请稍后再试'))
     }
   }, [cartItems])
 
@@ -278,8 +282,8 @@ export default function CartScreen() {
           setCartItems((prev) => prev.filter((item) => item.id !== id))
           try {
             await cartApi.removeItem(id)
-          } catch {
-            Alert.alert('错误', '删除失败')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '删除失败'))
             fetchCart()
           }
         },

@@ -12,6 +12,7 @@ import {
   type AfterSaleCase,
   type AfterSaleTimelineEntry,
 } from '@/api/after-sale'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 /** 时间线动作文案（对齐后端 AfterSaleCaseEvent） */
@@ -58,8 +59,8 @@ export default function AfterSaleDetailScreen() {
         setDetail(data)
         resolveAssetUrls(data.attachmentFileIds).then(setAttachmentUrls).catch(() => setAttachmentUrls([]))
       }
-    } catch {
-      Alert.alert('错误', '加载售后单失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '加载售后单失败'))
     } finally {
       setLoading(false)
     }
@@ -81,8 +82,8 @@ export default function AfterSaleDetailScreen() {
             await cancelAfterSale(detail.id)
             Alert.alert('提示', '已撤销')
             fetchDetail()
-          } catch {
-            Alert.alert('错误', '撤销失败，请稍后重试')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '撤销失败，请稍后重试'))
           }
         },
       },
@@ -101,8 +102,8 @@ export default function AfterSaleDetailScreen() {
       setShippingOpen(false)
       Alert.alert('提示', '运单已登记')
       fetchDetail()
-    } catch {
-      Alert.alert('错误', '登记失败，请稍后重试')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '登记失败，请稍后重试'))
     } finally {
       setSubmitting(false)
     }

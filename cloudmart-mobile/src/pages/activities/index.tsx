@@ -2,6 +2,7 @@ import { View, Text, ScrollView, Input } from '@tarojs/components'
 import { useCallback, useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import { ACTIVITY_TYPE_LABELS, type ActivityItem, type ActivityBoardMember } from '@/types'
@@ -35,7 +36,7 @@ export default function ActivitiesPage() {
     setLoading(true)
     try {
       const res = await wishApi.listActivities(type ? { type } : undefined)
-      if (res.data.success) setActivities(res.data.data ?? [])
+      setActivities(res.data.data ?? [])
     } catch {
       // 列表加载失败保持空态即可
     } finally {
@@ -48,8 +49,7 @@ export default function ActivitiesPage() {
   }, [typeFilter, loadList])
 
   const toastError = (err: unknown, fallback: string) => {
-    const errNode = err as { data?: { error?: { message?: string } } }
-    Taro.showToast({ title: errNode?.data?.error?.message || fallback, icon: 'none' })
+    Taro.showToast({ title: errorMessage(err, fallback), icon: 'none' })
   }
 
   const requireLogin = () => {
@@ -61,8 +61,8 @@ export default function ActivitiesPage() {
   const openDetail = async (id: number | string) => {
     try {
       const [detailRes, progressRes] = await Promise.all([wishApi.getActivity(id), wishApi.getActivityProgress(id)])
-      if (detailRes.data.success) setDetail(detailRes.data.data)
-      if (progressRes.data.success) setProgress(progressRes.data.data)
+      setDetail(detailRes.data.data)
+      setProgress(progressRes.data.data)
     } catch {
       // 详情加载失败保持列表
     }
@@ -71,12 +71,10 @@ export default function ActivitiesPage() {
   const handleJoin = async (id: number | string) => {
     if (!requireLogin()) return
     try {
-      const res = await wishApi.joinActivity(id)
-      if (res.data.success) {
-        Taro.showToast({ title: '参与成功', icon: 'none' })
-        setDetail(null)
-        loadList(typeFilter)
-      }
+      await wishApi.joinActivity(id)
+      Taro.showToast({ title: '参与成功', icon: 'none' })
+      setDetail(null)
+      loadList(typeFilter)
     } catch (err) {
       toastError(err, '参与失败，请稍后重试')
     }
@@ -86,12 +84,10 @@ export default function ActivitiesPage() {
     if (!requireLogin()) return
     try {
       const res = await wishApi.getPartnerBoard(id)
-      if (res.data.success) {
-        setBoard(res.data.data?.members ?? [])
-        setBoardVisible(true)
-      }
-    } catch {
-      Taro.showToast({ title: '仅组内成员可查看看板', icon: 'none' })
+      setBoard(res.data.data?.members ?? [])
+      setBoardVisible(true)
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '仅组内成员可查看看板'), icon: 'none' })
     }
   }
 
@@ -100,13 +96,11 @@ export default function ActivitiesPage() {
     const skills = applySkills.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
     setApplying(true)
     try {
-      const res = await wishApi.applyPartner(detail.id, applyWishId.trim(), skills.length ? skills : undefined)
-      if (res.data.success) {
-        Taro.showToast({ title: '申请已提交，等待审批', icon: 'none' })
-        setApplyVisible(false)
-        setApplyWishId('')
-        setApplySkills('')
-      }
+      await wishApi.applyPartner(detail.id, applyWishId.trim(), skills.length ? skills : undefined)
+      Taro.showToast({ title: '申请已提交，等待审批', icon: 'none' })
+      setApplyVisible(false)
+      setApplyWishId('')
+      setApplySkills('')
     } catch (err) {
       toastError(err, '申请失败，请稍后重试')
     } finally {

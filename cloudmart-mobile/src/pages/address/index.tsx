@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { userApi } from '@/api/user'
+import { errorMessage } from '@/utils/request'
 import type { Address } from '@/types'
 import styles from './index.module.scss'
 
@@ -62,8 +63,8 @@ export default function AddressPage() {
       await userApi.deleteAddress(id)
       Taro.showToast({ title: '删除成功', icon: 'success' })
       loadAddresses()
-    } catch {
-      Taro.showToast({ title: '删除失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '删除失败'), icon: 'none' })
     }
   }
 
@@ -72,8 +73,8 @@ export default function AddressPage() {
       await userApi.setDefaultAddress(id)
       Taro.showToast({ title: '已设为默认', icon: 'success' })
       loadAddresses()
-    } catch {
-      Taro.showToast({ title: '设置失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '设置失败'), icon: 'none' })
     }
   }
 
@@ -104,8 +105,8 @@ export default function AddressPage() {
       Taro.showToast({ title: '保存成功', icon: 'success' })
       setShowForm(false)
       loadAddresses()
-    } catch {
-      Taro.showToast({ title: '保存失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '保存失败'), icon: 'none' })
     }
   }
 

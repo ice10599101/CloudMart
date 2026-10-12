@@ -148,9 +148,7 @@ export default function WishDetail() {
         setAppealStatement('')
       }
     } catch (error) {
-      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
-        ?.response?.data?.error?.message
-      message.warning(msg ?? '提交失败，请稍后重试')
+      message.warning((error as Error).message || '提交失败，请稍后重试')
     } finally {
       setAppealSaving(false)
     }
@@ -373,15 +371,11 @@ export default function WishDetail() {
   // 已进入社区流转/审核中的撤回会被拒绝并回显原因，撤回成功刷新详情）
   const handleWithdrawFulfillment = async () => {
     try {
-      const res = await withdrawFulfillment(wishId)
-      if (res.data.success) {
-        message.success('还愿已撤回，可重新提交')
-        setRefreshTick((tick) => tick + 1)
-      }
+      await withdrawFulfillment(wishId)
+      message.success('还愿已撤回，可重新提交')
+      setRefreshTick((tick) => tick + 1)
     } catch (error) {
-      const code = (error as { response?: { data?: { error?: { code?: string; message?: string } } } })
-        ?.response?.data?.error
-      message.warning(code?.message ?? '撤回失败（可能已进入社区流转），已刷新')
+      message.warning((error as Error).message || '撤回失败（可能已进入社区流转），已刷新')
       setRefreshTick((tick) => tick + 1)
     }
   }

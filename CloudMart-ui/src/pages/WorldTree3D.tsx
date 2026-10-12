@@ -1053,14 +1053,10 @@ export default function WorldTree3D() {
     if (!selectedFruit || sparkCollecting) return
     setSparkCollecting(true)
     try {
-      const res = await collectSparkWish(selectedFruit.id)
-      if (res.data.success) {
-        message.success('已收入收藏馆 · 星火展区')
-      }
+      await collectSparkWish(selectedFruit.id)
+      message.success('已收入收藏馆 · 星火展区')
     } catch (error) {
-      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
-        ?.response?.data?.error?.message
-      message.warning(msg ?? '收藏失败，请稍后重试')
+      message.warning((error as Error).message || '收藏失败，请稍后重试')
     } finally {
       setSparkCollecting(false)
     }

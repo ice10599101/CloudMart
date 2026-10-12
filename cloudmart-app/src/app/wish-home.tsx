@@ -19,9 +19,7 @@ export default function WishHomeScreen() {
     const fetchData = async () => {
       try {
         const res = await wishApi.getHome()
-        if (res.data?.success) {
-          setData(res.data.data)
-        }
+        setData(res.data.data)
       } catch {
         // 错误已由 request 拦截器处理
       } finally {

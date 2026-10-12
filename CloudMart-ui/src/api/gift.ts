@@ -51,7 +51,11 @@ export function listGifts() {
   return request.get<ApiResponse<GiftItem[]>>('/wish/gifts')
 }
 
-/** 送礼物（余额不足 402 / 下架 409 / 上限 429；重复提交携带 X-Idempotency-Key） */
+/**
+ * 送礼物（余额不足 402 / 下架 409 / 上限 429；重复提交携带 X-Idempotency-Key）。
+ * R25：星光扣费类操作使用持久意图，wish 幂等层按同键重放原结果（24h），
+ * 断网/重启重试绝不产生第二笔扣费。
+ */
 export function sendGift(data: {
   giftId: number
   count: number
@@ -59,7 +63,7 @@ export function sendGift(data: {
   targetId: number | string
   message?: string
 }) {
-  return request.post<ApiResponse<SendGiftResult>>('/wish/gifts/send', data)
+  return request.post<ApiResponse<SendGiftResult>>('/wish/gifts/send', data, { persistentIntent: true })
 }
 
 /** 我送出的礼物（cursor 分页） */

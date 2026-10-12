@@ -54,10 +54,8 @@ export function reportTimezoneIfNeeded(): void {
 
     wishApi
         .reportMyTimezone(timezone, offsetMinutes)
-        .then((res) => {
-            if (res.data.success) {
-                Taro.setStorageSync(CACHE_KEY, JSON.stringify({ timezone, offsetMinutes } satisfies ReportedCache))
-            }
+        .then(() => {
+            Taro.setStorageSync(CACHE_KEY, JSON.stringify({ timezone, offsetMinutes } satisfies ReportedCache))
         })
         .catch(() => {
             // 静默失败：下次进入胶囊页重试

@@ -5,6 +5,7 @@ import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import type { BrowseHistoryItem } from '@/types'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 interface PostItem {
@@ -142,8 +143,8 @@ export default function CollectionsScreen() {
             await communityApi.updatePost(id, { status: 1 })
             Alert.alert('提示', '发布成功')
             fetchDrafts()
-          } catch {
-            Alert.alert('错误', '发布失败')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '发布失败'))
           }
         },
       },
@@ -161,8 +162,8 @@ export default function CollectionsScreen() {
             await communityApi.deletePost(id)
             Alert.alert('提示', '删除成功')
             fetchDrafts()
-          } catch {
-            Alert.alert('错误', '删除失败')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '删除失败'))
           }
         },
       },

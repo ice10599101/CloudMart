@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
 import { reportTimezoneIfNeeded } from '@/utils/wish-timezone'
+import { errorMessage } from '@/utils/request'
 import type { CapsuleItem, CapsuleStatus } from '@/types'
 import styles from './index.module.scss'
 
@@ -74,11 +75,9 @@ export default function CapsuleListPage() {
         wishApi
             .listMyCapsules({ status: statusFilter, pageSize: PAGE_SIZE })
             .then((res) => {
-                if (res.data.success) {
-                    setItems(res.data.data)
-                    setCursor(res.data.meta?.nextCursor ?? undefined)
-                    setHasMore(Boolean(res.data.meta?.hasMore))
-                }
+                setItems(res.data.data)
+                setCursor(res.data.meta?.nextCursor ?? undefined)
+                setHasMore(Boolean(res.data.meta?.hasMore))
             })
             .catch(() => {
                 // 错误已由 request 处理
@@ -91,11 +90,9 @@ export default function CapsuleListPage() {
         setLoadingMore(true)
         try {
             const res = await wishApi.listMyCapsules({ status: statusFilter, cursor, pageSize: PAGE_SIZE })
-            if (res.data.success) {
-                setItems((prev) => [...prev, ...res.data.data])
-                setCursor(res.data.meta?.nextCursor ?? undefined)
-                setHasMore(Boolean(res.data.meta?.hasMore))
-            }
+            setItems((prev) => [...prev, ...res.data.data])
+            setCursor(res.data.meta?.nextCursor ?? undefined)
+            setHasMore(Boolean(res.data.meta?.hasMore))
         } catch {
             // 静默：下拉重试
         } finally {
@@ -114,15 +111,13 @@ export default function CapsuleListPage() {
                 wishApi
                     .cancelCapsule(capsule.id)
                     .then((r) => {
-                        if (r.data.success) {
-                            Taro.showToast({ title: '已取消', icon: 'success' })
-                            setItems((prev) =>
-                                prev.map((it) => (it.id === capsule.id ? r.data.data : it)),
-                            )
-                        }
+                        Taro.showToast({ title: '已取消', icon: 'success' })
+                        setItems((prev) =>
+                            prev.map((it) => (it.id === capsule.id ? r.data.data : it)),
+                        )
                     })
-                    .catch(() => {
-                        // 错误已由 request 处理
+                    .catch((err) => {
+                        Taro.showToast({ title: errorMessage(err, '取消失败，请稍后再试'), icon: 'none' })
                     })
             },
         })
@@ -148,8 +143,8 @@ export default function CapsuleListPage() {
                     await wishApi.applyCapsuleToWall(capsule.id)
                     Taro.showToast({ title: '已提交审核', icon: 'success' })
                     patchWallStatus(capsule.id, 1)
-                } catch {
-                    // 409 等错误已由 request 拦截器提示
+                } catch (err) {
+                    Taro.showToast({ title: errorMessage(err, '提交审核失败，请稍后再试'), icon: 'none' })
                 }
             },
         })
@@ -170,8 +165,8 @@ export default function CapsuleListPage() {
                     await wishApi.withdrawCapsuleWall(capsule.id)
                     Taro.showToast({ title: isApproved ? '已撤下' : '已撤回', icon: 'success' })
                     patchWallStatus(capsule.id, isApproved ? 4 : 0, null)
-                } catch {
-                    // 与管理员裁决竞争等 409 由拦截器提示
+                } catch (err) {
+                    Taro.showToast({ title: errorMessage(err, '操作失败，请稍后再试'), icon: 'none' })
                 }
             },
         })

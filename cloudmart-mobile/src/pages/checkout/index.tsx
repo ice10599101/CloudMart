@@ -6,6 +6,7 @@ import { userApi } from '@/api/user'
 import { cartApi } from '@/api/cart'
 import { productApi } from '@/api/product'
 import { marketingApi } from '@/api/marketing'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { Product, UserCoupon } from '@/types'
@@ -133,6 +134,8 @@ export default function CheckoutPage() {
       } catch {
         // 券服务不可用时允许无券下单
       }
+    } catch {
+      // 商品/购物车初始化失败保留空态
     } finally {
       setLoading(false)
     }
@@ -186,10 +189,7 @@ export default function CheckoutPage() {
         Taro.redirectTo({ url: `/pages/payment/index?id=${orderId}` })
       }, 1500)
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
-        '下单失败'
-      Taro.showToast({ title: message, icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '下单失败'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }

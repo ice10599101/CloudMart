@@ -63,7 +63,7 @@ export default function PetWalletPage() {
     setWalletUnavailable(false)
     try {
       const res = await petApi.getWallet()
-      if (res.data.success && res.data.data) {
+      if (res.data.data) {
         setWallet(res.data.data)
       } else {
         setWalletUnavailable(true)
@@ -88,7 +88,7 @@ export default function PetWalletPage() {
           direction: filter || undefined,
           cursor: reset ? undefined : (cursor ?? undefined),
         })
-        if (res.data.success && res.data.data) {
+        if (res.data.data) {
           const page = res.data.data
           setTransactions((prev) => (reset ? page : [...prev, ...page]))
           const meta = (res.data as { meta?: { nextCursor?: string | number | null } }).meta
@@ -120,7 +120,7 @@ export default function PetWalletPage() {
         size: PAGE_SIZE,
         cursor: reset ? undefined : (orderCursor ?? undefined),
       })
-      if (res.data.success && res.data.data) {
+      if (res.data.data) {
         const page = res.data.data
         setOrders((prev) => (reset ? page.items : [...prev, ...page.items]))
         setOrderCursor(page.nextCursor)

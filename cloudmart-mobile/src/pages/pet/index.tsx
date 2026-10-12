@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, Input, Button, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow, useDidHide } from '@tarojs/taro'
 import {
-  petApi, petCompanionApi,
+  petApi, petApiV2, petCompanionApi,
   type PetAnniversary,
   type PetChatPersona,
   type PetSeasonHistoryItem,
@@ -35,6 +35,7 @@ import {
   type PetEquipPreview,
 } from '@/api/pet'
 import { notificationApi } from '@/api/notification'
+import { getPersistedIntentKey } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import { useThemeClass } from '@/composables/useThemeClass'
@@ -294,7 +295,7 @@ export default function PetPage() {
     petCompanionApi
       .getOnboarding()
       .then(({ data: res }) => {
-        if (res.success && res.data) setOnboarding(res.data)
+        setOnboarding(res.data)
       })
       .catch(() => undefined)
   }, [])
@@ -341,32 +342,30 @@ export default function PetPage() {
     try {
       if (tab === 'shop') {
         const { data: res } = await petApi.getShop()
-        if (res.success && res.data) {
-          setShopBalance(res.data.balance)
-          setShopItems(res.data.items || [])
-        }
+        setShopBalance(res.data.balance)
+        setShopItems(res.data.items || [])
       } else if (tab === 'inventory') {
         const { data: res } = await petApi.listInventory()
-        if (res.success) setInventory(res.data || [])
+        setInventory(res.data || [])
       } else if (tab === 'skills') {
         const { data: res } = await petApi.listSkills()
-        if (res.success) setSkills(res.data || [])
+        setSkills(res.data || [])
       } else if (tab === 'evolution') {
         const { data: res } = await petApi.getEvolution()
-        if (res.success) setEvolution(res.data)
+        setEvolution(res.data)
       } else if (tab === 'events') {
         const { data: res } = await petApi.listEvents()
-        if (res.success) setEvents(res.data || [])
+        setEvents(res.data || [])
       } else if (tab === 'visit') {
         const { data: res } = await petApi.listVisitNeighbors()
-        if (res.success) setNeighbors(res.data || [])
+        setNeighbors(res.data || [])
         // 访客日志（§6）：随串门页签加载，失败静默
         petApi.listTodayVisitors()
-          .then(({ data: r }) => { if (r.success) setTodayVisitors(r.data || []) })
+          .then(({ data: r }) => { setTodayVisitors(r.data || []) })
           .catch(() => undefined)
       } else {
         const { data: res } = await petApi.listMyPets()
-        if (res.success) setMyPets(res.data || [])
+        setMyPets(res.data || [])
       }
     } catch (error) {
       toast(friendlyError(error))
@@ -377,21 +376,65 @@ export default function PetPage() {
   const runCare = async (key: string, action: () => Promise<{ data: { success: boolean } }>, successText: string) => {
     setCarePending(key)
     try {
-      const { data: res } = await action()
-      if (res.success) {
-        toast(successText)
-        await loadCareData(careTab)
-        refresh()
-        // 喂食可能消耗了双倍权益（§6）
-        if (key.startsWith('feed-')) {
-          petApi.getLinkedProductEntitlement()
-            .then(({ data: r }) => { if (r.success) setFeedDoubled(r.data?.usable === true) })
-            .catch(() => undefined)
-        }
+      await action()
+      toast(successText)
+      await loadCareData(careTab)
+      refresh()
+      // 喂食可能消耗了双倍权益（§6）
+      if (key.startsWith('feed-')) {
+        petApi.getLinkedProductEntitlement()
+          .then(({ data: r }) => { setFeedDoubled(r.data?.usable === true) })
+          .catch(() => undefined)
       }
     } catch (error) {
       const code = (error as { code?: string }).code
       toast((code && CARE_ERROR_HINT[code]) || '请稍后再试')
+    } finally {
+      setCarePending(null)
+    }
+  }
+
+  /**
+   * R25：购买（扣费类）专用动作——断网/超时结果未知时，按持久意图原键查购买状态，
+   * 绝不重新下单（同键重放由服务端收敛，未知时先查原单）。
+   */
+  const runPurchase = async (item: PetShopItem) => {
+    const payload = { itemType: item.itemType, itemCode: item.code }
+    setCarePending(`buy-${item.code}`)
+    try {
+      await petApi.buyItem(payload)
+      toast('购买成功！')
+      await loadCareData(careTab)
+      refresh()
+    } catch (error) {
+      const code = (error as { code?: string }).code
+      if (code === 'PET_REQUEST_IN_PROGRESS') {
+        toast('购买正在处理中，稍后查看背包')
+        return
+      }
+      if (code === 'NETWORK_ERROR') {
+        const requestKey = getPersistedIntentKey('POST', '/pet/shop/buy', payload)
+        if (requestKey) {
+          try {
+            const { data: status } = await petApi.getPurchaseRequestStatus(requestKey)
+            if (status.data?.status === 'COMPLETED') {
+              toast('购买成功！')
+              await loadCareData(careTab)
+              refresh()
+              return
+            }
+            if (status.data?.status === 'PROCESSING') {
+              toast('购买正在处理中，稍后查看背包')
+              return
+            }
+          } catch {
+            // 查询也失败：落到通用网络提示
+          }
+        }
+        toast('网络不稳定，稍后可原样重试（不会重复扣款）')
+        return
+      }
+      toast((code && CARE_ERROR_HINT[code]) || friendlyError(error))
     } finally {
       setCarePending(null)
     }
@@ -424,11 +467,9 @@ export default function PetPage() {
     setRedeeming(true)
     try {
       const res = await petApi.redeemLinkedProduct(redeemCode.trim())
-      if (res.data.success) {
-        setFeedDoubled(res.data.data?.usable === true)
-        setRedeemCode('')
-        toast('核销成功！下一次喂食效果翻倍')
-      }
+      setFeedDoubled(res.data.data?.usable === true)
+      setRedeemCode('')
+      toast('核销成功！下一次喂食效果翻倍')
     } catch (error) {
       const code = (error as { code?: string }).code
       toast(code === 'PET_VALIDATION_ERROR' ? '兑换码无效或已核销' : '核销失败，请稍后再试')
@@ -443,15 +484,13 @@ export default function PetPage() {
     setChatLoadingMore(true)
     try {
       const { data: res } = await petApi.chatHistory({ cursor: chatCursor, pageSize: 30 })
-      if (res.success) {
-        const older = (res.data || []).slice().reverse()
-        if (older.length === 0) {
-          setChatHasMore(false)
-        } else {
-          setChatMessages((prev) => [...older, ...prev])
-          setChatCursor(older[0]?.messageId ?? null)
-          setChatHasMore(older.length >= 30)
-        }
+      const older = (res.data || []).slice().reverse()
+      if (older.length === 0) {
+        setChatHasMore(false)
+      } else {
+        setChatMessages((prev) => [...older, ...prev])
+        setChatCursor(older[0]?.messageId ?? null)
+        setChatHasMore(older.length >= 30)
       }
     } catch (error) {
       toast(friendlyError(error))
@@ -464,9 +503,7 @@ export default function PetPage() {
   const loadIntimacy = useCallback(async () => {
     try {
       const { data: res } = await petApi.getIntimacy()
-      if (res.success && res.data) {
-        setIntimacy(res.data)
-      }
+      setIntimacy(res.data)
     } catch {
       // 展示型数据：忽略
     }
@@ -497,13 +534,11 @@ export default function PetPage() {
       }
       void (async () => {
         try {
-          const { data: res } = await petApi.companionHeartbeat(60)
-          if (res.success && res.data) {
-            // FE-02：心跳返回会话视图，亲密度面板另查 overview，禁止互相覆盖
-            heartbeatFailuresRef.current = 0
-            setCompanionWarn(false)
-            await loadIntimacy()
-          }
+          await petApi.companionHeartbeat(60)
+          // FE-02：心跳返回会话视图，亲密度面板另查 overview，禁止互相覆盖
+          heartbeatFailuresRef.current = 0
+          setCompanionWarn(false)
+          await loadIntimacy()
         } catch {
           heartbeatFailuresRef.current += 1
           if (heartbeatFailuresRef.current >= 3) {
@@ -527,7 +562,7 @@ export default function PetPage() {
     if (!pet) return
     try {
       const { data: res } = await petCompanionApi.getActions(pet.petId)
-      if (res.success) setActions(res.data)
+      setActions(res.data)
     } catch {
       // 辅助信息：失败时清空（不显示 chips），由下一次 refresh 重试
       setActions([])
@@ -548,7 +583,7 @@ export default function PetPage() {
     }
     try {
       const { data: res } = await petCompanionApi.previewEquip(itemCode)
-      if (res.success) setEquipPreview(res.data)
+      setEquipPreview(res.data)
     } catch {
       toast('预览未成功，稍后再试')
     }
@@ -563,10 +598,8 @@ export default function PetPage() {
       if (generation !== refreshGenerationRef.current) {
         return
       }
-      if (res.success && res.data) {
-        setPet(res.data)
-        setNoPet(false)
-      }
+      setPet(res.data)
+      setNoPet(false)
     } catch (error) {
       if (generation !== refreshGenerationRef.current) {
         return
@@ -591,9 +624,7 @@ export default function PetPage() {
         void (async () => {
           try {
             const { data: res } = await petApi.getChatPersona()
-            if (res.success && res.data) {
-              setPersona(res.data)
-            }
+            setPersona(res.data)
           } catch {
             // 人设卡展示型数据：忽略
           }
@@ -601,61 +632,59 @@ export default function PetPage() {
       }
       if (key === 'work') {
         const { data: res } = await petApi.listJobs()
-        if (res.success) setJobs(res.data || [])
+        setJobs(res.data || [])
       } else if (key === 'study') {
         const { data: res } = await petApi.listStudies()
-        if (res.success) setStudies(res.data || [])
+        setStudies(res.data || [])
       } else if (key === 'bottle') {
         const { data: res } = await petApi.getBottleStatus()
-        if (res.success) setBottle(res.data)
+        setBottle(res.data)
       } else if (key === 'battle') {
         const [opponentRes, historyRes] = await Promise.all([
           petApi.listOpponents(),
           petApi.listBattleHistory({ page: 1, pageSize: 10 }),
         ])
-        if (opponentRes.data.success) setOpponents(opponentRes.data.data || [])
-        if (historyRes.data.success) setHistory(historyRes.data.data || [])
+        setOpponents(opponentRes.data.data || [])
+        setHistory(historyRes.data.data || [])
       } else if (key === 'achievements') {
         // 成就墙 + 宠物动态（提醒即动态数据源，与 Web 端同一口径）
         const [achRes, remRes] = await Promise.all([petApi.listAchievements(), petApi.listReminders()])
-        if (achRes.data.success) setAchievements(achRes.data.data || [])
-        if (remRes.data.success) setReminders(remRes.data.data || [])
+        setAchievements(achRes.data.data || [])
+        setReminders(remRes.data.data || [])
       } else if (key === 'chat') {
         const { data: res } = await petApi.chatHistory({ pageSize: 30 })
-        if (res.success) {
-          const page = (res.data || []).slice().reverse()
-          setChatMessages(page)
-          const oldest = page[0]
-          setChatCursor(oldest ? oldest.messageId : null)
-          setChatHasMore((res.data || []).length >= 30 && Boolean(oldest))
-        }
+        const page = (res.data || []).slice().reverse()
+        setChatMessages(page)
+        const oldest = page[0]
+        setChatCursor(oldest ? oldest.messageId : null)
+        setChatHasMore((res.data || []).length >= 30 && Boolean(oldest))
       } else if (key === 'care') {
         await loadCareData(careTab)
         // 实物商品联动（§6）：权益随养成页签刷新
         petApi.getLinkedProductEntitlement()
-          .then(({ data: r }) => { if (r.success) setFeedDoubled(r.data?.usable === true) })
+          .then(({ data: r }) => { setFeedDoubled(r.data?.usable === true) })
           .catch(() => undefined)
       } else if (key === 'rankings') {
         const { data: res } = await petApi.getRankings(rankingType)
-        if (res.success) setRankings(res.data)
+        setRankings(res.data)
         // F2：赛季榜 + 历届名次惰性加载（失败静默）
         try {
           const [seasonRes, historyRes] = await Promise.all([
             petApi.getSeasonRanking(),
             petApi.getSeasonHistory(),
           ])
-          if (seasonRes.data.success) setSeason(seasonRes.data.data)
+          setSeason(seasonRes.data.data)
           // 赛季通行证（§6）
           petApi.getSeasonPass()
-            .then(({ data: r }) => { if (r.success) setSeasonPass(r.data) })
+            .then(({ data: r }) => { setSeasonPass(r.data) })
             .catch(() => undefined)
-          if (historyRes.data.success) setSeasonHistory(historyRes.data.data || [])
+          setSeasonHistory(historyRes.data.data || [])
         } catch {
           // 赛季为可选增强，失败不阻断排行榜
         }
       } else if (key === 'reminders') {
         const { data: res } = await petApi.listReminders()
-        if (res.success) setReminders(res.data || [])
+        setReminders(res.data || [])
       }
     } catch (error) {
       toast(friendlyError(error))
@@ -689,7 +718,7 @@ export default function PetPage() {
   useEffect(() => {
     if (!pet) return
     petApi.getReminderUnreadCount()
-      .then(({ data: res }) => { if (res.success) setReminderUnread(res.data ?? 0) })
+      .then(({ data: res }) => { setReminderUnread(res.data ?? 0) })
       .catch(() => setReminderUnread(0))
   }, [pet, reminders])
 
@@ -727,9 +756,7 @@ export default function PetPage() {
     void (async () => {
       try {
         const { data: res } = await petApi.getAnniversaries()
-        if (res.success && res.data) {
-          setAnniversary(res.data)
-        }
+        setAnniversary(res.data)
       } catch {
         // 展示型数据：忽略
       }
@@ -767,7 +794,7 @@ export default function PetPage() {
       const foods = (res.data || []).filter(
         (it) => it.itemType === 'FOOD' && (it.quantity ?? 0) > 0,
       )
-      if (!res.success || foods.length === 0) {
+      if (foods.length === 0) {
         toast('背包里没有食物，去商城买一点吧')
         return
       }
@@ -780,10 +807,8 @@ export default function PetPage() {
       setActing(true)
       try {
         const { data: feedRes } = await petApi.feedItem(foods[index].code)
-        if (feedRes.success && feedRes.data) {
-          setPet(feedRes.data)
-          toast('好嘞！')
-        }
+        setPet(feedRes.data)
+        toast('好嘞！')
       } catch (error) {
         toast(friendlyError(error))
       } finally {
@@ -803,10 +828,8 @@ export default function PetPage() {
           : action === 'play' ? await petApi.play()
             : action === 'clean' ? await petApi.clean()
               : await petApi.rest()
-      if (res.success && res.data) {
-        setPet(res.data)
-        toast('好嘞！')
-      }
+      setPet(res.data)
+      toast('好嘞！')
     } catch (error) {
       toast(friendlyError(error))
     } finally {
@@ -821,7 +844,7 @@ export default function PetPage() {
       return
     }
     try {
-      const { data: res } = await petApi.createPet({
+      await petApi.createPet({
         name: adoptName.trim(),
         species: adoptSpecies as PetInfo['species'],
         gender: adoptGender as PetInfo['gender'],
@@ -829,11 +852,9 @@ export default function PetPage() {
         color: adoptColor,
         accessory: adoptAccessory,
       })
-      if (res.success) {
-        Taro.showToast({ title: '领养成功！', icon: 'success' })
-        setAdoptName('')
-        refresh()
-      }
+      Taro.showToast({ title: '领养成功！', icon: 'success' })
+      setAdoptName('')
+      refresh()
     } catch (error) {
       toast(friendlyError(error))
     }
@@ -850,14 +871,14 @@ export default function PetPage() {
     const wantTitle = profileOwnerTitle.trim() && profileOwnerTitle.trim() !== (pet.ownerTitle ?? '主人')
     try {
       const { data: appearanceRes } = await petApi.updateAppearance({ color: profileColor, accessory: profileAccessory })
-      if (appearanceRes.success && appearanceRes.data) setPet(appearanceRes.data)
+      setPet(appearanceRes.data)
       if (wantRename) {
         const { data: renameRes } = await petApi.renamePet({ name: profileName.trim() })
-        if (renameRes.success && renameRes.data) setPet(renameRes.data)
+        setPet(renameRes.data)
       }
       if (wantTitle) {
         const { data: titleRes } = await petApi.setOwnerTitle(profileOwnerTitle.trim())
-        if (titleRes.success && titleRes.data) setPet(titleRes.data)
+        setPet(titleRes.data)
       }
       setProfileOpen(false)
       refresh()
@@ -883,7 +904,6 @@ export default function PetPage() {
   const openBottleResult = async () => {
     try {
       const { data: res } = await petApi.claimBottle()
-      if (!res.success) return
       const result = parseResult<PetBottleResult>(res.data.result)
       await loadPanelData('bottle')
       await refresh()
@@ -927,7 +947,7 @@ export default function PetPage() {
   const loadShareCard = async (type: Parameters<typeof petApi.getShareCard>[0]) => {
     try {
       const { data: res } = await petApi.getShareCard(type)
-      if (res.success && res.data) setShareCard(res.data)
+      setShareCard(res.data)
     } catch (error) {
       toast(friendlyError(error))
     }
@@ -1208,6 +1228,8 @@ export default function PetPage() {
                   petCompanionApi.skipOnboarding().then(() => {
                     setOnboarding({ ...onboarding, completed: true })
                     Taro.showToast({ title: '已跳过引导', icon: 'none' })
+                  }).catch((err) => {
+                    Taro.showToast({ title: friendlyError(err), icon: 'none' })
                   })
                 }
               >
@@ -1292,8 +1314,8 @@ export default function PetPage() {
                   {job.eligible ? (
                     <Button className={styles.miniBtn} onClick={async () => {
                       try {
-                        const { data: res } = await petApi.startWork(job.configId)
-                        if (res.success) { toast('开工啦！'); loadPanelData('work'); refresh() }
+                        await petApi.startWork(job.configId)
+                        toast('开工啦！'); loadPanelData('work'); refresh()
                       } catch (error) { toast(friendlyError(error)) }
                     }}>接单</Button>
                   ) : (
@@ -1304,8 +1326,8 @@ export default function PetPage() {
               {pet.claimableActivityType === 'WORK' && (
                 <Button className={styles.primaryBtn} onClick={async () => {
                   try {
-                    const { data: res } = await petApi.claimWork()
-                    if (res.success) { toast('奖励已领取！'); loadPanelData('work'); refresh() }
+                    await petApi.claimWork()
+                    toast('奖励已领取！'); loadPanelData('work'); refresh()
                   } catch (error) { toast(friendlyError(error)) }
                 }}>领取打工奖励</Button>
               )}
@@ -1327,8 +1349,8 @@ export default function PetPage() {
                   {study.eligible ? (
                     <Button className={styles.miniBtn} onClick={async () => {
                       try {
-                        const { data: res } = await petApi.startStudy(study.configId)
-                        if (res.success) { toast('开始读书啦'); loadPanelData('study'); refresh() }
+                        await petApi.startStudy(study.configId)
+                        toast('开始读书啦'); loadPanelData('study'); refresh()
                       } catch (error) { toast(friendlyError(error)) }
                     }}>上课</Button>
                   ) : (
@@ -1339,8 +1361,8 @@ export default function PetPage() {
               {pet.claimableActivityType === 'STUDY' && (
                 <Button className={styles.primaryBtn} onClick={async () => {
                   try {
-                    const { data: res } = await petApi.claimStudy()
-                    if (res.success) { toast('学习奖励已领取！'); loadPanelData('study'); refresh() }
+                    await petApi.claimStudy()
+                    toast('学习奖励已领取！'); loadPanelData('study'); refresh()
                   } catch (error) { toast(friendlyError(error)) }
                 }}>领取学习奖励</Button>
               )}
@@ -1363,12 +1385,10 @@ export default function PetPage() {
                       return
                     }
                     try {
-                      const { data: res } = await petApi.startBottle()
-                      if (res.success) {
-                        toast('宠物出发啦！30 分钟后回来看结果')
-                        loadPanelData('bottle')
-                        refresh()
-                      }
+                      await petApi.startBottle()
+                      toast('宠物出发啦！30 分钟后回来看结果')
+                      loadPanelData('bottle')
+                      refresh()
                     } catch (error) { toast(friendlyError(error)) }
                   }}
                 >
@@ -1389,7 +1409,7 @@ export default function PetPage() {
                     <Button className={styles.miniBtn} onClick={async () => {
                       try {
                         const { data: res } = await petApi.acceptBattle(battle.battleId)
-                        if (res.success) { presentBattle(res.data); loadPanelData('battle'); refresh() }
+                        presentBattle(res.data); loadPanelData('battle'); refresh()
                       } catch (error) { toast(friendlyError(error)) }
                     }}>应战</Button>
                     <Button className={styles.miniBtnGhost} onClick={async () => {
@@ -1409,11 +1429,9 @@ export default function PetPage() {
                     onClick={async () => {
                       try {
                         const { data: res } = await petApi.challenge(opponent.isWild ? { mode: 'PVE' } : { mode: 'PVP', defenderPetId: opponent.petId })
-                        if (res.success) {
-                          presentBattle(res.data)
-                          loadPanelData('battle')
-                          refresh()
-                        }
+                        presentBattle(res.data)
+                        loadPanelData('battle')
+                        refresh()
                       } catch (error) { toast(friendlyError(error)) }
                     }}
                   >
@@ -1431,7 +1449,7 @@ export default function PetPage() {
                   <View key={String(battle.battleId)} className={styles.historyRow} onClick={async () => {
                     try {
                       const { data: res } = await petApi.getBattleDetail(battle.battleId)
-                      if (res.success && res.data) presentBattle(res.data)
+                      presentBattle(res.data)
                     } catch (error) { toast(friendlyError(error)) }
                   }}>
                     <Text className={styles.historyText}>
@@ -1488,12 +1506,43 @@ export default function PetPage() {
                   setChatInput('')
                   try {
                     const { data: res } = await petApi.chat(text)
-                    if (res.success && res.data) {
+                    if (res.data) {
                       setChatMessages((prev) => [...prev, {
                         messageId: `${res.data.messageId}-u`, role: 'USER', content: text, isAiReply: false, createdAt: null,
                       }, res.data])
                     }
-                  } catch (error) { toast(friendlyError(error)) }
+                  } catch (error) {
+                    // R25：处理中提示等待；断网/超时（结果未知）按持久意图原键查终态，不生成新意图
+                    const code = (error as { code?: string }).code
+                    if (code === 'PET_REQUEST_IN_PROGRESS') {
+                      toast('它还在想回复…稍等片刻再查看结果')
+                      return
+                    }
+                    if (code === 'NETWORK_ERROR') {
+                      const requestKey = getPersistedIntentKey('POST', '/pet/chat', { message: text })
+                      if (requestKey) {
+                        try {
+                          const { data: status } = await petApiV2.getChatRequestStatus(requestKey)
+                          if (status.data?.status === 'SUCCEEDED' && status.data.reply) {
+                            const reply = status.data.reply as unknown as PetChatMessage
+                            setChatMessages((prev) => [...prev, {
+                              messageId: `${reply.messageId}-u`, role: 'USER', content: text, isAiReply: false, createdAt: null,
+                            }, reply])
+                            return
+                          }
+                          if (status.data?.status === 'PROCESSING') {
+                            toast('它还在想回复…稍后刷新即可看到')
+                            return
+                          }
+                        } catch {
+                          // 查询也失败：落到通用网络提示
+                        }
+                      }
+                      toast('网络不稳定，稍后可按原消息重试（不会重复计费）')
+                      return
+                    }
+                    toast(friendlyError(error))
+                  }
                 }}>发送</Button>
               </View>
             </View>
@@ -1625,7 +1674,7 @@ export default function PetPage() {
                           <Button
                             className={styles.miniBtn}
                             disabled={!item.eligible || carePending === `buy-${item.code}`}
-                            onClick={() => runCare(`buy-${item.code}`, () => petApi.buyItem({ itemType: item.itemType, itemCode: item.code }), '购买成功！')}
+                            onClick={() => void runPurchase(item)}
                           >
                             {item.eligible ? '购买' : (item.lockReason || '未解锁')}
                           </Button>
@@ -1827,7 +1876,7 @@ export default function PetPage() {
                             disabled={carePending === `visit-${neighbor.petId}`}
                             onClick={() => runCare(`visit-${neighbor.petId}`, async () => {
                               const res = await petApi.visitNeighbor(neighbor.petId)
-                              if (res.data.success && res.data.data) setCareMessage(res.data.data.message)
+                              setCareMessage(res.data.data.message)
                               return res
                             }, '串门成功！')}
                           >

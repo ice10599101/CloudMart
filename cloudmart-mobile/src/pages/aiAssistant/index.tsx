@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Switch, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { errorMessage, isBusinessError } from '@/utils/request'
 import type { AiBreakdownResult, AiGoal, AiGoalStatus, NotificationChannel, NotificationPreferenceMatrix, NotificationType } from '@/types'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
@@ -88,7 +89,7 @@ export default function AiAssistantPage() {
     wishApi
       .getWishDetail(wishId)
       .then((res) => {
-        if (cancelled || !res.data.success || !res.data.data) return
+        if (cancelled || !res.data.data) return
         const detail = res.data.data
         setText(detail.description ? `${detail.title}\n${detail.description}` : detail.title)
       })
@@ -116,7 +117,7 @@ export default function AiAssistantPage() {
   const loadMatrix = useCallback(async () => {
     try {
       const res = await wishApi.getNotificationPreferences()
-      if (res.data.success) setMatrix(res.data.data)
+      setMatrix(res.data.data)
     } catch {
       // 偏好加载失败仅隐藏开关，不提示
     }
@@ -158,7 +159,7 @@ export default function AiAssistantPage() {
       // 同意状态前置检查，未同意弹协议；查询失败由后端 403 兜底
       try {
         const statusRes = await wishApi.getConsentStatus()
-        if (statusRes.data.success && !statusRes.data.data.granted) {
+        if (!statusRes.data.data.granted) {
           pendingTextRef.current = value
           setConsentVisible(true)
           return
@@ -170,21 +171,18 @@ export default function AiAssistantPage() {
       setBreaking(true)
       try {
         const res = await wishApi.breakdownGoal({ text: value, wishId })
-        if (res.data.success && res.data.data) {
+        if (res.data.data) {
           setBreakdown(res.data.data)
           setSelectedGoalTitles(new Set(res.data.data.goals.map((g) => g.title)))
-        } else {
-          toastByCode(res.data.error?.code ?? '', res.data.error?.message)
         }
       } catch (error) {
-        const body = (error as { data?: { error?: { code?: string; message?: string } } })?.data
-        const code = body?.error?.code ?? ''
+        const code = isBusinessError(error) ? error.code : ''
         if (code === 'WISH_CONSENT_REQUIRED') {
           pendingTextRef.current = value
           setConsentVisible(true)
           return
         }
-        toastByCode(code, body?.error?.message)
+        toastByCode(code, errorMessage(error, '操作失败，请稍后重试'))
       } finally {
         setBreaking(false)
       }
@@ -197,22 +195,20 @@ export default function AiAssistantPage() {
   const handleConsentAgree = async () => {
     setConsentAgreeing(true)
     try {
-      const res = await wishApi.grantConsent({
+      await wishApi.grantConsent({
         consentType: 'AI_DATA_PROCESSING',
         version: AI_CONSENT_VERSION,
         action: 'GRANT',
       })
-      if (res.data.success) {
-        setConsentVisible(false)
-        Taro.showToast({ title: '助手会认真帮你规划', icon: 'none' })
-        const pending = pendingTextRef.current
-        pendingTextRef.current = null
-        if (pending) {
-          await handleBreakdown(pending)
-        }
+      setConsentVisible(false)
+      Taro.showToast({ title: '助手会认真帮你规划', icon: 'none' })
+      const pending = pendingTextRef.current
+      pendingTextRef.current = null
+      if (pending) {
+        await handleBreakdown(pending)
       }
-    } catch {
-      toastByCode('')
+    } catch (err) {
+      toastByCode(isBusinessError(err) ? err.code : '', errorMessage(err, '操作失败，请稍后重试'))
     } finally {
       setConsentAgreeing(false)
     }
@@ -236,19 +232,17 @@ export default function AiAssistantPage() {
     }
     setSavingGoals(true)
     try {
-      const res = await wishApi.createAiGoals({
+      await wishApi.createAiGoals({
         sessionId: breakdown.sessionId,
         wishId,
         goals: selected,
       })
-      if (res.data.success) {
-        Taro.showToast({ title: '步骤计划已保存', icon: 'success' })
-        setBreakdown(null)
-        setSelectedGoalTitles(new Set())
-        loadGoals()
-      }
-    } catch {
-      Taro.showToast({ title: '保存失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: '步骤计划已保存', icon: 'success' })
+      setBreakdown(null)
+      setSelectedGoalTitles(new Set())
+      loadGoals()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '保存失败，请稍后重试'), icon: 'none' })
     } finally {
       setSavingGoals(false)
     }
@@ -257,18 +251,16 @@ export default function AiAssistantPage() {
   const handleGoalAction = async (goal: AiGoal, status: AiGoalStatus) => {
     setActingGoalId(goal.id)
     try {
-      const res = await wishApi.updateAiGoalStatus(goal.id, status)
-      if (res.data.success) {
-        setGoals((prev) => prev.map((g) => (g.id === goal.id ? { ...g, status } : g)))
+      await wishApi.updateAiGoalStatus(goal.id, status)
+      setGoals((prev) => prev.map((g) => (g.id === goal.id ? { ...g, status } : g)))
+    } catch (err) {
+      const code = isBusinessError(err) ? err.code : ''
+      if (code === 'WISH_AI_GOAL_STATUS_INVALID' || code === 'WISH_CONCURRENT_CONFLICT') {
+        Taro.showToast({ title: '状态已变化，已为你刷新', icon: 'none' })
+        loadGoals()
       } else {
-        const code = res.data.error?.code ?? ''
-        if (code === 'WISH_AI_GOAL_STATUS_INVALID' || code === 'WISH_CONCURRENT_CONFLICT') {
-          Taro.showToast({ title: '状态已变化，已为你刷新', icon: 'none' })
-          loadGoals()
-        }
+        Taro.showToast({ title: errorMessage(err, '操作失败，请稍后重试'), icon: 'none' })
       }
-    } catch {
-      Taro.showToast({ title: '操作失败，请稍后重试', icon: 'none' })
     } finally {
       setActingGoalId(null)
     }
@@ -277,7 +269,7 @@ export default function AiAssistantPage() {
   const handleTogglePreference = async (type: NotificationType, channel: NotificationChannel, enabled: boolean) => {
     try {
       const res = await wishApi.updateNotificationPreferences([{ type, channel, enabled }])
-      if (res.data.success) setMatrix(res.data.data)
+      setMatrix(res.data.data)
     } catch {
       // 静默
     }
@@ -291,12 +283,10 @@ export default function AiAssistantPage() {
         CHANNELS.map(({ key }) => ({ type, channel: key, enabled })),
       )
       const res = await wishApi.updateNotificationPreferences(updates)
-      if (res.data.success) {
-        setMatrix(res.data.data)
-        Taro.showToast({ title: enabled ? '已恢复所有提醒' : '已关闭所有提醒', icon: 'none' })
-      }
-    } catch {
-      Taro.showToast({ title: '操作失败，请稍后重试', icon: 'none' })
+      setMatrix(res.data.data)
+      Taro.showToast({ title: enabled ? '已恢复所有提醒' : '已关闭所有提醒', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败，请稍后重试'), icon: 'none' })
     } finally {
       setBatchUpdating(false)
     }

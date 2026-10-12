@@ -24,14 +24,12 @@ export default function CapsuleWallScreen() {
     const fetchPage = useCallback(async (nextPage: number, append: boolean) => {
         try {
             const res = await wishApi.getCapsuleWall(nextPage, PAGE_SIZE)
-            if (res.data?.success) {
-                const data = res.data.data
-                setItems((prev) => (append ? [...prev, ...data.records] : data.records))
-                setTotal(data.total ?? 0)
-                setPage(nextPage)
-            }
+            const data = res.data.data
+            setItems((prev) => (append ? [...prev, ...data.records] : data.records))
+            setTotal(data.total ?? 0)
+            setPage(nextPage)
         } catch {
-            // 错误已由 request 拦截器处理
+            // 墙列表后台加载失败保持空态
         } finally {
             setLoading(false)
             setRefreshing(false)

@@ -6,6 +6,7 @@ import { aiApi, type AiReviewSummary } from '@/api/ai'
 import { cartApi } from '@/api/cart'
 import { userApi } from '@/api/user'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { Product, Sku } from '@/types'
@@ -195,8 +196,8 @@ export default function ProductDetailPage() {
     try {
       await cartApi.addItem({ skuId: selectedSku ? selectedSku.id : (skus[0]?.id ?? id), quantity })
       Taro.showToast({ title: '已加入购物车', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '添加失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '添加失败'), icon: 'none' })
     }
   }
 
@@ -210,8 +211,8 @@ export default function ProductDetailPage() {
       }
       setIsWishlisted(!isWishlisted)
       Taro.showToast({ title: isWishlisted ? '已取消收藏' : '已收藏', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 

@@ -5,6 +5,7 @@ import { useTheme } from '@/hooks/use-theme-context'
 import { userApi } from '@/api/user'
 import { cartApi } from '@/api/cart'
 import { productApi } from '@/api/product'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { WishlistItem } from '@/types'
 
@@ -61,8 +62,8 @@ export default function WishlistScreen() {
       }
       await cartApi.addItem({ skuId, quantity: 1 })
       Alert.alert('提示', `已将「${item.productName}」加入购物车`)
-    } catch {
-      Alert.alert('错误', '加入购物车失败，请稍后重试')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '加入购物车失败，请稍后重试'))
     }
   }
 
@@ -76,8 +77,8 @@ export default function WishlistScreen() {
           try {
             await userApi.removeFromWishlist(item.productId)
             setItems((prev) => prev.filter((i) => i.productId !== item.productId))
-          } catch {
-            Alert.alert('错误', '取消收藏失败，请稍后重试')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '取消收藏失败，请稍后重试'))
           }
         },
       },

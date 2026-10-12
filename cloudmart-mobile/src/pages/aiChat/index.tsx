@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { View, Text, Textarea, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { aiApi } from '@/api/ai'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -99,11 +100,11 @@ export default function AiChatPage() {
         }
         setMessages((prev) => [...prev, aiMsg])
       }
-    } catch {
+    } catch (err) {
       const errMsg: ChatMessage = {
         id: Date.now() + 1,
         role: 'assistant',
-        content: '网络异常，请稍后再试。',
+        content: errorMessage(err, '网络异常，请稍后再试。'),
       }
       setMessages((prev) => [...prev, errMsg])
     } finally {

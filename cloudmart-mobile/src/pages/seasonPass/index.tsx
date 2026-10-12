@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { petApi, type SeasonPassVO } from '@/api/pet'
+import { errorMessage } from '@/utils/request'
 import { PET_CREAM_STYLE } from '@/styles/petCream'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
@@ -19,12 +20,12 @@ export default function SeasonPassPage() {
   const load = async () => {
     try {
       const { data: res } = await petApi.getSeasonPass()
-      if (res.success && res.data) {
+      if (res.data) {
         setPass(res.data)
         setNoSeason(res.data.seasonId === null)
       }
-    } catch {
-      Taro.showToast({ title: '通行证加载失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '通行证加载失败'), icon: 'none' })
     }
   }
 
@@ -35,13 +36,16 @@ export default function SeasonPassPage() {
     setClaiming(tier)
     try {
       const { data: res } = await petApi.claimSeasonPassTier(tier)
-      if (res.success && res.data) {
+      if (res.data) {
         setPass(res.data)
         Taro.showToast({ title: `第 ${tier} 档奖励已领取`, icon: 'success' })
       }
     } catch (error) {
       const code = (error as { code?: string }).code
-      Taro.showToast({ title: code === 'PET_VALIDATION_ERROR' ? '奖励还没达标或已领取' : '领取失败，请稍后再试', icon: 'none' })
+      const title = code === 'PET_VALIDATION_ERROR'
+        ? '奖励还没达标或已领取'
+        : errorMessage(error, '领取失败，请稍后再试')
+      Taro.showToast({ title, icon: 'none' })
     } finally {
       setClaiming(null)
     }

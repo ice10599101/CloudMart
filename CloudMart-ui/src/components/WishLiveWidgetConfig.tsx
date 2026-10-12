@@ -50,15 +50,11 @@ export default function WishLiveWidgetConfig({
   const handleSave = async () => {
     setSaving(true)
     try {
-      const res = await selfConfigLiveWidget({ position, isVisible: visible })
-      if (res.data.success) {
-        message.success('挂件配置已保存，直播间约 10 秒内生效')
-        setOpen(false)
-      }
+      await selfConfigLiveWidget({ position, isVisible: visible })
+      message.success('挂件配置已保存，直播间约 10 秒内生效')
+      setOpen(false)
     } catch (error) {
-      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
-        ?.response?.data?.error?.message
-      message.error(msg ?? '保存失败，请稍后重试')
+      message.error((error as Error).message || '保存失败，请稍后重试')
     } finally {
       setSaving(false)
     }

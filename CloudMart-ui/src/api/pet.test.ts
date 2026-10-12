@@ -99,7 +99,8 @@ describe('pet API', () => {
 
     await sendPetChat('你今天怎么样？')
 
-    expect(request.post).toHaveBeenCalledWith('/pet/chat', { message: '你今天怎么样？' })
+    // R25：聊天为权益类写操作，携带持久意图标记（断网/重启按原键查终态）
+    expect(request.post).toHaveBeenCalledWith('/pet/chat', { message: '你今天怎么样？' }, { persistentIntent: true })
   })
 
   it('getPetPublicCard() calls GET /pet/public/:userId', async () => {

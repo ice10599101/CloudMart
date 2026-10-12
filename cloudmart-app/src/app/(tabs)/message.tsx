@@ -1,10 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator, Alert } from 'react-native'
 import { useState, useEffect, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { notificationApi } from '@/api/notification'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Conversation, Notification as AppNotification } from '@/types'
 
@@ -115,8 +116,8 @@ export default function MessagePage() {
     try {
       await notificationApi.markAllRead()
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
-    } catch {
-      // ignore
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '操作失败，请稍后重试'))
     }
   }
 

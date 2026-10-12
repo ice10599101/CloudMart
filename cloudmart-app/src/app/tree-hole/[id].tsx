@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Linking from 'expo-linking'
 import { wishApi } from '@/api/wish'
+import { isBusinessError } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import WishBGM from '@/components/WishBGM'
@@ -48,10 +49,9 @@ interface ChatMessage {
   isCrisis?: boolean
 }
 
-/** 从 axios 异常体提取业务错误信封 */
+/** R25：request 失败统一 reject BusinessError，直接取 code/message */
 function extractBusinessError(error: unknown): { code?: string; message?: string } | undefined {
-  return (error as { response?: { data?: { error?: { code?: string; message?: string } } } })
-    ?.response?.data?.error
+  return isBusinessError(error) ? error : undefined
 }
 
 export default function TreeHoleScreen() {
@@ -76,7 +76,7 @@ export default function TreeHoleScreen() {
       }
       try {
         const res = await wishApi.listAiConversations({ pageSize: 50 })
-        if (res.data?.success && res.data.data.length > 0) {
+        if (res.data.data.length > 0) {
           setMessages(
             [...res.data.data]
               .reverse()
@@ -114,23 +114,20 @@ export default function TreeHoleScreen() {
   /** 同意 AI 数据处理协议后自动发送待发消息 */
   const handleConsentAgree = useCallback(async () => {
     try {
-      const res = await wishApi.grantConsent({
+      await wishApi.grantConsent({
         consentType: 'AI_DATA_PROCESSING',
         version: AI_CONSENT_VERSION,
         action: 'GRANT',
       })
-      if (res.data?.success) {
-        const pending = pendingMessageRef.current
-        pendingMessageRef.current = null
-        if (pending) {
-          setInput('')
-          await doSendRef.current?.(pending)
-        }
-      } else {
-        toastByCode(res.data.error?.code, res.data.error?.message)
+      const pending = pendingMessageRef.current
+      pendingMessageRef.current = null
+      if (pending) {
+        setInput('')
+        await doSendRef.current?.(pending)
       }
     } catch (error) {
-      toastByCode(extractBusinessError(error)?.code, extractBusinessError(error)?.message)
+      const business = extractBusinessError(error)
+      toastByCode(business?.code, business?.message)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wishId])
@@ -164,7 +161,7 @@ export default function TreeHoleScreen() {
       // 同意状态前置检查，未同意弹协议（后端 403 也会兜底触发）
       try {
         const statusRes = await wishApi.getConsentStatus()
-        if (statusRes.data?.success && !statusRes.data.data.granted) {
+        if (!statusRes.data.data.granted) {
           showConsentDialog(text)
           return
         }
@@ -177,33 +174,24 @@ export default function TreeHoleScreen() {
       setSending(true)
       try {
         const res = await wishApi.sendTreeHoleMessage(wishId, text)
-        if (res.data?.success) {
-          const { reply, sentimentScore, resources } = res.data.data
-          sentTodayRef.current += 1
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `reply-${Date.now()}`,
-              role: 'ASSISTANT',
-              content: reply,
-              resources,
-              isCrisis:
-                sentimentScore !== null &&
-                sentimentScore <= -0.9 &&
-                resources.some((r) => r.type === 'HOTLINE'),
-            },
-          ])
-          const remaining = DAILY_LIMIT - sentTodayRef.current
-          if (remaining > 0 && remaining <= 3) {
-            Alert.alert('树洞', `今天还可以倾诉 ${remaining} 次`)
-          }
-        } else {
-          const code = res.data.error?.code
-          if (code === 'WISH_CONSENT_REQUIRED') {
-            showConsentDialog(text)
-          } else {
-            toastByCode(code, res.data.error?.message)
-          }
+        const { reply, sentimentScore, resources } = res.data.data
+        sentTodayRef.current += 1
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `reply-${Date.now()}`,
+            role: 'ASSISTANT',
+            content: reply,
+            resources,
+            isCrisis:
+              sentimentScore !== null &&
+              sentimentScore <= -0.9 &&
+              resources.some((r) => r.type === 'HOTLINE'),
+          },
+        ])
+        const remaining = DAILY_LIMIT - sentTodayRef.current
+        if (remaining > 0 && remaining <= 3) {
+          Alert.alert('树洞', `今天还可以倾诉 ${remaining} 次`)
         }
       } catch (error) {
         const bizError = extractBusinessError(error)

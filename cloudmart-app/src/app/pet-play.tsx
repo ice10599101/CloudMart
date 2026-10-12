@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { petApi } from '@/api/pet'
 import type { PetInfo, PetMinigameRoundItem, PetActivityRow } from '@/api/pet'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors as BaseWishColors } from '@/constants/wish-theme'
@@ -80,32 +81,36 @@ export default function PetPlayScreen() {
   const [history, setHistory] = useState<PetMinigameRoundItem[]>([])
 
   const loadAll = useCallback(async () => {
-    const petRes = await petApi.getMyPet()
-    if (petRes.data?.success && petRes.data.data) setPet(petRes.data.data)
-    const custodyRes = await petApi.getCustodyStatus()
-    if (custodyRes.data?.success && custodyRes.data.data) setCustody(custodyRes.data.data)
-    const digestRes = await petApi.getOfflineDigest()
-    if (digestRes.data?.success && digestRes.data.data) setDigest(digestRes.data.data)
-    const coopRes = await petApi.listCooperations()
-    if (coopRes.data?.success && coopRes.data.data) setCoops(coopRes.data.data)
-    const collRes = await petApi.getCollectionStats()
-    if (collRes.data?.success && collRes.data.data) {
-      setCollection({ total: Number(collRes.data.data.total ?? 0), unlocked: Number(collRes.data.data.unlocked ?? 0) })
+    try {
+      const petRes = await petApi.getMyPet()
+      if (petRes.data.data) setPet(petRes.data.data)
+      const custodyRes = await petApi.getCustodyStatus()
+      if (custodyRes.data.data) setCustody(custodyRes.data.data)
+      const digestRes = await petApi.getOfflineDigest()
+      if (digestRes.data.data) setDigest(digestRes.data.data)
+      const coopRes = await petApi.listCooperations()
+      if (coopRes.data.data) setCoops(coopRes.data.data)
+      const collRes = await petApi.getCollectionStats()
+      if (collRes.data.data) {
+        setCollection({ total: Number(collRes.data.data.total ?? 0), unlocked: Number(collRes.data.data.unlocked ?? 0) })
+      }
+      const histRes = await petApi.listMinigameRounds(1, 10)
+      if (histRes.data.data) setHistory(histRes.data.data)
+      const actRes = await petApi.listActivities()
+      if (actRes.data.data) setActivities(actRes.data.data)
+    } catch {
+      // 后台聚合加载失败静默，保留各卡片既有状态
     }
-    const histRes = await petApi.listMinigameRounds(1, 10)
-    if (histRes.data?.success && histRes.data.data) setHistory(histRes.data.data)
-    const actRes = await petApi.listActivities()
-    if (actRes.data?.success && actRes.data.data) setActivities(actRes.data.data)
   }, [])
 
   const claimActivity = async (activityId: number | string) => {
     setPending(`activity-${activityId}`)
     try {
-      const res = await petApi.claimActivity(activityId)
-      if (res.data?.success) {
-        const actRes = await petApi.listActivities()
-        if (actRes.data?.success && actRes.data.data) setActivities(actRes.data.data)
-      }
+      await petApi.claimActivity(activityId)
+      const actRes = await petApi.listActivities()
+      if (actRes.data.data) setActivities(actRes.data.data)
+    } catch (error) {
+      Alert.alert('领取失败', errorMessage(error, '请稍后再试'))
     } finally {
       setPending(null)
     }
@@ -132,8 +137,9 @@ export default function PetPlayScreen() {
 
   const startRound = async () => {
     if (!pet) return
-    const res = await petApi.startMinigameRound(pet.petId)
-    if (res.data?.success && res.data.data) {
+    try {
+      const res = await petApi.startMinigameRound(pet.petId)
+      if (!res.data.data) return
       const data = res.data.data as unknown as Record<string, unknown> & { roundId: number | string; deadlineAt: string; startedAt?: string; serverNow?: string; windowMs?: number }
       const startedAt = data.startedAt ? Date.parse(data.startedAt) : Date.now()
       const windowMs = typeof data.windowMs === 'number' ? data.windowMs : 3000
@@ -151,6 +157,8 @@ export default function PetPlayScreen() {
       })
       setMgResult('')
       setRemaining(30)
+    } catch (error) {
+      Alert.alert('开始失败', errorMessage(error, '请稍后再试'))
     }
   }
 
@@ -160,8 +168,9 @@ export default function PetPlayScreen() {
     const serverNow = Date.now() + serverOffsetRef.current
     const windowIndex = Math.floor((serverNow - round.startedAt) / round.windowMs) + 1
     if (windowIndex < 1 || windowIndex > CATCH_WINDOWS) return
-    const res = await petApi.submitMinigameOps(round.roundId, [{ seq: windowIndex, windowIndex, slot }])
-    if (res.data?.success && res.data.data) {
+    try {
+      const res = await petApi.submitMinigameOps(round.roundId, [{ seq: windowIndex, windowIndex, slot }])
+      if (!res.data.data) return
       const body = res.data.data as { accepted: number; totalAccepted?: number }
       // PET-17：窗口归属以服务端为准——accepted 为本批新接受数（重复/迟到窗口为 0，不追加本地）
       const acceptedCount = Number(body.totalAccepted ?? round.submitted)
@@ -172,50 +181,60 @@ export default function PetPlayScreen() {
           ? [...round.acceptedWindows, windowIndex]
           : round.acceptedWindows,
       })
+    } catch (error) {
+      Alert.alert('操作无效', errorMessage(error, '请稍后再试'))
     }
   }
 
   // R11：重进页面恢复当前局（断线恢复，同 roundId 续玩）
   const restoreCurrentRound = useCallback(async () => {
-    const res = await petApi.currentMinigameRound()
-    const data = res.data?.success ? (res.data.data as { round?: Record<string, unknown> | null } | null) : null
-    const roundData = data?.round
-    if (roundData && roundData.roundId) {
-      const startedAt = Date.parse(String(roundData.startedAt))
-      const windowMs = typeof roundData.windowMs === 'number' ? roundData.windowMs : 3000
-      if (roundData.serverNow) {
-        serverOffsetRef.current = Date.parse(String(roundData.serverNow)) - Date.now()
+    try {
+      const res = await petApi.currentMinigameRound()
+      const data = res.data.data ?? null
+      const roundData = data?.round
+      if (roundData && roundData.roundId) {
+        const startedAt = Date.parse(String(roundData.startedAt))
+        const windowMs = typeof roundData.windowMs === 'number' ? roundData.windowMs : 3000
+        if (roundData.serverNow) {
+          serverOffsetRef.current = Date.parse(String(roundData.serverNow)) - Date.now()
+        }
+        const acceptedWindows = Array.isArray(roundData.acceptedWindows)
+          ? (roundData.acceptedWindows as number[]).map(Number)
+          : []
+        setRound({
+          roundId: String(roundData.roundId),
+          deadlineAt: new Date(String(roundData.deadlineAt)).getTime(),
+          startedAt,
+          windowMs,
+          submitted: acceptedWindows.length,
+          sequence: Array.isArray(roundData.sequence) ? (roundData.sequence as string[]) : [],
+          acceptedWindows,
+        })
+        setRemaining(Math.max(0, Math.round((new Date(String(roundData.deadlineAt)).getTime() - (Date.now() + serverOffsetRef.current)) / 1000)))
       }
-      const acceptedWindows = Array.isArray(roundData.acceptedWindows)
-        ? (roundData.acceptedWindows as number[]).map(Number)
-        : []
-      setRound({
-        roundId: String(roundData.roundId),
-        deadlineAt: new Date(String(roundData.deadlineAt)).getTime(),
-        startedAt,
-        windowMs,
-        submitted: acceptedWindows.length,
-        sequence: Array.isArray(roundData.sequence) ? (roundData.sequence as string[]) : [],
-        acceptedWindows,
-      })
-      setRemaining(Math.max(0, Math.round((new Date(String(roundData.deadlineAt)).getTime() - (Date.now() + serverOffsetRef.current)) / 1000)))
+    } catch {
+      // 无进行中对局或查询失败：保持未开局状态
     }
   }, [])
 
   const settleRound = async () => {
     if (!round) return
-    const res = await petApi.settleMinigame(round.roundId)
-    if (res.data?.success && res.data.data && res.data.data.status === 'SETTLED') {
-      const r = res.data.data
-      setMgResult(
-        r.validCompletion
-          ? `完成！经验+${r.reward.exp} 亲密度+${r.reward.intimacy} 心情+${r.reward.happiness}`
-          : '本局未达标（需接住 3 个），无收益',
-      )
-      setRound(null)
-      // 结算后刷新对局历史
-      const histRes = await petApi.listMinigameRounds(1, 10)
-      if (histRes.data?.success && histRes.data.data) setHistory(histRes.data.data)
+    try {
+      const res = await petApi.settleMinigame(round.roundId)
+      if (res.data.data && res.data.data.status === 'SETTLED') {
+        const r = res.data.data
+        setMgResult(
+          r.validCompletion
+            ? `完成！经验+${r.reward.exp} 亲密度+${r.reward.intimacy} 心情+${r.reward.happiness}`
+            : '本局未达标（需接住 3 个），无收益',
+        )
+        setRound(null)
+        // 结算后刷新对局历史
+        const histRes = await petApi.listMinigameRounds(1, 10)
+        if (histRes.data.data) setHistory(histRes.data.data)
+      }
+    } catch (error) {
+      Alert.alert('结算失败', errorMessage(error, '请稍后再试'))
     }
   }
 
@@ -230,21 +249,34 @@ export default function PetPlayScreen() {
 
   const confirmDigest = async () => {
     if (!digest) return
-    await petApi.confirmOfflineDigest(digest.throughAt)
-    void loadAll()
+    try {
+      await petApi.confirmOfflineDigest(digest.throughAt)
+      void loadAll()
+    } catch (error) {
+      Alert.alert('操作失败', errorMessage(error, '请稍后再试'))
+    }
   }
 
   const custodyAction = async (start: boolean) => {
-    if (start) await petApi.startCustody()
-    else await petApi.endCustody()
-    void loadAll()
+    try {
+      if (start) await petApi.startCustody()
+      else await petApi.endCustody()
+      void loadAll()
+    } catch (error) {
+      Alert.alert(start ? '开启托管失败' : '结束托管失败', errorMessage(error, '请稍后再试'))
+    }
   }
 
   const coopAction = async (id: string, action: 'accept' | 'claim' | 'leave') => {
-    if (action === 'accept') await petApi.acceptCooperation(id)
-    else if (action === 'claim') await petApi.claimCooperationReward(id)
-    else await petApi.leaveCooperation(id)
-    void loadAll()
+    try {
+      if (action === 'accept') await petApi.acceptCooperation(id)
+      else if (action === 'claim') await petApi.claimCooperationReward(id)
+      else await petApi.leaveCooperation(id)
+      void loadAll()
+    } catch (error) {
+      const title = action === 'accept' ? '接受失败' : action === 'claim' ? '领取失败' : '退出失败'
+      Alert.alert(title, errorMessage(error, '请稍后再试'))
+    }
   }
 
   const btn = (label: string, onPress: () => void, primary = false, disabled = false) => (

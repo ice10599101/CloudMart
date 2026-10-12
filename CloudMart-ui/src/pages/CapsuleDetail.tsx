@@ -87,9 +87,7 @@ export default function CapsuleDetail() {
                 setReloadKey((k) => k + 1)
             }
         } catch (error) {
-            const msg = (error as { response?: { data?: { error?: { message?: string } } } })
-                ?.response?.data?.error?.message
-            message.warning(msg ?? '改期失败（次数超限或状态已变更）')
+            message.warning((error as Error).message || '改期失败（次数超限或状态已变更）')
             setRescheduleOpen(false)
         } finally {
             setRescheduling(false)

@@ -11,6 +11,7 @@ import {
   type AfterSaleCase,
 } from '@/api/afterSale'
 import { fileApi } from '@/api/file'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -111,8 +112,8 @@ export default function OrderDetailPage() {
       if (detail?.status === 3 && detail.items?.length > 0) {
         loadOwnReviews(detail.items)
       }
-    } catch {
-      Taro.showToast({ title: '加载失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '加载失败'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -124,7 +125,7 @@ export default function OrderDetailPage() {
       items.map(async (item) => {
         try {
           const res = await productApi.getOwnReviewByOrderItem(item.id)
-          return [item.id, res.data.success ? (res.data.data ?? null) : null] as const
+          return [item.id, res.data.data ?? null] as const
         } catch {
           return [item.id, null] as const
         }
@@ -153,8 +154,8 @@ export default function OrderDetailPage() {
             await orderApi.cancel(id)
             Taro.showToast({ title: '已取消', icon: 'success' })
             loadOrder()
-          } catch {
-            Taro.showToast({ title: '取消失败', icon: 'none' })
+          } catch (err) {
+            Taro.showToast({ title: errorMessage(err, '取消失败'), icon: 'none' })
           }
         }
       },
@@ -175,8 +176,8 @@ export default function OrderDetailPage() {
             await orderApi.confirm(id)
             Taro.showToast({ title: '已确认收货', icon: 'success' })
             loadOrder()
-          } catch {
-            Taro.showToast({ title: '操作失败', icon: 'none' })
+          } catch (err) {
+            Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
           }
         }
       },
@@ -210,9 +211,7 @@ export default function OrderDetailPage() {
       Taro.showToast({ title: '退款申请已提交', icon: 'success' })
       loadOrder()
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '退款申请失败'
-      Taro.showToast({ title: message, icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '退款申请失败'), icon: 'none' })
     } finally {
       setRefunding(false)
     }
@@ -268,8 +267,8 @@ export default function OrderDetailPage() {
             if (fileId) uploaded.push(fileId)
           }
           setAfterSaleFileIds((prev) => [...prev, ...uploaded])
-        } catch {
-          Taro.showToast({ title: '凭证上传失败', icon: 'none' })
+        } catch (err) {
+          Taro.showToast({ title: errorMessage(err, '凭证上传失败'), icon: 'none' })
         } finally {
           setAfterSaleUploading(false)
         }
@@ -302,9 +301,7 @@ export default function OrderDetailPage() {
       loadAfterSaleCases()
       loadOrder()
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '售后申请失败'
-      Taro.showToast({ title: message, icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '售后申请失败'), icon: 'none' })
     } finally {
       setAfterSaleSubmitting(false)
     }
@@ -322,16 +319,10 @@ export default function OrderDetailPage() {
     setReviewLoading(true)
     try {
       const res = await productApi.getOwnReviewByOrderItem(item.id)
-      if (res.data.success) {
-        setExistingReview(res.data.data ?? null)
-        setReviewMap((prev) => ({ ...prev, [item.id]: res.data.data ?? null }))
-      } else {
-        Taro.showToast({ title: res.data.error?.message ?? '评价查询失败', icon: 'none' })
-        setReviewOpen(false)
-        setReviewItem(null)
-      }
-    } catch {
-      Taro.showToast({ title: '评价查询失败', icon: 'none' })
+      setExistingReview(res.data.data ?? null)
+      setReviewMap((prev) => ({ ...prev, [item.id]: res.data.data ?? null }))
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '评价查询失败'), icon: 'none' })
       setReviewOpen(false)
       setReviewItem(null)
     } finally {
@@ -361,10 +352,6 @@ export default function OrderDetailPage() {
         rating: reviewRating,
         content: reviewContent.trim(),
       })
-      if (!res.data.success) {
-        Taro.showToast({ title: res.data.error?.message ?? '评价提交失败', icon: 'none' })
-        return
-      }
       const created = res.data.data
       setReviewMap((prev) => ({
         ...prev,
@@ -383,8 +370,8 @@ export default function OrderDetailPage() {
       Taro.showToast({ title: '评价成功', icon: 'success' })
       setReviewOpen(false)
       setReviewItem(null)
-    } catch {
-      Taro.showToast({ title: '评价提交失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '评价提交失败'), icon: 'none' })
     } finally {
       setReviewSubmitting(false)
     }

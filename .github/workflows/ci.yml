@@ -254,9 +254,11 @@ jobs:
           - dir: CloudMart-ui
             cmds: npx tsc --noEmit && npx vitest run --maxWorkers=1 --pool=threads && npm run build
           - dir: cloudmart-app
-            cmds: npx tsc --noEmit && npx expo export --platform web
+            # R25：A 端纳入请求/幂等等共享行为单测门禁（R28 将扩展到完整套件）
+            cmds: npx tsc --noEmit && npx vitest run && npx expo export --platform web
           - dir: cloudmart-mobile
-            cmds: npx tsc --noEmit && npm run build:h5 && npm run build:weapp
+            # R25：M 端纳入请求/幂等等共享行为单测门禁（R28 将扩展到完整套件）
+            cmds: npx tsc --noEmit && npx vitest run && npm run build:h5 && npm run build:weapp
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

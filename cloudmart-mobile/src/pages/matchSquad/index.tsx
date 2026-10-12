@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Input, Picker, Text, View } from '@tarojs/components'
 import Taro, { useShareAppMessage } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import type { MatchGroupDetail, MatchGroupItem } from '@/types'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
@@ -43,7 +44,7 @@ export default function MatchSquadPage() {
     setLoading(true)
     try {
       const res = await wishApi.recommendMatchGroups({ keyword: kw?.trim() || undefined, pageSize: 20 })
-      if (res.data.success) setRecommend(res.data.data ?? [])
+      setRecommend(res.data.data ?? [])
     } catch {
       // 推荐失败保持空态
     } finally {
@@ -58,7 +59,7 @@ export default function MatchSquadPage() {
     }
     try {
       const res = await wishApi.listMyMatchGroups()
-      if (res.data.success) setMyGroups(res.data.data ?? [])
+      setMyGroups(res.data.data ?? [])
     } catch {
       // 静默
     }
@@ -84,17 +85,12 @@ export default function MatchSquadPage() {
   const handleJoin = async (item: MatchGroupItem) => {
     if (!requireLogin()) return
     try {
-      const res = await wishApi.joinMatchGroup(item.groupId)
-      if (res.data.success) {
-        Taro.showToast({ title: '已加入小队，一起加油', icon: 'none' })
-        loadRecommend(keyword)
-        loadMyGroups()
-      } else {
-        Taro.showToast({ title: res.data.error?.message || '加入失败', icon: 'none' })
-      }
+      await wishApi.joinMatchGroup(item.groupId)
+      Taro.showToast({ title: '已加入小队，一起加油', icon: 'none' })
+      loadRecommend(keyword)
+      loadMyGroups()
     } catch (error) {
-      const body = (error as { data?: { error?: { message?: string } } })?.data
-      Taro.showToast({ title: body?.error?.message || '加入失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(error, '加入失败，请稍后重试'), icon: 'none' })
     }
   }
 
@@ -107,17 +103,15 @@ export default function MatchSquadPage() {
     }
     setCreating(true)
     try {
-      const res = await wishApi.createMatchGroup({ keyword: kw, maxMembers: createMax })
-      if (res.data.success) {
-        setCreateKeyword('')
-        setCeremony(kw)
-        if (ceremonyTimer.current) clearTimeout(ceremonyTimer.current)
-        ceremonyTimer.current = setTimeout(() => setCeremony(null), 1700)
-        loadRecommend()
-        loadMyGroups()
-      }
-    } catch {
-      Taro.showToast({ title: '创建失败，请稍后重试', icon: 'none' })
+      await wishApi.createMatchGroup({ keyword: kw, maxMembers: createMax })
+      setCreateKeyword('')
+      setCeremony(kw)
+      if (ceremonyTimer.current) clearTimeout(ceremonyTimer.current)
+      ceremonyTimer.current = setTimeout(() => setCeremony(null), 1700)
+      loadRecommend()
+      loadMyGroups()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '创建失败，请稍后重试'), icon: 'none' })
     } finally {
       setCreating(false)
     }
@@ -130,8 +124,8 @@ export default function MatchSquadPage() {
       Taro.showToast({ title: '已退出小队', icon: 'none' })
       loadMyGroups()
       loadRecommend(keyword)
-    } catch {
-      // 静默
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '退出小队失败，请稍后再试'), icon: 'none' })
     }
   }
 
@@ -140,8 +134,8 @@ export default function MatchSquadPage() {
       await wishApi.leaveMatchGroup(groupId, targetUserId)
       Taro.showToast({ title: '已移出该成员', icon: 'none' })
       loadMyGroups()
-    } catch {
-      // 静默
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '移出成员失败，请稍后再试'), icon: 'none' })
     }
   }
 
@@ -150,8 +144,8 @@ export default function MatchSquadPage() {
       await wishApi.dissolveMatchGroup(groupId)
       Taro.showToast({ title: '小队已解散', icon: 'none' })
       loadMyGroups()
-    } catch {
-      // 静默
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '解散小队失败，请稍后再试'), icon: 'none' })
     }
   }
 
@@ -159,8 +153,8 @@ export default function MatchSquadPage() {
     try {
       await wishApi.remindSquadMembers(groupId, targetUserId)
       Taro.showToast({ title: '提醒已送达', icon: 'none' })
-    } catch {
-      Taro.showToast({ title: '提醒发送失败或已达今日上限', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '提醒发送失败或已达今日上限'), icon: 'none' })
     }
   }
 

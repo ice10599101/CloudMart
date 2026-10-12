@@ -7,6 +7,7 @@ import {
   AFTER_SALE_TYPE_TEXT,
   type AfterSaleCase,
 } from '@/api/afterSale'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -63,9 +64,9 @@ export default function AfterSalePage() {
       setCases((prev) => (append ? [...prev, ...list] : list))
       setPage(pageNum)
       setHasMore(list.length >= PAGE_SIZE)
-    } catch {
+    } catch (err) {
       setHasMore(false)
-      Taro.showToast({ title: '加载失败', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '加载失败'), icon: 'none' })
     } finally {
       setLoading(false)
     }

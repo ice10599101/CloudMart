@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import type { WishCollectionItem } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
@@ -36,12 +37,14 @@ export default function WishCollectionsPage() {
       return
     }
     const cursorParam = reset ? undefined : (cursor ?? undefined)
-    const res = await wishApi.listWishCollections(cursorParam, PAGE_SIZE)
-    if (res.data.success) {
+    try {
+      const res = await wishApi.listWishCollections(cursorParam, PAGE_SIZE)
       const page = res.data.data ?? []
       setItems((prev) => (reset ? page : [...prev, ...page]))
       setCursor(res.data.meta?.nextCursor ?? null)
       setHasMore(Boolean(res.data.meta?.nextCursor))
+    } catch {
+      // 列表加载失败保持已有列表，静默处理
     }
     setLoading(false)
   }, [isLoggedIn, cursor])
@@ -63,14 +66,11 @@ export default function WishCollectionsPage() {
   const handleUncollect = async (item: WishCollectionItem) => {
     setRemovingId(item.wishId)
     try {
-      const res = await wishApi.uncollectWish(item.wishId)
-      if (res.data.success) {
-        setItems((prev) => prev.filter((it) => it.wishId !== item.wishId))
-        Taro.showToast({ title: '已取消收藏', icon: 'none' })
-      }
+      await wishApi.uncollectWish(item.wishId)
+      setItems((prev) => prev.filter((it) => it.wishId !== item.wishId))
+      Taro.showToast({ title: '已取消收藏', icon: 'none' })
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '操作失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '操作失败，请稍后重试'), icon: 'none' })
     } finally {
       setRemovingId(null)
     }

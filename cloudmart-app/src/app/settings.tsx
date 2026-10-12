@@ -8,6 +8,7 @@ import { useThemeStore } from '@/store/theme'
 import { userApi } from '@/api/user'
 import { wishApi } from '@/api/wish'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 interface UserSettings {
@@ -110,13 +111,11 @@ export default function SettingsPage() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const res = await wishApi.grantConsent({ consentType: 'AI_DATA_PROCESSING', version: 'v1', action: 'WITHDRAW' })
-            if (res.data.success) {
-              setAiConsentGranted(false)
-              Alert.alert('完成', '已撤回 AI 数据处理同意')
-            }
-          } catch {
-            Alert.alert('失败', '操作失败，请稍后重试')
+            await wishApi.grantConsent({ consentType: 'AI_DATA_PROCESSING', version: 'v1', action: 'WITHDRAW' })
+            setAiConsentGranted(false)
+            Alert.alert('完成', '已撤回 AI 数据处理同意')
+          } catch (error) {
+            Alert.alert('失败', errorMessage(error, '操作失败，请稍后重试'))
           }
         },
       },
@@ -176,9 +175,9 @@ export default function SettingsPage() {
     setVisibilityMap((map) => ({ ...map, [key]: value }))
     try {
       await communityApi.updateSettings({ [key]: value })
-    } catch {
+    } catch (error) {
       setVisibilityMap((map) => ({ ...map, [key]: prev }))
-      Alert.alert('提示', '保存失败')
+      Alert.alert('提示', errorMessage(error, '保存失败'))
     }
   }
 
@@ -187,8 +186,9 @@ export default function SettingsPage() {
     setSettings(newSettings)
     try {
       await communityApi.updateSettings({ [key]: String(value) })
-    } catch {
+    } catch (error) {
       setSettings(settings)
+      Alert.alert('提示', errorMessage(error, '保存失败'))
     }
   }
 
@@ -202,8 +202,8 @@ export default function SettingsPage() {
       await userApi.changePassword({ oldPassword, newPassword })
       Alert.alert('成功', '密码修改成功')
       setOldPassword(''); setNewPassword(''); setConfirmPassword('')
-    } catch {
-      Alert.alert('错误', '密码修改失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '密码修改失败'))
     } finally {
       setChangingPassword(false)
     }

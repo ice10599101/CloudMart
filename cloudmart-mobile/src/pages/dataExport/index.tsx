@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import type { DataExportTask } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
@@ -23,7 +24,7 @@ export default function DataExportPage() {
     if (!isLoggedIn) return
     try {
       const res = await wishApi.listDataExports()
-      if (res.data.success) setTasks(res.data.data ?? [])
+      setTasks(res.data.data ?? [])
     } catch {
       // 静默
     } finally {
@@ -46,14 +47,11 @@ export default function DataExportPage() {
   const handleCreate = async () => {
     setCreating(true)
     try {
-      const res = await wishApi.createDataExport()
-      if (res.data.success) {
-        Taro.showToast({ title: '导出任务已创建', icon: 'none' })
-        load()
-      }
+      await wishApi.createDataExport()
+      Taro.showToast({ title: '导出任务已创建', icon: 'none' })
+      load()
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '创建失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '创建失败，请稍后重试'), icon: 'none' })
     } finally {
       setCreating(false)
     }
@@ -62,11 +60,9 @@ export default function DataExportPage() {
   const handleCopy = async (task: DataExportTask) => {
     try {
       const res = await wishApi.getDataExportContent(task.id)
-      if (res.data.success) {
-        await Taro.setClipboardData({ data: JSON.stringify(res.data.data) })
-      }
-    } catch {
-      Taro.showToast({ title: '内容获取失败（可能已过期）', icon: 'none' })
+      await Taro.setClipboardData({ data: JSON.stringify(res.data.data) })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '内容获取失败（可能已过期）'), icon: 'none' })
       load()
     }
   }

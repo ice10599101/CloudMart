@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import { Button, Input, Text, View } from '@tarojs/components'
 import { petApi, type PetHome, PetVisitNeighbor } from '@/api/pet'
 import { CARE_ERROR_HINT } from './shared'
+import { errorMessage } from '@/utils/request'
 import { CreamToggle } from '@/components/pet-cream'
 import styles from '../index.module.scss'
 import cream from '@/components/pet-cream/pet-cream.module.scss'
@@ -19,7 +20,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
   const load = useCallback(async () => {
     try {
       const { data: res } = await petApi.getHome()
-      if (res.success && res.data) {
+      if (res.data) {
         setHome(res.data)
         setWelcome(res.data.welcomeMessage)
       }
@@ -39,9 +40,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
     void (async () => {
       try {
         const { data: res } = await petApi.listVisitNeighbors()
-        if (res.success) {
-          setNeighbors(res.data ?? [])
-        }
+        setNeighbors(res.data ?? [])
       } catch {
         // 展示型数据
       }
@@ -51,14 +50,13 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
   const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
     setPending(key)
     try {
-      const { data: res } = await action()
-      if (res.success) {
-        Taro.showToast({ title: text, icon: 'success' })
-        await load()
-        onRefresh()
-      }
+      await action()
+      Taro.showToast({ title: text, icon: 'success' })
+      await load()
+      onRefresh()
     } catch (error) {
-      Taro.showToast({ title: CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试', icon: 'none' })
+      const code = (error as { code?: string }).code ?? ''
+      Taro.showToast({ title: CARE_ERROR_HINT[code] ?? errorMessage(error, '请稍后再试'), icon: 'none' })
     } finally {
       setPending(null)
     }
@@ -246,7 +244,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                       `v-${neighbor.petId}`,
                       async () => {
                         const res = await petApi.enterHome(neighbor.petId)
-                        if (res.data.success && res.data.data) {
+                        if (res.data.data) {
                           setTip(res.data.data.message)
                         }
                         return res

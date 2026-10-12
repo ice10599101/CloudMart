@@ -49,9 +49,7 @@ export default function WishFulfillmentPage() {
     const fetchWish = async () => {
       try {
         const res = await wishApi.getWishDetail(wishId)
-        if (res.data.success) {
-          setWish(res.data.data)
-        }
+        setWish(res.data.data)
       } catch {
         // 错误已由 request 处理
       } finally {
@@ -203,9 +201,7 @@ export default function WishFulfillmentPage() {
         feeling: feeling.trim() || undefined,
         purchaseOrderId: purchaseOrderId ? Number(purchaseOrderId) : undefined,
       })
-      if (res.data.success) {
-        setSubmitResult(res.data.data)
-      }
+      setSubmitResult(res.data.data)
     } catch {
       // 错误已由 request 处理
     } finally {

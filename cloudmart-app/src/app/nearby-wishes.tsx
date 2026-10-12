@@ -1,8 +1,9 @@
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput, Switch } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Modal, ScrollView, TextInput, Switch, Alert } from 'react-native'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { encounterApi, wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -63,8 +64,8 @@ export default function NearbyWishesScreen() {
         wishApi.getMapWishes(pos ? { lat: pos.lat, lng: pos.lng, radius: 5000 } : { radius: 5000 }),
         wishApi.listWarmEvents(pos ? { lat: pos.lat, lng: pos.lng, radius: 5000 } : { radius: 5000 }).catch(() => null),
       ])
-      if (wishesRes.data.success) setWishes(wishesRes.data.data ?? [])
-      if (warmRes?.data.success) setWarmEvents(warmRes.data.data ?? [])
+      setWishes(wishesRes.data.data ?? [])
+      if (warmRes) setWarmEvents(warmRes.data.data ?? [])
     } catch {
       // 静默空态
     } finally {
@@ -80,7 +81,7 @@ export default function NearbyWishesScreen() {
   useEffect(() => {
     if (!isLoggedIn) return
     wishApi.listMyWishes({ status: 'ACTIVE', pageSize: 50 })
-      .then((res) => { if (res.data?.success) setMyWishes(res.data.data ?? []) })
+      .then((res) => { setMyWishes(res.data.data ?? []) })
       .catch(() => undefined)
   }, [isLoggedIn])
 
@@ -88,7 +89,7 @@ export default function NearbyWishesScreen() {
   useEffect(() => {
     if (!isLoggedIn) return
     encounterApi.getNearbyMode()
-      .then((res) => { if (res.data?.success) setNearbyMode(res.data.data === true) })
+      .then((res) => { setNearbyMode(res.data.data === true) })
       .catch(() => undefined)
     encounterApi.listLetters()
       .then((res) => {
@@ -130,10 +131,10 @@ export default function NearbyWishesScreen() {
     if (nearbyBusy) return
     setNearbyBusy(true)
     try {
-      const res = await encounterApi.setNearbyMode(enabled)
-      if (res.data?.success) setNearbyMode(enabled)
-    } catch {
-      // 静默：开关状态以服务端为准
+      await encounterApi.setNearbyMode(enabled)
+      setNearbyMode(enabled)
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '设置失败，请稍后重试'))
     } finally {
       setNearbyBusy(false)
     }
@@ -153,12 +154,9 @@ export default function NearbyWishesScreen() {
         pos = { lat: setting.coords.latitude, lng: setting.coords.longitude }
       }
       const res = await wishApi.checkFence(checkWishId, pos.lat, pos.lng)
-      if (res.data?.success) {
-        setCheckResult(res.data.data.insideFence ? '🎉 到达！心愿绽放' : '还未到达围栏附近，继续加油')
-      }
-    } catch (err) {
-      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-      setCheckResult(errNode?.response?.data?.error?.message || '打卡失败，请稍后重试')
+      setCheckResult(res.data.data.insideFence ? '🎉 到达！心愿绽放' : '还未到达围栏附近，继续加油')
+    } catch (error) {
+      setCheckResult(errorMessage(error, '打卡失败，请稍后重试'))
     } finally {
       setCheckBusy(false)
     }
@@ -177,23 +175,20 @@ export default function NearbyWishesScreen() {
         const setting = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
         pos = { lat: setting.coords.latitude, lng: setting.coords.longitude }
       }
-      const res = await wishApi.publishWarmEvent({
+      await wishApi.publishWarmEvent({
         title: warmTitle.trim(),
         content: warmContent.trim(),
         lat: pos.lat,
         lng: pos.lng,
       })
-      if (res.data?.success) {
-        setWarmOpen(false)
-        setWarmTitle('')
-        setWarmContent('')
-        wishApi.listWarmEvents({ lat: pos.lat, lng: pos.lng, radius: 5000 })
-          .then((r) => { if (r.data?.success) setWarmEvents(r.data.data ?? []) })
-          .catch(() => undefined)
-      }
-    } catch (err) {
-      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-      alert(errNode?.response?.data?.error?.message || '发布失败，请稍后重试')
+      setWarmOpen(false)
+      setWarmTitle('')
+      setWarmContent('')
+      wishApi.listWarmEvents({ lat: pos.lat, lng: pos.lng, radius: 5000 })
+        .then((r) => { setWarmEvents(r.data.data ?? []) })
+        .catch(() => undefined)
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '发布失败，请稍后重试'))
     } finally {
       setWarmSaving(false)
     }

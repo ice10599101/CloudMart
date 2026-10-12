@@ -11,6 +11,7 @@ import WishBGM from '@/components/WishBGM'
 import StarCountUp from '@/components/StarCountUp'
 import LevelUpModal from '@/components/LevelUpModal'
 import { notifyLevelUp } from '@/utils/levelup-notifications'
+import { BusinessError, errorMessage } from '@/utils/request'
 
 const WEEK_DAYS = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -64,16 +65,14 @@ export default function DailySigninScreen() {
   const loadCalendar = useCallback(async (y: number, m: number) => {
     try {
       const res = await wishApi.getSigninCalendar(formatMonth(y, m))
-      if (res.data?.success) {
-        const data = res.data.data
-        setSignedDates(new Set(data.signedDates))
-        setConsecutiveDays(data.consecutiveDays)
-        setTotalDays(data.totalDays)
-        const isCurrentMonth = y === now.getFullYear() && m === now.getMonth() + 1
-        setSignedToday(isCurrentMonth && data.signedDates.includes(todayStr))
-      }
+      const data = res.data.data
+      setSignedDates(new Set(data.signedDates))
+      setConsecutiveDays(data.consecutiveDays)
+      setTotalDays(data.totalDays)
+      const isCurrentMonth = y === now.getFullYear() && m === now.getMonth() + 1
+      setSignedToday(isCurrentMonth && data.signedDates.includes(todayStr))
     } catch {
-      // 错误已由 request 处理
+      // 日历后台加载失败保持空态
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayStr])
@@ -81,7 +80,7 @@ export default function DailySigninScreen() {
   const loadResources = useCallback(async () => {
     try {
       const res = await wishApi.getMyResources()
-      if (res.data?.success) setResources(res.data.data)
+      setResources(res.data.data)
     } catch {
       // 余额卡片加载失败不阻塞签到
     }
@@ -143,10 +142,8 @@ export default function DailySigninScreen() {
         Alert.alert('领取成功', `星光 +${result?.starlightReward ?? 0}${bonusText}${result?.expReward ? ` · 经验 +${result.expReward}` : ''}`)
       }
       void loadResources()
-    } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '领取失败'
-      Alert.alert('提示', message)
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '领取失败'))
     }
   }
 
@@ -154,27 +151,25 @@ export default function DailySigninScreen() {
     if (signedToday || signing) return
     setSigning(true)
     try {
-      const res = await wishApi.dailySignin()
-      if (res.data?.success) {
-        const result: DailySigninResult = res.data.data
-        setSignedToday(true)
-        setConsecutiveDays(result.consecutiveDays)
-        setRewardDelta(result.starlightReward)
-        setResources((prev) =>
-          prev ? { ...prev, balance: prev.balance + result.starlightReward } : prev,
-        )
-        if (result.levelUp) {
-          setLevelUp(result.levelUp)
-          // 文档 L1917/L1923：APP 等级提升推送本地通知
-          void notifyLevelUp(result.levelUp)
-        }
-        loadCalendar(year, month)
+      const result: DailySigninResult = (await wishApi.dailySignin()).data.data
+      setSignedToday(true)
+      setConsecutiveDays(result.consecutiveDays)
+      setRewardDelta(result.starlightReward)
+      setResources((prev) =>
+        prev ? { ...prev, balance: prev.balance + result.starlightReward } : prev,
+      )
+      if (result.levelUp) {
+        setLevelUp(result.levelUp)
+        // 文档 L1917/L1923：APP 等级提升推送本地通知
+        void notifyLevelUp(result.levelUp)
       }
-    } catch (err) {
-      const code = (err as { data?: { error?: { code?: string } } })?.data?.error?.code
-      if (code === 'WISH_ALREADY_SIGNED_IN') {
+      loadCalendar(year, month)
+    } catch (error) {
+      if (error instanceof BusinessError && error.code === 'WISH_ALREADY_SIGNED_IN') {
         setSignedToday(true)
         loadCalendar(year, month)
+      } else {
+        Alert.alert('签到失败', errorMessage(error, '请稍后再试'))
       }
     } finally {
       setSigning(false)

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, Textarea } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import type { AiResource } from '@/types'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
@@ -64,7 +65,7 @@ export default function TreeHolePage() {
     const loadHistory = async () => {
       try {
         const res = await wishApi.listAiConversations({ pageSize: 50 })
-        if (res.data.success && res.data.data.length > 0) {
+        if (res.data.data.length > 0) {
           setMessages(
             [...res.data.data]
               .reverse()
@@ -98,7 +99,7 @@ export default function TreeHolePage() {
       // 同意状态前置检查，未同意弹协议（后端 403 也会兜底触发）
       try {
         const statusRes = await wishApi.getConsentStatus()
-        if (statusRes.data.success && !statusRes.data.data.granted) {
+        if (!statusRes.data.data.granted) {
           pendingMessageRef.current = text
           setConsentVisible(true)
           return
@@ -112,31 +113,27 @@ export default function TreeHolePage() {
       setSending(true)
       try {
         const res = await wishApi.sendTreeHoleMessage(wishId, text)
-        if (res.data.success) {
-          const { reply, sentimentScore, resources } = res.data.data
-          sentTodayRef.current += 1
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `reply-${Date.now()}`,
-              role: 'ASSISTANT',
-              content: reply,
-              resources,
-              isCrisis:
-                sentimentScore !== null &&
-                sentimentScore <= -0.9 &&
-                resources.some((r) => r.type === 'HOTLINE'),
-            },
-          ])
-          const remaining = DAILY_LIMIT - sentTodayRef.current
-          if (remaining > 0 && remaining <= 3) {
-            Taro.showToast({ title: `今天还可以倾诉 ${remaining} 次`, icon: 'none' })
-          }
-        } else {
-          handleBusinessBody(res.data)
+        const { reply, sentimentScore, resources } = res.data.data
+        sentTodayRef.current += 1
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `reply-${Date.now()}`,
+            role: 'ASSISTANT',
+            content: reply,
+            resources,
+            isCrisis:
+              sentimentScore !== null &&
+              sentimentScore <= -0.9 &&
+              resources.some((r) => r.type === 'HOTLINE'),
+          },
+        ])
+        const remaining = DAILY_LIMIT - sentTodayRef.current
+        if (remaining > 0 && remaining <= 3) {
+          Taro.showToast({ title: `今天还可以倾诉 ${remaining} 次`, icon: 'none' })
         }
       } catch (error) {
-        // HTTP 403/429/503 在部分平台以异常抛出，解析异常体中的业务码
+        // R25：业务失败（403/429/503/success=false）统一抛 BusinessError，按 code 分发
         handleThrownError(error, text)
       } finally {
         setSending(false)
@@ -146,27 +143,15 @@ export default function TreeHolePage() {
     [input, sending, isLoggedIn, wishId],
   )
 
-  /** 业务错误（success=false 信封）：按 code 分发 */
-  const handleBusinessBody = (body: { error?: { code?: string; message?: string } }) => {
-    const code = body.error?.code ?? ''
-    if (code === 'WISH_CONSENT_REQUIRED') {
-      pendingMessageRef.current = input.trim()
-      setConsentVisible(true)
-      return
-    }
-    toastByCode(code, body.error?.message)
-  }
-
-  /** 异常体业务错误（HTTP 非 2xx 抛出）：从 error.data 提取信封 */
+  /** R25：业务异常（BusinessError）：按 code 分发，message 透传服务端文案 */
   const handleThrownError = (error: unknown, sentText: string) => {
-    const body = (error as { data?: { error?: { code?: string; message?: string } } })?.data
-    const code = body?.error?.code ?? ''
+    const code = (error as { code?: string })?.code ?? ''
     if (code === 'WISH_CONSENT_REQUIRED') {
       pendingMessageRef.current = sentText
       setConsentVisible(true)
       return
     }
-    toastByCode(code, body?.error?.message)
+    toastByCode(code, errorMessage(error, '发送失败，请稍后重试'))
     // 发送失败移除本地用户消息
     setMessages((prev) => prev.filter((m) => !(String(m.id).startsWith('local-') && m.content === sentText)))
   }
@@ -185,25 +170,22 @@ export default function TreeHolePage() {
   const handleConsentAgree = async () => {
     setConsentAgreeing(true)
     try {
-      const res = await wishApi.grantConsent({
+      await wishApi.grantConsent({
         consentType: 'AI_DATA_PROCESSING',
         version: AI_CONSENT_VERSION,
         action: 'GRANT',
       })
-      if (res.data.success) {
-        setConsentVisible(false)
-        Taro.showToast({ title: '你的倾诉会被温柔对待', icon: 'none' })
-        const pending = pendingMessageRef.current
-        pendingMessageRef.current = null
-        if (pending) {
-          setInput('')
-          await handleSend(pending)
-        }
-      } else {
-        toastByCode(res.data.error?.code ?? '', res.data.error?.message)
+      setConsentVisible(false)
+      Taro.showToast({ title: '你的倾诉会被温柔对待', icon: 'none' })
+      const pending = pendingMessageRef.current
+      pendingMessageRef.current = null
+      if (pending) {
+        setInput('')
+        await handleSend(pending)
       }
-    } catch {
-      toastByCode('')
+    } catch (err) {
+      const code = (err as { code?: string })?.code ?? ''
+      toastByCode(code, errorMessage(err, '操作失败，请稍后重试'))
     } finally {
       setConsentAgreeing(false)
     }

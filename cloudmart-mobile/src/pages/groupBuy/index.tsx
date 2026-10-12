@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { marketingApi } from '@/api/marketing'
+import { errorMessage } from '@/utils/request'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { GroupActivity, GroupOrder } from '@/types'
 import styles from './index.module.scss'
@@ -103,19 +104,15 @@ export default function GroupBuyPage() {
     setJoiningId(activity.id)
     try {
       const res = await marketingApi.joinGroup({ activityId: activity.id })
-      if (res.data?.success) {
-        Taro.showToast({ title: '参与成功', icon: 'success' })
-        const orderNo = (res.data?.data as unknown as { orderNo?: string })?.orderNo
-        if (orderNo) {
-          Taro.navigateTo({ url: `/pages/orderDetail/index?orderNo=${orderNo}` })
-        } else {
-          Taro.navigateTo({ url: `/pages/productDetail/index?id=${activity.productId}` })
-        }
+      Taro.showToast({ title: '参与成功', icon: 'success' })
+      const orderNo = (res.data?.data as unknown as { orderNo?: string })?.orderNo
+      if (orderNo) {
+        Taro.navigateTo({ url: `/pages/orderDetail/index?orderNo=${orderNo}` })
       } else {
-        Taro.showToast({ title: res.data?.error?.message || '参与失败', icon: 'none' })
+        Taro.navigateTo({ url: `/pages/productDetail/index?id=${activity.productId}` })
       }
-    } catch {
-      Taro.showToast({ title: '网络异常，请重试', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '网络异常，请重试'), icon: 'none' })
     } finally {
       setJoiningId(null)
     }

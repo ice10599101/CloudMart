@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
@@ -151,8 +152,8 @@ export default function CollectionsPage() {
       await communityApi.updatePost(id, { status: 1 })
       Taro.showToast({ title: '发布成功', icon: 'success' })
       fetchDrafts()
-    } catch {
-      Taro.showToast({ title: '发布失败', icon: 'error' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '发布失败'), icon: 'error' })
     }
   }
 
@@ -166,8 +167,8 @@ export default function CollectionsPage() {
       await communityApi.deletePost(id)
       Taro.showToast({ title: '删除成功', icon: 'success' })
       fetchDrafts()
-    } catch {
-      Taro.showToast({ title: '删除失败', icon: 'error' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '删除失败'), icon: 'error' })
     }
   }
 

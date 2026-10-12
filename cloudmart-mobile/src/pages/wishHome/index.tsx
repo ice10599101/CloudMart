@@ -39,9 +39,7 @@ export default function WishHomePage() {
     const fetchData = async () => {
       try {
         const res = await wishApi.getHome()
-        if (res.data.success) {
-          setData(res.data.data)
-        }
+        setData(res.data.data)
       } catch {
         // 错误已由 request 处理
       } finally {

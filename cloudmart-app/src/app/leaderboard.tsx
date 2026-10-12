@@ -42,7 +42,7 @@ export default function LeaderboardScreen() {
     setLoading(true)
     try {
       const res = await wishApi.getLeaderboard(type, 100)
-      if (res.data.success) setEntries(res.data.data ?? [])
+      setEntries(res.data.data ?? [])
     } catch {
       setEntries([])
     } finally {

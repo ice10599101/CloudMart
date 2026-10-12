@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { router } from 'expo-router'
 import { useAuthStore } from '@/store/auth'
 import { useTheme } from '@/hooks/use-theme-context'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 export default function LoginScreen() {
@@ -19,8 +20,8 @@ export default function LoginScreen() {
     try {
       await login(account, password)
       router.replace('/')
-    } catch (err: any) {
-      Alert.alert('登录失败', err?.message || '请检查账号密码')
+    } catch (error) {
+      Alert.alert('登录失败', errorMessage(error, '请检查账号密码'))
     }
   }
 

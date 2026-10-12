@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import { wishApi } from '@/api/wish'
+import { errorMessage, isBusinessError } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -19,10 +20,9 @@ const STATUS_LABEL: Record<MatchGroupDetail['status'], string> = {
   CLOSED: '已解散',
 }
 
-/** 从 axios 异常体提取业务错误信封（与树洞页同模式） */
+/** R25：request 失败统一 reject BusinessError，直接取 code/message */
 function extractBusinessError(error: unknown): { code?: string; message?: string } | undefined {
-  return (error as { response?: { data?: { error?: { code?: string; message?: string } } } })
-    ?.response?.data?.error
+  return isBusinessError(error) ? error : undefined
 }
 
 export default function MatchSquadScreen() {
@@ -41,7 +41,7 @@ export default function MatchSquadScreen() {
     setLoading(true)
     try {
       const res = await wishApi.recommendMatchGroups({ keyword: kw?.trim() || undefined, pageSize: 20 })
-      if (res.data.success) setRecommend(res.data.data ?? [])
+      setRecommend(res.data.data ?? [])
     } catch {
       // 推荐失败保持空态
     } finally {
@@ -56,7 +56,7 @@ export default function MatchSquadScreen() {
     }
     try {
       const res = await wishApi.listMyMatchGroups()
-      if (res.data.success) setMyGroups(res.data.data ?? [])
+      setMyGroups(res.data.data ?? [])
     } catch {
       // 静默
     }
@@ -79,19 +79,15 @@ export default function MatchSquadScreen() {
   const handleJoin = async (item: MatchGroupItem) => {
     if (!requireLogin()) return
     try {
-      const res = await wishApi.joinMatchGroup(item.groupId)
-      if (res.data.success) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined)
-        loadRecommend(keyword)
-        loadMyGroups()
-      } else {
-        Alert.alert('提示', res.data.error?.message ?? '加入失败')
-      }
+      await wishApi.joinMatchGroup(item.groupId)
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined)
+      loadRecommend(keyword)
+      loadMyGroups()
     } catch (error) {
       const business = extractBusinessError(error)
       Alert.alert('提示', business?.code === 'WISH_GROUP_FULL'
         ? '来晚一步，小队刚好满员了'
-        : business?.message ?? '加入失败，请稍后重试')
+        : errorMessage(error, '加入失败，请稍后重试'))
     }
   }
 
@@ -101,15 +97,13 @@ export default function MatchSquadScreen() {
     if (!kw) return
     setCreating(true)
     try {
-      const res = await wishApi.createMatchGroup({ keyword: kw, maxMembers: 4 })
-      if (res.data.success) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined)
-        setCreateKeyword('')
-        loadRecommend()
-        loadMyGroups()
-      }
-    } catch {
-      Alert.alert('提示', '创建失败，请稍后重试')
+      await wishApi.createMatchGroup({ keyword: kw, maxMembers: 4 })
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined)
+      setCreateKeyword('')
+      loadRecommend()
+      loadMyGroups()
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '创建失败，请稍后重试'))
     } finally {
       setCreating(false)
     }
@@ -121,8 +115,8 @@ export default function MatchSquadScreen() {
       await wishApi.leaveMatchGroup(groupId, user.id)
       loadMyGroups()
       loadRecommend(keyword)
-    } catch {
-      // 静默
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '退出失败，请稍后重试'))
     }
   }
 
@@ -140,8 +134,8 @@ export default function MatchSquadScreen() {
               try {
                 await wishApi.leaveMatchGroup(groupId, targetUserId)
                 loadMyGroups()
-              } catch {
-                // 静默
+              } catch (error) {
+                Alert.alert('提示', errorMessage(error, '移出失败，请稍后重试'))
               }
             })()
           },
@@ -161,8 +155,8 @@ export default function MatchSquadScreen() {
             try {
               await wishApi.dissolveMatchGroup(groupId)
               loadMyGroups()
-            } catch {
-              // 静默
+            } catch (error) {
+              Alert.alert('提示', errorMessage(error, '解散失败，请稍后重试'))
             }
           })()
         },
@@ -175,8 +169,7 @@ export default function MatchSquadScreen() {
       await wishApi.remindSquadMembers(groupId, targetUserId)
       Alert.alert('完成', '提醒已送达，等待伙伴回归吧')
     } catch (error) {
-      const business = extractBusinessError(error)
-      Alert.alert('提示', business?.message ?? '提醒发送失败或已达今日上限')
+      Alert.alert('提示', errorMessage(error, '提醒发送失败或已达今日上限'))
     }
   }
 

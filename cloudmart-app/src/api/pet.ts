@@ -482,9 +482,12 @@ export const petApi = {
   listBattleHistory: (params?: { page?: number; pageSize?: number }) =>
     request<PetBattleItem[]>({ url: `/pet/battle/history${buildQuery(params)}` }),
 
-  /** 聊天（每日 20 次 429；AI 故障降级模板 isAiReply=false） */
+  /**
+   * 聊天（每日 20 次 429；AI 故障降级模板 isAiReply=false）。
+   * R25：权益类写操作使用持久意图；断网/超时后按原键查 /pet/chat/requests/{key}，不轮换新键。
+   */
   chat: (message: string) =>
-    request<PetChatMessage>({ url: '/pet/chat', method: 'POST', data: { message } }),
+    request<PetChatMessage>({ url: '/pet/chat', method: 'POST', data: { message }, persistentIntent: true }),
   chatHistory: (params?: { cursor?: number | string; pageSize?: number }) =>
     request<PetChatMessage[]>({ url: `/pet/chat/history${buildQuery(params)}` }),
 
@@ -523,9 +526,18 @@ export const petApi = {
 
   /** 宠物商城（装备/皮肤/技能书 + 星光余额） */
   getShop: () => request<PetShopResult>({ url: '/pet/shop' }),
-  /** 购买物品（先入包再扣星光；余额不足 402，重复购买 409） */
+  /**
+   * 购买物品（先入包再扣星光；余额不足 402，重复购买 409）。
+   * R25：扣费类操作使用持久意图；未知结果按原键查 /pet/purchase-requests/{key}，不重复下单。
+   */
   buyItem: (data: { itemType: PetItemType; itemCode: string }) =>
-    request<PetInventoryItem>({ url: '/pet/shop/buy', method: 'POST', data: data as unknown as Record<string, unknown> }),
+    request<PetInventoryItem>({ url: '/pet/shop/buy', method: 'POST', data: data as unknown as Record<string, unknown>, persistentIntent: true }),
+
+  /** R25：按请求键查询购买状态（COMPLETED/PROCESSING/UNKNOWN）——断网/超时/重启恢复入口 */
+  getPurchaseRequestStatus: (requestKey: string) =>
+    request<{ status: 'COMPLETED' | 'PROCESSING' | 'UNKNOWN'; order?: unknown; completedAt?: string | null }>({
+      url: `/pet/purchase-requests/${encodeURIComponent(requestKey)}`,
+    }),
 
   /** 宠物背包 */
   listInventory: () => request<PetInventoryItem[]>({ url: '/pet/inventory' }),

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { petApi, type PveRunVO } from '@/api/pet'
+import { errorMessage } from '@/utils/request'
 import { PET_CREAM_STYLE } from '@/styles/petCream'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
@@ -32,13 +33,13 @@ export default function PvePage() {
     try {
       if (tab === 'lobby') {
         const { data: res } = await petApi.listOpenPveRuns(1, 20)
-        if (res.success) setOpenRuns((res.data as unknown as { records?: PveRunVO[] }).records ?? [])
+        setOpenRuns((res.data as unknown as { records?: PveRunVO[] }).records ?? [])
       } else {
         const { data: res } = await petApi.listMyPveRuns(1, 20)
-        if (res.success) setMyRuns((res.data as unknown as { records?: PveRunVO[] }).records ?? [])
+        setMyRuns((res.data as unknown as { records?: PveRunVO[] }).records ?? [])
       }
-    } catch {
-      Taro.showToast({ title: '加载失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '加载失败'), icon: 'none' })
     }
   }, [tab])
 
@@ -47,9 +48,9 @@ export default function PvePage() {
   const openDetail = async (runId: number) => {
     try {
       const res = await petApi.pveDetail(runId)
-      if (res.data.success) setDetail(res.data.data)
-    } catch {
-      Taro.showToast({ title: '详情加载失败', icon: 'none' })
+      setDetail(res.data.data)
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '详情加载失败'), icon: 'none' })
     }
   }
 
@@ -58,12 +59,12 @@ export default function PvePage() {
     setStarting(bossCode)
     try {
       const { data: res } = await petApi.startPveRun(bossCode)
-      if (res.success && res.data) {
+      if (res.data) {
         Taro.showToast({ title: '副本已发起，等待队友加入', icon: 'none' })
         setDetail(res.data)
       }
-    } catch {
-      Taro.showToast({ title: '发起失败（可能已有进行中副本）', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '发起失败（可能已有进行中副本）'), icon: 'none' })
     } finally {
       setStarting(null)
     }
@@ -74,12 +75,12 @@ export default function PvePage() {
     setBusy(true)
     try {
       const { data: res } = await petApi.joinPveRun(runId)
-      if (res.success && res.data) {
+      if (res.data) {
         Taro.showToast({ title: '已加入战斗！', icon: 'success' })
         setDetail(res.data)
       }
-    } catch {
-      Taro.showToast({ title: '加入失败（可能刚被别人加入）', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '加入失败（可能刚被别人加入）'), icon: 'none' })
     } finally {
       setBusy(false)
     }
@@ -90,13 +91,13 @@ export default function PvePage() {
     setBusy(true)
     try {
       const { data: res } = await petApi.attackPveRun(runId)
-      if (res.success && res.data) {
+      if (res.data) {
         setDetail(res.data)
         if (res.data.status === 'WON') Taro.showToast({ title: '🎉 Boss 讨伐成功！奖励已发放', icon: 'success' })
         else if (res.data.status === 'FAILED') Taro.showToast({ title: '副本失败，下次再战', icon: 'none' })
       }
-    } catch {
-      Taro.showToast({ title: '攻击失败（可能还没轮到你）', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '攻击失败（可能还没轮到你）'), icon: 'none' })
     } finally {
       setBusy(false)
     }

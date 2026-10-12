@@ -9,6 +9,7 @@ import DecoratedAvatar from '@/components/DecoratedAvatar'
 import type { User } from '@/types'
 import { wishApi } from '@/api/wish'
 import { petApi, type PetPublicCard } from '@/api/pet'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 const TABS = [
@@ -120,8 +121,8 @@ export default function UserProfileScreen() {
         ...prev,
         followerCount: isFollowing ? (prev.followerCount || 0) - 1 : (prev.followerCount || 0) + 1,
       }))
-    } catch {
-      Alert.alert('错误', '操作失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '操作失败'))
     }
   }
 
@@ -136,7 +137,7 @@ export default function UserProfileScreen() {
             if (isBlocked) await communityApi.unblockUser(userId)
             else await communityApi.blockUser(userId)
             setIsBlocked(!isBlocked)
-          } catch { Alert.alert('错误', '操作失败') }
+          } catch (error) { Alert.alert('错误', errorMessage(error, '操作失败')) }
         },
       },
     ])
@@ -147,8 +148,8 @@ export default function UserProfileScreen() {
     try {
       await communityApi.report({ targetType: 'USER', targetId: Number(userId), reason })
       Alert.alert('提示', '举报成功，感谢你的反馈')
-    } catch {
-      Alert.alert('错误', '举报失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '举报失败'))
     }
   }
 

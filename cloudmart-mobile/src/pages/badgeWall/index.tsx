@@ -30,12 +30,8 @@ export default function BadgeWallPage() {
         wishApi.getMyBadges(),
         wishApi.getMyLevel(),
       ])
-      if (badgesRes.data.success) {
-        setBadges(badgesRes.data.data)
-      }
-      if (levelRes.data.success) {
-        setLevelData(levelRes.data.data)
-      }
+      setBadges(badgesRes.data.data)
+      setLevelData(levelRes.data.data)
     } catch {
       // 错误已由 request 处理
     } finally {

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi, type PrivacyOverview } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -72,7 +73,9 @@ export default function PrivacyCenterScreen() {
     setLoading(true)
     try {
       const res = await wishApi.getMyPrivacyOverview()
-      if (res.data?.success && res.data.data) setView(res.data.data as PrivacyOverview)
+      if (res.data.data) setView(res.data.data as PrivacyOverview)
+    } catch {
+      // 后台加载失败保留空态
     } finally {
       setLoading(false)
     }
@@ -91,13 +94,11 @@ export default function PrivacyCenterScreen() {
         onPress: async () => {
           setCancelling(true)
           try {
-            const res = await wishApi.cancelAccountDeletion()
-            if (res.data?.success) {
-              Alert.alert('提示', '注销已取消')
-              await load()
-            }
-          } catch {
-            Alert.alert('提示', '网络异常，请稍后重试')
+            await wishApi.cancelAccountDeletion()
+            Alert.alert('提示', '注销已取消')
+            await load()
+          } catch (error) {
+            Alert.alert('提示', errorMessage(error, '网络异常，请稍后重试'))
           } finally {
             setCancelling(false)
           }

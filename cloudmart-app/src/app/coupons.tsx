@@ -10,6 +10,7 @@ import {
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '@/hooks/use-theme-context'
 import { marketingApi } from '@/api/marketing'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 interface CouponTemplate {
@@ -190,8 +191,8 @@ export default function CouponsPage() {
         setAvailableCoupons((prev) => prev.map((c) => (c.id === id ? { ...c, claimed: true } : c)))
         Alert.alert('领取成功', '优惠券已发放至您的账户')
         loadMyCoupons()
-      } catch {
-        Alert.alert('领取失败', '请稍后重试')
+      } catch (error) {
+        Alert.alert('领取失败', errorMessage(error, '请稍后重试'))
       } finally {
         setClaimingIds((prev) => {
           const next = new Set(prev)

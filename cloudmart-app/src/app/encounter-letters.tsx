@@ -22,6 +22,7 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 import { RichTextEditor, type RichTextEditorRef } from '@/components/RichTextEditor'
 import RichHtml from '@/components/RichHtml'
+import { BusinessError, errorMessage } from '@/utils/request'
 
 const ROLE_LABELS: Record<DriftBottleItem['role'], string> = {
   THROWN: '我投出的',
@@ -46,20 +47,15 @@ function stripHtml(html: string): string {
     .trim()
 }
 
-/** 提取异常响应中的错误码/文案（APP 端 request 不统一弹错，页面自行 alert） */
-function extractError(err: unknown): { code?: string; message?: string } | null {
-  const e = err as { response?: { data?: { error?: { code?: string; message?: string } } } }
-  return e?.response?.data?.error ?? null
-}
-
 /** 互动业务错误提示（区分当日限频与星光不足） */
-function showInteractError(code?: string, message?: string) {
+function showInteractError(error: unknown) {
+  const code = error instanceof BusinessError ? error.code : ''
   if (code === 'WISH_RATE_LIMITED') {
     alert('这个漂流瓶今天已经回应过啦')
   } else if (code === 'WISH_STARLIGHT_INSUFFICIENT') {
     alert('星光不足，可通过每日签到、打卡获取星光')
   } else {
-    alert(message || '互动失败，请稍后重试')
+    alert(errorMessage(error, '互动失败，请稍后重试'))
   }
 }
 
@@ -177,15 +173,10 @@ function BottleCard({ bottle, contentWidth, onBottleChange, onCollect, onReturn,
     setInteracting(type)
     try {
       const res = await wishApi.interactDriftBottle(bottle.bottleId, type)
-      if (res.data?.success) {
-        onBottleChange(res.data.data)
-        alert(type === 'BLESS' ? '已送上祝福 🌟' : '已为 TA 点亮 ✨')
-      } else {
-        showInteractError(res.data?.error?.code, res.data?.error?.message)
-      }
-    } catch (err) {
-      const e = extractError(err)
-      showInteractError(e?.code, e?.message)
+      onBottleChange(res.data.data)
+      alert(type === 'BLESS' ? '已送上祝福 🌟' : '已为 TA 点亮 ✨')
+    } catch (error) {
+      showInteractError(error)
     } finally {
       setInteracting(null)
     }
@@ -195,14 +186,10 @@ function BottleCard({ bottle, contentWidth, onBottleChange, onCollect, onReturn,
     setCommentsLoading(true)
     try {
       const res = await wishApi.listDriftBottleComments(bottle.bottleId, { pageSize: COMMENT_PAGE_SIZE })
-      if (res.data?.success) {
-        setComments(res.data.data ?? [])
-        setCursor(res.data.meta?.nextCursor ?? null)
-        setHasMore(Boolean(res.data.meta?.hasMore))
-        setCommentsLoaded(true)
-      } else if (res.data) {
-        alert(res.data.error?.message || '评论加载失败')
-      }
+      setComments(res.data.data ?? [])
+      setCursor(res.data.meta?.nextCursor ?? null)
+      setHasMore(Boolean(res.data.meta?.hasMore))
+      setCommentsLoaded(true)
     } catch {
       // 评论加载失败不阻断卡片展示
     } finally {
@@ -224,14 +211,12 @@ function BottleCard({ bottle, contentWidth, onBottleChange, onCollect, onReturn,
         cursor,
         pageSize: COMMENT_PAGE_SIZE,
       })
-      if (res.data?.success) {
-        setComments((prev) => {
-          const seen = new Set(prev.map((c) => c.id))
-          return [...prev, ...res.data.data.filter((c) => !seen.has(c.id))]
-        })
-        setCursor(res.data.meta?.nextCursor ?? null)
-        setHasMore(Boolean(res.data.meta?.hasMore))
-      }
+      setComments((prev) => {
+        const seen = new Set(prev.map((c) => c.id))
+        return [...prev, ...res.data.data.filter((c) => !seen.has(c.id))]
+      })
+      setCursor(res.data.meta?.nextCursor ?? null)
+      setHasMore(Boolean(res.data.meta?.hasMore))
     } catch {
       // 加载更多失败静默，用户可再次点击重试
     } finally {
@@ -264,17 +249,13 @@ function BottleCard({ bottle, contentWidth, onBottleChange, onCollect, onReturn,
         parentId: replyTo?.id,
         isAnonymous: commentAnon,
       })
-      if (res.data?.success) {
-        setCommentText('')
-        setReplyTo(null)
-        onBottleChange({ ...bottle, commentCount: bottle.commentCount + 1 })
-        setCommentsLoaded(false)
-        loadComments()
-      } else if (res.data) {
-        alert(res.data.error?.message || '发送失败，请稍后重试')
-      }
-    } catch {
-      alert('发送失败，请稍后重试')
+      setCommentText('')
+      setReplyTo(null)
+      onBottleChange({ ...bottle, commentCount: bottle.commentCount + 1 })
+      setCommentsLoaded(false)
+      loadComments()
+    } catch (error) {
+      alert(errorMessage(error, '发送失败，请稍后重试'))
     } finally {
       setSubmitting(false)
     }
@@ -612,9 +593,9 @@ export default function DriftBottleScreen() {
     if (!isLoggedIn) return
     try {
       const res = await wishApi.listMyDriftBottles()
-      if (res.data?.success) setBottles(res.data.data ?? [])
+      setBottles(res.data.data ?? [])
     } catch {
-      // 静默
+      // 后台加载失败保持空列表
     } finally {
       setLoading(false)
     }
@@ -630,9 +611,9 @@ export default function DriftBottleScreen() {
     if (!isLoggedIn) return
     try {
       const res = await wishApi.getDriftBottleQuota()
-      if (res.data?.success) setQuota(res.data.data ?? null)
+      setQuota(res.data.data ?? null)
     } catch {
-      // 静默
+      // 配额后台加载失败不阻断页面
     }
   }, [isLoggedIn])
 
@@ -644,17 +625,12 @@ export default function DriftBottleScreen() {
   const handleCollect = useCallback(async (bottle: DriftBottleItem) => {
     try {
       const res = await wishApi.collectDriftBottle(bottle.bottleId)
-      if (res.data?.success) {
-        const updated = res.data.data ?? { ...bottle, isCollected: true }
-        setBottles((prev) => prev.map((b) => (b.bottleId === bottle.bottleId ? updated : b)))
-        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? updated : prev))
-        alert('已收藏 ⭐')
-      } else if (res.data) {
-        alert(res.data.error?.message || '收藏失败')
-      }
-    } catch (err) {
-      const e = extractError(err)
-      alert(e?.message || '收藏失败')
+      const updated = res.data.data ?? { ...bottle, isCollected: true }
+      setBottles((prev) => prev.map((b) => (b.bottleId === bottle.bottleId ? updated : b)))
+      setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? updated : prev))
+      alert('已收藏 ⭐')
+    } catch (error) {
+      alert(errorMessage(error, '收藏失败'))
     }
   }, [])
 
@@ -667,17 +643,12 @@ export default function DriftBottleScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const res = await wishApi.returnDriftBottle(bottle.bottleId)
-            if (res.data?.success) {
-              setBottles((prev) => prev.filter((b) => b.bottleId !== bottle.bottleId))
-              setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? null : prev))
-              alert('已扔回海里 🌊')
-            } else if (res.data) {
-              alert(res.data.error?.message || '操作失败')
-            }
-          } catch (err) {
-            const e = extractError(err)
-            alert(e?.message || '操作失败')
+            await wishApi.returnDriftBottle(bottle.bottleId)
+            setBottles((prev) => prev.filter((b) => b.bottleId !== bottle.bottleId))
+            setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? null : prev))
+            alert('已扔回海里 🌊')
+          } catch (error) {
+            alert(errorMessage(error, '操作失败'))
           }
         },
       },
@@ -688,16 +659,11 @@ export default function DriftBottleScreen() {
   const handlePickerAnonymity = useCallback(async (bottle: DriftBottleItem, isAnonymous: boolean) => {
     try {
       const res = await wishApi.updateDriftBottlePickerAnonymity(bottle.bottleId, isAnonymous)
-      if (res.data?.success) {
-        const updated = res.data.data ?? { ...bottle, pickerIsAnonymous: isAnonymous }
-        setBottles((prev) => prev.map((b) => (b.bottleId === bottle.bottleId ? updated : b)))
-        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? updated : prev))
-      } else if (res.data) {
-        alert(res.data.error?.message || '操作失败')
-      }
-    } catch (err) {
-      const e = extractError(err)
-      alert(e?.message || '操作失败')
+      const updated = res.data.data ?? { ...bottle, pickerIsAnonymous: isAnonymous }
+      setBottles((prev) => prev.map((b) => (b.bottleId === bottle.bottleId ? updated : b)))
+      setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? updated : prev))
+    } catch (error) {
+      alert(errorMessage(error, '操作失败'))
     }
   }, [])
 
@@ -709,21 +675,16 @@ export default function DriftBottleScreen() {
     setFishing(true)
     try {
       const res = await wishApi.fishDriftBottle()
-      if (res.data?.success) {
-        if (res.data.data) {
-          setFishedBottle(res.data.data)
-          loadBottles()
-          void loadQuota()
-        } else {
-          setFishedBottle(null)
-          alert('海面暂时没有漂流瓶')
-        }
-      } else if (res.data) {
-        alert(res.data.error?.message || '捞瓶失败，请稍后重试')
+      if (res.data.data) {
+        setFishedBottle(res.data.data)
+        loadBottles()
+        void loadQuota()
+      } else {
+        setFishedBottle(null)
+        alert('海面暂时没有漂流瓶')
       }
-    } catch (err) {
-      const e = extractError(err)
-      alert(e?.message || '捞瓶失败，请稍后重试')
+    } catch (error) {
+      alert(errorMessage(error, '捞瓶失败，请稍后重试'))
     } finally {
       setFishing(false)
     }
@@ -734,9 +695,9 @@ export default function DriftBottleScreen() {
     setCandidatesLoading(true)
     try {
       const res = await wishApi.listDriftBottleCandidateWishes()
-      if (res.data?.success) setCandidateWishes(res.data.data ?? [])
+      setCandidateWishes(res.data.data ?? [])
     } catch {
-      // 静默
+      // 候选心愿后台加载失败保持空列表
     } finally {
       setCandidatesLoading(false)
     }
@@ -764,20 +725,15 @@ export default function DriftBottleScreen() {
     }
     setThrowing(true)
     try {
-      const res = await wishApi.throwDriftBottle(payload)
-      if (res.data?.success) {
-        alert('漂流瓶已抛出，愿它漂向有缘人 🍾')
-        editorRef.current?.setHTML('')
-        setThrowMode('text')
-        setSelectedWish(null)
-        loadBottles()
-        void loadQuota()
-      } else if (res.data) {
-        alert(res.data.error?.message || '投瓶失败，请稍后重试')
-      }
-    } catch (err) {
-      const e = extractError(err)
-      alert(e?.message || '投瓶失败，请稍后重试')
+      await wishApi.throwDriftBottle(payload)
+      alert('漂流瓶已抛出，愿它漂向有缘人 🍾')
+      editorRef.current?.setHTML('')
+      setThrowMode('text')
+      setSelectedWish(null)
+      loadBottles()
+      void loadQuota()
+    } catch (error) {
+      alert(errorMessage(error, '投瓶失败，请稍后重试'))
     } finally {
       setThrowing(false)
     }

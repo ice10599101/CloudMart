@@ -17,7 +17,7 @@ export default function WishCheckinCalendar({ wishId, accentColor }: { wishId: s
     wishApi
       .getWishCheckinCalendar(wishId, month.format('YYYY-MM'))
       .then((res) => {
-        if (alive && res.data?.success) setLit(new Set(res.data.data?.dates ?? []))
+        if (alive) setLit(new Set(res.data.data?.dates ?? []))
       })
       .catch(() => {
         if (alive) setLit(new Set())

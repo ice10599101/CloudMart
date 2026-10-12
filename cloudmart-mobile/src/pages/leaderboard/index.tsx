@@ -29,10 +29,7 @@ function BoardPanel({ type, cls }: { type: LeaderboardType; cls: Record<string, 
   useState(() => {
     wishApi
       .getLeaderboard(type, 100)
-      .then((res) => {
-        if (res.data.success) setEntries(res.data.data ?? [])
-        else setEntries([])
-      })
+      .then((res) => setEntries(res.data.data ?? []))
       .catch(() => setEntries([]))
   })
 

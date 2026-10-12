@@ -3,6 +3,7 @@ import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { giftApi } from '@/api/gift'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import AssetIcon from '@/components/AssetIcon'
 import type { GiftItem, GiftRecordItem, GiftTargetType } from '@/types'
@@ -48,7 +49,7 @@ export default function GiftSection({ targetType, targetId, refreshTick = 0 }: G
     setLoading(true)
     try {
       const res = await giftApi.listTargetGiftRecords(targetType, targetId, { pageSize: 10 })
-      if (res.data.success) setRecords(res.data.data ?? [])
+      setRecords(res.data.data ?? [])
     } catch {
       // 静默
     } finally {
@@ -72,8 +73,8 @@ export default function GiftSection({ targetType, targetId, refreshTick = 0 }: G
         giftApi.listGifts(),
         wishApi.getMyResources().catch(() => null),
       ])
-      if (giftsRes.data.success) setGifts(giftsRes.data.data ?? [])
-      if (resourcesRes?.data.success) setBalance(resourcesRes.data.data?.balance ?? null)
+      setGifts(giftsRes.data.data ?? [])
+      if (resourcesRes?.data) setBalance(resourcesRes.data.data?.balance ?? null)
     } catch {
       // 静默
     }
@@ -91,26 +92,20 @@ export default function GiftSection({ targetType, targetId, refreshTick = 0 }: G
     }
     setSending(true)
     try {
-      const res = await giftApi.sendGift({
+      await giftApi.sendGift({
         giftId: selectedGift.id,
         count,
         targetType,
         targetId,
         message: messageText.trim() || undefined,
       })
-      if (res.data.success) {
-        Taro.showToast({ title: `送出 ${selectedGift.name} ×${count} 🎁`, icon: 'none' })
-        setPickerOpen(false)
-        setMessageText('')
-        setCount(1)
-        void loadRecords()
-      } else {
-        Taro.showToast({ title: res.data.error?.message ?? '送礼失败', icon: 'none' })
-      }
+      Taro.showToast({ title: `送出 ${selectedGift.name} ×${count} 🎁`, icon: 'none' })
+      setPickerOpen(false)
+      setMessageText('')
+      setCount(1)
+      void loadRecords()
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '送礼失败'
-      Taro.showToast({ title: message, icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '送礼失败'), icon: 'none' })
     } finally {
       setSending(false)
     }

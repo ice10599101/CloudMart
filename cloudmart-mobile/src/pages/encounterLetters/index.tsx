@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Switch, Textarea, Image, Picker } from '@tarojs
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import { fileApi } from '@/api/file'
+import { errorMessage, isBusinessError } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import RichText from '@/components/RichText'
@@ -75,11 +76,9 @@ function BottleCommentSection({ bottleId, onCountChange }: BottleCommentSectionP
     setLoading(true)
     try {
       const res = await wishApi.listDriftBottleComments(bottleId, { pageSize: 10 })
-      if (res.data.success) {
-        setComments(res.data.data)
-        setCursor(res.data.meta?.nextCursor ?? null)
-        setHasMore(Boolean(res.data.meta?.hasMore))
-      }
+      setComments(res.data.data)
+      setCursor(res.data.meta?.nextCursor ?? null)
+      setHasMore(Boolean(res.data.meta?.hasMore))
     } catch {
       // 错误已由 request 处理
     } finally {
@@ -96,14 +95,12 @@ function BottleCommentSection({ bottleId, onCountChange }: BottleCommentSectionP
     setLoadingMore(true)
     try {
       const res = await wishApi.listDriftBottleComments(bottleId, { cursor, pageSize: 10 })
-      if (res.data.success) {
-        setComments((prev) => {
-          const seen = new Set(prev.map((c) => c.id))
-          return [...prev, ...res.data.data.filter((c) => !seen.has(c.id))]
-        })
-        setCursor(res.data.meta?.nextCursor ?? null)
-        setHasMore(Boolean(res.data.meta?.hasMore))
-      }
+      setComments((prev) => {
+        const seen = new Set(prev.map((c) => c.id))
+        return [...prev, ...res.data.data.filter((c) => !seen.has(c.id))]
+      })
+      setCursor(res.data.meta?.nextCursor ?? null)
+      setHasMore(Boolean(res.data.meta?.hasMore))
     } catch {
       // 错误已由 request 处理
     } finally {
@@ -119,22 +116,18 @@ function BottleCommentSection({ bottleId, onCountChange }: BottleCommentSectionP
     }
     setSubmitting(true)
     try {
-      const res = await wishApi.addDriftBottleComment(bottleId, {
+      await wishApi.addDriftBottleComment(bottleId, {
         content: trimmed,
         parentId: replyTo?.id,
         isAnonymous,
       })
-      if (res.data.success) {
-        setContent('')
-        setReplyTo(null)
-        onCountChange(1)
-        loadFirstPage()
-        Taro.showToast({ title: replyTo ? '回复已发送' : '评论已发表', icon: 'none' })
-      } else {
-        Taro.showToast({ title: res.data.error?.message ?? '发表失败，请稍后重试', icon: 'none' })
-      }
-    } catch {
-      // 错误已由 request 处理
+      setContent('')
+      setReplyTo(null)
+      onCountChange(1)
+      loadFirstPage()
+      Taro.showToast({ title: replyTo ? '回复已发送' : '评论已发表', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '发表失败，请稍后重试'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }
@@ -439,7 +432,7 @@ export default function EncounterLettersPage() {
     if (!isLoggedIn) return
     try {
       const res = await wishApi.getDriftBottleQuota()
-      if (res.data.success) setQuota(res.data.data ?? null)
+      setQuota(res.data.data ?? null)
     } catch {
       // 静默
     }
@@ -449,18 +442,14 @@ export default function EncounterLettersPage() {
   const handleCollect = async (bottle: DriftBottleItem) => {
     try {
       const res = await wishApi.collectDriftBottle(bottle.bottleId)
-      if (res.data.success) {
-        const updated = res.data.data
-        setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? (updated ?? { ...it, isCollected: true }) : it)))
-        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? (updated ?? { ...prev, isCollected: true }) : prev))
-        Taro.showToast({ title: '已收藏 ⭐', icon: 'none' })
-        // 收藏视图保持实时（新收藏的瓶子立即出现）
-        if (bottleFilter === 'COLLECTED') loadCollected()
-      } else {
-        Taro.showToast({ title: res.data.error?.message ?? '收藏失败', icon: 'none' })
-      }
-    } catch {
-      // 错误已由 request 处理
+      const updated = res.data.data
+      setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? (updated ?? { ...it, isCollected: true }) : it)))
+      setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? (updated ?? { ...prev, isCollected: true }) : prev))
+      Taro.showToast({ title: '已收藏 ⭐', icon: 'none' })
+      // 收藏视图保持实时（新收藏的瓶子立即出现）
+      if (bottleFilter === 'COLLECTED') loadCollected()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '收藏失败'), icon: 'none' })
     }
   }
 
@@ -472,16 +461,12 @@ export default function EncounterLettersPage() {
     })
     if (!res.confirm) return
     try {
-      const res2 = await wishApi.returnDriftBottle(bottle.bottleId)
-      if (res2.data.success) {
-        setBottles((prev) => prev.filter((it) => it.bottleId !== bottle.bottleId))
-        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? null : prev))
-        Taro.showToast({ title: '已扔回海里 🌊', icon: 'none' })
-      } else {
-        Taro.showToast({ title: res2.data.error?.message ?? '操作失败', icon: 'none' })
-      }
-    } catch {
-      // 错误已由 request 处理
+      await wishApi.returnDriftBottle(bottle.bottleId)
+      setBottles((prev) => prev.filter((it) => it.bottleId !== bottle.bottleId))
+      setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? null : prev))
+      Taro.showToast({ title: '已扔回海里 🌊', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -489,15 +474,11 @@ export default function EncounterLettersPage() {
   const handlePickerAnonymity = async (bottle: DriftBottleItem, isAnonymous: boolean) => {
     try {
       const res = await wishApi.updateDriftBottlePickerAnonymity(bottle.bottleId, isAnonymous)
-      if (res.data.success) {
-        const updated = res.data.data
-        setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? (updated ?? { ...it, pickerIsAnonymous: isAnonymous }) : it)))
-        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? (updated ?? { ...prev, pickerIsAnonymous: isAnonymous }) : prev))
-      } else {
-        Taro.showToast({ title: res.data.error?.message ?? '操作失败', icon: 'none' })
-      }
-    } catch {
-      // 错误已由 request 处理
+      const updated = res.data.data
+      setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? (updated ?? { ...it, pickerIsAnonymous: isAnonymous }) : it)))
+      setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? (updated ?? { ...prev, pickerIsAnonymous: isAnonymous }) : prev))
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -505,7 +486,7 @@ export default function EncounterLettersPage() {
     if (!isLoggedIn) return
     try {
       const res = await wishApi.listMyDriftBottles()
-      if (res.data.success) setBottles(res.data.data ?? [])
+      setBottles(res.data.data ?? [])
     } catch {
       // 静默
     } finally {
@@ -519,7 +500,7 @@ export default function EncounterLettersPage() {
     setLoadingCollected(true)
     try {
       const res = await wishApi.listMyCollectedDriftBottles()
-      if (res.data.success) setCollectedBottles(res.data.data ?? [])
+      setCollectedBottles(res.data.data ?? [])
     } catch {
       // 静默
     } finally {
@@ -532,7 +513,7 @@ export default function EncounterLettersPage() {
     loadMine()
     loadQuota()
     wishApi.listDriftBottleCandidateWishes()
-      .then((res) => { if (res.data.success) setCandidateWishes(res.data.data ?? []) })
+      .then((res) => setCandidateWishes(res.data.data ?? []))
       .catch(() => undefined)
   }, [isLoggedIn, loadMine, loadQuota])
 
@@ -541,21 +522,17 @@ export default function EncounterLettersPage() {
     setFishing(true)
     try {
       const res = await wishApi.fishDriftBottle()
-      if (res.data.success) {
-        if (res.data.data) {
-          setFishedBottle(res.data.data)
-          Taro.showToast({ title: '捞到一只漂流瓶 🍾', icon: 'none' })
-          loadMine()
-          loadQuota()
-        } else {
-          setFishedBottle(null)
-          Taro.showToast({ title: '海面暂时没有漂流瓶', icon: 'none' })
-        }
+      if (res.data.data) {
+        setFishedBottle(res.data.data)
+        Taro.showToast({ title: '捞到一只漂流瓶 🍾', icon: 'none' })
+        loadMine()
+        loadQuota()
       } else {
-        Taro.showToast({ title: res.data.error?.message ?? '捞瓶失败，请稍后重试', icon: 'none' })
+        setFishedBottle(null)
+        Taro.showToast({ title: '海面暂时没有漂流瓶', icon: 'none' })
       }
-    } catch {
-      // 错误已由 request 处理
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '捞瓶失败，请稍后重试'), icon: 'none' })
     } finally {
       setFishing(false)
     }
@@ -631,20 +608,16 @@ export default function EncounterLettersPage() {
           : throwMode === 'audio'
             ? { audioUrl, audioDurationSeconds: audioDuration, isAnonymous: isAnonymousThrow }
             : { wishId: selectedWishId as number, isAnonymous: isAnonymousThrow }
-      const res = await wishApi.throwDriftBottle(payload)
-      if (res.data.success) {
-        Taro.showToast({ title: '漂流瓶已投出 🍾', icon: 'none' })
-        setContent('')
-        setSelectedWishId(null)
-        setAudioUrl('')
-        setAudioDuration(0)
-        loadMine()
-        loadQuota()
-      } else {
-        Taro.showToast({ title: res.data.error?.message ?? '投瓶失败，请稍后重试', icon: 'none' })
-      }
-    } catch {
-      // 错误已由 request 处理
+      await wishApi.throwDriftBottle(payload)
+      Taro.showToast({ title: '漂流瓶已投出 🍾', icon: 'none' })
+      setContent('')
+      setSelectedWishId(null)
+      setAudioUrl('')
+      setAudioDuration(0)
+      loadMine()
+      loadQuota()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '投瓶失败，请稍后重试'), icon: 'none' })
     } finally {
       setThrowing(false)
     }
@@ -654,18 +627,16 @@ export default function EncounterLettersPage() {
     setInteractingId(bottle.bottleId)
     try {
       const res = await wishApi.interactDriftBottle(bottle.bottleId, type)
-      if (res.data.success) {
-        setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? res.data.data : it)))
-        setCollectedBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? res.data.data : it)))
-        setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? res.data.data : prev))
-        Taro.showToast({ title: type === 'BLESS' ? '已送上祝福 🌟' : '已为 TA 点亮 ✨', icon: 'none' })
-      } else if (res.data.error?.code === 'WISH_RATE_LIMITED') {
+      setBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? res.data.data : it)))
+      setCollectedBottles((prev) => prev.map((it) => (it.bottleId === bottle.bottleId ? res.data.data : it)))
+      setFishedBottle((prev) => (prev && prev.bottleId === bottle.bottleId ? res.data.data : prev))
+      Taro.showToast({ title: type === 'BLESS' ? '已送上祝福 🌟' : '已为 TA 点亮 ✨', icon: 'none' })
+    } catch (err) {
+      if (isBusinessError(err) && err.code === 'WISH_RATE_LIMITED') {
         Taro.showToast({ title: '这个漂流瓶今天已经回应过啦', icon: 'none' })
       } else {
-        Taro.showToast({ title: res.data.error?.message ?? '回应失败，请稍后重试', icon: 'none' })
+        Taro.showToast({ title: errorMessage(err, '回应失败，请稍后重试'), icon: 'none' })
       }
-    } catch {
-      // 错误已由 request 处理
     } finally {
       setInteractingId(null)
     }

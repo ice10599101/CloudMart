@@ -3,6 +3,7 @@ import { useState, useRef, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { aiApi } from '@/api/ai'
+import { errorMessage } from '@/utils/request'
 import type { Product } from '@/types'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -79,13 +80,13 @@ export default function AiChatScreen() {
         content,
       }
       setMessages((prev) => [...prev, assistantMessage])
-    } catch {
-      const errorMessage: ChatMessage = {
+    } catch (error) {
+      const errorChatMessage: ChatMessage = {
         id: nextId.current++,
         role: 'assistant',
-        content: '网络异常，请稍后再试。',
+        content: errorMessage(error, '网络异常，请稍后再试。'),
       }
-      setMessages((prev) => [...prev, errorMessage])
+      setMessages((prev) => [...prev, errorChatMessage])
     } finally {
       setIsLoading(false)
       scrollToBottom()

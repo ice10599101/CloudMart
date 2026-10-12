@@ -95,16 +95,16 @@ export default function WorldTreeScreen() {
                 wishApi.getTreeEnv(),
                 wishApi.listEnvConfigs(),
             ])
-            if (treeRes.data?.success && treeRes.data.data) {
+            if (treeRes.data.data) {
                 setAggregation(treeRes.data.data)
             }
-            if (fruitsRes.data?.success && Array.isArray(fruitsRes.data.data)) {
+            if (Array.isArray(fruitsRes.data.data)) {
                 mergeFruits(fruitsRes.data.data)
             }
-            if (envRes.data?.success && envRes.data.data) {
+            if (envRes.data.data) {
                 setEnvSnapshot(envRes.data.data)
             }
-            if (configsRes.data?.success && Array.isArray(configsRes.data.data)) {
+            if (Array.isArray(configsRes.data.data)) {
                 setEnvConfigs(configsRes.data.data)
             }
         } catch {
@@ -123,7 +123,7 @@ export default function WorldTreeScreen() {
         const timer = setInterval(async () => {
             try {
                 const res = await wishApi.getTreeEnv()
-                if (res.data?.success && res.data.data) {
+                if (res.data.data) {
                     setEnvSnapshot(res.data.data)
                 }
             } catch {

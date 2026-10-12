@@ -66,7 +66,7 @@ export default function PetWalletScreen() {
   const loadWallet = useCallback(async () => {
     try {
       const res = await petApi.getWallet()
-      if (res.data?.success && res.data.data) {
+      if (res.data.data) {
         setWallet(res.data.data)
         setWalletUnavailable(false)
       } else {
@@ -87,15 +87,11 @@ export default function PetWalletScreen() {
           direction: filter || undefined,
           cursor: nextCursor ?? undefined,
         })
-        if (res.data?.success) {
-          const page = res.data.data ?? []
-          setTransactions((prev) => (reset ? page : [...prev, ...page]))
-          const meta = (res.data as { meta?: { nextCursor?: string | number | null } }).meta
-          setCursor(meta?.nextCursor ?? null)
-          setHasMore(Boolean(meta?.nextCursor))
-        } else if (reset) {
-          setTransactions([])
-        }
+        const page = res.data.data ?? []
+        setTransactions((prev) => (reset ? page : [...prev, ...page]))
+        const meta = (res.data as { meta?: { nextCursor?: string | number | null } }).meta
+        setCursor(meta?.nextCursor ?? null)
+        setHasMore(Boolean(meta?.nextCursor))
       } catch {
         if (reset) setTransactions([])
       } finally {
@@ -128,7 +124,7 @@ export default function PetWalletScreen() {
         cursor: reset ? undefined : (cursor ?? undefined),
       })
       const page = (res.data as unknown as { data?: { items: PetPurchaseOrder[]; nextCursor: string | null; hasMore: boolean } })?.data
-      if (res.data?.success && page) {
+      if (page) {
         setOrders((prev) => (reset ? page.items : [...prev, ...page.items]))
         setOrderCursor(page.nextCursor)
         setOrderHasMore(page.hasMore)

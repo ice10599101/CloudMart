@@ -2,6 +2,7 @@ import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native'
 import { useEffect, useState } from 'react'
 import { router } from 'expo-router'
 import { useAuthStore } from '@/store/auth'
+import { errorMessage } from '@/utils/request'
 import { useTheme } from '@/hooks/use-theme-context'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -55,8 +56,8 @@ export default function RegisterScreen() {
         // 后端不假成功，如实展示原因（通道未配置/发送失败）
         Alert.alert('发送失败', result.message || '请稍后重试')
       }
-    } catch (err: any) {
-      Alert.alert('发送失败', err?.message || '请稍后重试')
+    } catch (error) {
+      Alert.alert('发送失败', errorMessage(error, '请稍后重试'))
     } finally {
       setSendingCode(false)
     }
@@ -88,8 +89,8 @@ export default function RegisterScreen() {
     try {
       await register(nickname, email, password, code)
       Alert.alert('注册成功', '请登录', [{ text: '确定', onPress: () => router.replace('/login') }])
-    } catch (err: any) {
-      Alert.alert('注册失败', err?.message || '请稍后重试')
+    } catch (error) {
+      Alert.alert('注册失败', errorMessage(error, '请稍后重试'))
     }
   }
 

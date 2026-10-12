@@ -14,6 +14,7 @@ import type {
   NotificationPreferenceMatrix,
   NotificationType,
 } from '@/types'
+import { BusinessError, errorMessage } from '@/utils/request'
 
 /** AI 数据处理协议版本（与树洞页一致） */
 const AI_CONSENT_VERSION = 'v1.0'
@@ -58,12 +59,6 @@ const CHANNELS: { key: NotificationChannel; label: string }[] = [
   { key: 'EMAIL', label: '邮件' },
 ]
 
-/** 从 axios 异常体提取业务错误信封（与树洞页同模式） */
-function extractBusinessError(error: unknown): { code?: string; message?: string } | undefined {
-  return (error as { response?: { data?: { error?: { code?: string; message?: string } } } })
-    ?.response?.data?.error
-}
-
 const isGoalTerminal = (status: AiGoalStatus) => status === 'COMPLETED' || status === 'CANCELLED'
 
 export default function AiAssistantScreen() {
@@ -96,7 +91,7 @@ export default function AiAssistantScreen() {
     wishApi
       .getWishDetail(wishId)
       .then((res) => {
-        if (cancelled || !res.data.success || !res.data.data) return
+        if (cancelled || !res.data.data) return
         const detail = res.data.data
         setText(detail.description ? `${detail.title}\n${detail.description}` : detail.title)
       })
@@ -124,7 +119,7 @@ export default function AiAssistantScreen() {
   const loadMatrix = useCallback(async () => {
     try {
       const res = await wishApi.getNotificationPreferences()
-      if (res.data.success) setMatrix(res.data.data)
+      setMatrix(res.data.data)
     } catch {
       // 偏好加载失败仅隐藏开关，不提示
     }
@@ -164,7 +159,7 @@ export default function AiAssistantScreen() {
     // 同意状态前置检查，未同意弹协议；查询失败由后端 403 兜底
     try {
       const statusRes = await wishApi.getConsentStatus()
-      if (statusRes.data.success && !statusRes.data.data.granted) {
+      if (!statusRes.data.data.granted) {
         pendingTextRef.current = value
         Alert.alert(
           'AI 数据处理协议',
@@ -175,18 +170,16 @@ export default function AiAssistantScreen() {
               text: '同意并继续',
               onPress: async () => {
                 try {
-                  const grantRes = await wishApi.grantConsent({
+                  await wishApi.grantConsent({
                     consentType: 'AI_DATA_PROCESSING',
                     version: AI_CONSENT_VERSION,
                     action: 'GRANT',
                   })
-                  if (grantRes.data.success) {
-                    const pending = pendingTextRef.current
-                    pendingTextRef.current = null
-                    if (pending) await handleBreakdown(pending)
-                  }
-                } catch {
-                  toastByCode('')
+                  const pending = pendingTextRef.current
+                  pendingTextRef.current = null
+                  if (pending) await handleBreakdown(pending)
+                } catch (error) {
+                  toastByCode('', errorMessage(error, '操作失败，请稍后重试'))
                 }
               },
             },
@@ -201,15 +194,11 @@ export default function AiAssistantScreen() {
     setBreaking(true)
     try {
       const res = await wishApi.breakdownGoal({ text: value, wishId })
-      if (res.data.success && res.data.data) {
-        setBreakdown(res.data.data)
-        setSelectedGoalTitles(new Set(res.data.data.goals.map((g) => g.title)))
-      } else {
-        toastByCode(res.data.error?.code ?? '', res.data.error?.message)
-      }
+      if (!res.data.data) return
+      setBreakdown(res.data.data)
+      setSelectedGoalTitles(new Set(res.data.data.goals.map((g) => g.title)))
     } catch (error) {
-      const business = extractBusinessError(error)
-      const code = business?.code ?? ''
+      const code = error instanceof BusinessError ? error.code : ''
       if (code === 'WISH_CONSENT_REQUIRED') {
         pendingTextRef.current = value
         Alert.alert(
@@ -229,8 +218,8 @@ export default function AiAssistantScreen() {
                       action: 'GRANT',
                     })
                     await handleBreakdown(value)
-                  } catch {
-                    toastByCode('')
+                  } catch (grantError) {
+                    toastByCode('', errorMessage(grantError, '操作失败，请稍后重试'))
                   }
                 })()
               },
@@ -239,7 +228,7 @@ export default function AiAssistantScreen() {
         )
         return
       }
-      toastByCode(code, business?.message)
+      toastByCode(code, errorMessage(error, '操作失败，请稍后重试'))
     } finally {
       setBreaking(false)
     }
@@ -263,19 +252,17 @@ export default function AiAssistantScreen() {
     }
     setSavingGoals(true)
     try {
-      const res = await wishApi.createAiGoals({
+      await wishApi.createAiGoals({
         sessionId: breakdown.sessionId,
         wishId,
         goals: selected,
       })
-      if (res.data.success) {
-        Alert.alert('完成', '步骤计划已保存')
-        setBreakdown(null)
-        setSelectedGoalTitles(new Set())
-        loadGoals()
-      }
-    } catch {
-      Alert.alert('提示', '保存失败，请稍后重试')
+      Alert.alert('完成', '步骤计划已保存')
+      setBreakdown(null)
+      setSelectedGoalTitles(new Set())
+      loadGoals()
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '保存失败，请稍后重试'))
     } finally {
       setSavingGoals(false)
     }
@@ -284,18 +271,16 @@ export default function AiAssistantScreen() {
   const handleGoalAction = async (goal: AiGoal, status: AiGoalStatus) => {
     setActingGoalId(goal.id)
     try {
-      const res = await wishApi.updateAiGoalStatus(goal.id, status)
-      if (res.data.success) {
-        setGoals((prev) => prev.map((g) => (g.id === goal.id ? { ...g, status } : g)))
+      await wishApi.updateAiGoalStatus(goal.id, status)
+      setGoals((prev) => prev.map((g) => (g.id === goal.id ? { ...g, status } : g)))
+    } catch (error) {
+      const code = error instanceof BusinessError ? error.code : ''
+      if (code === 'WISH_AI_GOAL_STATUS_INVALID' || code === 'WISH_CONCURRENT_CONFLICT') {
+        Alert.alert('提示', '状态已变化，已为你刷新')
+        loadGoals()
       } else {
-        const code = res.data.error?.code ?? ''
-        if (code === 'WISH_AI_GOAL_STATUS_INVALID' || code === 'WISH_CONCURRENT_CONFLICT') {
-          Alert.alert('提示', '状态已变化，已为你刷新')
-          loadGoals()
-        }
+        Alert.alert('提示', errorMessage(error, '操作失败，请稍后重试'))
       }
-    } catch {
-      Alert.alert('提示', '操作失败，请稍后重试')
     } finally {
       setActingGoalId(null)
     }
@@ -304,9 +289,9 @@ export default function AiAssistantScreen() {
   const handleTogglePreference = async (type: NotificationType, channel: NotificationChannel, enabled: boolean) => {
     try {
       const res = await wishApi.updateNotificationPreferences([{ type, channel, enabled }])
-      if (res.data.success) setMatrix(res.data.data)
-    } catch {
-      // 静默
+      setMatrix(res.data.data)
+    } catch (error) {
+      Alert.alert('操作失败', errorMessage(error, '请稍后再试'))
     }
   }
 
@@ -329,12 +314,10 @@ export default function AiAssistantScreen() {
         CHANNELS.map(({ key }) => ({ type, channel: key, enabled })),
       )
       const res = await wishApi.updateNotificationPreferences(updates)
-      if (res.data.success) {
-        setMatrix(res.data.data)
-        Alert.alert('完成', enabled ? '已恢复所有提醒' : '已关闭所有提醒，愿你清净片刻')
-      }
-    } catch {
-      Alert.alert('提示', '操作失败，请稍后重试')
+      setMatrix(res.data.data)
+      Alert.alert('完成', enabled ? '已恢复所有提醒' : '已关闭所有提醒，愿你清净片刻')
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '操作失败，请稍后重试'))
     } finally {
       setBatchUpdating(false)
     }

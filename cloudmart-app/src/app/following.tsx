@@ -1,9 +1,10 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl, Alert } from 'react-native'
 import { useState, useEffect, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { UserBasic } from '@/types'
 
@@ -93,8 +94,8 @@ export default function FollowingScreen() {
         item.id === user.id ? { ...item, isFollowing: !wasFollowing } : item
       setFollowingList((prev) => prev.map(updateFn))
       setFollowersList((prev) => prev.map(updateFn))
-    } catch {
-      // 操作失败静默处理
+    } catch (error) {
+      Alert.alert('操作失败', errorMessage(error, '请稍后再试'))
     }
   }
 

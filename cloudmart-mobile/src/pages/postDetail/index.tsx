@@ -4,6 +4,7 @@ import { View, Text, Image, ScrollView, Textarea, Button } from '@tarojs/compone
 import Taro, { useShareAppMessage } from '@tarojs/taro'
 import { communityApi } from '@/api/community'
 import { productApi } from '@/api/product'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import GiftSection from '@/components/GiftSection'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
@@ -122,8 +123,8 @@ export default function PostDetailPage() {
         await communityApi.likePost(post.id)
       }
       setPost({ ...post, isLiked: !post.isLiked, likeCount: post.isLiked ? post.likeCount - 1 : post.likeCount + 1 })
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -136,8 +137,8 @@ export default function PostDetailPage() {
         await communityApi.collectPost(post.id)
       }
       setPost({ ...post, isCollected: !post.isCollected, collectCount: post.isCollected ? post.collectCount - 1 : post.collectCount + 1 })
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -150,8 +151,8 @@ export default function PostDetailPage() {
         await communityApi.followUser(post.user.id)
       }
       setIsFollowing(!isFollowing)
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -172,8 +173,8 @@ export default function PostDetailPage() {
       setReplyTo(null)
       Taro.showToast({ title: '评论成功', icon: 'success' })
       loadComments(1, false)
-    } catch {
-      Taro.showToast({ title: '评论失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '评论失败'), icon: 'none' })
     }
   }
 
@@ -190,8 +191,8 @@ export default function PostDetailPage() {
           ? { ...c, isLiked: !c.isLiked, likeCount: c.isLiked ? c.likeCount - 1 : c.likeCount + 1 }
           : { ...c, replies: c.replies?.map(patch) }
       setComments((prev) => prev.map(patch))
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -206,8 +207,8 @@ export default function PostDetailPage() {
           await communityApi.deleteComment(id, comment.id)
           setComments((prev) => prev.filter((c) => c.id !== comment.id))
           Taro.showToast({ title: '已删除', icon: 'success' })
-        } catch {
-          Taro.showToast({ title: '删除失败', icon: 'none' })
+        } catch (err) {
+          Taro.showToast({ title: errorMessage(err, '删除失败'), icon: 'none' })
         }
       },
     })
@@ -239,8 +240,8 @@ export default function PostDetailPage() {
           await communityApi.deletePost(post!.id)
           Taro.showToast({ title: '已删除', icon: 'success' })
           setTimeout(() => Taro.switchTab({ url: '/pages/home/index' }), 1_200)
-        } catch {
-          Taro.showToast({ title: '删除失败', icon: 'none' })
+        } catch (err) {
+          Taro.showToast({ title: errorMessage(err, '删除失败'), icon: 'none' })
         }
       },
     })
@@ -293,8 +294,8 @@ export default function PostDetailPage() {
     try {
       await communityApi.report({ targetType: 'POST', targetId: id, reason })
       Taro.showToast({ title: '举报成功', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '举报失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '举报失败'), icon: 'none' })
     }
   }
 

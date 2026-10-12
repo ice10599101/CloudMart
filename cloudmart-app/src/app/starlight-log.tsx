@@ -37,12 +37,10 @@ export default function StarlightLogScreen() {
         cursor: nextCursor ?? undefined,
         pageSize: PAGE_SIZE,
       })
-      if (res.data?.success) {
-        const list = res.data.data ?? []
-        setLogs((prev) => (reset ? list : [...prev, ...list]))
-        setCursor(list.length > 0 ? String(list[list.length - 1].id) : null)
-        setHasMore(list.length >= PAGE_SIZE)
-      }
+      const list = res.data.data ?? []
+      setLogs((prev) => (reset ? list : [...prev, ...list]))
+      setCursor(list.length > 0 ? String(list[list.length - 1].id) : null)
+      setHasMore(list.length >= PAGE_SIZE)
     } catch {
       if (reset) setLogs([])
     } finally {

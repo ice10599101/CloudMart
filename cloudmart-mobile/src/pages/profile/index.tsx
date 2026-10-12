@@ -6,6 +6,7 @@ import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { userApi } from '@/api/user'
 import { fileApi } from '@/api/file'
+import { errorMessage } from '@/utils/request'
 import styles from './index.module.scss'
 
 const GENDER_OPTIONS = ['未设置', '男', '女']
@@ -81,8 +82,8 @@ export default function ProfilePage() {
       await userApi.updateProfile({ avatar: avatarUrl })
       await fetchUser()
       Taro.showToast({ title: '头像更新成功', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '头像上传失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '头像上传失败'), icon: 'none' })
     } finally {
       setAvatarUploading(false)
     }
@@ -109,8 +110,8 @@ export default function ProfilePage() {
       await fetchUser()
       Taro.showToast({ title: '保存成功', icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 500)
-    } catch {
-      Taro.showToast({ title: '保存失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '保存失败'), icon: 'none' })
     } finally {
       setSaving(false)
     }

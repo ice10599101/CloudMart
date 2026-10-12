@@ -3,7 +3,8 @@ import { View, Text, Image, TouchableOpacity, TextInput, FlatList, ActivityIndic
 import { wishApi } from '@/api/wish'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
-import type { ApiResponse, WishCommentItem } from '@/types'
+import type { WishCommentItem } from '@/types'
+import { errorMessage } from '@/utils/request'
 
 /**
  * 心愿评论模块（Sprint 1.2，APP 端）。
@@ -36,11 +37,6 @@ function formatTime(iso: string): string {
   })
 }
 
-/** 业务错误提示（APP 端 request 不统一弹错，组件自行 Alert） */
-function alertBusinessError(body: ApiResponse<unknown>, fallback: string) {
-  Alert.alert('提示', body.error?.message ?? fallback)
-}
-
 export default function WishCommentSection({
   wishId,
   commentCount,
@@ -67,11 +63,9 @@ export default function WishCommentSection({
     try {
       const res = await wishApi.listComments(wishId, { pageSize: COMMENT_PAGE_SIZE })
       if (seq !== requestSeq.current) return
-      if (res.data?.success) {
-        setComments(res.data.data)
-        setCursor(res.data.meta?.nextCursor ?? null)
-        setHasMore(Boolean(res.data.meta?.hasMore))
-      }
+      setComments(res.data.data)
+      setCursor(res.data.meta?.nextCursor ?? null)
+      setHasMore(Boolean(res.data.meta?.hasMore))
     } catch {
       // 评论加载失败不阻断详情展示
     } finally {
@@ -90,15 +84,13 @@ export default function WishCommentSection({
     try {
       const res = await wishApi.listComments(wishId, { cursor, pageSize: COMMENT_PAGE_SIZE })
       if (seq !== requestSeq.current) return
-      if (res.data?.success) {
-        // cursor 分页按 id 去重合并，防御服务端数据变动导致的重复
-        setComments((prev) => {
-          const seen = new Set(prev.map((c) => c.id))
-          return [...prev, ...res.data.data.filter((c) => !seen.has(c.id))]
-        })
-        setCursor(res.data.meta?.nextCursor ?? null)
-        setHasMore(Boolean(res.data.meta?.hasMore))
-      }
+      // cursor 分页按 id 去重合并，防御服务端数据变动导致的重复
+      setComments((prev) => {
+        const seen = new Set(prev.map((c) => c.id))
+        return [...prev, ...res.data.data.filter((c) => !seen.has(c.id))]
+      })
+      setCursor(res.data.meta?.nextCursor ?? null)
+      setHasMore(Boolean(res.data.meta?.hasMore))
     } catch {
       // 加载更多失败静默，用户可再次触底重试
     } finally {
@@ -125,21 +117,17 @@ export default function WishCommentSection({
     }
     setSubmitting(true)
     try {
-      const res = await wishApi.createComment(wishId, {
+      await wishApi.createComment(wishId, {
         content: trimmed,
         parentId: replyTo?.id,
       })
-      if (res.data?.success) {
-        setContent('')
-        setReplyTo(null)
-        onCountChange(1)
-        loadFirstPage()
-        Alert.alert('提示', replyTo ? '回复已发送' : '评论已发表')
-      } else if (res.data) {
-        alertBusinessError(res.data, '发表失败，请稍后重试')
-      }
-    } catch {
-      Alert.alert('错误', '发表失败，请稍后重试')
+      setContent('')
+      setReplyTo(null)
+      onCountChange(1)
+      loadFirstPage()
+      Alert.alert('提示', replyTo ? '回复已发送' : '评论已发表')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '发表失败，请稍后重试'))
     } finally {
       setSubmitting(false)
     }
@@ -153,15 +141,11 @@ export default function WishCommentSection({
         style: 'destructive',
         onPress: async () => {
           try {
-            const res = await wishApi.deleteComment(wishId, commentId)
-            if (res.data?.success) {
-              setComments((prev) => prev.filter((c) => c.id !== commentId))
-              onCountChange(-1)
-            } else if (res.data) {
-              alertBusinessError(res.data, '删除失败，请稍后重试')
-            }
-          } catch {
-            Alert.alert('错误', '删除失败，请稍后重试')
+            await wishApi.deleteComment(wishId, commentId)
+            setComments((prev) => prev.filter((c) => c.id !== commentId))
+            onCountChange(-1)
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '删除失败，请稍后重试'))
           }
         },
       },

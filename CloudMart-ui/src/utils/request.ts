@@ -7,6 +7,13 @@ import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useAuthStore } from '@/stores/auth'
 import { getAppMessage } from '@/utils/appMessage'
 import { getDeviceId } from '@/utils/deviceFingerprint'
+import {
+  WRITE_METHODS,
+  hashFingerprint,
+  decideIntent,
+  intentTerminal,
+  parseIntentEntry,
+} from '@/utils/idempotency'
 
 /** 拦截器是非组件环境，优先用 App 桥实例；桥未挂载时退回静态实例 */
 function notify(kind: 'error' | 'warning', content: string) {
@@ -31,7 +38,7 @@ type AuthDomain = 'user' | 'admin'
 
 interface RefreshDomainState {
   isRefreshing: boolean
-  pendingRequests: Array<(token: string) => void>
+  pendingRequests: Array<(token: string, failure?: Error) => void>
 }
 
 const refreshDomains: Record<AuthDomain, RefreshDomainState> = {
@@ -50,10 +57,9 @@ function processPendingRequests(domain: AuthDomain, token: string) {
 }
 
 function rejectPendingRequests(domain: AuthDomain, cause: unknown) {
-  refreshDomains[domain].pendingRequests.forEach((cb) => cb(''))
+  const failure = cause instanceof Error ? cause : undefined
+  refreshDomains[domain].pendingRequests.forEach((cb) => cb('', failure))
   refreshDomains[domain].pendingRequests = []
-  // 空 token 回调已让等待者以原错误收尾；保留 cause 供调用方日志使用
-  void cause
 }
 
 function isAdminRequest(url: string): boolean {
@@ -113,38 +119,28 @@ function isSilent(config: { silentError?: boolean } | undefined): boolean {
   return config?.silentError === true
 }
 
-// ==================== W03/FE-03：持久化幂等意图键 ====================
+// ==================== W03/FE-03/R25：持久化幂等意图键 ====================
 // §8.5.2：用户确认一次操作生成一个键，连同 方法+路径+参数+载荷+账号 的指纹持久化；
 // 网络重试、页面刷新、App 重启复用原键（服务端按 (user,endpoint,requestKey) 收敛）；
-// 收到终态响应（HTTP<500，含业务拒绝）即清除——下一次用户动作就是新意图。
-
-interface IdempotencyIntent {
-  key: string
-  createdAt: number
-}
-
-const INTENT_TTL_MS = 10 * 60 * 1000
+// 普通写意图收到终态响应即清除；资金/权益操作用 persistentIntent 创建持久意图，
+// 不随本地 TTL 轮换，未知状态先查原单。
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
     /** 本请求意图键的存储位置（仅拦截器生成键时存在） */
     _intentStoreKey?: string
+    /**
+     * R25：持久意图——资金/权益操作由页面"确认一次"后置 true，
+     * 意图键不因本地 TTL 过期轮换（未知结果先按原键查询终态）
+     */
+    persistentIntent?: boolean
   }
-}
-
-function hashFingerprint(input: string): string {
-  let hash = 0x811c9dc5
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193)
-  }
-  return `${(hash >>> 0).toString(16)}-${input.length.toString(36)}`
 }
 
 /** @return 意图键存储位置；非写请求返回 null（调用方自带键不在此管理） */
 function intentStoreKey(config: AxiosRequestConfig): string | null {
   const method = (config.method ?? 'GET').toUpperCase()
-  if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+  if (!WRITE_METHODS.includes(method as (typeof WRITE_METHODS)[number])) {
     return null
   }
   // FE-01/T22：指纹绑定稳定主体（JWT sub）而非 Authorization 头——token 刷新后
@@ -165,54 +161,12 @@ function intentStoreKey(config: AxiosRequestConfig): string | null {
   return `idem:intent:${fingerprint}`
 }
 
-/** 复用 TTL 内的意图键，否则生成新键并持久化 */
-function resolveIntentKey(storeKey: string): string {
-  try {
-    const raw = localStorage.getItem(storeKey)
-    if (raw) {
-      const entry = JSON.parse(raw) as IdempotencyIntent
-      if (entry?.key && Date.now() - entry.createdAt < INTENT_TTL_MS) {
-        return entry.key
-      }
-      localStorage.removeItem(storeKey)
-    }
-  } catch {
-    localStorage.removeItem(storeKey)
-  }
-  const fresh = crypto.randomUUID()
-  localStorage.setItem(storeKey, JSON.stringify({ key: fresh, createdAt: Date.now() }))
-  return fresh
-}
-
-/** 终态响应（成功/业务拒绝）后清理意图：下次动作即新意图 */
+/** 终态响应（成功/业务拒绝）后清理托管意图：下次动作即新意图；显式键不经手 */
 function clearIntent(config: AxiosRequestConfig | undefined): void {
   const storeKey = config?._intentStoreKey
   if (storeKey) {
     localStorage.removeItem(storeKey)
   }
-}
-
-/**
- * R10：意图键是否可清理（终态判定按业务 outcome，而非 HTTP<500——
- * 409 PET_REQUEST_IN_PROGRESS / 429 / 401-refreshable / 503 是瞬态，
- * 清键会让重试换新键，丢失与原意图的收敛锚点）。
- */
-const TRANSIENT_ERROR_CODES = new Set([
-  'PET_REQUEST_IN_PROGRESS', 'PET_SETTLEMENT_PENDING', 'PET_TEMPORARILY_UNAVAILABLE',
-  'PET_FEATURE_DISABLED', 'PET_RATE_LIMITED', 'PET_QUOTA_EXCEEDED', 'UNAUTHORIZED',
-])
-
-function intentTerminal(status: number | undefined, errorCode: string | undefined): boolean {
-  if (status === undefined) {
-    return false // 网络错误/超时：结果未知，保留原键
-  }
-  if (status >= 500 || status === 429) {
-    return false
-  }
-  if (TRANSIENT_ERROR_CODES.has(errorCode ?? '')) {
-    return false
-  }
-  return true
 }
 
 // 已登录则一律附带身份头：公开接口带 token 无害（服务端忽略或用于个性化），
@@ -241,17 +195,24 @@ request.interceptors.request.use(
     config.headers['X-Device-Id'] = getDeviceId()
 
     const method = (config.method ?? 'GET').toUpperCase()
-    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
-      // B04：拦截器只在调用方未提供幂等键时赋值——一次用户动作一个键，
-      // 双击/令牌刷新/断网重试沿用同键（调用方覆盖此头即可复用）
+    if (WRITE_METHODS.includes(method as (typeof WRITE_METHODS)[number])) {
+      // R25：调用方显式 X-Idempotency-Key 优先且不可覆盖——拦截器不重新生成、
+      // 不登记存储、不参与终态清理（生命周期完全由调用方管理）
       if (!config.headers['X-Idempotency-Key']) {
-        config.headers['X-Idempotency-Key'] = crypto.randomUUID()
-      }
-      // W03/FE-03：意图键持久化——断网重试/刷新/重启复用原键（服务端收敛同一笔）
-      const storeKey = intentStoreKey(config)
-      if (storeKey) {
-        config._intentStoreKey = storeKey
-        config.headers['X-Idempotency-Key'] = resolveIntentKey(storeKey)
+        const storeKey = intentStoreKey(config)
+        if (storeKey) {
+          const decision = decideIntent(
+            localStorage.getItem(storeKey),
+            Date.now(),
+            config.persistentIntent === true,
+            () => crypto.randomUUID(),
+          )
+          config.headers['X-Idempotency-Key'] = decision.key
+          config._intentStoreKey = storeKey
+          if (decision.action === 'create') {
+            localStorage.setItem(storeKey, JSON.stringify(decision.entry))
+          }
+        }
       }
     }
 
@@ -361,9 +322,9 @@ request.interceptors.response.use(
           // 入队前标记已重试：重放请求若仍 401 直接终态，不再进入下一轮刷新
           ;(error.config as { _authRetried?: boolean })._authRetried = true
           return new Promise((resolve) => {
-            state.pendingRequests.push((token: string) => {
+            state.pendingRequests.push((token: string, failure?: Error) => {
               if (!token) {
-                resolve(Promise.reject(error))
+                resolve(Promise.reject(failure ?? error))
                 return
               }
               error.config.headers.Authorization = `Bearer ${token}`
@@ -390,8 +351,16 @@ request.interceptors.response.use(
           ;(error.config as { _authRetried?: boolean })._authRetried = true
           return request(error.config)
         } catch (refreshError) {
-          // FE-01：刷新失败统一拒绝所有等待者、清凭据与 store 并跳登录——
-          // 任何等待中的请求都不允许悬挂（T21：refresh 401/403/500/断网均有终态）
+          // R25：刷新请求本身断网（无 HTTP 响应）=鉴权状态未知，不杀会话；
+          // 等待者以 NETWORK_ERROR 终态拒绝，网络恢复后凭原 refresh token 重试
+          const networkDuringRefresh = !(refreshError as { response?: unknown })?.response
+          if (networkDuringRefresh) {
+            const networkError = toBusinessError('NETWORK_ERROR', '网络错误，请检查网络连接')
+            state.pendingRequests.forEach((cb) => cb('', networkError))
+            state.pendingRequests = []
+            return Promise.reject(networkError)
+          }
+          // FE-01：刷新被明确拒绝（401/403）——清凭据与 store 并跳登录，等待者统一终态
           clearDomainCredentials(domain)
           rejectPendingRequests(domain, refreshError)
           return Promise.reject(
@@ -407,48 +376,73 @@ request.interceptors.response.use(
         return Promise.reject(error)
       }
     }
-    if (!isSilent(error.config as { silentError?: boolean } | undefined)) {
-      // 网络级失败（断网/代理抖动）常成批出现：5 秒窗口内去重，避免 toast 刷屏
-      if (error.response) {
-        notify('error', error.response.data?.error?.message || '网络错误')
-      } else if (!NETWORK_ERROR_NOTIFIED) {
-        NETWORK_ERROR_NOTIFIED = true
-        notify('error', '网络错误，请检查网络连接')
-        if (networkErrorTimer) clearTimeout(networkErrorTimer)
-        networkErrorTimer = setTimeout(() => {
-          NETWORK_ERROR_NOTIFIED = false
-        }, 5000)
+    // R25：其余 4xx/5xx/网络错误统一规范化为业务异常（三端一致：code/status/requestId），
+    // 页面不再需要 axios 的 err.response.data.error 形状
+    const silent = isSilent(error.config as { silentError?: boolean } | undefined)
+    if (error.response) {
+      const envelopeError = error.response.data?.error as { code?: string; message?: string } | undefined
+      const normalized = toBusinessError(
+        envelopeError?.code || `HTTP_${errorStatus ?? 0}`,
+        envelopeError?.message || '网络错误',
+        { status: errorStatus, requestId: requestIdOf(error.response) },
+      )
+      if (!silent) {
+        notify('error', normalized.message)
       }
+      return Promise.reject(normalized)
     }
-    return Promise.reject(error)
+    if (!silent && !NETWORK_ERROR_NOTIFIED) {
+      // 网络级失败（断网/代理抖动）常成批出现：5 秒窗口内去重，避免 toast 刷屏
+      NETWORK_ERROR_NOTIFIED = true
+      notify('error', '网络错误，请检查网络连接')
+      if (networkErrorTimer) clearTimeout(networkErrorTimer)
+      networkErrorTimer = setTimeout(() => {
+        NETWORK_ERROR_NOTIFIED = false
+      }, 5000)
+    }
+    return Promise.reject(toBusinessError('NETWORK_ERROR', '网络错误，请检查网络连接'))
   },
 )
 
 /**
- * PET-23/PET-12：读取某写请求当前持久化的意图幂等键（与拦截器同一指纹算法）。
+ * PET-23/PET-12/R25：读取某写请求当前持久化的意图幂等键（与拦截器同一指纹算法）。
  * 用于"扣费/发送后未知结果"场景按原键查询终态（聊天 /pet/chat/requests/{requestKey}、
  * 购买 /pet/purchase-requests/{requestKey}）——不生成新键，不重复表达用户意图。
+ * 持久意图无视 10 分钟 TTL；普通意图仅 TTL 内可恢复。
  *
- * @return TTL 内的持久化键；无在途意图返回 null
+ * @return 在途意图键；无记录返回 null
  */
-export function getPersistedIntentKey(url: string, data: unknown): string | null {
+export function getPersistedIntentKey(
+  method: string,
+  url: string,
+  data?: unknown,
+  params?: Record<string, unknown>,
+): string | null {
   try {
-    const storeKey = intentStoreKey({
-      method: 'POST',
-      url,
-      data,
-    })
+    const storeKey = intentStoreKey({ method, url, data, params })
     if (!storeKey) {
       return null
     }
-    const raw = localStorage.getItem(storeKey)
-    if (!raw) {
-      return null
-    }
-    const entry = JSON.parse(raw) as IdempotencyIntent
-    return entry?.key && Date.now() - entry.createdAt < INTENT_TTL_MS ? entry.key : null
+    return parseIntentEntry(localStorage.getItem(storeKey))?.key ?? null
   } catch {
     return null
+  }
+}
+
+/** 终态确认后主动清除持久意图（下一次用户动作才是新意图） */
+export function clearPersistedIntent(
+  method: string,
+  url: string,
+  data?: unknown,
+  params?: Record<string, unknown>,
+): void {
+  try {
+    const storeKey = intentStoreKey({ method, url, data, params })
+    if (storeKey) {
+      localStorage.removeItem(storeKey)
+    }
+  } catch {
+    // 存储不可用不影响主流程
   }
 }
 

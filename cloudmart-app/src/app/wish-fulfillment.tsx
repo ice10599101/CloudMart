@@ -6,6 +6,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { wishApi } from '@/api/wish'
 import WishShareCard from '@/components/WishShareCard'
 import { fileApi } from '@/api/file'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -202,9 +203,7 @@ export default function WishFulfillmentScreen() {
     const fetchWish = async () => {
       try {
         const res = await wishApi.getWishDetail(wishId)
-        if (res.data?.success) {
-          setWish(res.data.data)
-        }
+        setWish(res.data.data)
       } catch {
         // 错误已由 request 拦截器处理
       } finally {
@@ -294,11 +293,9 @@ export default function WishFulfillmentScreen() {
         mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
         feeling: feeling.trim() || undefined,
       })
-      if (res.data?.success) {
-        setSubmitResult(res.data.data)
-      }
-    } catch {
-      // 错误已由 request 拦截器处理
+      setSubmitResult(res.data.data)
+    } catch (error) {
+      Alert.alert('还愿失败', errorMessage(error, '请稍后再试'))
     } finally {
       setSubmitting(false)
     }

@@ -32,7 +32,7 @@ export default function AnnualReportPage() {
     setLoading(true)
     try {
       const res = await wishApi.getAnnualReport(targetYear)
-      if (res.data.success) setReport(res.data.data)
+      setReport(res.data.data)
     } catch {
       // 报告加载失败保持空态
     } finally {

@@ -20,7 +20,7 @@ import { wishApi } from '@/api/wish'
 import { communityApi } from '@/api/community'
 import GiftSection from '@/components/GiftSection'
 import type { LiveWidgetData } from '@/api/wish'
-import { API_BASE } from '@/utils/request'
+import { API_BASE, errorMessage } from '@/utils/request'
 import { storage } from '@/utils/storage'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -234,7 +234,7 @@ export default function LiveRoomScreen() {
     const load = () => {
       wishApi.getLiveWidget(room.anchorUserId)
         .then((res) => {
-          if (alive && res.data?.success && res.data.data) setWidget(res.data.data)
+          if (alive && res.data.data) setWidget(res.data.data)
         })
         .catch(() => undefined)
     }
@@ -295,8 +295,8 @@ export default function LiveRoomScreen() {
       if (isFollowing) await communityApi.unfollowUser(room.anchorUserId)
       else await communityApi.followUser(room.anchorUserId)
       setIsFollowing(!isFollowing)
-    } catch {
-      Alert.alert('提示', '操作失败')
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '操作失败'))
     }
   }
 

@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
 import { reportTimezoneIfNeeded, localToUtcIso, getTimezoneId } from '@/utils/wish-timezone'
+import { errorMessage } from '@/utils/request'
 import type { CapsuleItem } from '@/types'
 import styles from './index.module.scss'
 
@@ -45,14 +46,16 @@ export default function CapsuleDetailPage() {
             return
         }
         reportTimezoneIfNeeded()
-        if (!Number.isFinite(capsuleId)) return
+        // 修复：路由参数 id 恒为字符串，Number.isFinite(string) 恒 false 导致详情永不加载
+        if (!capsuleId) {
+            setLoading(false)
+            return
+        }
         wishApi
             .getCapsuleDetail(capsuleId)
-            .then((res) => {
-                if (res.data.success) setCapsule(res.data.data)
-            })
-            .catch(() => {
-                // 错误已由 request 处理
+            .then((res) => setCapsule(res.data.data))
+            .catch((err) => {
+                Taro.showToast({ title: errorMessage(err, '胶囊详情加载失败'), icon: 'none' })
             })
             .finally(() => setLoading(false))
     }, [isLoggedIn, capsuleId])
@@ -95,15 +98,13 @@ export default function CapsuleDetailPage() {
                 newOpenAt,
                 timezone: getTimezoneId(),
             })
-            if (res.data.success) {
-                setCapsule(res.data.data)
-                setRescheduleDate('')
-                setRescheduleTime('')
-                Taro.vibrateShort({ type: 'light' })
-                Taro.showToast({ title: '改期成功', icon: 'success' })
-            }
-        } catch {
-            // 超限/状态冲突等错误已由 request 层统一提示
+            setCapsule(res.data.data)
+            setRescheduleDate('')
+            setRescheduleTime('')
+            Taro.vibrateShort({ type: 'light' })
+            Taro.showToast({ title: '改期成功', icon: 'success' })
+        } catch (err) {
+            Taro.showToast({ title: errorMessage(err, '改期失败，请稍后再试'), icon: 'none' })
         } finally {
             setRescheduling(false)
         }
@@ -114,12 +115,10 @@ export default function CapsuleDetailPage() {
         setOpening(true)
         try {
             const res = await wishApi.openCapsule(capsule.id)
-            if (res.data.success) {
-                Taro.vibrateShort({ type: 'heavy' })
-                setCapsule(res.data.data)
-            }
-        } catch {
-            // 未到期 409 等错误已由 request 处理
+            Taro.vibrateShort({ type: 'heavy' })
+            setCapsule(res.data.data)
+        } catch (err) {
+            Taro.showToast({ title: errorMessage(err, '开启失败，请稍后再试'), icon: 'none' })
         } finally {
             setOpening(false)
         }
@@ -133,7 +132,7 @@ export default function CapsuleDetailPage() {
     const refreshCapsule = async () => {
         try {
             const res = await wishApi.getCapsuleDetail(capsuleId)
-            if (res.data.success) setCapsule(res.data.data)
+            setCapsule(res.data.data)
         } catch {
             // 列表/详情以返回成功为准，查询失败忽略
         }
@@ -150,8 +149,8 @@ export default function CapsuleDetailPage() {
                     await wishApi.applyCapsuleToWall(is.id)
                     Taro.showToast({ title: '已提交审核', icon: 'success' })
                     refreshCapsule()
-                } catch {
-                    // 409 等错误已由 request 拦截器提示
+                } catch (err) {
+                    Taro.showToast({ title: errorMessage(err, '提交审核失败，请稍后再试'), icon: 'none' })
                 }
             },
         })
@@ -172,8 +171,8 @@ export default function CapsuleDetailPage() {
                     await wishApi.withdrawCapsuleWall(is.id)
                     Taro.showToast({ title: isApproved ? '已撤下' : '已撤回', icon: 'success' })
                     refreshCapsule()
-                } catch {
-                    // 与管理员裁决竞争等 409 由拦截器提示
+                } catch (err) {
+                    Taro.showToast({ title: errorMessage(err, '操作失败，请稍后再试'), icon: 'none' })
                 }
             },
         })

@@ -7,6 +7,7 @@ import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { userApi } from '@/api/user'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import styles from './index.module.scss'
 
 interface UserSettings {
@@ -113,9 +114,9 @@ export default function SettingsPage() {
     try {
       await communityApi.updateSettings({ [key]: value })
       Taro.showToast({ title: '保存成功', icon: 'success', duration: 800 })
-    } catch {
+    } catch (err) {
       setVisibilityMap((map) => ({ ...map, [key]: prev }))
-      Taro.showToast({ title: '保存失败', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '保存失败'), icon: 'none' })
     }
   }
 
@@ -124,9 +125,9 @@ export default function SettingsPage() {
     setSettings(newSettings)
     try {
       await communityApi.updateSettings({ [key]: String(value) })
-    } catch {
+    } catch (err) {
       setSettings(settings)
-      Taro.showToast({ title: '设置失败', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '设置失败'), icon: 'none' })
     }
   }
 
@@ -154,8 +155,8 @@ export default function SettingsPage() {
       setOldPassword('')
       setNewPassword('')
       setConfirmPassword('')
-    } catch {
-      Taro.showToast({ title: '密码修改失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '密码修改失败'), icon: 'none' })
     } finally {
       setChangingPassword(false)
     }

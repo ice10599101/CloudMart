@@ -5,7 +5,7 @@ import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
-import { API_BASE } from '@/utils/request'
+import { API_BASE, errorMessage } from '@/utils/request'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
 import { getTimezoneId, localToUtcIso, reportTimezoneIfNeeded } from '@/utils/wish-timezone'
@@ -52,7 +52,7 @@ export default function CapsuleCreatePage() {
         wishApi
             .getWishDetail(Number(prefillWishId))
             .then((res) => {
-                if (cancelled || !res.data.success || !res.data.data) return
+                if (cancelled || !res.data.data) return
                 const detail = res.data.data
                 setTitle(detail.title)
                 setContent(detail.description)
@@ -160,23 +160,21 @@ export default function CapsuleCreatePage() {
 
         setSubmitting(true)
         try {
-            const res = await wishApi.createCapsule({
+            await wishApi.createCapsule({
                 title: title.trim(),
                 content: content.trim(),
                 mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
                 openAt,
                 openAtTz: getTimezoneId(),
             })
-            if (res.data.success) {
-                // 封存仪式：火漆落下 → 跳转列表
-                setSealed(true)
-                Taro.vibrateShort({ type: 'medium' })
-                setTimeout(() => {
-                    Taro.redirectTo({ url: '/pages/capsuleList/index' })
-                }, 1800)
-            }
-        } catch {
-            // 错误已由 request 处理
+            // 封存仪式：火漆落下 → 跳转列表
+            setSealed(true)
+            Taro.vibrateShort({ type: 'medium' })
+            setTimeout(() => {
+                Taro.redirectTo({ url: '/pages/capsuleList/index' })
+            }, 1800)
+        } catch (err) {
+            Taro.showToast({ title: errorMessage(err, '胶囊发布失败，请稍后再试'), icon: 'none' })
         } finally {
             setSubmitting(false)
         }

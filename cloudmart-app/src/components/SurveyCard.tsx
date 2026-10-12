@@ -1,7 +1,8 @@
-import { View, Text, TouchableOpacity, TextInput } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, Alert } from 'react-native'
 import { useEffect, useState } from 'react'
 import { useTheme } from '@/hooks/use-theme-context'
 import { communityApi, type SurveyData } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -81,8 +82,8 @@ export default function SurveyCard({ surveyId }: SurveyCardProps) {
       const res = await communityApi.getSurvey(surveyId)
       const data = (res.data as unknown as { data?: SurveyData })?.data
       if (data) setSurvey(data)
-    } catch {
-      // 保留当前作答
+    } catch (error) {
+      Alert.alert('提交失败', errorMessage(error, '请稍后再试'))
     } finally {
       setSubmitting(false)
     }

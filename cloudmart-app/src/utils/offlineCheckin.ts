@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite'
 import { wishApi } from '@/api/wish'
+import { isBusinessError } from '@/utils/request'
 import NetInfo from '@react-native-community/netinfo'
 
 /**
@@ -160,17 +161,13 @@ export async function flushQueue(
             try {
                 const res = await wishApi.checkinWish(
                     row.wishId, row.content ?? undefined, row.intentId)
-                if (res.data?.success) {
-                    const { currentStreak } = res.data.data
-                    onItemDone?.(row.wishId, true, currentStreak)
-                    await db.runAsync('DELETE FROM offline_checkins WHERE id = ?', row.id)
-                    flushed++
-                } else {
-                    failed++
-                }
+                const { currentStreak } = res.data.data
+                onItemDone?.(row.wishId, true, currentStreak)
+                await db.runAsync('DELETE FROM offline_checkins WHERE id = ?', row.id)
+                flushed++
             } catch (error) {
-                const code = (error as { response?: { data?: { error?: { code?: string } } } })
-                    ?.response?.data?.error?.code
+                // R25：失败统一为 BusinessError，机器码在 error.code
+                const code = isBusinessError(error) ? error.code : undefined
                 if (code === 'WISH_ALREADY_CHECKIN_TODAY') {
                     // 同事实已完成：确认成功出队
                     onItemDone?.(row.wishId, true)

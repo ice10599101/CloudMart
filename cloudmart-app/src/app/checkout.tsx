@@ -8,6 +8,7 @@ import { cartApi } from '@/api/cart'
 import { productApi } from '@/api/product'
 import { marketingApi } from '@/api/marketing'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
+import { errorMessage } from '@/utils/request'
 import type { Address, CartItem, Product, UserCoupon } from '@/types'
 
 /** 券抵扣金额（契约对齐后端 Discount：AMOUNT_OFF 直减；PERCENT_OFF=金额×(1-折扣率)） */
@@ -78,8 +79,8 @@ export default function CheckoutPage() {
         price: sku?.price ?? product.price,
         quantity,
       }])
-    } catch {
-      Alert.alert('错误', '商品信息加载失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '商品信息加载失败'))
     }
   }
 
@@ -103,8 +104,8 @@ export default function CheckoutPage() {
         price: item.price,
         quantity: item.quantity,
       })))
-    } catch {
-      Alert.alert('错误', '购物车加载失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '购物车加载失败'))
     }
   }
 
@@ -184,8 +185,8 @@ export default function CheckoutPage() {
               Alert.alert('成功', '订单创建成功')
               router.back()
             }
-          } catch {
-            Alert.alert('错误', '订单创建失败，请重试')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '订单创建失败，请重试'))
           } finally {
             setSubmitting(false)
           }

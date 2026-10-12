@@ -7,6 +7,7 @@ import { productApi } from '@/api/product'
 import { cartApi } from '@/api/cart'
 import { userApi } from '@/api/user'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Product, Sku } from '@/types'
 
@@ -146,8 +147,8 @@ export default function ProductDetailScreen() {
         await userApi.addToWishlist(Number(id))
         setIsWishlisted(true)
       }
-    } catch {
-      Alert.alert('提示', isWishlisted ? '取消收藏失败' : '收藏失败')
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, isWishlisted ? '取消收藏失败' : '收藏失败'))
     } finally {
       setWishlistLoading(false)
     }
@@ -227,8 +228,8 @@ export default function ProductDetailScreen() {
       const skuId = selectedSku?.id ?? skus[0]?.id ?? Number(id)
       await cartApi.addItem({ skuId, quantity })
       Alert.alert('提示', '已加入购物车')
-    } catch {
-      Alert.alert('提示', '加入购物车失败')
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '加入购物车失败'))
     }
   }
 

@@ -11,6 +11,7 @@ import {
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '@/hooks/use-theme-context'
 import { marketingApi } from '@/api/marketing'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { GroupActivity, GroupOrder } from '@/types'
 
@@ -247,10 +248,8 @@ export default function GroupBuyPage() {
               { text: '查看我的拼团', onPress: () => { setMainTab('mine'); void loadMyGroups() } },
               { text: '留在当前页' },
             ])
-          } catch (err) {
-            const message =
-              (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
-            Alert.alert('参与失败', message || '请稍后重试')
+          } catch (error) {
+            Alert.alert('参与失败', errorMessage(error, '请稍后重试'))
           } finally {
             setJoiningId(null)
           }

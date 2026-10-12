@@ -60,12 +60,12 @@ export default function MyGiftsPage() {
           cursor: reset ? undefined : (nextCursor ?? undefined),
           pageSize: PAGE_SIZE,
         })
-        if (res.data.success) {
-          const list = Array.isArray(res.data.data) ? res.data.data : []
-          setRecords((prev) => (reset ? list : [...prev, ...list]))
-          setCursor(list.length > 0 ? list[list.length - 1].id : null)
-          setHasMore(list.length >= PAGE_SIZE)
-        }
+        const list = Array.isArray(res.data.data) ? res.data.data : []
+        setRecords((prev) => (reset ? list : [...prev, ...list]))
+        setCursor(list.length > 0 ? list[list.length - 1].id : null)
+        setHasMore(list.length >= PAGE_SIZE)
+      } catch {
+        // 记录加载失败保持当前列表
       } finally {
         setLoading(false)
         setLoadingMore(false)
@@ -82,13 +82,13 @@ export default function MyGiftsPage() {
     giftApi
       .getMyGiftSummary()
       .then((res) => {
-        if (res.data.success && res.data.data) setSummary(res.data.data)
+        if (res.data.data) setSummary(res.data.data)
       })
       .catch(() => setSummary(null))
     wishApi
       .getMyResources()
       .then((res) => {
-        if (res.data.success && res.data.data) setBalance(res.data.data.balance ?? null)
+        if (res.data.data) setBalance(res.data.data.balance ?? null)
       })
       .catch(() => setBalance(null))
   }, [isLoggedIn])

@@ -5,6 +5,7 @@ import { petApi, petCompanionApi, type PetDailyQuestPanel } from '@/api/pet'
 import { growthApi } from '@/api/growth'
 import type { CheckInStatus } from '@/types'
 import { CARE_ERROR_HINT } from './shared'
+import { errorMessage } from '@/utils/request'
 import cream from '@/components/pet-cream/pet-cream.module.scss'
 import styles from '../index.module.scss'
 
@@ -17,7 +18,7 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
   const load = useCallback(async () => {
     try {
       const { data: res } = await petApi.getDailyQuests()
-      if (res.success && res.data) {
+      if (res.data) {
         setPanel(res.data)
       }
     } catch {
@@ -31,7 +32,7 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
 
   useEffect(() => {
     growthApi.getCheckInStatus().then(({ data: res }) => {
-      if (res.success) setCheckin(res.data)
+      setCheckin(res.data)
     }).catch(() => undefined)
   }, [])
 
@@ -39,15 +40,13 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
     setPending('checkin')
     try {
       const { data: res } = await growthApi.checkIn()
-      if (res.success && res.data) {
+      if (res.data) {
         setCheckin(res.data)
         Taro.showToast({ title: `签到成功 · 连续 ${res.data.continuousDays} 天`, icon: 'success' })
-      } else {
-        Taro.showToast({ title: '今日已签到', icon: 'none' })
-        setCheckin((prev) => prev ?? { isCheckedIn: true, continuousDays: 0, todayExp: 0 })
       }
     } catch (error) {
-      Taro.showToast({ title: CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '签到未成功', icon: 'none' })
+      const code = (error as { code?: string }).code ?? ''
+      Taro.showToast({ title: CARE_ERROR_HINT[code] ?? errorMessage(error, '签到未成功'), icon: 'none' })
     } finally {
       setPending(null)
     }
@@ -61,14 +60,13 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
     setPending(key)
     try {
       const { data: res } = await action()
-      if (res.success) {
-        // R13：文案可为函数（按逐项结果汇总），静态文案行为不变
-        Taro.showToast({ title: typeof text === 'function' ? text(res) : text, icon: 'success' })
-        await load()
-        onRefresh()
-      }
+      // R13：文案可为函数（按逐项结果汇总），静态文案行为不变
+      Taro.showToast({ title: typeof text === 'function' ? text(res) : text, icon: 'success' })
+      await load()
+      onRefresh()
     } catch (error) {
-      Taro.showToast({ title: CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试', icon: 'none' })
+      const code = (error as { code?: string }).code ?? ''
+      Taro.showToast({ title: CARE_ERROR_HINT[code] ?? errorMessage(error, '请稍后再试'), icon: 'none' })
     } finally {
       setPending(null)
     }

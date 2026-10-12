@@ -1,8 +1,9 @@
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator, Alert } from 'react-native'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { giftApi } from '@/api/gift'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import AssetIcon from '@/components/AssetIcon'
 import type { GiftItem, GiftRecordItem, GiftTargetType } from '@/types'
@@ -84,24 +85,19 @@ export default function GiftSection({ targetType, targetId, refreshTick = 0 }: G
     if (insufficient) return
     setSending(true)
     try {
-      const res = await giftApi.sendGift({
+      await giftApi.sendGift({
         giftId: selectedGift.id,
         count,
         targetType,
         targetId,
         message: messageText.trim() || undefined,
       })
-      if (res.data?.success) {
-        setPickerOpen(false)
-        setMessageText('')
-        setCount(1)
-        void loadRecords()
-      }
-    } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
-      // 失败信息由 request 拦截器或此处置顶提示
-      if (message) console.warn('[gift] send failed:', message)
+      setPickerOpen(false)
+      setMessageText('')
+      setCount(1)
+      void loadRecords()
+    } catch (error) {
+      Alert.alert('送礼失败', errorMessage(error, '请稍后再试'))
     } finally {
       setSending(false)
     }

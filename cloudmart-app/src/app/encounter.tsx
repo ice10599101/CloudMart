@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { router } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { encounterApi, type EncounterLetter } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 /**
@@ -42,11 +43,6 @@ export default function EncounterScreen() {
     loadLetters()
   }, [loadLetters])
 
-  const errMessage = (err: unknown) => {
-    const e = err as { response?: { data?: { error?: { message?: string } } } }
-    return e?.response?.data?.error?.message
-  }
-
   const handleOpen = async (letter: EncounterLetter) => {
     if (busyId !== null) return
     if (letter.status === 'PENDING') return
@@ -58,8 +54,8 @@ export default function EncounterScreen() {
         setOpened((prev) => ({ ...prev, [letter.letterId]: detail.content as string }))
       }
       loadLetters()
-    } catch (err) {
-      Alert.alert('提示', errMessage(err) || '拆信失败')
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '拆信失败'))
     } finally {
       setBusyId(null)
     }
@@ -74,8 +70,8 @@ export default function EncounterScreen() {
       setBlessOpenId(null)
       setBlessContent('')
       Alert.alert('提示', type === 'LIGHT' ? '已点亮对方的心愿（-2 星光）' : '匿名祝福已寄出')
-    } catch (err) {
-      Alert.alert('提示', errMessage(err) || '操作失败')
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '操作失败'))
     } finally {
       setBusyId(null)
     }

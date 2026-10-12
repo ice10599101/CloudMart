@@ -45,10 +45,8 @@ function doReport(): void {
 
     wishApi
         .reportMyTimezone(timezone, offsetMinutes)
-        .then((res) => {
-            if (res.data?.success) {
-                reported = { timezone, offsetMinutes }
-            }
+        .then(() => {
+            reported = { timezone, offsetMinutes }
         })
         .catch(() => {
             // 静默失败：下次进入胶囊页重试

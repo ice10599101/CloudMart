@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { usePullDownRefresh } from '@tarojs/taro'
 import { marketingApi } from '@/api/marketing'
+import { errorMessage, isBusinessError } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { CouponTemplate, UserCoupon } from '@/types'
@@ -57,16 +58,15 @@ export default function CouponsPage() {
       setClaimedIds((prev) => [...prev, template.id])
       Taro.showToast({ title: '领取成功', icon: 'success' })
     } catch (err) {
-      const code = (err as { response?: { data?: { error?: { code?: string } } } })?.response?.data?.error?.code
-      const message =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
-      if (code === 'COUPON_ALREADY_CLAIMED' || (message && message.includes('已经领取'))) {
+      const code = isBusinessError(err) ? err.code : ''
+      const message = errorMessage(err, '领取失败')
+      if (code === 'COUPON_ALREADY_CLAIMED' || message.includes('已经领取')) {
         setClaimedIds((prev) => [...prev, template.id])
         Taro.showToast({ title: '已领取过该券', icon: 'none' })
-      } else if (message && message.includes('已领完')) {
+      } else if (message.includes('已领完')) {
         Taro.showToast({ title: '券已领完', icon: 'none' })
       } else {
-        Taro.showToast({ title: message || '领取失败', icon: 'none' })
+        Taro.showToast({ title: message, icon: 'none' })
       }
     } finally {
       setClaimingId(null)

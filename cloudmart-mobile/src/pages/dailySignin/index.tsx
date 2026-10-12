@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { wishApi, STARLIGHT_BALANCE_CAP, STARLIGHT_NEAR_CAP_THRESHOLD } from '@/api/wish'
 import type { DailySigninResult, LevelUpEvent, MyResourcesData, SigninMilestone } from '@/api/wish'
+import { errorMessage, isBusinessError } from '@/utils/request'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -56,15 +57,13 @@ export default function DailySigninPage() {
   const loadCalendar = useCallback(async (y: number, m: number) => {
     try {
       const res = await wishApi.getSigninCalendar(formatMonth(y, m))
-      if (res.data.success) {
-        const data = res.data.data
-        setSignedDates(new Set(data.signedDates))
-        setConsecutiveDays(data.consecutiveDays)
-        setTotalDays(data.totalDays)
-        // 当月为当前月时，以日历判断今日是否已签到
-        const isCurrentMonth = y === now.getFullYear() && m === now.getMonth() + 1
-        setSignedToday(isCurrentMonth && data.signedDates.includes(todayStr))
-      }
+      const data = res.data.data
+      setSignedDates(new Set(data.signedDates))
+      setConsecutiveDays(data.consecutiveDays)
+      setTotalDays(data.totalDays)
+      // 当月为当前月时，以日历判断今日是否已签到
+      const isCurrentMonth = y === now.getFullYear() && m === now.getMonth() + 1
+      setSignedToday(isCurrentMonth && data.signedDates.includes(todayStr))
     } catch {
       // 错误已由 request 处理
     }
@@ -74,7 +73,7 @@ export default function DailySigninPage() {
   const loadResources = useCallback(async () => {
     try {
       const res = await wishApi.getMyResources()
-      if (res.data.success) setResources(res.data.data)
+      setResources(res.data.data)
     } catch {
       // 余额卡片加载失败不阻塞签到
     }
@@ -106,9 +105,7 @@ export default function DailySigninPage() {
       }
       void loadResources()
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '领取失败'
-      Taro.showToast({ title: message, icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '领取失败'), icon: 'none' })
     }
   }
 
@@ -137,26 +134,25 @@ export default function DailySigninPage() {
     setSigning(true)
     try {
       const res = await wishApi.dailySignin()
-      if (res.data.success) {
-        const result: DailySigninResult = res.data.data
-        setSignedToday(true)
-        setConsecutiveDays(result.consecutiveDays)
-        setRewardDelta(result.starlightReward)
-        // 星光余额以 +5 滚动（后端余额快照即时刷新）
-        setResources((prev) =>
-          prev ? { ...prev, balance: prev.balance + result.starlightReward } : prev,
-        )
-        const bonusText = result.levelBonus && result.levelBonus > 0 ? `（含等级加成 +${result.levelBonus}）` : ''
-        Taro.showToast({ title: `签到成功，星光 +${result.starlightReward}${bonusText}`, icon: 'none' })
-        if (result.levelUp) setLevelUp(result.levelUp)
-        loadCalendar(year, month)
-      }
+      const result: DailySigninResult = res.data.data
+      setSignedToday(true)
+      setConsecutiveDays(result.consecutiveDays)
+      setRewardDelta(result.starlightReward)
+      // 星光余额以 +5 滚动（后端余额快照即时刷新）
+      setResources((prev) =>
+        prev ? { ...prev, balance: prev.balance + result.starlightReward } : prev,
+      )
+      const bonusText = result.levelBonus && result.levelBonus > 0 ? `（含等级加成 +${result.levelBonus}）` : ''
+      Taro.showToast({ title: `签到成功，星光 +${result.starlightReward}${bonusText}`, icon: 'none' })
+      if (result.levelUp) setLevelUp(result.levelUp)
+      loadCalendar(year, month)
     } catch (err) {
-      // 重复签到（409 WISH_ALREADY_SIGNED_IN）：拦截器已提示，这里刷新为已签到态
-      const code = (err as { data?: { error?: { code?: string } } })?.data?.error?.code
-      if (code === 'WISH_ALREADY_SIGNED_IN') {
+      // 重复签到（409 WISH_ALREADY_SIGNED_IN）：刷新为已签到态；其余错误透出服务端文案
+      if (isBusinessError(err) && err.code === 'WISH_ALREADY_SIGNED_IN') {
         setSignedToday(true)
         loadCalendar(year, month)
+      } else {
+        Taro.showToast({ title: errorMessage(err, '签到失败，请稍后重试'), icon: 'none' })
       }
     } finally {
       setSigning(false)

@@ -10,7 +10,7 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import axios from 'axios'
 import { storage } from '@/utils/storage'
 import { resolveMediaUrl } from '@/utils/mediaUrl'
-import { API_BASE } from '@/utils/request'
+import { API_BASE, errorMessage } from '@/utils/request'
 
 const GENDER_OPTIONS = ['未设置', '男', '女']
 const GENDER_VALUES = ['UNKNOWN', 'MALE', 'FEMALE']
@@ -138,8 +138,8 @@ export default function ProfilePage() {
         await fetchUser()
         Alert.alert('成功', '头像更新成功')
       }
-    } catch {
-      Alert.alert('错误', '头像上传失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '头像上传失败'))
     } finally {
       setAvatarUploading(false)
     }
@@ -155,8 +155,8 @@ export default function ProfilePage() {
       await userApi.updateProfile({ nickname, signature, gender, birthday, constellation, occupation, school, location, hobbies })
       await fetchUser()
       router.back()
-    } catch {
-      Alert.alert('错误', '保存失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '保存失败'))
     } finally {
       setSaving(false)
     }

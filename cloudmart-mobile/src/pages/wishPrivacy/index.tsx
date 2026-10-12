@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi, type PrivacyOverview } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
@@ -41,7 +42,9 @@ export default function WishPrivacyPage() {
     setLoading(true)
     try {
       const res = await wishApi.getMyPrivacyOverview()
-      if (res.data.success && res.data.data) setView(res.data.data)
+      if (res.data.data) setView(res.data.data)
+    } catch {
+      // 加载失败保持空态（页面有"暂时无法加载"兜底）
     } finally {
       setLoading(false)
     }
@@ -68,15 +71,11 @@ export default function WishPrivacyPage() {
     if (!confirm) return
     setCancelling(true)
     try {
-      const res = await wishApi.cancelAccountDeletion()
-      if (res.data.success) {
-        Taro.showToast({ title: '注销已取消', icon: 'success' })
-        await load()
-      } else {
-        Taro.showToast({ title: res.data.error?.message ?? '取消失败', icon: 'none' })
-      }
-    } catch {
-      Taro.showToast({ title: '网络异常，请稍后重试', icon: 'none' })
+      await wishApi.cancelAccountDeletion()
+      Taro.showToast({ title: '注销已取消', icon: 'success' })
+      await load()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '网络异常，请稍后重试'), icon: 'none' })
     } finally {
       setCancelling(false)
     }

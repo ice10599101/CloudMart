@@ -1,5 +1,15 @@
 import Taro from '@tarojs/taro'
 import type { ApiResponse } from '@/types'
+import { BusinessError } from '@/utils/businessError'
+import {
+  WRITE_METHODS,
+  hashFingerprint,
+  decideIntent,
+  intentTerminal,
+  parseIntentEntry,
+} from '@/utils/idempotency'
+
+export { BusinessError, isBusinessError, errorMessage } from '@/utils/businessError'
 
 /**
  * FE-01：API 基址解析——小程序端 TARO_APP_API_HOST 接受完整基址（scheme+host[:port]，
@@ -23,7 +33,7 @@ function resolveApiBase(): string {
 export const API_BASE = resolveApiBase()
 
 let isRefreshing = false
-let pendingRequests: Array<(token: string) => void> = []
+let pendingRequests: Array<(token: string, failure?: BusinessError) => void> = []
 
 interface RequestConfig {
   url: string
@@ -32,29 +42,20 @@ interface RequestConfig {
   /** GET 查询参数（Taro.request data 在 GET 下自动拼 query） */
   params?: Record<string, unknown>
   header?: Record<string, string>
+  /**
+   * R25：持久意图——资金/权益操作由页面"确认一次"后置 true。
+   * 意图键不因本地 TTL 过期轮换；未知结果必须先按原键查询终态（见 getPersistedIntentKey）。
+   */
+  persistentIntent?: boolean
   /** FE-01：刷新重放标记——重放请求若仍 401 直接终态，不再二次刷新（防循环） */
   _retried?: boolean
+  /** 拦截器内部：本请求托管的意图键存储位置（调用方显式键时不存在） */
+  _intentStoreKey?: string
 }
 
-// ==================== W03/FE-03：持久化幂等意图键 ====================
-// §8.5.2：同一意图（方法+路径+载荷+账号）的键持久化；网络重试/刷新/重启复用原键，
-// 收到终态响应（HTTP<500，含业务拒绝）即清除——下一次用户动作就是新意图。
-
-const INTENT_TTL_MS = 10 * 60 * 1000
-
-interface IdempotencyIntent {
-  key: string
-  createdAt: number
-}
-
-function hashFingerprint(input: string): string {
-  let hash = 0x811c9dc5
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i)
-    hash = Math.imul(hash, 0x01000193)
-  }
-  return `${(hash >>> 0).toString(16)}-${input.length.toString(36)}`
-}
+// ==================== W03/FE-03/R25：持久化幂等意图键 ====================
+// §8.5.2：同一意图（方法+路径+载荷+账号）的键持久化；网络重试/刷新/重启复用原键。
+// 普通写意图收到终态响应即清除；资金/权益的持久意图不随 10 分钟 TTL 轮换。
 
 /** 小程序运行时无 atob 的兜底解码（仅用于 JWT payload，ASCII 安全） */
 function decodeBase64(input: string): string {
@@ -89,7 +90,7 @@ function subjectFromToken(token: string): string {
 }
 
 function intentStoreKey(method: string, url: string, data: unknown, token: string): string | null {
-  if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+  if (!WRITE_METHODS.includes(method as (typeof WRITE_METHODS)[number])) {
     return null
   }
   const fingerprint = hashFingerprint(
@@ -98,49 +99,69 @@ function intentStoreKey(method: string, url: string, data: unknown, token: strin
   return `idem:intent:${fingerprint}`
 }
 
-/**
- * R10：意图键终态判定（按业务 outcome 而非 HTTP<500）——
- * 409 处理中 / 429 / 401 可刷新 / 5xx / 网络错误是瞬态，清键会让重试换新键。
- */
-const TRANSIENT_ERROR_CODES = new Set([
-  'PET_REQUEST_IN_PROGRESS', 'PET_SETTLEMENT_PENDING', 'PET_TEMPORARILY_UNAVAILABLE',
-  'PET_FEATURE_DISABLED', 'PET_RATE_LIMITED', 'PET_QUOTA_EXCEEDED', 'UNAUTHORIZED',
-])
-
-function intentTerminal(statusCode: number, errorCode: string | undefined): boolean {
-  if (statusCode >= 500 || statusCode === 429) {
-    return false
-  }
-  if (TRANSIENT_ERROR_CODES.has(errorCode ?? '')) {
-    return false
-  }
-  return true
+function generateIntentKey(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
 }
 
-function resolveIntentKey(storeKey: string): string {
+/**
+ * R25：读取某写请求当前持久化的意图键（与拦截器同一指纹算法）。
+ * 用于"扣费/发送后未知结果"场景按原键查询终态（聊天 /pet/chat/requests/{key}、
+ * 购买 /pet/purchase-requests/{key}）——不生成新键，不重复表达用户意图。
+ * 持久意图无视 10 分钟 TTL；普通意图仅 TTL 内可恢复。
+ */
+export function getPersistedIntentKey(
+  method: string,
+  url: string,
+  data?: unknown,
+  token?: string,
+): string | null {
   try {
-    const raw = Taro.getStorageSync(storeKey)
-    if (raw) {
-      const entry = JSON.parse(raw) as IdempotencyIntent
-      if (entry?.key && Date.now() - entry.createdAt < INTENT_TTL_MS) {
-        return entry.key
-      }
+    const storeKey = intentStoreKey(method, url, data, token ?? Taro.getStorageSync('access_token'))
+    if (!storeKey) {
+      return null
+    }
+    const entry = parseIntentEntry(Taro.getStorageSync(storeKey))
+    return entry?.key ?? null
+  } catch {
+    return null
+  }
+}
+
+/** 终态确认后主动清除持久意图（下一次用户动作才是新意图） */
+export function clearPersistedIntent(method: string, url: string, data?: unknown): void {
+  try {
+    const storeKey = intentStoreKey(method, url, data, Taro.getStorageSync('access_token'))
+    if (storeKey) {
       Taro.removeStorageSync(storeKey)
     }
   } catch {
-    Taro.removeStorageSync(storeKey)
+    // 存储不可用不影响主流程
   }
-  const fresh = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
-  Taro.setStorageSync(storeKey, JSON.stringify({ key: fresh, createdAt: Date.now() }))
-  return fresh
 }
 
 /** 刷新失败：清凭据 + 跳登录，等待者随后统一拒绝（终态，不悬挂） */
-function handleRefreshFailure(): Error {
+function handleRefreshFailure(): BusinessError {
   Taro.removeStorageSync('access_token')
   Taro.removeStorageSync('refresh_token')
   Taro.redirectTo({ url: '/pages/login/index' })
-  return new Error('登录状态已失效，请重新登录')
+  return new BusinessError('UNAUTHORIZED', '登录状态已失效，请重新登录', { status: 401 })
+}
+
+/** 从 Taro 响应头取 requestId（微信小程序响应头键名为小写） */
+function requestIdOf(header: Taro.request.SuccessCallbackResult['header'] | undefined): string | undefined {
+  if (!header) return undefined
+  const value = header['x-request-id'] ?? header['X-Request-Id']
+  return typeof value === 'string' ? value : undefined
+}
+
+function businessErrorFromEnvelope(
+  statusCode: number,
+  body: ApiResponse<unknown> | undefined,
+  requestId: string | undefined,
+): BusinessError {
+  const code = body?.error?.code || `HTTP_${statusCode}`
+  const message = body?.error?.message || `请求失败（${statusCode}）`
+  return new BusinessError(code, message, { status: statusCode, requestId })
 }
 
 async function request<T = unknown>(config: RequestConfig): Promise<{ data: ApiResponse<T> }> {
@@ -155,16 +176,25 @@ async function request<T = unknown>(config: RequestConfig): Promise<{ data: ApiR
 
   // FE-01：method 缺省即 GET——此前用 config.method === 'GET' 判定会漏拼 params
   const method = (config.method || 'GET').toUpperCase()
-  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
-    // B04：只在调用方未提供幂等键时赋值——重试沿用同键
+  if (WRITE_METHODS.includes(method as (typeof WRITE_METHODS)[number])) {
+    // R25：调用方显式 X-Idempotency-Key 优先且不可覆盖——
+    // 拦截器不重新生成、不登记存储、不参与终态清理（生命周期由调用方管理）
     if (!header['X-Idempotency-Key']) {
-      header['X-Idempotency-Key'] = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+      const storeKey = intentStoreKey(method, config.url, config.data, token)
+      if (storeKey) {
+        const decision = decideIntent(
+          Taro.getStorageSync(storeKey),
+          Date.now(),
+          config.persistentIntent === true,
+          generateIntentKey,
+        )
+        header['X-Idempotency-Key'] = decision.key
+        config._intentStoreKey = storeKey
+        if (decision.action === 'create') {
+          Taro.setStorageSync(storeKey, JSON.stringify(decision.entry))
+        }
+      }
     }
-  }
-  // W03/FE-03：意图键持久化（含 401 刷新后的重放——重放复用 TTL 内同键）
-  const storeKey = intentStoreKey(method, config.url, config.data, token)
-  if (storeKey) {
-    header['X-Idempotency-Key'] = resolveIntentKey(storeKey)
   }
 
   // Taro.request 对 4xx/5xx 仍 resolve（仅网络层失败才 reject）——
@@ -184,24 +214,43 @@ async function request<T = unknown>(config: RequestConfig): Promise<{ data: ApiR
     if (statusCode === 401) {
       return handleRefresh<T>(config)
     }
-    throw error
+    // R25：断网/超时=结果未知，保留原意图键（intentTerminal(undefined,*)=false）
+    throw new BusinessError('NETWORK_ERROR', '网络错误，请检查网络连接')
   }
 
-  // R10：终态按业务 outcome——瞬态（5xx/429/409处理中/结算中/限流）保留原键供重试收敛
-  if (storeKey) {
-    const errCode = (res.data as { error?: { code?: string } } | undefined)?.error?.code
-    if (intentTerminal(res.statusCode, errCode)) {
-      Taro.removeStorageSync(storeKey)
-    }
-  }
+  const requestId = requestIdOf(res.header)
+  const envelope = res.data as ApiResponse<unknown> | undefined
 
+  // 401 在业务错误判定之前处理：触发刷新重放（重放复用同一意图键）
   if (res.statusCode === 401) {
     if (config._retried) {
       // 重放后仍 401：终态拒绝，防刷新循环打爆认证接口
-      throw new Error('登录状态已失效，请重新登录')
+      throw handleRefreshFailure()
     }
     return handleRefresh<T>(config)
   }
+
+  const errorCode = envelope?.error?.code
+  const terminal = intentTerminal(res.statusCode, errorCode)
+  if (config._intentStoreKey && terminal) {
+    Taro.removeStorageSync(config._intentStoreKey)
+  }
+
+  // R25：业务拒绝（信封 success=false）→ 业务异常，页面在 catch 按 code/message 处理，
+  // 不再允许"返回失败信封 + 页面漏判"的假成功
+  if (envelope?.success === false) {
+    throw new BusinessError(
+      errorCode || 'BIZ_ERROR',
+      envelope.error?.message || '请求失败',
+      { status: res.statusCode, requestId },
+    )
+  }
+
+  // R25：非信封的 4xx/5xx（网关/鉴权层裸错误等）同样抛业务异常
+  if (res.statusCode >= 400) {
+    throw businessErrorFromEnvelope(res.statusCode, envelope, requestId)
+  }
+
   return { data: res.data as ApiResponse<T> }
 }
 
@@ -215,9 +264,9 @@ async function handleRefresh<T>(originalConfig: RequestConfig): Promise<{ data: 
     // 入队前标记：重放若仍 401 直接终态，不再排队刷新
     originalConfig._retried = true
     return new Promise((resolve, reject) => {
-      pendingRequests.push((token: string) => {
+      pendingRequests.push((token: string, failure?: BusinessError) => {
         if (!token) {
-          reject(new Error('登录状态已失效，请重新登录'))
+          reject(failure ?? handleRefreshFailure())
           return
         }
         originalConfig.header = originalConfig.header || {}
@@ -229,18 +278,27 @@ async function handleRefresh<T>(originalConfig: RequestConfig): Promise<{ data: 
 
   isRefreshing = true
 
+  let res: Awaited<ReturnType<typeof Taro.request>>
   try {
-    const res = await Taro.request({
+    res = await Taro.request({
       url: `${API_BASE}/auth/refresh`,
       method: 'POST',
       data: { refreshToken },
       header: { 'Content-Type': 'application/json' },
     })
+  } catch {
+    // 刷新请求本身断网/超时：鉴权状态未知，按网络错误终态拒绝（不强制登出）
+    throw new BusinessError('NETWORK_ERROR', '网络错误，请检查网络连接')
+  }
+  try {
+    const refreshPayload = res.data as
+      | ApiResponse<{ accessToken: string; refreshToken: string }>
+      | undefined
     // FE-01：刷新接口也可能返回 401（refresh token 失效）——响应路径必须检查
-    if (res.statusCode !== 200 || !res.data?.data) {
+    if (res.statusCode !== 200 || !refreshPayload?.data) {
       throw handleRefreshFailure()
     }
-    const { accessToken, refreshToken: newRefreshToken } = res.data.data
+    const { accessToken, refreshToken: newRefreshToken } = refreshPayload.data
     Taro.setStorageSync('access_token', accessToken)
     Taro.setStorageSync('refresh_token', newRefreshToken)
 
@@ -251,7 +309,14 @@ async function handleRefresh<T>(originalConfig: RequestConfig): Promise<{ data: 
     originalConfig.header.Authorization = `Bearer ${accessToken}`
     originalConfig._retried = true
     return request<T>(originalConfig)
-  } catch {
+  } catch (error) {
+    // R25：刷新接口网络失败不能当鉴权失败强制登出——网络恢复后原 refresh token 仍有效；
+    // 等待者以 NETWORK_ERROR 终态拒绝（不悬置、不清凭据、不跳登录）
+    if (error instanceof BusinessError && error.code === 'NETWORK_ERROR') {
+      pendingRequests.forEach((cb) => cb('', error))
+      pendingRequests = []
+      throw error
+    }
     const terminalError = handleRefreshFailure()
     // FE-01：刷新失败统一拒绝所有等待者——任何请求都不允许悬挂（T21）
     pendingRequests.forEach((cb) => cb(''))

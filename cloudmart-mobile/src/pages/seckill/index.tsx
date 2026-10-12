@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { marketingApi } from '@/api/marketing'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -160,9 +161,7 @@ export default function SeckillPage() {
         finishSeckill(result)
       }
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
-      Taro.showToast({ title: message || '秒杀失败，请重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '秒杀失败，请重试'), icon: 'none' })
     } finally {
       setExecutingIds((prev) => {
         const next = new Set(prev)

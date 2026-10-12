@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { communityApi, type SurveyData } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import styles from './index.module.scss'
 
@@ -88,8 +89,8 @@ export default function SurveyCard({ surveyId }: SurveyCardProps) {
       const data = res.data?.data
       if (data) setSurvey(data)
       Taro.showToast({ title: '问卷已提交', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '提交失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '提交失败'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }

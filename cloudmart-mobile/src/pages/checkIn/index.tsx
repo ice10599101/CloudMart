@@ -4,6 +4,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { growthApi } from '@/api/growth'
+import { errorMessage } from '@/utils/request'
 import type { ExpLog, LevelConfig } from '@/types'
 import styles from './index.module.scss'
 
@@ -150,8 +151,8 @@ export default function CheckInPage() {
       setTimeout(() => setExpAnim(''), 2000)
       Taro.showToast({ title: '签到成功', icon: 'success' })
       loadData()
-    } catch {
-      Taro.showToast({ title: '签到失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '签到失败'), icon: 'none' })
     } finally {
       setCheckingIn(false)
     }

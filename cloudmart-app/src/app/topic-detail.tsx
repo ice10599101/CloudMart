@@ -1,8 +1,9 @@
-import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native'
 import { useState, useEffect, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Post, Tag } from '@/types'
 
@@ -102,8 +103,8 @@ export default function TopicDetailScreen() {
         await communityApi.subscribeTag(tag.id)
         setIsSubscribed(true)
       }
-    } catch {
-      // subscribe action failed silently
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '操作失败，请稍后重试'))
     } finally {
       setSubscribing(false)
     }

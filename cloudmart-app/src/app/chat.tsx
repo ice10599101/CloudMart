@@ -16,6 +16,7 @@ import { useTheme } from '@/hooks/use-theme-context'
 import { notificationApi } from '@/api/notification'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
+import { errorMessage } from '@/utils/request'
 import type { ChatMessage } from '@/types'
 
 function formatMessageTime(time: string): string {
@@ -92,8 +93,8 @@ export default function ChatPage() {
             await loadMessages(Number(convId))
             notificationApi.markConversationRead(Number(convId)).catch(() => {})
           }
-        } catch {
-          Alert.alert('错误', '创建会话失败')
+        } catch (error) {
+          Alert.alert('错误', errorMessage(error, '创建会话失败'))
         } finally {
           setLoading(false)
         }
@@ -150,10 +151,8 @@ export default function ChatPage() {
           try {
             await notificationApi.recallMessage(msg.id)
             setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, isRecalled: true } : m)))
-          } catch (err) {
-            const message =
-              (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
-            Alert.alert('提示', message || '撤回失败')
+          } catch (error) {
+            Alert.alert('提示', errorMessage(error, '撤回失败'))
           }
         },
       },
@@ -169,8 +168,8 @@ export default function ChatPage() {
       await notificationApi.sendMessage(conversationId, { content })
       setInputText('')
       await loadMessages(conversationId)
-    } catch {
-      Alert.alert('错误', '发送失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '发送失败'))
     } finally {
       setSending(false)
     }

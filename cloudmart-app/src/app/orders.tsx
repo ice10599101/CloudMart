@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { orderApi } from '@/api/order'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Order, OrderItem } from '@/types'
 
@@ -282,8 +283,8 @@ export default function OrdersScreen() {
             try {
               await orderApi.cancel(id)
               setOrders((prev) => prev.filter((o) => o.id !== id))
-            } catch {
-              Alert.alert('错误', '取消订单失败，请稍后重试')
+            } catch (error) {
+              Alert.alert('错误', errorMessage(error, '取消订单失败，请稍后重试'))
             }
           },
         },
@@ -302,8 +303,8 @@ export default function OrdersScreen() {
             try {
               await orderApi.confirmReceive(id)
               onRefresh()
-            } catch {
-              Alert.alert('错误', '确认收货失败，请稍后重试')
+            } catch (error) {
+              Alert.alert('错误', errorMessage(error, '确认收货失败，请稍后重试'))
             }
           },
         },

@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { orderApi } from '@/api/order'
 import { paymentApi } from '@/api/payment'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Order } from '@/types'
 
@@ -43,8 +44,8 @@ export default function PaymentPage() {
         const remaining = Math.max(0, COUNTDOWN_SECONDS - elapsed)
         setCountdown(remaining)
       }
-    } catch {
-      Alert.alert('错误', '加载订单失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '加载订单失败'))
     } finally {
       setLoading(false)
     }
@@ -130,8 +131,8 @@ export default function PaymentPage() {
             }
             setPaymentStatus('PENDING')
             startPolling()
-          } catch {
-            Alert.alert('错误', '支付请求失败，请重试')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '支付请求失败，请重试'))
           } finally {
             setPaying(false)
           }

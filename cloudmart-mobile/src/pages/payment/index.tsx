@@ -3,6 +3,7 @@ import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { orderApi } from '@/api/order'
 import { paymentApi } from '@/api/payment'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -87,8 +88,8 @@ export default function PaymentPage() {
       setLoading(true)
       const res = await orderApi.getDetail(id)
       setOrder(res.data?.data as unknown as OrderDetail)
-    } catch {
-      Taro.showToast({ title: '加载失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '加载失败'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -200,9 +201,8 @@ export default function PaymentPage() {
           }
           setPaymentStatus('PENDING')
           startPolling()
-        } catch (err: unknown) {
-          const message = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message
-          Taro.showToast({ title: message || '支付发起失败', icon: 'none' })
+        } catch (err) {
+          Taro.showToast({ title: errorMessage(err, '支付发起失败'), icon: 'none' })
           setPaymentStatus('FAILED')
         } finally {
           setPaying(false)

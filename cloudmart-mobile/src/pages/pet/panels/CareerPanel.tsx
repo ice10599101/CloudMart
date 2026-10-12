@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import { Button, Text, View } from '@tarojs/components'
 import { petApi, type PetCareerPanel } from '@/api/pet'
 import { CARE_ERROR_HINT } from './shared'
+import { errorMessage } from '@/utils/request'
 import styles from '../index.module.scss'
 
 /** 职业面板（三期）：入职/打工/晋升，自管数据与动作（P2-4 自 index.tsx 拆出，行为不变） */
@@ -13,7 +14,7 @@ export function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
   const load = useCallback(async () => {
     try {
       const { data: res } = await petApi.getCareer()
-      if (res.success && res.data) {
+      if (res.data) {
         setPanel(res.data)
       }
     } catch {
@@ -28,14 +29,13 @@ export function CareerPanel({ onRefresh }: { onRefresh: () => void }) {
   const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
     setPending(key)
     try {
-      const { data: res } = await action()
-      if (res.success) {
-        Taro.showToast({ title: text, icon: 'success' })
-        await load()
-        onRefresh()
-      }
+      await action()
+      Taro.showToast({ title: text, icon: 'success' })
+      await load()
+      onRefresh()
     } catch (error) {
-      Taro.showToast({ title: CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试', icon: 'none' })
+      const code = (error as { code?: string }).code ?? ''
+      Taro.showToast({ title: CARE_ERROR_HINT[code] ?? errorMessage(error, '请稍后再试'), icon: 'none' })
     } finally {
       setPending(null)
     }

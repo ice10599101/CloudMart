@@ -342,9 +342,12 @@ export function listPetBattleHistory(params: { page?: number; pageSize?: number 
   return request.get<ApiResponse<PetBattleItem[]>>('/pet/battle/history', { params })
 }
 
-/** 和宠物聊天（每日 20 次 429；AI 故障降级模板 isAiReply=false） */
+/**
+ * 和宠物聊天（每日 20 次 429；AI 故障降级模板 isAiReply=false）。
+ * R25：资金/权益类写操作使用持久意图——断网/重启后按原键查询终态，不轮换新键。
+ */
 export function sendPetChat(message: string) {
-  return request.post<ApiResponse<PetChatMessage>>('/pet/chat', { message })
+  return request.post<ApiResponse<PetChatMessage>>('/pet/chat', { message }, { persistentIntent: true })
 }
 
 /** 聊天历史（cursor 分页，messageId 倒序） */

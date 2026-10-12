@@ -8,6 +8,7 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 import { formatLocal, reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 import { cancelCapsuleReminder } from '@/utils/capsule-notifications'
+import { errorMessage } from '@/utils/request'
 import type { CapsuleItem, CapsuleStatus } from '@/types'
 
 const PAGE_SIZE = 20
@@ -66,14 +67,12 @@ export default function CapsuleListScreen() {
         wishApi
             .listMyCapsules({ status: statusFilter, pageSize: PAGE_SIZE })
             .then((res) => {
-                if (res.data?.success) {
-                    setItems(res.data.data)
-                    setCursor(res.data.meta?.nextCursor ?? undefined)
-                    setHasMore(Boolean(res.data.meta?.hasMore))
-                }
+                setItems(res.data.data)
+                setCursor(res.data.meta?.nextCursor ?? undefined)
+                setHasMore(Boolean(res.data.meta?.hasMore))
             })
             .catch(() => {
-                // 错误已由 request 拦截器处理
+                // 列表后台加载失败保持空态
             })
             .finally(() => setLoading(false))
     }, [statusFilter])
@@ -90,11 +89,9 @@ export default function CapsuleListScreen() {
         setLoadingMore(true)
         try {
             const res = await wishApi.listMyCapsules({ status: statusFilter, cursor, pageSize: PAGE_SIZE })
-            if (res.data?.success) {
-                setItems((prev) => [...prev, ...res.data.data])
-                setCursor(res.data.meta?.nextCursor ?? undefined)
-                setHasMore(Boolean(res.data.meta?.hasMore))
-            }
+            setItems((prev) => [...prev, ...res.data.data])
+            setCursor(res.data.meta?.nextCursor ?? undefined)
+            setHasMore(Boolean(res.data.meta?.hasMore))
         } catch {
             // 静默：上拉重试
         } finally {
@@ -112,13 +109,11 @@ export default function CapsuleListScreen() {
                     wishApi
                         .cancelCapsule(capsule.id)
                         .then((r) => {
-                            if (r.data?.success) {
-                                cancelCapsuleReminder(capsule.id).catch(() => undefined)
-                                setItems((prev) => prev.map((it) => (it.id === capsule.id ? r.data.data : it)))
-                            }
+                            cancelCapsuleReminder(capsule.id).catch(() => undefined)
+                            setItems((prev) => prev.map((it) => (it.id === capsule.id ? r.data.data : it)))
                         })
-                        .catch(() => {
-                            // 错误已由 request 拦截器处理
+                        .catch((error) => {
+                            Alert.alert('取消失败', errorMessage(error, '请稍后再试'))
                         })
                 },
             },

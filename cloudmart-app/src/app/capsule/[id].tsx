@@ -9,6 +9,7 @@ import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
 import { formatLocal, localToUtcIso, getTimezoneId } from '@/utils/wish-timezone'
 import { cancelCapsuleReminder, scheduleCapsuleReminder } from '@/utils/capsule-notifications'
+import { errorMessage } from '@/utils/request'
 import type { CapsuleItem } from '@/types'
 
 /** 拆信动效节奏：封蜡碎裂(0.5s) → 信封翻盖(0.6s) → 信纸升起(0.7s)，与 Web/移动端一致 */
@@ -141,14 +142,12 @@ export default function CapsuleDetailScreen() {
         wishApi
             .getCapsuleDetail(capsuleId)
             .then((res) => {
-                if (res.data?.success) {
-                    setCapsule(res.data.data)
-                    setNow(Date.now())
-                    if (res.data.data.status === 'OPENED') setRevealed(true)
-                }
+                setCapsule(res.data.data)
+                setNow(Date.now())
+                if (res.data.data.status === 'OPENED') setRevealed(true)
             })
             .catch(() => {
-                // 错误已由 request 拦截器处理（404 = 不存在或非本人）
+                // 详情后台加载失败保持空态（404 = 不存在或非本人）
             })
             .finally(() => setLoading(false))
     }, [isLoggedIn, capsuleId])
@@ -193,8 +192,8 @@ export default function CapsuleDetailScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined)
                 Alert.alert('改期成功', '胶囊将按新的时间开启')
             }
-        } catch {
-            // 超限/状态冲突等错误已由 request 拦截器统一提示
+        } catch (error) {
+            Alert.alert('改期失败', errorMessage(error, '请稍后再试'))
         } finally {
             setRescheduling(false)
         }
@@ -206,21 +205,17 @@ export default function CapsuleDetailScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined)
         try {
             const res = await wishApi.openCapsule(capsuleId)
-            if (res.data?.success) {
-                // 已开启：撤销到期本地推送（静默降级）
-                cancelCapsuleReminder(capsuleId).catch(() => undefined)
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined)
-                // 拆信动效播完再揭晓内容（未到期 409/已取消会被 catch，动效不触发）
-                setTimeout(() => {
-                    setCapsule(res.data.data)
-                    setRevealed(true)
-                    setOpening(false)
-                }, OPEN_ANIM_MS)
-            } else {
+            // 已开启：撤销到期本地推送（静默降级）
+            cancelCapsuleReminder(capsuleId).catch(() => undefined)
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined)
+            // 拆信动效播完再揭晓内容（未到期 409/已取消会被 catch，动效不触发）
+            setTimeout(() => {
+                setCapsule(res.data.data)
+                setRevealed(true)
                 setOpening(false)
-            }
-        } catch {
-            Alert.alert('提示', '现在还不能开启，请稍后重试')
+            }, OPEN_ANIM_MS)
+        } catch (error) {
+            Alert.alert('提示', errorMessage(error, '现在还不能开启，请稍后重试'))
             setOpening(false)
         }
     }
@@ -236,13 +231,11 @@ export default function CapsuleDetailScreen() {
                     wishApi
                         .cancelCapsule(capsule.id)
                         .then((r) => {
-                            if (r.data?.success) {
-                                cancelCapsuleReminder(capsule.id).catch(() => undefined)
-                                setCapsule(r.data.data)
-                            }
+                            cancelCapsuleReminder(capsule.id).catch(() => undefined)
+                            setCapsule(r.data.data)
                         })
-                        .catch(() => {
-                            // 错误已由 request 拦截器处理
+                        .catch((error) => {
+                            Alert.alert('取消失败', errorMessage(error, '请稍后再试'))
                         })
                 },
             },
@@ -256,9 +249,7 @@ export default function CapsuleDetailScreen() {
     const refreshDetail = () => {
         wishApi
             .getCapsuleDetail(capsuleId)
-            .then((res) => {
-                if (res.data?.success) setCapsule(res.data.data)
-            })
+            .then((res) => setCapsule(res.data.data))
             .catch(() => undefined)
     }
 
@@ -272,13 +263,13 @@ export default function CapsuleDetailScreen() {
                     setWallBusy(true)
                     wishApi
                         .applyCapsuleToWall(capsule.id)
-                        .then((res) => {
-                            if (res.data?.success) {
-                                Alert.alert('已提交审核', '结果会通过站内通知告知你')
-                                refreshDetail()
-                            }
+                        .then(() => {
+                            Alert.alert('已提交审核', '结果会通过站内通知告知你')
+                            refreshDetail()
                         })
-                        .catch(() => undefined) // 409 等由拦截器提示
+                        .catch((error) => {
+                            Alert.alert('提交失败', errorMessage(error, '请稍后再试'))
+                        })
                         .finally(() => setWallBusy(false))
                 },
             },
@@ -298,13 +289,13 @@ export default function CapsuleDetailScreen() {
                     setWallBusy(true)
                     wishApi
                         .withdrawCapsuleWall(capsule.id)
-                        .then((res) => {
-                            if (res.data?.success) {
-                                Alert.alert(isApproved ? '已撤下' : '已撤回')
-                                refreshDetail()
-                            }
+                        .then(() => {
+                            Alert.alert(isApproved ? '已撤下' : '已撤回')
+                            refreshDetail()
                         })
-                        .catch(() => undefined)
+                        .catch((error) => {
+                            Alert.alert('操作失败', errorMessage(error, '请稍后再试'))
+                        })
                         .finally(() => setWallBusy(false))
                 },
             },

@@ -207,9 +207,7 @@ export default function WishMap() {
         reloadWarmEvents(userPos?.lat, userPos?.lng)
       }
     } catch (error) {
-      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
-        ?.response?.data?.error?.message
-      message.warning(msg ?? '删除失败，仅发布者可操作')
+      message.warning((error as Error).message || '删除失败，仅发布者可操作')
     } finally {
       setWarmDeleting(false)
     }

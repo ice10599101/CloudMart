@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Input, Map, Picker, Switch, Text, Textarea, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { encounterApi, wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import type { MapCluster, NearbyWish, WarmEventItem } from '@/types'
 import type { MyWishListItem } from '@/types'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -56,7 +57,7 @@ export default function WishMapPage() {
   // 附近模式状态回显（Redis 开关 24h 过期视为关闭）
   useEffect(() => {
     encounterApi.getNearbyMode()
-      .then((res) => { if (res.data.success) setNearbyMode(res.data.data === true) })
+      .then((res) => { setNearbyMode(res.data.data === true) })
       .catch(() => undefined)
   }, [])
 
@@ -100,17 +101,14 @@ export default function WishMapPage() {
     if (nearbyBusy) return
     setNearbyBusy(true)
     try {
-      const res = await encounterApi.setNearbyMode(enabled)
-      if (res.data.success) {
-        setNearbyMode(enabled)
-        Taro.showToast({
-          title: enabled ? '附近模式已开启，相遇正在发生' : '附近模式已关闭',
-          icon: 'none',
-        })
-      }
+      await encounterApi.setNearbyMode(enabled)
+      setNearbyMode(enabled)
+      Taro.showToast({
+        title: enabled ? '附近模式已开启，相遇正在发生' : '附近模式已关闭',
+        icon: 'none',
+      })
     } catch (err) {
-      const message = (err as { data?: { error?: { message?: string } } })?.data?.error?.message
-      Taro.showToast({ title: message || '操作失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '操作失败，请稍后重试'), icon: 'none' })
     } finally {
       setNearbyBusy(false)
     }
@@ -119,7 +117,7 @@ export default function WishMapPage() {
   // 打卡候选：自己的 ACTIVE 心愿
   useEffect(() => {
     wishApi.listMyWishes({ status: 'ACTIVE', pageSize: 50 })
-      .then((res) => { if (res.data.success) setMyWishes(res.data.data ?? []) })
+      .then((res) => { setMyWishes(res.data.data ?? []) })
       .catch(() => undefined)
   }, [])
 
@@ -127,7 +125,7 @@ export default function WishMapPage() {
   useEffect(() => {
     if (center === null) return
     wishApi.listWarmEvents({ lat: center.lat, lng: center.lng, radius: 5000 })
-      .then((res) => { if (res.data.success) setWarmEvents(res.data.data ?? []) })
+      .then((res) => { setWarmEvents(res.data.data ?? []) })
       .catch(() => undefined)
   }, [center])
 
@@ -138,8 +136,8 @@ export default function WishMapPage() {
       const params = center ? { lat: center.lat, lng: center.lng, radius: 5000 } : { radius: 5000 }
       Promise.all([wishApi.getMapWishes(params), wishApi.getMapClusters(params)])
         .then(([wishesRes, clusterRes]) => {
-          const wishes: NearbyWish[] = wishesRes.data.success ? wishesRes.data.data ?? [] : []
-          setClusters(clusterRes.data.success ? clusterRes.data.data ?? [] : [])
+          const wishes: NearbyWish[] = wishesRes.data.data ?? []
+          setClusters(clusterRes.data.data ?? [])
           setMarkers(wishes.map((w, idx) => ({
             id: idx,
             latitude: w.approximateLat,
@@ -185,12 +183,9 @@ export default function WishMapPage() {
         pos = { lat: setting.latitude, lng: setting.longitude }
       }
       const res = await wishApi.checkFence(myWishes[checkWishIdx].id, pos.lat, pos.lng)
-      if (res.data.success) {
-        setCheckResult(res.data.data.insideFence ? '🎉 到达！心愿绽放' : '还未到达围栏附近，继续加油')
-      }
+      setCheckResult(res.data.data.insideFence ? '🎉 到达！心愿绽放' : '还未到达围栏附近，继续加油')
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      setCheckResult(errNode?.data?.error?.message || '打卡失败，请稍后重试')
+      setCheckResult(errorMessage(err, '打卡失败，请稍后重试'))
     } finally {
       setCheckBusy(false)
     }
@@ -209,24 +204,21 @@ export default function WishMapPage() {
         const setting = await Taro.getLocation({ type: 'wgs84' })
         pos = { lat: setting.latitude, lng: setting.longitude }
       }
-      const res = await wishApi.publishWarmEvent({
+      await wishApi.publishWarmEvent({
         title: warmTitle.trim(),
         content: warmContent.trim(),
         lat: pos.lat,
         lng: pos.lng,
       })
-      if (res.data.success) {
-        Taro.showToast({ title: '感谢分享温暖瞬间（审核通过后展示）', icon: 'none' })
-        setWarmOpen(false)
-        setWarmTitle('')
-        setWarmContent('')
-        wishApi.listWarmEvents({ lat: pos.lat, lng: pos.lng, radius: 5000 })
-          .then((r) => { if (r.data.success) setWarmEvents(r.data.data ?? []) })
-          .catch(() => undefined)
-      }
+      Taro.showToast({ title: '感谢分享温暖瞬间（审核通过后展示）', icon: 'none' })
+      setWarmOpen(false)
+      setWarmTitle('')
+      setWarmContent('')
+      wishApi.listWarmEvents({ lat: pos.lat, lng: pos.lng, radius: 5000 })
+        .then((r) => { setWarmEvents(r.data.data ?? []) })
+        .catch(() => undefined)
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '发布失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '发布失败，请稍后重试'), icon: 'none' })
     } finally {
       setWarmSaving(false)
     }

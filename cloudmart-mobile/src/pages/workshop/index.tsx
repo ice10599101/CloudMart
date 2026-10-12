@@ -2,6 +2,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import { useCallback, useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import AssetIcon from '@/components/AssetIcon'
@@ -51,9 +52,11 @@ export default function WorkshopPage() {
         wishApi.getCollectionAssets(),
         wishApi.listBrands(),
       ])
-      if (assetsRes.data.success) setAssets(assetsRes.data.data ?? [])
-      if (groupsRes.data.success) setGroups(groupsRes.data.data ?? {})
-      if (brandsRes.data.success) setBrands(brandsRes.data.data ?? [])
+      setAssets(assetsRes.data.data ?? [])
+      setGroups(groupsRes.data.data ?? {})
+      setBrands(brandsRes.data.data ?? [])
+    } catch {
+      // 后台聚合加载失败保持空态，静默处理
     } finally {
       setLoading(false)
     }
@@ -68,8 +71,7 @@ export default function WorkshopPage() {
   }, [isLoggedIn, loadAll])
 
   const toastError = (err: unknown, fallback: string) => {
-    const errNode = err as { data?: { error?: { message?: string } } }
-    Taro.showToast({ title: errNode?.data?.error?.message || fallback, icon: 'none' })
+    Taro.showToast({ title: errorMessage(err, fallback), icon: 'none' })
   }
 
   const handleExchange = (asset: WorkshopAsset) => {
@@ -83,11 +85,9 @@ export default function WorkshopPage() {
         setExchangingId(asset.assetId)
         wishApi
           .exchangeAsset(asset.assetId)
-          .then((res) => {
-            if (res.data.success) {
-              Taro.showToast({ title: '兑换成功，已放入收藏馆', icon: 'none' })
-              loadAll()
-            }
+          .then(() => {
+            Taro.showToast({ title: '兑换成功，已放入收藏馆', icon: 'none' })
+            loadAll()
           })
           .catch((err) => toastError(err, '兑换失败，请稍后重试'))
           .finally(() => setExchangingId(null))
@@ -98,13 +98,11 @@ export default function WorkshopPage() {
   const handleActivate = (assetId: number, kind: 'SKIN' | 'BGM') => {
     const activate = kind === 'SKIN' ? wishApi.setActiveSkin(assetId) : wishApi.setActiveBgm(assetId)
     activate
-      .then((res) => {
-        if (res.data.success) {
-          Taro.showToast({ title: kind === 'SKIN' ? '皮肤已切换' : 'BGM 已切换', icon: 'none' })
-          wishApi.getCollectionAssets().then((r) => {
-            if (r.data.success) setGroups(r.data.data ?? {})
-          })
-        }
+      .then(() => {
+        Taro.showToast({ title: kind === 'SKIN' ? '皮肤已切换' : 'BGM 已切换', icon: 'none' })
+        wishApi.getCollectionAssets()
+          .then((r) => { setGroups(r.data.data ?? {}) })
+          .catch(() => {})
       })
       .catch((err) => toastError(err, '激活失败，请稍后重试'))
   }
@@ -113,9 +111,7 @@ export default function WorkshopPage() {
     wishApi
       .listBrandPools(brand.brandId)
       .then((res) => {
-        if (res.data.success) {
-          setPoolsByBrand((prev) => ({ ...prev, [brand.brandId]: res.data.data ?? [] }))
-        }
+        setPoolsByBrand((prev) => ({ ...prev, [brand.brandId]: res.data.data ?? [] }))
       })
       .catch((err) => toastError(err, '加载许愿池失败'))
   }
@@ -125,11 +121,9 @@ export default function WorkshopPage() {
     setJoiningPool(key)
     wishApi
       .joinBrandPool(brand.brandId, pool.poolId)
-      .then((res) => {
-        if (res.data.success) {
-          Taro.showToast({ title: `已加入「${pool.poolName}」`, icon: 'none' })
-          loadPools(brand)
-        }
+      .then(() => {
+        Taro.showToast({ title: `已加入「${pool.poolName}」`, icon: 'none' })
+        loadPools(brand)
       })
       .catch((err) => toastError(err, '加入失败，请稍后重试'))
       .finally(() => setJoiningPool(null))

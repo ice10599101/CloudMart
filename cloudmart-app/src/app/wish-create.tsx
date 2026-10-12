@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
 import { wishApi } from '@/api/wish'
 import { fileApi } from '@/api/file'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -58,9 +59,7 @@ export default function WishCreateScreen() {
     const fetchCategories = async () => {
       try {
         const res = await wishApi.getCategories()
-        if (res.data?.success) {
-          setCategories(res.data.data)
-        }
+        setCategories(res.data.data)
       } catch {
         // 错误已由 request 拦截器处理
       }
@@ -175,8 +174,8 @@ export default function WishCreateScreen() {
       Alert.alert('成功', '心愿已种下，愿它发光 ✨', [
         { text: '好的', onPress: () => router.replace(wishId ? `/wish-detail?id=${wishId}` : '/wish-home') },
       ])
-    } catch {
-      Alert.alert('失败', '发布失败，请稍后重试')
+    } catch (error) {
+      Alert.alert('失败', errorMessage(error, '发布失败，请稍后重试'))
     } finally {
       setSubmitting(false)
     }

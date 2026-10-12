@@ -5,6 +5,7 @@ import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { wishApi, type GoalStep } from '@/api/wish'
 import { productApi } from '@/api/product'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -87,7 +88,7 @@ export default function WishDetailPage() {
   useEffect(() => {
     if (!user || !wish || user.id === wish.authorId) return
     wishApi.getWishCollectionStatus(wishId)
-      .then((res) => { if (res.data.success) setCollected(res.data.data === true) })
+      .then((res) => { setCollected(res.data.data === true) })
       .catch(() => setCollected(false))
   }, [user, wish, wishId])
 
@@ -96,15 +97,16 @@ export default function WishDetailPage() {
     setCollectSaving(true)
     try {
       if (collected) {
-        const res = await wishApi.uncollectWish(wishId)
-        if (res.data.success) { setCollected(false); Taro.showToast({ title: '已取消收藏', icon: 'none' }) }
+        await wishApi.uncollectWish(wishId)
+        setCollected(false)
+        Taro.showToast({ title: '已取消收藏', icon: 'none' })
       } else {
-        const res = await wishApi.collectWish(wishId)
-        if (res.data.success) { setCollected(true); Taro.showToast({ title: '已收藏', icon: 'none' }) }
+        await wishApi.collectWish(wishId)
+        setCollected(true)
+        Taro.showToast({ title: '已收藏', icon: 'none' })
       }
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '操作失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '操作失败，请稍后重试'), icon: 'none' })
     } finally {
       setCollectSaving(false)
     }
@@ -118,22 +120,19 @@ export default function WishDetailPage() {
     }
     setGrowthSaving(true)
     try {
-      const res = await wishApi.addGrowthRecord(wishId, {
+      await wishApi.addGrowthRecord(wishId, {
         type: growthType,
         content: growthContent.trim(),
         progressDelta: growthDelta ? Number(growthDelta) : undefined,
       })
-      if (res.data.success) {
-        Taro.showToast({ title: '成长记录已添加', icon: 'none' })
-        setGrowthOpen(false)
-        setGrowthContent('')
-        setGrowthDelta('')
-        const detailRes = await wishApi.getWishDetail(wishId)
-        if (detailRes.data.success) setWish(detailRes.data.data)
-      }
+      Taro.showToast({ title: '成长记录已添加', icon: 'none' })
+      setGrowthOpen(false)
+      setGrowthContent('')
+      setGrowthDelta('')
+      const detailRes = await wishApi.getWishDetail(wishId)
+      setWish(detailRes.data.data)
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '保存失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '保存失败，请稍后重试'), icon: 'none' })
     } finally {
       setGrowthSaving(false)
     }
@@ -165,36 +164,32 @@ export default function WishDetailPage() {
     const fetchData = async () => {
       try {
         const res = await wishApi.getWishDetail(wishId)
-        if (res.data.success) {
-          setWish(res.data.data)
-          // 心愿关联商品（§6）：拉取关联商品（失败静默不卡片）
-          if (res.data.data.linkedProductId) {
-            productApi.getDetail(res.data.data.linkedProductId)
-              .then((pres) => {
-                const p = pres.data?.data
-                if (p) setLinkedProduct({ id: p.id, name: p.name, price: p.price, mainImage: p.mainImage ?? '' })
-              })
-              .catch(() => undefined)
-          }
-          // 浏览足迹上报：登录用户静默上报，失败不打扰
-          if (user?.id) {
-            void communityApi.recordBrowseHistory({
-              targetType: 'WISH',
-              targetId: wishId,
-              title: res.data.data.title,
-              cover: res.data.data.mediaUrls?.[0],
-            }).catch(() => {})
-          }
-          // 已还愿心愿加载还愿故事（公开匿名可见；PRIVATE/TREE_HOLE 仅作者）
-          if (res.data.data.status === 'FULFILLED') {
-            try {
-              const fulfillmentRes = await wishApi.getFulfillmentDetail(wishId)
-              if (fulfillmentRes.data.success) {
-                setFulfillment(fulfillmentRes.data.data)
-              }
-            } catch {
-              // 未还愿/已撤回/无权限时静默不展示
-            }
+        setWish(res.data.data)
+        // 心愿关联商品（§6）：拉取关联商品（失败静默不卡片）
+        if (res.data.data.linkedProductId) {
+          productApi.getDetail(res.data.data.linkedProductId)
+            .then((pres) => {
+              const p = pres.data?.data
+              if (p) setLinkedProduct({ id: p.id, name: p.name, price: p.price, mainImage: p.mainImage ?? '' })
+            })
+            .catch(() => undefined)
+        }
+        // 浏览足迹上报：登录用户静默上报，失败不打扰
+        if (user?.id) {
+          void communityApi.recordBrowseHistory({
+            targetType: 'WISH',
+            targetId: wishId,
+            title: res.data.data.title,
+            cover: res.data.data.mediaUrls?.[0],
+          }).catch(() => {})
+        }
+        // 已还愿心愿加载还愿故事（公开匿名可见；PRIVATE/TREE_HOLE 仅作者）
+        if (res.data.data.status === 'FULFILLED') {
+          try {
+            const fulfillmentRes = await wishApi.getFulfillmentDetail(wishId)
+            setFulfillment(fulfillmentRes.data.data)
+          } catch {
+            // 未还愿/已撤回/无权限时静默不展示
           }
         }
       } catch {
@@ -215,7 +210,7 @@ export default function WishDetailPage() {
   const loadGoals = async () => {
     try {
       const res = await wishApi.listGoals(wishId)
-      if (res.data.success) setGoals(res.data.data)
+      setGoals(res.data.data)
     } catch {
       // 目标加载失败不阻断详情主流程
     }
@@ -237,14 +232,11 @@ export default function WishDetailPage() {
     }
     setGoalSaving(true)
     try {
-      const res = await wishApi.createGoal(wishId, { title, sortOrder: goals.length })
-      if (res.data.success) {
-        setGoalTitle('')
-        void loadGoals()
-      }
+      await wishApi.createGoal(wishId, { title, sortOrder: goals.length })
+      setGoalTitle('')
+      void loadGoals()
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '创建失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '创建失败，请稍后重试'), icon: 'none' })
     } finally {
       setGoalSaving(false)
     }
@@ -253,10 +245,10 @@ export default function WishDetailPage() {
   const handleToggleGoal = async (goal: GoalStep) => {
     const nextStatus = goal.status === 'COMPLETED' ? 'IN_PROGRESS' : 'COMPLETED'
     try {
-      const res = await wishApi.updateGoal(goal.id, { status: nextStatus, version: goal.version })
-      if (res.data.success) void loadGoals()
-    } catch {
-      Taro.showToast({ title: '步骤已被其他设备修改，已刷新最新状态', icon: 'none' })
+      await wishApi.updateGoal(goal.id, { status: nextStatus, version: goal.version })
+      void loadGoals()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '步骤已被其他设备修改，已刷新最新状态'), icon: 'none' })
       void loadGoals()
     }
   }
@@ -265,10 +257,10 @@ export default function WishDetailPage() {
     const res = await Taro.showModal({ title: '确认删除该步骤？', content: '删除后不可恢复' })
     if (!res.confirm) return
     try {
-      const result = await wishApi.deleteGoal(goal.id, goal.version)
-      if (result.data.success) void loadGoals()
-    } catch {
-      Taro.showToast({ title: '步骤已被其他设备修改，已刷新最新状态', icon: 'none' })
+      await wishApi.deleteGoal(goal.id, goal.version)
+      void loadGoals()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '步骤已被其他设备修改，已刷新最新状态'), icon: 'none' })
       void loadGoals()
     }
   }
@@ -282,13 +274,13 @@ export default function WishDetailPage() {
     ;[next[index], next[target]] = [next[target], next[index]]
     setGoals(next)
     try {
-      const result = await wishApi.reorderGoals(
+      await wishApi.reorderGoals(
         wishId,
         next.map((g, i) => ({ goalId: g.id, version: g.version, sortOrder: i })),
       )
-      if (result.data.success) void loadGoals()
-    } catch {
-      Taro.showToast({ title: '排序已被其他设备修改，已刷新最新状态', icon: 'none' })
+      void loadGoals()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '排序已被其他设备修改，已刷新最新状态'), icon: 'none' })
       void loadGoals()
     }
   }
@@ -302,7 +294,7 @@ export default function WishDetailPage() {
 
   const reloadWish = async () => {
     const detailRes = await wishApi.getWishDetail(wishId)
-    if (detailRes.data.success) setWish(detailRes.data.data)
+    setWish(detailRes.data.data)
   }
 
   const handleEditGrowthRecord = (recordId: number | string, currentContent: string) => {
@@ -320,16 +312,13 @@ export default function WishDetailPage() {
     }
     setRecordEditSaving(true)
     try {
-      const result = await wishApi.updateGrowthRecord(wishId, recordEditId, { content })
-      if (result.data.success) {
-        setRecordEditOpen(false)
-        setRecordEditId(null)
-        Taro.showToast({ title: '已保存', icon: 'success' })
-        await reloadWish()
-      }
+      await wishApi.updateGrowthRecord(wishId, recordEditId, { content })
+      setRecordEditOpen(false)
+      setRecordEditId(null)
+      Taro.showToast({ title: '已保存', icon: 'success' })
+      await reloadWish()
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '保存失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '保存失败，请稍后重试'), icon: 'none' })
     } finally {
       setRecordEditSaving(false)
     }
@@ -342,11 +331,10 @@ export default function WishDetailPage() {
     })
     if (!res.confirm) return
     try {
-      const result = await wishApi.deleteGrowthRecord(wishId, recordId)
-      if (result.data.success) await reloadWish()
+      await wishApi.deleteGrowthRecord(wishId, recordId)
+      await reloadWish()
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '删除失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '删除失败，请稍后重试'), icon: 'none' })
     }
   }
 
@@ -359,16 +347,13 @@ export default function WishDetailPage() {
     })
     if (!res.confirm) return
     try {
-      const result = await wishApi.withdrawFulfillment(wishId)
-      if (result.data.success) {
-        Taro.showToast({ title: '还愿已撤回', icon: 'success' })
-        setFulfillment(null)
-        const detailRes = await wishApi.getWishDetail(wishId)
-        if (detailRes.data.success) setWish(detailRes.data.data)
-      }
+      await wishApi.withdrawFulfillment(wishId)
+      Taro.showToast({ title: '还愿已撤回', icon: 'success' })
+      setFulfillment(null)
+      const detailRes = await wishApi.getWishDetail(wishId)
+      setWish(detailRes.data.data)
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '撤回失败，可能已进入社区流转', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '撤回失败，可能已进入社区流转'), icon: 'none' })
     }
   }
 
@@ -403,16 +388,14 @@ export default function WishDetailPage() {
     }
     setExtendSaving(true)
     try {
-      const res = await wishApi.updateWish(wishId, {
+      await wishApi.updateWish(wishId, {
         expectedAt: new Date(`${extendDate}T12:00:00`).toISOString(),
       })
-      if (res.data.success) {
-        Taro.showToast({ title: '预期已延长，继续加油', icon: 'none' })
-        setExtendOpen(false)
-        setWish((prev) => (prev ? { ...prev, expectedAt: new Date(`${extendDate}T12:00:00`).toISOString() } : prev))
-      }
-    } catch {
-      Taro.showToast({ title: '保存失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: '预期已延长，继续加油', icon: 'none' })
+      setExtendOpen(false)
+      setWish((prev) => (prev ? { ...prev, expectedAt: new Date(`${extendDate}T12:00:00`).toISOString() } : prev))
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '保存失败，请稍后重试'), icon: 'none' })
     } finally {
       setExtendSaving(false)
     }
@@ -423,28 +406,22 @@ export default function WishDetailPage() {
     setCheckinSaving(true)
     try {
       const res = await wishApi.checkinWish(wishId, checkinContent.trim() || undefined)
-      if (res.data.success) {
-        const { currentStreak, starlightCredited, starlightCapped } = res.data.data
-        // P1-14：达 5000 上限被截断时显式告知，避免"白打卡"无感知
-        Taro.showToast({
-          title: starlightCapped
-            ? `连续 ${currentStreak} 天，星光已达上限，本次 +${starlightCredited}`
-            : `连续 ${currentStreak} 天，星光 +${starlightCredited}`,
-          icon: 'none',
-          duration: 2500,
-        })
-        setCheckinOpen(false)
-        setCheckinContent('')
-        setCheckedInToday(true)
-        const detailRes = await wishApi.getWishDetail(wishId)
-        if (detailRes.data.success) {
-          setWish(detailRes.data.data)
-        }
-      }
+      const { currentStreak, starlightCredited, starlightCapped } = res.data.data
+      // P1-14：达 5000 上限被截断时显式告知，避免"白打卡"无感知
+      Taro.showToast({
+        title: starlightCapped
+          ? `连续 ${currentStreak} 天，星光已达上限，本次 +${starlightCredited}`
+          : `连续 ${currentStreak} 天，星光 +${starlightCredited}`,
+        icon: 'none',
+        duration: 2500,
+      })
+      setCheckinOpen(false)
+      setCheckinContent('')
+      setCheckedInToday(true)
+      const detailRes = await wishApi.getWishDetail(wishId)
+      setWish(detailRes.data.data)
     } catch (err) {
-      // Taro 非 2xx 异常体：{ data: { error: { code } } }
-      const errNode = err as { data?: { error?: { code?: string } } }
-      const code = errNode?.data?.error?.code
+      const code = (err as { code?: string }).code
       if (code === 'WISH_ALREADY_CHECKIN_TODAY') {
         Taro.showToast({ title: '今天已经打过卡啦', icon: 'none' })
         setCheckedInToday(true)
@@ -452,7 +429,7 @@ export default function WishDetailPage() {
       } else if (code === 'WISH_STATUS_CONFLICT') {
         Taro.showToast({ title: '仅进行中的心愿可打卡', icon: 'none' })
       } else {
-        Taro.showToast({ title: '打卡失败，请稍后重试', icon: 'none' })
+        Taro.showToast({ title: errorMessage(err, '打卡失败，请稍后重试'), icon: 'none' })
       }
     } finally {
       setCheckinSaving(false)
@@ -467,11 +444,9 @@ export default function WishDetailPage() {
     if (!res.confirm) return
 
     try {
-      const result = await wishApi.deleteWish(wishId)
-      if (result.data.success) {
-        Taro.showToast({ title: '已删除', icon: 'success' })
-        setTimeout(() => Taro.navigateBack(), 1500)
-      }
+      await wishApi.deleteWish(wishId)
+      Taro.showToast({ title: '已删除', icon: 'success' })
+      setTimeout(() => Taro.navigateBack(), 1500)
     } catch {
       // 错误已由 request 处理
     }
@@ -487,13 +462,10 @@ export default function WishDetailPage() {
     if (!res.confirm) return
     setLegacySaving(true)
     try {
-      const result = await wishApi.inheritFulfillment(wishId)
-      if (result.data.success) {
-        Taro.showToast({ title: '传承成功，故事正在照亮同路人 ✨', icon: 'none' })
-      }
+      await wishApi.inheritFulfillment(wishId)
+      Taro.showToast({ title: '传承成功，故事正在照亮同路人 ✨', icon: 'none' })
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '传承失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '传承失败，请稍后重试'), icon: 'none' })
     } finally {
       setLegacySaving(false)
     }
@@ -509,14 +481,11 @@ export default function WishDetailPage() {
     if (!res.confirm) return
     setSparkSaving(true)
     try {
-      const result = await wishApi.sparkWish(wishId)
-      if (result.data.success) {
-        Taro.showToast({ title: '已设为星火永久收藏', icon: 'none' })
-        setWish((prev) => (prev ? { ...prev, fruitType: 'SPARK' } : prev))
-      }
+      await wishApi.sparkWish(wishId)
+      Taro.showToast({ title: '已设为星火永久收藏', icon: 'none' })
+      setWish((prev) => (prev ? { ...prev, fruitType: 'SPARK' } : prev))
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '设置失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '设置失败，请稍后重试'), icon: 'none' })
     } finally {
       setSparkSaving(false)
     }

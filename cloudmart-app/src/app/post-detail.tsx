@@ -12,6 +12,7 @@ import SurveyCard from '@/components/SurveyCard'
 import { extractPollAttachments, extractSurveyAttachments, stripAttachmentNodes } from '@/utils/postAttachments'
 import { communityApi } from '@/api/community'
 import { productApi } from '@/api/product'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
 const REPORT_REASONS = ['垃圾广告', '色情低俗', '违法违规', '侵权抄袭', '人身攻击', '虚假信息', '其他']
@@ -161,8 +162,8 @@ export default function PostDetailScreen() {
       if (post.isLiked) await communityApi.unlikePost(post.id)
       else await communityApi.likePost(post.id)
       setPost({ ...post, isLiked: !post.isLiked, likeCount: post.isLiked ? post.likeCount - 1 : post.likeCount + 1 })
-    } catch {
-      Alert.alert('错误', '操作失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '操作失败'))
     }
   }
 
@@ -172,8 +173,8 @@ export default function PostDetailScreen() {
       if (post.isCollected) await communityApi.uncollectPost(post.id)
       else await communityApi.collectPost(post.id)
       setPost({ ...post, isCollected: !post.isCollected, collectCount: post.isCollected ? post.collectCount - 1 : post.collectCount + 1 })
-    } catch {
-      Alert.alert('错误', '操作失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '操作失败'))
     }
   }
 
@@ -183,8 +184,8 @@ export default function PostDetailScreen() {
       if (isFollowing) await communityApi.unfollowUser(post.user.id)
       else await communityApi.followUser(post.user.id)
       setIsFollowing(!isFollowing)
-    } catch {
-      Alert.alert('错误', '操作失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '操作失败'))
     }
   }
 
@@ -205,8 +206,8 @@ export default function PostDetailScreen() {
       setReplyTo(null)
       Alert.alert('提示', '评论成功')
       loadComments(1, false)
-    } catch {
-      Alert.alert('错误', '评论失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '评论失败'))
     }
   }
 
@@ -220,8 +221,8 @@ export default function PostDetailScreen() {
           ? { ...c, isLiked: !c.isLiked, likeCount: Math.max(0, (c.likeCount ?? 0) + (c.isLiked ? -1 : 1)) }
           : { ...c, replies: c.replies?.map(patch) }
       setComments((prev) => prev.map(patch))
-    } catch {
-      Alert.alert('错误', '操作失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '操作失败'))
     }
   }
 
@@ -236,8 +237,8 @@ export default function PostDetailScreen() {
           try {
             await communityApi.deleteComment(postId, comment.id)
             setComments((prev) => prev.filter((c) => c.id !== comment.id))
-          } catch {
-            Alert.alert('错误', '删除失败')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '删除失败'))
           }
         },
       },
@@ -273,8 +274,8 @@ export default function PostDetailScreen() {
             await communityApi.deletePost(postId)
             Alert.alert('提示', '已删除')
             router.back()
-          } catch {
-            Alert.alert('错误', '删除失败')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '删除失败'))
           }
         },
       },
@@ -295,8 +296,8 @@ export default function PostDetailScreen() {
       Alert.alert('分享', '分享文案已复制，粘贴给好友吧', [
         { text: '确定', onPress: () => void communityApi.sharePost(postId).catch(() => {}) },
       ])
-    } catch {
-      Alert.alert('错误', '分享失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '分享失败'))
     }
   }
 
@@ -309,8 +310,8 @@ export default function PostDetailScreen() {
           try {
             await communityApi.report({ targetType: 'POST', targetId: postId, reason })
             Alert.alert('提示', '举报成功')
-          } catch {
-            Alert.alert('错误', '举报失败')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '举报失败'))
           }
         },
       })),

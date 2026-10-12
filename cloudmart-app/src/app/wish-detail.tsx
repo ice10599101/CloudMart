@@ -11,6 +11,7 @@ import WishCheckinCalendar from '@/components/WishCheckinCalendar'
 import { isOnline, enqueueCheckin, flushQueue } from '@/utils/offlineCheckin'
 import NetInfo from '@react-native-community/netinfo'
 import { useAuthStore } from '@/store/auth'
+import { errorMessage, isBusinessError } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS, FRUIT_COLORS, WISH_STATUS_LABELS, formatCount } from '@/constants/wish-theme'
 import WishInteractionBar from '@/components/WishInteractionBar'
@@ -60,27 +61,23 @@ export default function WishDetailScreen() {
     const fetchData = async () => {
       try {
         const res = await wishApi.getWishDetail(wishId)
-        if (res.data?.success) {
-          setWish(res.data.data)
-          // 浏览足迹上报：登录用户静默上报，失败不打扰
-          if (user?.id) {
-            void communityApi.recordBrowseHistory({
-              targetType: 'WISH',
-              targetId: wishId,
-              title: res.data.data.title,
-              cover: res.data.data.mediaUrls?.[0],
-            }).catch(() => {})
-          }
-          // 已还愿心愿加载还愿故事（未还愿/无权限静默忽略）
-          if (res.data.data.status === 'FULFILLED') {
-            try {
-              const fulfillmentRes = await wishApi.getFulfillmentDetail(wishId)
-              if (fulfillmentRes.data?.success) {
-                setFulfillment(fulfillmentRes.data.data)
-              }
-            } catch {
-              // 静默处理
-            }
+        setWish(res.data.data)
+        // 浏览足迹上报：登录用户静默上报，失败不打扰
+        if (user?.id) {
+          void communityApi.recordBrowseHistory({
+            targetType: 'WISH',
+            targetId: wishId,
+            title: res.data.data.title,
+            cover: res.data.data.mediaUrls?.[0],
+          }).catch(() => {})
+        }
+        // 已还愿心愿加载还愿故事（未还愿/无权限静默忽略）
+        if (res.data.data.status === 'FULFILLED') {
+          try {
+            const fulfillmentRes = await wishApi.getFulfillmentDetail(wishId)
+            setFulfillment(fulfillmentRes.data.data)
+          } catch {
+            // 静默处理
           }
         }
       } catch {
@@ -131,26 +128,20 @@ export default function WishDetailScreen() {
         return
       }
       const res = await wishApi.checkinWish(wishId, checkinContent.trim() || undefined)
-      if (res.data?.success) {
-        const { currentStreak, starlightCredited, starlightCapped } = res.data.data
-        Alert.alert(
-          '打卡成功 🌟',
-          starlightCapped
-            ? `已连续 ${currentStreak} 天，星光已达上限，本次 +${starlightCredited}`
-            : `已连续 ${currentStreak} 天，星光 +${starlightCredited} ✨`,
-        )
-        setCheckinOpen(false)
-        setCheckinContent('')
-        setCheckedInToday(true)
-        const detailRes = await wishApi.getWishDetail(wishId)
-        if (detailRes.data?.success) {
-          setWish(detailRes.data.data)
-        }
-      }
+      const { currentStreak, starlightCredited, starlightCapped } = res.data.data
+      Alert.alert(
+        '打卡成功 🌟',
+        starlightCapped
+          ? `已连续 ${currentStreak} 天，星光已达上限，本次 +${starlightCredited}`
+          : `已连续 ${currentStreak} 天，星光 +${starlightCredited} ✨`,
+      )
+      setCheckinOpen(false)
+      setCheckinContent('')
+      setCheckedInToday(true)
+      const detailRes = await wishApi.getWishDetail(wishId)
+      setWish(detailRes.data.data)
     } catch (error) {
-      // axios 异常体：response.data.error.code
-      const code = (error as { response?: { data?: { error?: { code?: string } } } })
-        ?.response?.data?.error?.code
+      const code = isBusinessError(error) ? error.code : undefined
       if (code === 'WISH_ALREADY_CHECKIN_TODAY') {
         Alert.alert('提示', '今天已经打过卡啦，明天再来')
         setCheckedInToday(true)
@@ -158,7 +149,7 @@ export default function WishDetailScreen() {
       } else if (code === 'WISH_STATUS_CONFLICT') {
         Alert.alert('提示', '仅进行中的心愿可打卡')
       } else {
-        Alert.alert('提示', '打卡失败，请稍后重试')
+        Alert.alert('提示', errorMessage(error, '打卡失败，请稍后重试'))
       }
     } finally {
       setCheckinSaving(false)
@@ -172,14 +163,12 @@ export default function WishDetailScreen() {
     const nextIso = new Date(baseTime + days * 24 * 3600 * 1000).toISOString()
     setExtendSaving(true)
     try {
-      const res = await wishApi.updateWish(wishId, { expectedAt: nextIso })
-      if (res.data?.success) {
-        setWish((prev) => (prev ? { ...prev, expectedAt: nextIso } : prev))
-        setExtendOpen(false)
-        Alert.alert('完成', '预期已延长，继续加油')
-      }
-    } catch {
-      Alert.alert('提示', '保存失败，请稍后重试')
+      await wishApi.updateWish(wishId, { expectedAt: nextIso })
+      setWish((prev) => (prev ? { ...prev, expectedAt: nextIso } : prev))
+      setExtendOpen(false)
+      Alert.alert('完成', '预期已延长，继续加油')
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '保存失败，请稍后重试'))
     } finally {
       setExtendSaving(false)
     }
@@ -197,7 +186,7 @@ export default function WishDetailScreen() {
   useEffect(() => {
     if (!user || !wish || user.id === wish.authorId) return
     wishApi.getWishCollectionStatus(wishId)
-      .then((res) => { if (res.data.success) setCollected(res.data.data === true) })
+      .then((res) => { setCollected(res.data.data === true) })
       .catch(() => setCollected(false))
   }, [user, wish, wishId])
 
@@ -206,15 +195,16 @@ export default function WishDetailScreen() {
     setCollectSaving(true)
     try {
       if (collected) {
-        const res = await wishApi.uncollectWish(wishId)
-        if (res.data.success) { setCollected(false); Alert.alert('提示', '已取消收藏') }
+        await wishApi.uncollectWish(wishId)
+        setCollected(false)
+        Alert.alert('提示', '已取消收藏')
       } else {
-        const res = await wishApi.collectWish(wishId)
-        if (res.data.success) { setCollected(true); Alert.alert('提示', '已收藏') }
+        await wishApi.collectWish(wishId)
+        setCollected(true)
+        Alert.alert('提示', '已收藏')
       }
-    } catch (err) {
-      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-      Alert.alert('提示', errNode?.response?.data?.error?.message || '操作失败，请稍后重试')
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '操作失败，请稍后重试'))
     } finally {
       setCollectSaving(false)
     }
@@ -272,7 +262,7 @@ export default function WishDetailScreen() {
   const loadGoals = async () => {
     try {
       const res = await wishApi.listGoals(wishId)
-      if (res.data?.success) setGoals(res.data.data)
+      setGoals(res.data.data)
     } catch {
       // 目标加载失败不阻断详情主流程
     }
@@ -294,18 +284,14 @@ export default function WishDetailScreen() {
     }
     setGoalSaving(true)
     try {
-      const res = await wishApi.createGoal(wishId, {
+      await wishApi.createGoal(wishId, {
         title,
         sortOrder: goals.length,
       })
-      if (res.data?.success) {
-        setGoalTitle('')
-        void loadGoals()
-      }
+      setGoalTitle('')
+      void loadGoals()
     } catch (error) {
-      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
-        ?.response?.data?.error?.message
-      Alert.alert('创建失败', msg ?? '请稍后重试')
+      Alert.alert('创建失败', errorMessage(error, '请稍后重试'))
     } finally {
       setGoalSaving(false)
     }
@@ -314,10 +300,10 @@ export default function WishDetailScreen() {
   const handleToggleGoal = async (goal: GoalStep) => {
     const nextStatus = goal.status === 'COMPLETED' ? 'IN_PROGRESS' : 'COMPLETED'
     try {
-      const res = await wishApi.updateGoal(goal.id, { status: nextStatus, version: goal.version })
-      if (res.data?.success) void loadGoals()
-    } catch {
-      Alert.alert('步骤已被其他设备修改', '已刷新最新状态')
+      await wishApi.updateGoal(goal.id, { status: nextStatus, version: goal.version })
+      void loadGoals()
+    } catch (error) {
+      Alert.alert('步骤已被其他设备修改', errorMessage(error, '已刷新最新状态'))
       void loadGoals()
     }
   }
@@ -330,10 +316,10 @@ export default function WishDetailScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const res = await wishApi.deleteGoal(goal.id, goal.version)
-            if (res.data?.success) void loadGoals()
-          } catch {
-            Alert.alert('步骤已被其他设备修改', '已刷新最新状态')
+            await wishApi.deleteGoal(goal.id, goal.version)
+            void loadGoals()
+          } catch (error) {
+            Alert.alert('步骤已被其他设备修改', errorMessage(error, '已刷新最新状态'))
             void loadGoals()
           }
         },
@@ -350,13 +336,13 @@ export default function WishDetailScreen() {
     ;[next[index], next[target]] = [next[target], next[index]]
     setGoals(next)
     try {
-      const res = await wishApi.reorderGoals(
+      await wishApi.reorderGoals(
         wishId,
         next.map((g, i) => ({ goalId: g.id, version: g.version, sortOrder: i })),
       )
-      if (res.data?.success) void loadGoals()
-    } catch {
-      Alert.alert('排序已被其他设备修改', '已刷新最新状态')
+      void loadGoals()
+    } catch (error) {
+      Alert.alert('排序已被其他设备修改', errorMessage(error, '已刷新最新状态'))
       void loadGoals()
     }
   }
@@ -368,7 +354,7 @@ export default function WishDetailScreen() {
 
   const reloadWish = async () => {
     const detailRes = await wishApi.getWishDetail(wishId)
-    if (detailRes.data?.success) setWish(detailRes.data.data)
+    setWish(detailRes.data.data)
   }
 
   const handleSaveGrowthRecord = async () => {
@@ -380,15 +366,11 @@ export default function WishDetailScreen() {
     }
     setRecordSaving(true)
     try {
-      const res = await wishApi.updateGrowthRecord(wishId, editingRecord.id, { content })
-      if (res.data?.success) {
-        setEditingRecord(null)
-        await reloadWish()
-      }
+      await wishApi.updateGrowthRecord(wishId, editingRecord.id, { content })
+      setEditingRecord(null)
+      await reloadWish()
     } catch (error) {
-      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
-        ?.response?.data?.error?.message
-      Alert.alert('保存失败', msg ?? '请稍后重试')
+      Alert.alert('保存失败', errorMessage(error, '请稍后重试'))
     } finally {
       setRecordSaving(false)
     }
@@ -402,12 +384,10 @@ export default function WishDetailScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const res = await wishApi.deleteGrowthRecord(wishId, recordId)
-            if (res.data?.success) await reloadWish()
+            await wishApi.deleteGrowthRecord(wishId, recordId)
+            await reloadWish()
           } catch (error) {
-            const msg = (error as { response?: { data?: { error?: { message?: string } } } })
-              ?.response?.data?.error?.message
-            Alert.alert('删除失败', msg ?? '请稍后重试')
+            Alert.alert('删除失败', errorMessage(error, '请稍后重试'))
           }
         },
       },
@@ -418,17 +398,13 @@ export default function WishDetailScreen() {
   // 已进入社区流转/审核中的撤回被拒绝并回显原因，成功后刷新详情）
   const handleWithdrawFulfillment = async () => {
     try {
-      const res = await wishApi.withdrawFulfillment(wishId)
-      if (res.data?.success) {
-        Alert.alert('还愿已撤回', '心愿回到可还愿状态，可重新提交')
-        const detailRes = await wishApi.getWishDetail(wishId)
-        if (detailRes.data?.success) setWish(detailRes.data.data)
-        setFulfillment(null)
-      }
+      await wishApi.withdrawFulfillment(wishId)
+      Alert.alert('还愿已撤回', '心愿回到可还愿状态，可重新提交')
+      const detailRes = await wishApi.getWishDetail(wishId)
+      setWish(detailRes.data.data)
+      setFulfillment(null)
     } catch (error) {
-      const msg = (error as { response?: { data?: { error?: { message?: string } } } })
-        ?.response?.data?.error?.message
-      Alert.alert('撤回失败', msg ?? '可能已进入社区流转，请稍后查看')
+      Alert.alert('撤回失败', errorMessage(error, '可能已进入社区流转，请稍后查看'))
     }
   }
 
@@ -442,11 +418,10 @@ export default function WishDetailScreen() {
         onPress: async () => {
           setLegacySaving(true)
           try {
-            const res = await wishApi.inheritFulfillment(wishId)
-            if (res.data.success) Alert.alert('完成', '传承成功，故事正在照亮同路人 ✨')
-          } catch (err) {
-            const e = err as { data?: { error?: { message?: string } } }
-            Alert.alert('失败', e?.data?.error?.message || '传承失败，请稍后重试')
+            await wishApi.inheritFulfillment(wishId)
+            Alert.alert('完成', '传承成功，故事正在照亮同路人 ✨')
+          } catch (error) {
+            Alert.alert('失败', errorMessage(error, '传承失败，请稍后重试'))
           } finally {
             setLegacySaving(false)
           }
@@ -470,24 +445,21 @@ export default function WishDetailScreen() {
         Alert.alert('提示', '图片记录需至少上传 1 张图片')
         return
       }
-      const res = await wishApi.addGrowthRecord(wishId, {
+      await wishApi.addGrowthRecord(wishId, {
         type: growthType,
         content: growthContent.trim() || (growthType === 'IMAGE' ? '📷 图片记录' : ''),
         mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
         progressDelta: growthDelta ? Number(growthDelta) : undefined,
       })
-      if (res.data.success) {
-        setGrowthOpen(false)
-        setGrowthContent('')
-        setGrowthDelta('')
-        setGrowthUploads([])
-        const detailRes = await wishApi.getWishDetail(wishId)
-        if (detailRes.data.success) setWish(detailRes.data.data)
-        Alert.alert('完成', '成长记录已添加')
-      }
-    } catch (err) {
-      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-      Alert.alert('提示', errNode?.response?.data?.error?.message || '保存失败，请稍后重试')
+      setGrowthOpen(false)
+      setGrowthContent('')
+      setGrowthDelta('')
+      setGrowthUploads([])
+      const detailRes = await wishApi.getWishDetail(wishId)
+      setWish(detailRes.data.data)
+      Alert.alert('完成', '成长记录已添加')
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '保存失败，请稍后重试'))
     } finally {
       setGrowthSaving(false)
     }
@@ -501,12 +473,10 @@ export default function WishDetailScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const res = await wishApi.deleteWish(wishId)
-            if (res.data?.success) {
-              Alert.alert('提示', '已删除', [{ text: '好的', onPress: () => router.back() }])
-            }
-          } catch {
-            Alert.alert('错误', '删除失败')
+            await wishApi.deleteWish(wishId)
+            Alert.alert('提示', '已删除', [{ text: '好的', onPress: () => router.back() }])
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '删除失败'))
           }
         },
       },
@@ -522,14 +492,11 @@ export default function WishDetailScreen() {
         onPress: async () => {
           setSparkSaving(true)
           try {
-            const res = await wishApi.sparkWish(wishId)
-            if (res.data?.success) {
-              Alert.alert('提示', '已设为星火永久收藏')
-              setWish((prev) => (prev ? { ...prev, fruitType: 'SPARK' } : prev))
-            }
-          } catch (err) {
-            const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-            Alert.alert('错误', errNode?.response?.data?.error?.message || '设置失败，请稍后重试')
+            await wishApi.sparkWish(wishId)
+            Alert.alert('提示', '已设为星火永久收藏')
+            setWish((prev) => (prev ? { ...prev, fruitType: 'SPARK' } : prev))
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '设置失败，请稍后重试'))
           } finally {
             setSparkSaving(false)
           }

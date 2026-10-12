@@ -245,3 +245,109 @@ describe('FE-01 意图键绑定稳定主体（T22）', () => {
     expect(userA._intentStoreKey).not.toBe(userB._intentStoreKey)
   })
 })
+
+describe('R25 显式幂等键优先且不可覆盖', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.clearAllMocks()
+  })
+
+  it('调用方自带 X-Idempotency-Key 原样透传，拦截器不覆盖/不登记存储', () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'should-not-be-used' })
+
+    const config = runRequestInterceptor({
+      url: '/wish/gifts/send',
+      method: 'post',
+      data: { giftId: 1 },
+      headers: { 'X-Idempotency-Key': 'caller-explicit-key' },
+    })
+
+    expect(config.headers['X-Idempotency-Key']).toBe('caller-explicit-key')
+    expect(config._intentStoreKey).toBeUndefined()
+    // 仅设备指纹等非意图存储，不登记任何 idem:intent
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('idem:intent:'))).toHaveLength(0)
+  })
+
+  it('persistentIntent：超过 10 分钟后同指纹请求仍复用原键（未知状态先查原单）', () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'durable-key' })
+    const first = runRequestInterceptor({
+      url: '/pet/chat',
+      method: 'post',
+      data: { message: 'hi' },
+      persistentIntent: true,
+    })
+    expect(first.headers['X-Idempotency-Key']).toBe('durable-key')
+    const storeKey = first._intentStoreKey as string
+
+    // 模拟超过普通意图 TTL（不用 fake timers，直接改写条目的 createdAt）
+    const raw = JSON.parse(localStorage.getItem(storeKey) as string)
+    localStorage.setItem(storeKey, JSON.stringify({ ...raw, createdAt: raw.createdAt - 11 * 60 * 1000 }))
+
+    vi.stubGlobal('crypto', { randomUUID: () => 'should-rotate' })
+    const second = runRequestInterceptor({ url: '/pet/chat', method: 'post', data: { message: 'hi' } })
+    expect(second.headers['X-Idempotency-Key']).toBe('durable-key')
+  })
+
+  it('同用户两次明确不同购买（不同载荷）得到不同键', () => {
+    let seq = 0
+    vi.stubGlobal('crypto', { randomUUID: () => `key-${seq++}` })
+
+    const buyA = runRequestInterceptor({ url: '/order/v2/orders', method: 'post', data: { sku: 'A' } })
+    const buyB = runRequestInterceptor({ url: '/order/v2/orders', method: 'post', data: { sku: 'B' } })
+
+    expect(buyA.headers['X-Idempotency-Key']).not.toBe(buyB.headers['X-Idempotency-Key'])
+    expect(buyA._intentStoreKey).not.toBe(buyB._intentStoreKey)
+  })
+})
+
+describe('R25 瞬态业务错误保留意图键', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.clearAllMocks()
+  })
+
+  it('409 WISH_OPERATION_IN_PROGRESS：拒绝但不清意图键', async () => {
+    const storeKey = 'idem:intent:test'
+    localStorage.setItem(storeKey, JSON.stringify({ key: 'wish-key', createdAt: Date.now() }))
+    const error = {
+      config: { _intentStoreKey: storeKey },
+      response: {
+        status: 409,
+        headers: {},
+        data: { success: false, error: { code: 'WISH_OPERATION_IN_PROGRESS', message: '处理中' } },
+      },
+    }
+
+    await expect(responseRejected(error)).rejects.toMatchObject({ code: 'WISH_OPERATION_IN_PROGRESS' })
+    expect(localStorage.getItem(storeKey)).not.toBeNull()
+  })
+
+  it('409 IDEMPOTENT_ERROR（通用切面重复请求）：同样保留意图键', async () => {
+    const storeKey = 'idem:intent:test2'
+    localStorage.setItem(storeKey, JSON.stringify({ key: 'idem-key', createdAt: Date.now() }))
+    const error = {
+      config: { _intentStoreKey: storeKey },
+      response: {
+        status: 409,
+        headers: {},
+        data: { success: false, error: { code: 'IDEMPOTENT_ERROR', message: '重复请求' } },
+      },
+    }
+
+    await expect(responseRejected(error)).rejects.toMatchObject({ code: 'IDEMPOTENT_ERROR' })
+    expect(localStorage.getItem(storeKey)).not.toBeNull()
+  })
+
+  it('400 确定性业务拒绝：终态清键', async () => {
+    const storeKey = 'idem:intent:test3'
+    localStorage.setItem(storeKey, JSON.stringify({ key: 'terminal-key', createdAt: Date.now() }))
+    const response = {
+      status: 400,
+      data: { success: false, error: { code: 'VALIDATION_ERROR', message: '参数错误' } },
+      config: { _intentStoreKey: storeKey },
+    }
+
+    await expect(responseFulfilled(response)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+    expect(localStorage.getItem(storeKey)).toBeNull()
+  })
+})

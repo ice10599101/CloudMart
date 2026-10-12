@@ -4,6 +4,7 @@ import Taro from '@tarojs/taro'
 import { userApi } from '@/api/user'
 import { cartApi } from '@/api/cart'
 import { productApi } from '@/api/product'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -41,8 +42,8 @@ export default function WishlistPage() {
       }
       await cartApi.addItem({ skuId, quantity: 1 })
       Taro.showToast({ title: `已将「${name}」加入购物车`, icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '加入购物车失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '加入购物车失败'), icon: 'none' })
     }
   }
 
@@ -56,8 +57,8 @@ export default function WishlistPage() {
           await userApi.removeFromWishlist(productId)
           setWishlist((prev) => prev.filter((w) => w.productId !== productId))
           Taro.showToast({ title: '已移除', icon: 'success' })
-        } catch {
-          Taro.showToast({ title: '移除失败', icon: 'none' })
+        } catch (err) {
+          Taro.showToast({ title: errorMessage(err, '移除失败'), icon: 'none' })
         }
       },
     })

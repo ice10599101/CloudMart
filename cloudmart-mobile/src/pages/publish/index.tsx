@@ -6,6 +6,7 @@ import { communityApi } from '@/api/community'
 import { productApi } from '@/api/product'
 import type { Product } from '@/types'
 import { fileApi } from '@/api/file'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -162,8 +163,8 @@ export default function PublishPage() {
         }))
         setMediaList((prev) => [...prev, ...existingMedia])
       }
-    } catch {
-      Taro.showToast({ title: '加载失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '加载失败'), icon: 'none' })
     }
   }
 
@@ -244,8 +245,8 @@ export default function PublishPage() {
         Taro.showToast({ title: '发布成功', icon: 'success' })
       }
       setTimeout(() => Taro.switchTab({ url: '/pages/home/index' }), 1500)
-    } catch {
-      Taro.showToast({ title: '发布失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '发布失败'), icon: 'none' })
     } finally {
       setPublishing(false)
     }
@@ -285,8 +286,8 @@ export default function PublishPage() {
         }
       }
       Taro.showToast({ title: '已保存草稿', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '保存失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '保存失败'), icon: 'none' })
     } finally {
       setSaving(false)
     }
@@ -360,8 +361,8 @@ export default function PublishPage() {
     try {
       const res = await productApi.search({ keyword: productKeyword.trim(), page: 1, size: 8 })
       setProductOptions((res.data?.data as unknown as { products?: Product[] })?.products || [])
-    } catch {
-      Taro.showToast({ title: '商品搜索失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '商品搜索失败'), icon: 'none' })
     } finally {
       setSearchingProducts(false)
     }

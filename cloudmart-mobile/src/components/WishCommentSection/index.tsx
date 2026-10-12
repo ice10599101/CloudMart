@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { View, Text, Image, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import type { WishCommentItem } from '@/types'
 import styles from './index.module.scss'
 
@@ -61,11 +62,9 @@ const WishCommentSection = forwardRef<WishCommentSectionHandle, WishCommentSecti
       try {
         const res = await wishApi.listComments(wishId, { pageSize: COMMENT_PAGE_SIZE })
         if (seq !== requestSeq.current) return
-        if (res.data.success) {
-          setComments(res.data.data)
-          setCursor(res.data.meta?.nextCursor ?? null)
-          setHasMore(Boolean(res.data.meta?.hasMore))
-        }
+        setComments(res.data.data)
+        setCursor(res.data.meta?.nextCursor ?? null)
+        setHasMore(Boolean(res.data.meta?.hasMore))
       } catch {
         // 错误已由 request 处理
       } finally {
@@ -87,15 +86,13 @@ const WishCommentSection = forwardRef<WishCommentSectionHandle, WishCommentSecti
           pageSize: COMMENT_PAGE_SIZE,
         })
         if (seq !== requestSeq.current) return
-        if (res.data.success) {
-          // cursor 分页按 id 去重合并，防御服务端数据变动导致的重复
-          setComments((prev) => {
-            const seen = new Set(prev.map((c) => c.id))
-            return [...prev, ...res.data.data.filter((c) => !seen.has(c.id))]
-          })
-          setCursor(res.data.meta?.nextCursor ?? null)
-          setHasMore(Boolean(res.data.meta?.hasMore))
-        }
+        // cursor 分页按 id 去重合并，防御服务端数据变动导致的重复
+        setComments((prev) => {
+          const seen = new Set(prev.map((c) => c.id))
+          return [...prev, ...res.data.data.filter((c) => !seen.has(c.id))]
+        })
+        setCursor(res.data.meta?.nextCursor ?? null)
+        setHasMore(Boolean(res.data.meta?.hasMore))
       } catch {
         // 错误已由 request 处理
       } finally {
@@ -122,22 +119,17 @@ const WishCommentSection = forwardRef<WishCommentSectionHandle, WishCommentSecti
       }
       setSubmitting(true)
       try {
-        const res = await wishApi.createComment(wishId, {
+        await wishApi.createComment(wishId, {
           content: trimmed,
           parentId: replyTo?.id,
         })
-        if (res.data.success) {
-          setContent('')
-          setReplyTo(null)
-          onCountChange(1)
-          loadFirstPage()
-          Taro.showToast({ title: replyTo ? '回复已发送' : '评论已发表', icon: 'none' })
-        } else {
-          const errMsg = res.data.error?.message ?? '发表失败，请稍后重试'
-          Taro.showToast({ title: errMsg, icon: 'none' })
-        }
-      } catch {
-        // 错误已由 request 处理
+        setContent('')
+        setReplyTo(null)
+        onCountChange(1)
+        loadFirstPage()
+        Taro.showToast({ title: replyTo ? '回复已发送' : '评论已发表', icon: 'none' })
+      } catch (err) {
+        Taro.showToast({ title: errorMessage(err, '发表失败，请稍后重试'), icon: 'none' })
       } finally {
         setSubmitting(false)
       }
@@ -150,14 +142,13 @@ const WishCommentSection = forwardRef<WishCommentSectionHandle, WishCommentSecti
       })
       if (!confirmed.confirm) return
 
-      const res = await wishApi.deleteComment(wishId, commentId)
-      if (res.data.success) {
+      try {
+        await wishApi.deleteComment(wishId, commentId)
         setComments((prev) => prev.filter((c) => c.id !== commentId))
         onCountChange(-1)
         Taro.showToast({ title: '已删除', icon: 'none' })
-      } else {
-        const errMsg = res.data.error?.message ?? '删除失败，请稍后重试'
-        Taro.showToast({ title: errMsg, icon: 'none' })
+      } catch (err) {
+        Taro.showToast({ title: errorMessage(err, '删除失败，请稍后重试'), icon: 'none' })
       }
     }
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { orderApi } from '@/api/order'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { Order } from '@/types'
@@ -75,9 +76,7 @@ export default function OrdersPage() {
           Taro.showToast({ title: '订单已取消', icon: 'success' })
           loadOrders(1, activeTab, false)
         } catch (err) {
-          const message =
-            (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '取消失败'
-          Taro.showToast({ title: message, icon: 'none' })
+          Taro.showToast({ title: errorMessage(err, '取消失败'), icon: 'none' })
         } finally {
           setActingId(null)
         }
@@ -97,9 +96,7 @@ export default function OrdersPage() {
           Taro.showToast({ title: '已确认收货', icon: 'success' })
           loadOrders(1, activeTab, false)
         } catch (err) {
-          const message =
-            (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '操作失败'
-          Taro.showToast({ title: message, icon: 'none' })
+          Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
         } finally {
           setActingId(null)
         }

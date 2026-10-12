@@ -6,6 +6,7 @@ import { wishApi } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
+import { errorMessage } from '@/utils/request'
 
 /** 发码 60 秒冷却（与服务端每用户冷却一致，仅 UI 层提示） */
 
@@ -36,14 +37,11 @@ export default function AccountDeletionScreen() {
   const handleApply = async () => {
     setBusy(true)
     try {
-      const res = await wishApi.applyAccountDeletion(reason.trim() || undefined)
-      if (res.data?.success) {
-        setPending(true)
-        alert('注销申请已提交，30 天宽限期内可在本页撤回')
-      }
-    } catch (err) {
-      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-      alert(errNode?.response?.data?.error?.message || '申请失败')
+      await wishApi.applyAccountDeletion(reason.trim() || undefined)
+      setPending(true)
+      alert('注销申请已提交，30 天宽限期内可在本页撤回')
+    } catch (error) {
+      alert(errorMessage(error, '申请失败'))
     } finally {
       setBusy(false)
     }
@@ -52,14 +50,11 @@ export default function AccountDeletionScreen() {
   const handleCancel = async () => {
     setBusy(true)
     try {
-      const res = await wishApi.cancelAccountDeletion()
-      if (res.data?.success) {
-        setPending(false)
-        alert('已撤回注销申请')
-      }
-    } catch (err) {
-      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-      alert(errNode?.response?.data?.error?.message || '撤回失败')
+      await wishApi.cancelAccountDeletion()
+      setPending(false)
+      alert('已撤回注销申请')
+    } catch (error) {
+      alert(errorMessage(error, '撤回失败'))
     } finally {
       setBusy(false)
     }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
@@ -69,9 +70,9 @@ export default function TopicDetailPage() {
       setTotalCount(total)
       setHasMore(list.length >= PAGE_SIZE)
       setPage(pageNum)
-    } catch {
+    } catch (err) {
       if (isRefresh) setPosts([])
-      Taro.showToast({ title: '加载失败', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '加载失败'), icon: 'none' })
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -103,8 +104,8 @@ export default function TopicDetailPage() {
         setSubscribed(true)
         Taro.showToast({ title: '订阅成功', icon: 'success' })
       }
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     } finally {
       setSubLoading(false)
     }

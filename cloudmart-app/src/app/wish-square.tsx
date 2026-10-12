@@ -25,9 +25,7 @@ export default function WishSquareScreen() {
     const fetchCategories = async () => {
       try {
         const res = await wishApi.getCategories()
-        if (res.data?.success) {
-          setCategories(res.data.data)
-        }
+        setCategories(res.data.data)
       } catch {
         // 错误已由 request 拦截器处理
       }
@@ -48,13 +46,11 @@ export default function WishSquareScreen() {
           cursor: nextCursor ?? undefined,
           pageSize: PAGE_SIZE,
         })
-        if (res.data?.success) {
-          const list = res.data.data as unknown as WishListItem[]
-          const meta = res.data.meta as { nextCursor?: string | null; hasMore?: boolean } | undefined
-          setWishes(reset ? list : [...wishes, ...list])
-          setHasMore(meta?.hasMore ?? list.length >= PAGE_SIZE)
-          setCursor(meta?.nextCursor ?? null)
-        }
+        const list = res.data.data as unknown as WishListItem[]
+        const meta = res.data.meta as { nextCursor?: string | null; hasMore?: boolean } | undefined
+        setWishes(reset ? list : [...wishes, ...list])
+        setHasMore(meta?.hasMore ?? list.length >= PAGE_SIZE)
+        setCursor(meta?.nextCursor ?? null)
       } catch {
         if (reset) setWishes([])
       } finally {

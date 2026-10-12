@@ -37,14 +37,10 @@ export default function BadgeWallScreen() {
         wishApi.getMyBadges(),
         wishApi.getMyLevel(),
       ])
-      if (badgesRes.data?.success) {
-        setBadges(badgesRes.data.data)
-      }
-      if (levelRes.data?.success) {
-        setLevelData(levelRes.data.data)
-      }
+      setBadges(badgesRes.data.data)
+      setLevelData(levelRes.data.data)
     } catch {
-      // 错误已由 request 处理
+      // 后台加载失败保持空态
     } finally {
       setLoading(false)
     }

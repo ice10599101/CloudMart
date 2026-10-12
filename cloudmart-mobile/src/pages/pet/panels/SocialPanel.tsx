@@ -11,6 +11,7 @@ import {
   PetWallPage,
 } from '@/api/pet'
 import { CARE_ERROR_HINT } from './shared'
+import { errorMessage } from '@/utils/request'
 import styles from '../index.module.scss'
 import cream from '@/components/pet-cream/pet-cream.module.scss'
 
@@ -40,29 +41,25 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
     try {
       if (tab === 'relation') {
         const { data: res } = await petApi.getRelations()
-        if (res.success && res.data) {
+        if (res.data) {
           setRelations(res.data)
         }
       } else if (tab === 'friend') {
         const { data: res } = await petApi.getFriends()
-        if (res.success && res.data) {
+        if (res.data) {
           setFriends(res.data)
         }
       } else if (tab === 'feed') {
         const { data: res } = await petApi.getFriendFeed({ size: 20 })
-        if (res.success) {
-          setFeed(res.data || [])
-        }
+        setFeed(res.data || [])
         // 打开即推进已读水位（幂等，失败静默）
         void petApi.markFriendFeedRead().catch(() => undefined)
       } else if (tab === 'safety') {
         const { data: res } = await petCompanionApi.listBlocks()
-        if (res.success) {
-          setBlocks(res.data || [])
-        }
+        setBlocks(res.data || [])
       } else {
         const { data: res } = await petApi.getWall(pet.petId, 1, 10)
-        if (res.success && res.data) {
+        if (res.data) {
           setWall(res.data)
         }
       }
@@ -78,21 +75,20 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
   // 动态未读数（进面板拉一次；打开动态页签会自动推进水位）
   useEffect(() => {
     petApi.getFriendFeedUnread().then(({ data: res }) => {
-      if (res.success) setFeedUnread(Number(res.data ?? 0))
+      setFeedUnread(Number(res.data ?? 0))
     }).catch(() => undefined)
   }, [])
 
   const run = async (key: string, action: () => Promise<{ data: { success: boolean } }>, text: string) => {
     setPending(key)
     try {
-      const { data: res } = await action()
-      if (res.success) {
-        Taro.showToast({ title: text, icon: 'success' })
-        await loadActive()
-        onRefresh()
-      }
+      await action()
+      Taro.showToast({ title: text, icon: 'success' })
+      await loadActive()
+      onRefresh()
     } catch (error) {
-      Taro.showToast({ title: CARE_ERROR_HINT[(error as { code?: string }).code ?? ''] ?? '请稍后再试', icon: 'none' })
+      const code = (error as { code?: string }).code ?? ''
+      Taro.showToast({ title: CARE_ERROR_HINT[code] ?? errorMessage(error, '请稍后再试'), icon: 'none' })
     } finally {
       setPending(null)
     }
@@ -132,7 +128,7 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
   const loadMyReports = useCallback(async () => {
     try {
       const { data: res } = await petCompanionApi.listMyReports()
-      if (res.success) setMyReports(res.data ?? [])
+      setMyReports(res.data ?? [])
     } catch {
       setMyReports([])
     }
@@ -316,7 +312,7 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
                       `fv-${item.userId}`,
                       async () => {
                         const res = await petApi.visitFriend(item.userId)
-                        if (res.data.success && res.data.data) {
+                        if (res.data.data) {
                           setTip(res.data.data.message)
                         }
                         return res
@@ -377,10 +373,8 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
                 setFeedLoadingMore(true)
                 try {
                   const { data: res } = await petApi.getFriendFeed({ beforeId: last.feedId, size: 20 })
-                  if (res.success) {
-                    const more = res.data || []
-                    setFeed(more.length > 0 ? [...feed, ...more] : feed)
-                  }
+                  const more = res.data || []
+                  setFeed(more.length > 0 ? [...feed, ...more] : feed)
                 } catch {
                   // 拦截器已提示
                 } finally {
@@ -415,9 +409,7 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
                   'post',
                   async () => {
                     const res = await petApi.postWallMessage({ petId: pet.petId, content: wallInput })
-                    if (res.data.success) {
-                      setWallInput('')
-                    }
+                    setWallInput('')
                     return res
                   },
                   '留言成功！',
@@ -489,9 +481,7 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
                     `wr-${replyTo}`,
                     async () => {
                       const res = await petApi.replyWallMessage({ messageId: replyTo, content: replyInput })
-                      if (res.data.success) {
-                        setReplyTo(null)
-                      }
+                      setReplyTo(null)
                       return res
                     },
                     '回复成功！',

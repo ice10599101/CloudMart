@@ -3,6 +3,7 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi, STARLIGHT_BALANCE_CAP, STARLIGHT_NEAR_CAP_THRESHOLD } from '@/api/wish'
 import type { MyResourcesData } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -64,13 +65,11 @@ export default function MyWishesPage() {
         pageSize: PAGE_SIZE,
       })
 
-      if (res.data.success) {
-        const newItems = res.data.data
-        setWishes(prev => reset ? newItems : [...prev, ...newItems])
-        const meta = res.data.meta
-        setCursor(meta?.nextCursor ?? null)
-        setHasMore(meta?.hasMore ?? false)
-      }
+      const newItems = res.data.data
+      setWishes(prev => reset ? newItems : [...prev, ...newItems])
+      const meta = res.data.meta
+      setCursor(meta?.nextCursor ?? null)
+      setHasMore(meta?.hasMore ?? false)
     } catch {
       // 错误已由 request 处理
     } finally {
@@ -92,7 +91,7 @@ export default function MyWishesPage() {
     if (!isLoggedIn) return
     wishApi.getMyResources()
       .then(res => {
-        if (res.data.success) setResources(res.data.data)
+        setResources(res.data.data)
       })
       .catch(() => {
         // 余额卡片加载失败不阻塞心愿列表
@@ -112,7 +111,7 @@ export default function MyWishesPage() {
     if (!isLoggedIn) return
     wishApi.getAccountDeletionStatus()
       .then((res) => {
-        if (res.data.success && res.data.data) setDeletionPending(res.data.data.status === 'PENDING')
+        if (res.data.data) setDeletionPending(res.data.data.status === 'PENDING')
       })
       .catch(() => undefined)
   }, [isLoggedIn])
@@ -126,14 +125,11 @@ export default function MyWishesPage() {
     })
     if (!res.confirm) return
     try {
-      const r = await wishApi.cancelAccountDeletion()
-      if (r.data.success) {
-        setDeletionPending(false)
-        Taro.showToast({ title: '已撤回，账号恢复正常', icon: 'none' })
-      }
+      await wishApi.cancelAccountDeletion()
+      setDeletionPending(false)
+      Taro.showToast({ title: '已撤回，账号恢复正常', icon: 'none' })
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '撤回失败', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '撤回失败'), icon: 'none' })
     }
   }
 
@@ -147,13 +143,10 @@ export default function MyWishesPage() {
     })
     if (!applyRes.confirm) return
     try {
-      const res = await wishApi.applyAccountDeletion(undefined)
-      if (res.data.success) {
-        Taro.showToast({ title: '注销申请已提交，30 天内可撤回', icon: 'none' })
-      }
+      await wishApi.applyAccountDeletion(undefined)
+      Taro.showToast({ title: '注销申请已提交，30 天内可撤回', icon: 'none' })
     } catch (err) {
-      const errNode = err as { data?: { error?: { message?: string } } }
-      Taro.showToast({ title: errNode?.data?.error?.message || '申请失败', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '申请失败'), icon: 'none' })
     }
   }
 
@@ -165,13 +158,11 @@ export default function MyWishesPage() {
     if (!res.confirm) return
 
     try {
-      const result = await wishApi.deleteWish(id)
-      if (result.data.success) {
-        Taro.showToast({ title: '已删除', icon: 'success' })
-        setWishes(prev => prev.filter(w => w.id !== id))
-      }
-    } catch {
-      // 错误已由 request 处理
+      await wishApi.deleteWish(id)
+      Taro.showToast({ title: '已删除', icon: 'success' })
+      setWishes(prev => prev.filter(w => w.id !== id))
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '删除失败，请稍后再试'), icon: 'none' })
     }
   }
 

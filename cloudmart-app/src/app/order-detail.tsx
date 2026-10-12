@@ -13,6 +13,7 @@ import {
 } from '@/api/after-sale'
 import { fileApi } from '@/api/file'
 import { productApi, type OwnReview } from '@/api/product'
+import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Order, OrderItem } from '@/types'
 
@@ -89,8 +90,8 @@ export default function OrderDetailPage() {
         setOrder(data.data)
         await fetchItemReviews(data.data)
       }
-    } catch {
-      Alert.alert('错误', '加载订单失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '加载订单失败'))
     } finally {
       setLoading(false)
     }
@@ -124,8 +125,8 @@ export default function OrderDetailPage() {
             await orderApi.cancel(order.id)
             Alert.alert('提示', '订单已取消')
             fetchOrder()
-          } catch {
-            Alert.alert('错误', '取消订单失败')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '取消订单失败'))
           } finally {
             setActionLoading(false)
           }
@@ -154,8 +155,8 @@ export default function OrderDetailPage() {
       setRefundReason('')
       Alert.alert('提示', '退款申请已提交')
       fetchOrder()
-    } catch {
-      Alert.alert('错误', '退款申请失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '退款申请失败'))
     } finally {
       setActionLoading(false)
     }
@@ -173,8 +174,8 @@ export default function OrderDetailPage() {
             await orderApi.confirmReceive(order.id)
             Alert.alert('提示', '已确认收货')
             fetchOrder()
-          } catch {
-            Alert.alert('错误', '确认收货失败')
+          } catch (error) {
+            Alert.alert('错误', errorMessage(error, '确认收货失败'))
           } finally {
             setActionLoading(false)
           }
@@ -243,8 +244,8 @@ export default function OrderDetailPage() {
         return
       }
       setAfterSaleFileIds((prev) => [...prev, fileId])
-    } catch {
-      Alert.alert('错误', '凭证上传失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '凭证上传失败'))
     }
   }
 
@@ -272,8 +273,8 @@ export default function OrderDetailPage() {
       Alert.alert('提示', '售后申请已提交')
       fetchAfterSaleCases()
       fetchOrder()
-    } catch {
-      Alert.alert('错误', '售后申请失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '售后申请失败'))
     } finally {
       setAfterSaleSubmitting(false)
     }
@@ -331,8 +332,8 @@ export default function OrderDetailPage() {
       }
       Alert.alert('提示', '评价成功')
       fetchOrder()
-    } catch {
-      // 后端强校验（本人/COMPLETED/三要素一致/限一条）失败由 request 拦截器统一提示
+    } catch (error) {
+      Alert.alert('评价失败', errorMessage(error, '请稍后再试'))
     } finally {
       setReviewSubmitting(false)
     }

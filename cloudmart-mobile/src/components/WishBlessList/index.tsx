@@ -50,11 +50,9 @@ export default function WishBlessList({ wishId, blessCount, refreshTick = 0 }: W
         pageSize: BLESS_PAGE_SIZE,
       })
       if (seq !== requestSeq.current) return
-      if (res.data.success) {
-        setItems(res.data.data)
-        setCursor(res.data.meta?.nextCursor ?? null)
-        setHasMore(Boolean(res.data.meta?.hasMore))
-      }
+      setItems(res.data.data)
+      setCursor(res.data.meta?.nextCursor ?? null)
+      setHasMore(Boolean(res.data.meta?.hasMore))
     } catch {
       // 未登录/无权限时列表留空不打扰
     } finally {
@@ -78,14 +76,12 @@ export default function WishBlessList({ wishId, blessCount, refreshTick = 0 }: W
         pageSize: BLESS_PAGE_SIZE,
       })
       if (seq !== requestSeq.current) return
-      if (res.data.success) {
-        setItems((prev) => {
-          const seen = new Set(prev.map((i) => i.id))
-          return [...prev, ...res.data.data.filter((i) => !seen.has(i.id))]
-        })
-        setCursor(res.data.meta?.nextCursor ?? null)
-        setHasMore(Boolean(res.data.meta?.hasMore))
-      }
+      setItems((prev) => {
+        const seen = new Set(prev.map((i) => i.id))
+        return [...prev, ...res.data.data.filter((i) => !seen.has(i.id))]
+      })
+      setCursor(res.data.meta?.nextCursor ?? null)
+      setHasMore(Boolean(res.data.meta?.hasMore))
     } catch {
       // 错误静默，保持现状
     } finally {

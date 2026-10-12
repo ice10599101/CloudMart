@@ -10,6 +10,7 @@ import {
   AFTER_SALE_TYPE_TEXT,
   type AfterSaleCase,
 } from '@/api/afterSale'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
@@ -60,8 +61,8 @@ export default function AfterSaleDetailPage() {
       if (data) {
         resolveAssetUrls(data.attachmentFileIds).then(setAttachmentUrls).catch(() => setAttachmentUrls([]))
       }
-    } catch {
-      Taro.showToast({ title: '加载失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '加载失败'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -83,9 +84,7 @@ export default function AfterSaleDetailPage() {
           Taro.showToast({ title: '已撤销', icon: 'success' })
           loadDetail()
         } catch (err) {
-          const message =
-            (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '撤销失败'
-          Taro.showToast({ title: message, icon: 'none' })
+          Taro.showToast({ title: errorMessage(err, '撤销失败'), icon: 'none' })
         } finally {
           setCancelling(false)
         }
@@ -105,9 +104,7 @@ export default function AfterSaleDetailPage() {
       setShippingOpen(false)
       loadDetail()
     } catch (err) {
-      const message =
-        (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || '登记失败'
-      Taro.showToast({ title: message, icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '登记失败'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }

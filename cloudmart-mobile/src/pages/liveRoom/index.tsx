@@ -4,6 +4,7 @@ import Taro from '@tarojs/taro'
 import { liveApi } from '@/api/live'
 import { wishApi } from '@/api/wish'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { closeNotificationSocket, resolveWsBase } from '@/composables/useNotificationSocket'
 import GiftSection from '@/components/GiftSection'
@@ -98,11 +99,11 @@ export default function LiveRoomPage() {
       // P1-12：拉取直播间秒杀活动（无活动 404/错误码静默）
       liveApi.getRoomSeckill(roomId)
         .then((res) => {
-          if (res.data?.success && res.data.data) setSeckill(res.data.data as Record<string, unknown>)
+          if (res.data.data) setSeckill(res.data.data as Record<string, unknown>)
         })
         .catch(() => undefined)
-    } catch {
-      Taro.showToast({ title: '加载失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '加载失败'), icon: 'none' })
     } finally {
       setLoading(false)
     }
@@ -144,13 +145,10 @@ export default function LiveRoomPage() {
     try {
       const res = await liveApi.executeRoomSeckill(roomId)
       const result = res.data?.data as { orderNo?: string } | undefined
-      if (res.data?.success) {
-        Taro.showToast({ title: `秒杀成功${result?.orderNo ? `，订单 ${result.orderNo.slice(-8)}` : ''}`, icon: 'success' })
-        pushMessage({ nickname: '系统', content: '🎉 你已成功抢到直播间秒杀商品', type: 'system' })
-      }
+      Taro.showToast({ title: `秒杀成功${result?.orderNo ? `，订单 ${result.orderNo.slice(-8)}` : ''}`, icon: 'success' })
+      pushMessage({ nickname: '系统', content: '🎉 你已成功抢到直播间秒杀商品', type: 'system' })
     } catch (err) {
-      const message = (err as { data?: { error?: { message?: string } } })?.data?.error?.message || '手慢了，下次加油'
-      Taro.showToast({ title: message, icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '手慢了，下次加油'), icon: 'none' })
     } finally {
       setSeckillBusy(false)
     }
@@ -268,8 +266,8 @@ export default function LiveRoomPage() {
       }
       setIsFollowed(!isFollowed)
       Taro.showToast({ title: isFollowed ? '已取消关注' : '关注成功', icon: 'none' })
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -309,7 +307,7 @@ export default function LiveRoomPage() {
     const load = () => {
       wishApi.getLiveWidget(room.anchorUserId)
         .then((res) => {
-          if (alive && res.data.success && res.data.data) setWidget(res.data.data)
+          if (alive && res.data.data) setWidget(res.data.data)
         })
         .catch(() => undefined)
     }

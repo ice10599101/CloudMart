@@ -5,6 +5,7 @@ import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import { useThemeClass } from '@/composables/useThemeClass'
 import { PET_CREAM_STYLE } from '@/styles/petCream'
 import { PET_STAGE_URL, petApi, type PetInfo } from '@/api/pet'
+import { errorMessage } from '@/utils/request'
 import styles from './index.module.scss'
 
 /**
@@ -86,7 +87,7 @@ export default function PetStagePage() {
   useEffect(() => {
     if (isWeapp) return
     petApi.getMyPet()
-      .then(({ data: res }) => { if (res.success && res.data) setPet(res.data) })
+      .then(({ data: res }) => { if (res.data) setPet(res.data) })
       .catch(() => setFailed(true))
   }, [isWeapp])
 
@@ -124,7 +125,7 @@ export default function PetStagePage() {
               : action === 'play' ? await petApi.play()
                 : action === 'clean' ? await petApi.clean()
                   : await petApi.rest()
-          if (res.success && res.data) {
+          if (res.data) {
             setPet(res.data)
             syncStage(res.data)
             postToGame({ source: 'pet-host', type: 'actionResult', action, ok: true })
@@ -132,7 +133,7 @@ export default function PetStagePage() {
         } catch (error) {
           postToGame({
             source: 'pet-host', type: 'actionResult', action, ok: false,
-            message: (error as { message?: string })?.message ?? '现在不行哦',
+            message: errorMessage(error, '现在不行哦'),
           })
         }
         return

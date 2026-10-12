@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
@@ -24,12 +25,6 @@ const GROUP_LABELS: Record<string, string> = {
 }
 
 type TabKey = 'workshop' | 'collections' | 'brands'
-
-/** 从 axios 异常体提取业务错误信封 */
-function extractBusinessError(error: unknown): { code?: string; message?: string } | undefined {
-  return (error as { response?: { data?: { error?: { code?: string; message?: string } } } })
-    ?.response?.data?.error
-}
 
 /**
  * 虚拟工坊（Sprint 3.6，四AC R2 APP 端）：
@@ -58,9 +53,11 @@ export default function WorkshopScreen() {
         wishApi.getCollectionAssets(),
         wishApi.listBrands(),
       ])
-      if (assetsRes.data?.success) setAssets(assetsRes.data.data ?? [])
-      if (groupsRes.data?.success) setGroups(groupsRes.data.data ?? {})
-      if (brandsRes.data?.success) setBrands(brandsRes.data.data ?? [])
+      setAssets(assetsRes.data.data ?? [])
+      setGroups(groupsRes.data.data ?? {})
+      setBrands(brandsRes.data.data ?? [])
+    } catch {
+      // 后台聚合加载失败静默，保留空态
     } finally {
       setLoading(false)
     }
@@ -75,7 +72,7 @@ export default function WorkshopScreen() {
   }, [isLoggedIn, loadAll])
 
   const toastError = (error: unknown, fallback: string) => {
-    Alert.alert('虚拟工坊', extractBusinessError(error)?.message || fallback)
+    Alert.alert('虚拟工坊', errorMessage(error, fallback))
   }
 
   const handleExchange = (asset: WorkshopAsset) => {
@@ -86,11 +83,9 @@ export default function WorkshopScreen() {
         onPress: async () => {
           setExchangingId(asset.assetId)
           try {
-            const res = await wishApi.exchangeAsset(asset.assetId)
-            if (res.data?.success) {
-              Alert.alert('虚拟工坊', '兑换成功，已放入收藏馆 🎉')
-              loadAll()
-            }
+            await wishApi.exchangeAsset(asset.assetId)
+            Alert.alert('虚拟工坊', '兑换成功，已放入收藏馆 🎉')
+            loadAll()
           } catch (error) {
             toastError(error, '兑换失败，请稍后重试')
           } finally {
@@ -103,12 +98,10 @@ export default function WorkshopScreen() {
 
   const handleActivate = async (assetId: number, kind: 'SKIN' | 'BGM') => {
     try {
-      const res = kind === 'SKIN' ? await wishApi.setActiveSkin(assetId) : await wishApi.setActiveBgm(assetId)
-      if (res.data?.success) {
-        Alert.alert('虚拟工坊', kind === 'SKIN' ? '皮肤已切换，世界树即时生效' : 'BGM 已切换')
-        const groupsRes = await wishApi.getCollectionAssets()
-        if (groupsRes.data?.success) setGroups(groupsRes.data.data ?? {})
-      }
+      await (kind === 'SKIN' ? wishApi.setActiveSkin(assetId) : wishApi.setActiveBgm(assetId))
+      Alert.alert('虚拟工坊', kind === 'SKIN' ? '皮肤已切换，世界树即时生效' : 'BGM 已切换')
+      const groupsRes = await wishApi.getCollectionAssets()
+      setGroups(groupsRes.data.data ?? {})
     } catch (error) {
       toastError(error, '激活失败，请稍后重试')
     }
@@ -117,9 +110,7 @@ export default function WorkshopScreen() {
   const loadPools = async (brand: BrandItem) => {
     try {
       const res = await wishApi.listBrandPools(brand.brandId)
-      if (res.data?.success) {
-        setPoolsByBrand((prev) => ({ ...prev, [brand.brandId]: res.data.data ?? [] }))
-      }
+      setPoolsByBrand((prev) => ({ ...prev, [brand.brandId]: res.data.data ?? [] }))
     } catch (error) {
       toastError(error, '加载许愿池失败')
     }
@@ -129,11 +120,9 @@ export default function WorkshopScreen() {
     const key = `${brand.brandId}:${pool.poolId}`
     setJoiningPool(key)
     try {
-      const res = await wishApi.joinBrandPool(brand.brandId, pool.poolId)
-      if (res.data?.success) {
-        Alert.alert('虚拟工坊', `已加入「${pool.poolName}」，达成后可获品牌奖励`)
-        loadPools(brand)
-      }
+      await wishApi.joinBrandPool(brand.brandId, pool.poolId)
+      Alert.alert('虚拟工坊', `已加入「${pool.poolName}」，达成后可获品牌奖励`)
+      loadPools(brand)
     } catch (error) {
       toastError(error, '加入失败，请稍后重试')
     } finally {

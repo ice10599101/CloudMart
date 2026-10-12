@@ -4,6 +4,7 @@ import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { wishApi, STARLIGHT_BALANCE_CAP, STARLIGHT_NEAR_CAP_THRESHOLD } from '@/api/wish'
 import type { MyResourcesData } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors, FRUIT_LABELS, FRUIT_COLORS, formatCount } from '@/constants/wish-theme'
@@ -44,7 +45,7 @@ export default function MyWishesScreen() {
     if (!isLoggedIn) return
     wishApi.getMyResources()
       .then(res => {
-        if (res.data?.success) setResources(res.data.data)
+        setResources(res.data.data)
       })
       .catch(() => {
         // 余额卡片加载失败不阻塞心愿列表
@@ -63,13 +64,11 @@ export default function MyWishesScreen() {
         cursor: nextCursor ?? undefined,
         pageSize: PAGE_SIZE,
       })
-      if (res.data?.success) {
-        const list = res.data.data
-        const meta = res.data.meta as { nextCursor?: string | null; hasMore?: boolean } | undefined
-        setWishes(prev => (reset ? list : [...prev, ...list]))
-        setHasMore(meta?.hasMore ?? list.length >= PAGE_SIZE)
-        setCursor(meta?.nextCursor ?? null)
-      }
+      const list = res.data.data
+      const meta = res.data.meta as { nextCursor?: string | null; hasMore?: boolean } | undefined
+      setWishes(prev => (reset ? list : [...prev, ...list]))
+      setHasMore(meta?.hasMore ?? list.length >= PAGE_SIZE)
+      setCursor(meta?.nextCursor ?? null)
     } catch {
       if (reset) setWishes([])
     } finally {
@@ -103,12 +102,10 @@ export default function MyWishesScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            const res = await wishApi.deleteWish(id)
-            if (res.data?.success) {
-              setWishes(prev => prev.filter(w => w.id !== id))
-            }
-          } catch {
-            // 错误已由 request 处理
+            await wishApi.deleteWish(id)
+            setWishes(prev => prev.filter(w => w.id !== id))
+          } catch (error) {
+            Alert.alert('删除失败', errorMessage(error, '请稍后再试'))
           }
         },
       },

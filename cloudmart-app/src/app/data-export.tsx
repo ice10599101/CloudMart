@@ -8,6 +8,7 @@ import type { DataExportTask } from '@/api/wish'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors } from '@/constants/wish-theme'
+import { errorMessage } from '@/utils/request'
 
 const STATUS_LABELS: Record<DataExportTask['status'], { label: string; color: string }> = {
   PENDING: { label: '排队中', color: WishColors.textSecondary },
@@ -32,9 +33,9 @@ export default function DataExportScreen() {
     if (!isLoggedIn) return
     try {
       const res = await wishApi.listDataExports()
-      if (res.data?.success) setTasks(res.data.data ?? [])
+      setTasks(res.data.data ?? [])
     } catch {
-      // 静默
+      // 后台加载失败保持空列表
     } finally {
       setLoading(false)
     }
@@ -55,14 +56,11 @@ export default function DataExportScreen() {
   const handleCreate = async () => {
     setCreating(true)
     try {
-      const res = await wishApi.createDataExport()
-      if (res.data?.success) {
-        alert('导出任务已创建，正在后台生成')
-        load()
-      }
-    } catch (err) {
-      const errNode = err as { response?: { data?: { error?: { message?: string } } } }
-      alert(errNode?.response?.data?.error?.message || '创建失败，请稍后重试')
+      await wishApi.createDataExport()
+      alert('导出任务已创建，正在后台生成')
+      load()
+    } catch (error) {
+      alert(errorMessage(error, '创建失败，请稍后重试'))
     } finally {
       setCreating(false)
     }
@@ -71,12 +69,10 @@ export default function DataExportScreen() {
   const handleCopy = async (task: DataExportTask) => {
     try {
       const res = await wishApi.getDataExportContent(task.id)
-      if (res.data?.success) {
-        await Clipboard.setStringAsync(JSON.stringify(res.data.data))
-        alert('JSON 已复制到剪贴板')
-      }
-    } catch {
-      alert('内容获取失败（可能已过期）')
+      await Clipboard.setStringAsync(JSON.stringify(res.data.data))
+      alert('JSON 已复制到剪贴板')
+    } catch (error) {
+      alert(errorMessage(error, '内容获取失败（可能已过期）'))
       load()
     }
   }

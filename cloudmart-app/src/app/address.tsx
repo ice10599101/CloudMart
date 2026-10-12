@@ -2,6 +2,7 @@ import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert, Switch } fr
 import { useState } from 'react'
 import { useTheme } from '@/hooks/use-theme-context'
 import { userApi } from '@/api/user'
+import { errorMessage } from '@/utils/request'
 import type { Address } from '@/types'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 
@@ -49,8 +50,8 @@ export default function AddressPage() {
           await userApi.deleteAddress(id)
           Alert.alert('成功', '删除成功')
           loadAddresses()
-        } catch {
-          Alert.alert('错误', '删除失败')
+        } catch (error) {
+          Alert.alert('错误', errorMessage(error, '删除失败'))
         }
       }},
     ])
@@ -61,8 +62,8 @@ export default function AddressPage() {
       await userApi.setDefaultAddress(id)
       Alert.alert('成功', '已设为默认')
       loadAddresses()
-    } catch {
-      Alert.alert('错误', '设置失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '设置失败'))
     }
   }
 
@@ -81,8 +82,8 @@ export default function AddressPage() {
       Alert.alert('成功', '保存成功')
       setShowForm(false)
       loadAddresses()
-    } catch {
-      Alert.alert('错误', '保存失败')
+    } catch (error) {
+      Alert.alert('错误', errorMessage(error, '保存失败'))
     }
   }
 

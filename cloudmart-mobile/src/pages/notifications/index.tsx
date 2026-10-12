@@ -4,6 +4,7 @@ import Taro from '@tarojs/taro'
 import { notificationApi } from '@/api/notification'
 import { wishApi } from '@/api/wish'
 import { communityApi } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { subscribeNotifications, subscribeUnreadCount } from '@/composables/useNotificationSocket'
@@ -94,8 +95,8 @@ export default function NotificationsPage() {
       }
       setFollowStates((prev) => ({ ...prev, [actorId]: !isFollowing }))
       Taro.showToast({ title: isFollowing ? '已取消关注' : '关注成功', icon: 'none' })
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -105,8 +106,8 @@ export default function NotificationsPage() {
       await notificationApi.markAllRead()
       setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })))
       Taro.showToast({ title: '已全部标记为已读', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 

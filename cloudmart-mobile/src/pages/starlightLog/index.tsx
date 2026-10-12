@@ -28,16 +28,18 @@ export default function StarlightLogPage() {
       return
     }
     const cursorParam = reset ? undefined : (cursor ?? undefined)
-    const res = await wishApi.getMyResourceLogs({
-      type: filter || undefined,
-      cursor: cursorParam,
-      pageSize: PAGE_SIZE,
-    })
-    if (res.data.success) {
+    try {
+      const res = await wishApi.getMyResourceLogs({
+        type: filter || undefined,
+        cursor: cursorParam,
+        pageSize: PAGE_SIZE,
+      })
       const page = res.data.data ?? []
       setLogs((prev) => (reset ? page : [...prev, ...page]))
       setCursor(page.length > 0 ? String(page[page.length - 1].id) : null)
       setHasMore(page.length >= PAGE_SIZE)
+    } catch {
+      // 流水加载失败保持已有列表，静默处理
     }
     setLoading(false)
   }, [isLoggedIn, filter, cursor])

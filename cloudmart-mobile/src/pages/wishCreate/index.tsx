@@ -5,7 +5,7 @@ import { wishApi } from '@/api/wish'
 import { productApi } from '@/api/product'
 import { WISH_THEME_STYLE } from '@/styles/wish-theme'
 import { useAuthStore } from '@/store/auth'
-import { API_BASE } from '@/utils/request'
+import { API_BASE, errorMessage } from '@/utils/request'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import WishBGM from '@/components/WishBGM'
 import type { WishCategory, WishVisibility } from '@/types'
@@ -60,9 +60,7 @@ export default function WishCreatePage() {
     const fetchCategories = async () => {
       try {
         const res = await wishApi.getCategories()
-        if (res.data.success) {
-          setCategories(res.data.data)
-        }
+        setCategories(res.data.data)
       } catch {
         // ignore
       }
@@ -190,8 +188,8 @@ export default function WishCreatePage() {
       const res = await productApi.search({ keyword: productKeyword.trim(), page: 1, size: 8 })
       const rows = (res.data?.data as unknown as { products?: Array<{ id: number; name: string; price: number; mainImage?: string }> })?.products || []
       setProductOptions(rows)
-    } catch {
-      Taro.showToast({ title: '商品搜索失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '商品搜索失败'), icon: 'none' })
     } finally {
       setSearchingProducts(false)
     }
@@ -240,12 +238,10 @@ export default function WishCreatePage() {
         tags: tags.length > 0 ? tags : undefined,
         expectedAt: expectedAt || undefined,
       })
-      if (res.data.success) {
-        Taro.showToast({ title: '心愿发布成功！', icon: 'success' })
-        setTimeout(() => {
-          Taro.redirectTo({ url: `/pages/wishDetail/index?id=${res.data.data.id}` })
-        }, 1500)
-      }
+      Taro.showToast({ title: '心愿发布成功！', icon: 'success' })
+      setTimeout(() => {
+        Taro.redirectTo({ url: `/pages/wishDetail/index?id=${res.data.data.id}` })
+      }, 1500)
     } catch {
       // 错误已由 request 处理
     } finally {

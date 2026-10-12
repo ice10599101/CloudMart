@@ -57,13 +57,11 @@ export default function WishSquarePage() {
         pageSize: PAGE_SIZE,
       })
 
-      if (res.data.success) {
-        const newItems = res.data.data
-        setWishes(prev => reset ? newItems : [...prev, ...newItems])
-        const meta = res.data.meta
-        setCursor(meta?.nextCursor ?? null)
-        setHasMore(meta?.hasMore ?? false)
-      }
+      const newItems = res.data.data
+      setWishes(prev => reset ? newItems : [...prev, ...newItems])
+      const meta = res.data.meta
+      setCursor(meta?.nextCursor ?? null)
+      setHasMore(meta?.hasMore ?? false)
     } catch {
       // 错误已由 request 处理
     } finally {
@@ -80,9 +78,7 @@ export default function WishSquarePage() {
     const fetchCategories = async () => {
       try {
         const res = await wishApi.getCategories()
-        if (res.data.success) {
-          setCategories(res.data.data)
-        }
+        setCategories(res.data.data)
       } catch {
         // ignore
       }

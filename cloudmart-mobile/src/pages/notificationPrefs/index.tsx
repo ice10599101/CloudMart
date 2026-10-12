@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, ScrollView, Switch } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { wishApi } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import type { NotificationChannel, NotificationType } from '@/types'
@@ -46,8 +47,8 @@ export default function NotificationPrefsPage() {
   useEffect(() => {
     if (!isLoggedIn) return
     wishApi.getNotificationPreferences()
-      .then((res) => { if (res.data.success) setMatrix(res.data.data) })
-      .catch(() => Taro.showToast({ title: '偏好加载失败', icon: 'none' }))
+      .then((res) => { setMatrix(res.data.data) })
+      .catch((err) => Taro.showToast({ title: errorMessage(err, '偏好加载失败'), icon: 'none' }))
       .finally(() => setLoading(false))
   }, [isLoggedIn])
 
@@ -66,13 +67,12 @@ export default function NotificationPrefsPage() {
         : [...prev.preferences, { type, channels: { [channel]: enabled } as Record<NotificationChannel, boolean> }],
     } : prev)
     try {
-      const res = await wishApi.updateNotificationPreferences([{ type, channel, enabled }])
-      if (!res.data.success) throw new Error('save failed')
-    } catch {
+      await wishApi.updateNotificationPreferences([{ type, channel, enabled }])
+    } catch (err) {
       setMatrix((prev) => prev ? {
         preferences: prev.preferences.map((p) => (p.type === type ? { ...p, channels: { ...p.channels, [channel]: !enabled } } : p)),
       } : prev)
-      Taro.showToast({ title: '保存失败，请稍后重试', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '保存失败，请稍后重试'), icon: 'none' })
     } finally {
       setSavingKey(null)
     }

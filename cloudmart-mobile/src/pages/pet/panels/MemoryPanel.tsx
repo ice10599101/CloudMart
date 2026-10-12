@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import { Button, Image, Text, Textarea, View } from '@tarojs/components'
 import { petCompanionApi, type PetDiaryEntry, type PetMemory, type PetNotifyPref } from '@/api/pet'
 import { fileApi } from '@/api/file'
+import { errorMessage } from '@/utils/request'
 import styles from '../index.module.scss'
 import { CreamToggle } from '@/components/pet-cream'
 
@@ -50,11 +51,13 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
           cursor: reset ? undefined : (diaryCursor ?? undefined),
           size: PAGE_SIZE,
         })
-        if (res.success && res.data) {
+        if (res.data) {
           setDiary((prev) => (reset ? res.data.items : [...prev, ...res.data.items]))
           setDiaryCursor(res.data.nextCursor ?? null)
           setDiaryHasMore(Boolean(res.data.hasMore))
         }
+      } catch {
+        // 后台分页加载失败保留已有列表
       } finally {
         setDiaryLoading(false)
       }
@@ -68,7 +71,7 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
     setAlbumLoading(true)
     try {
       const { data: res } = await petCompanionApi.listAlbumAssets(petId)
-      if (res.success && res.data) {
+      if (res.data) {
         setAlbum(res.data.map((item) => ({
           assetId: item.assetId,
           entryId: item.diaryEntryId,
@@ -76,6 +79,8 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
           previewUrl: item.previewUrl,
         })))
       }
+    } catch {
+      // 相册后台加载失败保留已有列表
     } finally {
       setAlbumLoading(false)
     }
@@ -87,8 +92,8 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
       await petCompanionApi.retryAlbumAsset(petId!, assetId)
       await loadAlbum()
       Taro.showToast({ title: '已重试绑定', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '重试未成功，稍后再试', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '重试未成功，稍后再试'), icon: 'none' })
     }
   }, [petId, loadAlbum])
 
@@ -97,7 +102,9 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
     setMemoriesLoading(true)
     try {
       const { data: res } = await petCompanionApi.listMemories(petId)
-      if (res.success) setMemories(res.data ?? [])
+      setMemories(res.data ?? [])
+    } catch {
+      // 记忆列表后台加载失败保持空态
     } finally {
       setMemoriesLoading(false)
     }
@@ -106,7 +113,7 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
   const loadPrefs = useCallback(async () => {
     try {
       const { data: res } = await petCompanionApi.getNotifyPrefs()
-      if (res.success && res.data) setPrefs(res.data)
+      if (res.data) setPrefs(res.data)
     } catch {
       // 展示型数据
     }
@@ -143,13 +150,11 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
         Taro.showToast({ title: '资产上传失败', icon: 'none' })
         return
       }
-      const { data: res } = await petCompanionApi.uploadAlbumAsset(petId, fileId)
-      if (res.success) {
-        Taro.showToast({ title: '已上传（待审核展示）', icon: 'success' })
-        loadAlbum()
-      }
-    } catch {
-      Taro.showToast({ title: '上传失败（≤5MB，每用户 100 张）', icon: 'none' })
+      await petCompanionApi.uploadAlbumAsset(petId, fileId)
+      Taro.showToast({ title: '已上传（待审核展示）', icon: 'success' })
+      loadAlbum()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '上传失败（≤5MB，每用户 100 张）'), icon: 'none' })
     } finally {
       setUploading(false)
     }
@@ -160,11 +165,13 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
       Taro.showToast({ title: '记忆内容不能为空', icon: 'none' })
       return
     }
-    const { data: res } = await petCompanionApi.editMemory(petId, memory.id, { value: editValue.trim() })
-    if (res.success) {
+    try {
+      await petCompanionApi.editMemory(petId, memory.id, { value: editValue.trim() })
       Taro.showToast({ title: '已更新（编辑优先于自动抽取）', icon: 'success' })
       setEditId(null)
       loadMemories()
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '保存失败，请稍后再试'), icon: 'none' })
     }
   }
 
@@ -256,10 +263,12 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
                   className={styles.albumDelete}
                   onClick={() =>
                     petId &&
-                    petCompanionApi.deleteAlbumAsset(petId, asset.assetId).then(() => {
-                      Taro.showToast({ title: '已删除', icon: 'none' })
-                      loadAlbum()
-                    })
+                    petCompanionApi.deleteAlbumAsset(petId, asset.assetId)
+                      .then(() => {
+                        Taro.showToast({ title: '已删除', icon: 'none' })
+                        loadAlbum()
+                      })
+                      .catch((err) => Taro.showToast({ title: errorMessage(err, '删除失败'), icon: 'none' }))
                   }
                 >
                   删除
@@ -280,9 +289,11 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
               size='mini'
               onClick={() =>
                 petId &&
-                petCompanionApi.setMemorySettings(petId, { extract: true, use: true }).then(() => {
-                  Taro.showToast({ title: '记忆开关已保存', icon: 'none' })
-                })
+                petCompanionApi.setMemorySettings(petId, { extract: true, use: true })
+                  .then(() => {
+                    Taro.showToast({ title: '记忆开关已保存', icon: 'none' })
+                  })
+                  .catch((err) => Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' }))
               }
             >
               开启抽取+注入
@@ -296,6 +307,7 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
                   .then(() => {
                     Taro.showToast({ title: '已关闭抽取与注入', icon: 'none' })
                   })
+                  .catch((err) => Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' }))
               }
             >
               全部关闭
@@ -307,10 +319,12 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
                 petId &&
                 Taro.showModal({ title: '清空记忆', content: '全部软删且防复活，确定？' }).then(({ confirm }) => {
                   if (confirm) {
-                    petCompanionApi.clearMemories(petId).then(() => {
-                      Taro.showToast({ title: '已清空', icon: 'none' })
-                      loadMemories()
-                    })
+                    petCompanionApi.clearMemories(petId)
+                      .then(() => {
+                        Taro.showToast({ title: '已清空', icon: 'none' })
+                        loadMemories()
+                      })
+                      .catch((err) => Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' }))
                   }
                 })
               }
@@ -360,10 +374,12 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
                       type='warn'
                       onClick={() =>
                         petId &&
-                        petCompanionApi.deleteMemory(petId, memory.id).then(() => {
-                          Taro.showToast({ title: '已删除', icon: 'none' })
-                          loadMemories()
-                        })
+                        petCompanionApi.deleteMemory(petId, memory.id)
+                          .then(() => {
+                            Taro.showToast({ title: '已删除', icon: 'none' })
+                            loadMemories()
+                          })
+                          .catch((err) => Taro.showToast({ title: errorMessage(err, '删除失败'), icon: 'none' }))
                       }
                     >
                       删除
@@ -388,6 +404,7 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
                     loadPrefs()
                     onRefresh?.()
                   })
+                  .catch((err) => Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' }))
               }}
             />
           </View>
@@ -402,6 +419,7 @@ export function MemoryPanel({ petId, onRefresh }: { petId: number | string | nul
                     Taro.showToast({ title: '已更新', icon: 'success' })
                     loadPrefs()
                   })
+                  .catch((err) => Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' }))
               }}
             />
           </View>

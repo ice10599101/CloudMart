@@ -3,6 +3,7 @@ import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { communityApi, type PollData } from '@/api/community'
 import type { PollAttachmentConfig } from '@/utils/postAttachments'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import styles from './index.module.scss'
 
@@ -73,8 +74,8 @@ export default function PollCard({ pollId, config }: PollCardProps) {
       const data = res.data?.data
       if (data) setPoll(data)
       Taro.showToast({ title: '投票成功', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '投票失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '投票失败'), icon: 'none' })
     } finally {
       setSubmitting(false)
     }

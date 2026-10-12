@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { notificationApi } from '@/api/notification'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { subscribeNotifications } from '@/composables/useNotificationSocket'
 import { useAuthStore } from '@/store/auth'
@@ -83,8 +84,8 @@ export default function MessagePage() {
       setUnreadCounts({})
       setConversations((prev) => prev.map((c) => ({ ...c, unreadCount: 0 })))
       Taro.showToast({ title: '已全部标记为已读', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 

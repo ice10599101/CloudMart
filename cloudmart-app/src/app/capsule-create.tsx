@@ -12,6 +12,7 @@ import WishBGM from '@/components/WishBGM'
 import { WishColors } from '@/constants/wish-theme'
 import { getTimezoneId, localToUtcIso, reportTimezoneIfNeeded } from '@/utils/wish-timezone'
 import { ensureNotificationPermission, scheduleCapsuleReminder } from '@/utils/capsule-notifications'
+import { errorMessage } from '@/utils/request'
 import type { CapsuleItem } from '@/types'
 
 const MAX_TITLE = 100
@@ -130,7 +131,7 @@ export default function CapsuleCreateScreen() {
         wishApi
             .getWishDetail(prefillWishId)
             .then((res) => {
-                if (cancelled || !res.data.success || !res.data.data) return
+                if (cancelled || !res.data.data) return
                 const detail = res.data.data
                 setTitle(detail.title)
                 setContent(detail.description)
@@ -199,8 +200,8 @@ export default function CapsuleCreateScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined)
                 setSealedCapsule(capsule)
             }
-        } catch {
-            Alert.alert('失败', '封存失败，请稍后重试')
+        } catch (error) {
+            Alert.alert('失败', errorMessage(error, '封存失败，请稍后重试'))
         } finally {
             setSubmitting(false)
         }

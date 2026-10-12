@@ -6,6 +6,7 @@ import { userApi } from '@/api/user'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { wishApi } from '@/api/wish'
 import { petApi, type PetPublicCard } from '@/api/pet'
+import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { WishListItem, User } from '@/types'
@@ -149,8 +150,8 @@ export default function UserProfilePage() {
         ...prev,
         followerCount: isFollowing ? (prev.followerCount || 0) - 1 : (prev.followerCount || 0) + 1,
       }))
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -168,8 +169,8 @@ export default function UserProfilePage() {
       }
       setIsBlocked(!isBlocked)
       Taro.showToast({ title: isBlocked ? '已取消拉黑' : '已拉黑', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '操作失败'), icon: 'none' })
     }
   }
 
@@ -181,8 +182,8 @@ export default function UserProfilePage() {
     try {
       await communityApi.report({ targetType: 'USER', targetId: userId, reason })
       Taro.showToast({ title: '举报成功', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '举报失败', icon: 'none' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '举报失败'), icon: 'none' })
     }
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { View, Text, ScrollView, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { encounterApi, type EncounterLetter } from '@/api/wish'
+import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -45,8 +46,7 @@ export default function EncounterPage() {
       const res = await encounterApi.listLetters()
       setLetters(res.data?.data as unknown as EncounterLetter[])
     } catch (err) {
-      const message = (err as { data?: { error?: { message?: string } } })?.data?.error?.message
-      Taro.showToast({ title: message || '信笺加载失败', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '信笺加载失败'), icon: 'none' })
       setLetters([])
     } finally {
       setLoading(false)
@@ -72,8 +72,7 @@ export default function EncounterPage() {
       }
       loadLetters()
     } catch (err) {
-      const message = (err as { data?: { error?: { message?: string } } })?.data?.error?.message
-      Taro.showToast({ title: message || '拆信失败', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '拆信失败'), icon: 'none' })
     } finally {
       setBusyId(null)
     }
@@ -92,8 +91,7 @@ export default function EncounterPage() {
       setInteracted((prev) => ({ ...prev, [letter.letterId]: true }))
       Taro.showToast({ title: '已点亮对方的心愿（-2 星光）', icon: 'success' })
     } catch (err) {
-      const message = (err as { data?: { error?: { message?: string } } })?.data?.error?.message
-      Taro.showToast({ title: message || '点亮失败', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '点亮失败'), icon: 'none' })
     } finally {
       setBusyId(null)
     }
@@ -109,8 +107,7 @@ export default function EncounterPage() {
       setBlessContent('')
       Taro.showToast({ title: '匿名祝福已寄出', icon: 'success' })
     } catch (err) {
-      const message = (err as { data?: { error?: { message?: string } } })?.data?.error?.message
-      Taro.showToast({ title: message || '祝福寄出失败', icon: 'none' })
+      Taro.showToast({ title: errorMessage(err, '祝福寄出失败'), icon: 'none' })
     } finally {
       setBusyId(null)
     }

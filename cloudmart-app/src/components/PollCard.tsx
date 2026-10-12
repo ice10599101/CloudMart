@@ -1,7 +1,8 @@
-import { View, Text, TouchableOpacity } from 'react-native'
+import { View, Text, TouchableOpacity, Alert } from 'react-native'
 import { useEffect, useState } from 'react'
 import { useTheme } from '@/hooks/use-theme-context'
 import { communityApi, type PollData } from '@/api/community'
+import { errorMessage } from '@/utils/request'
 import type { PollAttachmentConfig } from '@/utils/postAttachments'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -70,8 +71,8 @@ export default function PollCard({ pollId, config }: PollCardProps) {
       const res = await communityApi.getPoll(pollId)
       const data = (res.data as unknown as { data?: PollData })?.data
       if (data) setPoll(data)
-    } catch {
-      // 保留当前结果展示
+    } catch (error) {
+      Alert.alert('投票失败', errorMessage(error, '请稍后再试'))
     } finally {
       setSubmitting(false)
     }
