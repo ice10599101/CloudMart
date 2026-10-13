@@ -164,7 +164,7 @@ class RegisterCodeServiceImplTest {
         }
 
         @Test
-        @DisplayName("mail send failed -> sent=false and stored code removed (no half success)")
+        @DisplayName("mail send failed -> sent=false and code+cooldown removed (no half success, user may retry at once)")
         void sendCode_WhenMailSendFailed_ShouldRemoveCodeAndReturnSentFalse() {
             when(userMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
             when(redisTemplate.hasKey(anyString())).thenReturn(false);
@@ -177,6 +177,8 @@ class RegisterCodeServiceImplTest {
             assertThat(result.sent()).isFalse();
             assertThat(result.message()).isNotBlank();
             verify(redisTemplate).delete(CODE_KEY + "a@example.com");
+            // 服务端邮件故障不应把用户锁进 60s 冷却；频控由每小时计数兜底
+            verify(redisTemplate).delete(COOLDOWN_KEY + "a@example.com");
         }
 
         @Test

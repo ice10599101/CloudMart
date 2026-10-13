@@ -47,7 +47,8 @@ public class UserServiceImpl implements UserService {
     private static final long NICKNAME_COOLDOWN_DAYS = 7;
 
     @Override
-    @SentinelResource(value = "register", fallback = "registerFallback")
+    @SentinelResource(value = "register", fallback = "registerFallback",
+            exceptionsToIgnore = BusinessException.class)
     @Transactional
     public UserVO register(RegisterRequest request) {
         // 唯一性先行（无副作用，失败不消耗验证码），验证码最后校验并消费
@@ -398,7 +399,17 @@ public class UserServiceImpl implements UserService {
         return String.valueOf(nextId);
     }
 
+    /**
+     * 注册链路系统级异常兜底（Sentinel 限流/熔断、DB 不可用等）。
+     *
+     * <p>{@code BusinessException} 已通过 {@code exceptionsToIgnore} 声明直接透传，
+     * 由全局异常处理器返回稳定的业务 error.code，不再被统一吞成 503；
+     * 进入本方法的只应是系统级异常，必须用 ERROR 记录完整堆栈——
+     * 历史缺陷（fallback 静默吞掉所有异常且不打日志）曾导致落库真实根因无法排查。</p>
+     */
     public UserVO registerFallback(RegisterRequest request, Throwable throwable) {
+        log.error("注册流程系统异常，转 503: email={}, nickname={}",
+                request.email(), request.nickname(), throwable);
         throw new BusinessException("USER_SERVICE_UNAVAILABLE", "用户服务不可用，请稍后重试");
     }
 }

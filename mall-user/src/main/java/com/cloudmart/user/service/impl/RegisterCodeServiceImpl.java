@@ -102,8 +102,10 @@ public class RegisterCodeServiceImpl implements RegisterCodeService {
             log.info("注册验证码邮件已发送 email={}", maskEmail(email));
             return new SendCodeResult(true, null, null);
         }
-        // 发送失败：清掉验证码避免半成功（用户重试会重新生成）
+        // 发送失败：清掉验证码与发送冷却避免半成功（服务端邮件故障不应惩罚用户立即重试，
+        // 频控由上方每小时计数兜底）；用户重试会重新生成
         redisTemplate.delete(CODE_KEY_PREFIX + email);
+        redisTemplate.delete(COOLDOWN_KEY_PREFIX + email);
         return new SendCodeResult(false, null, "验证码邮件发送失败，请稍后重试");
     }
 

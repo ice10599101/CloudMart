@@ -144,6 +144,18 @@ class UserServiceImplTest {
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getCode()).isEqualTo("NICKNAME_DUPLICATE"));
         }
+
+        @Test
+        @DisplayName("system-level failure -> registerFallback records and converts to USER_SERVICE_UNAVAILABLE")
+        void registerFallback_WhenSystemError_ShouldConvertToUnavailable() {
+            RegisterRequest request = new RegisterRequest("password123", "new@example.com", "Newbie", "123456");
+            RuntimeException dbFailure = new RuntimeException("Communications link failure");
+
+            assertThatThrownBy(() -> userService.registerFallback(request, dbFailure))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("USER_SERVICE_UNAVAILABLE"));
+        }
     }
 
     @Nested
