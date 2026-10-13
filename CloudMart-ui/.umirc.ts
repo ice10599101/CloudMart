@@ -229,6 +229,9 @@ export default defineConfig({
     },
   },
   npmClient: 'npm',
+  // hash:true 仅表示构建产物文件名带内容 hash（缓存 busting），与路由模式无关；
+  // 路由模式显式声明 browser（umi 4 默认值，此前缺省时易被误读为 hash 路由）
+  history: { type: 'browser' },
   hash: true,
   jsMinifier: 'terser',
   cssMinifier: 'cssnano',
