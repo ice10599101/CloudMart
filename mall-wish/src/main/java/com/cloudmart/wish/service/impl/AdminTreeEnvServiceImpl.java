@@ -102,7 +102,9 @@ public class AdminTreeEnvServiceImpl implements AdminTreeEnvService {
 
     @Override
     public List<SpecialEventVO> listSpecialEvents(int limit) {
-        int bounded = Math.clamp(limit, 1, MAX_EVENT_LIST_LIMIT);
+        // 不使用 Math.clamp(int,int,int)：该重载 JDK 24 才引入，IDEA 增量构建若误用
+        // 低级别 JDK 会生成"Unresolved compilation problem"桩 class，运行到此处必 500
+        int bounded = Math.max(1, Math.min(limit, MAX_EVENT_LIST_LIMIT));
         return specialEventMapper.selectList(new LambdaQueryWrapper<WishSpecialEvent>()
                         .orderByDesc(WishSpecialEvent::getTriggeredAt)
                         .last("LIMIT " + bounded))

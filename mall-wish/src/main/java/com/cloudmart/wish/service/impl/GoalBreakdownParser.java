@@ -97,14 +97,15 @@ public class GoalBreakdownParser {
         if (node == null || !node.isNumber()) {
             return 7;
         }
-        return Math.clamp(node.asInt(), 1, MAX_ESTIMATED_DAYS);
+        // min/max 与 Math.clamp 等价且不依赖 JDK 24 的 int 重载（避免低级别 JDK 桩 class）
+        return Math.max(1, Math.min(node.asInt(), MAX_ESTIMATED_DAYS));
     }
 
     private Integer clampPriority(JsonNode node) {
         if (node == null || !node.isNumber()) {
             return 3;
         }
-        return Math.clamp(node.asInt(), 1, MAX_PRIORITY);
+        return Math.max(1, Math.min(node.asInt(), MAX_PRIORITY));
     }
 
     /**
