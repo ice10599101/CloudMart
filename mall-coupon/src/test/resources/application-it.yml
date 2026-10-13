@@ -1,0 +1,26 @@
+# R28-4c 兑换码并发集成测试配置（T26 双模式）
+# 默认（CI/有 Docker）：Testcontainers 自给自足，连接属性由
+#   @DynamicPropertySource 覆盖，不依赖任何远程机器。
+# 外部模式（授权 IT 环境）：显式设置 COUPON_IT_MYSQL_HOST 时启用，
+#   直连 docker-compose.yml 的专用 mysql-it 容器（默认经 FRP 暴露 8307），
+#   独立 schema mall_coupon_it，与业务实例 8306 完全隔离；
+#   须同时 -Dcoupon.it.enabled=true 显式授权（防误跑共享实例）。
+spring:
+  datasource:
+    url: jdbc:mysql://${COUPON_IT_MYSQL_HOST:}:${COUPON_IT_MYSQL_PORT:8307}/mall_coupon_it?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:123456}
+    hikari:
+      # 并发用例 30 线程同时取连接，池容量必须大于并发度
+      maximum-pool-size: 30
+      connection-timeout: 10000
+  # 兑换链路同时依赖 Redis：BitMap 防重（StringRedisTemplate）
+  # 与每人每模板分布式锁（Redisson），IT 必须连真实 Redis
+  data:
+    redis:
+      host: ${COUPON_IT_REDIS_HOST:}
+      port: ${COUPON_IT_REDIS_PORT:8380}
+      timeout: 5s
+  flyway:
+    clean-disabled: true
+    validate-on-migrate: false
