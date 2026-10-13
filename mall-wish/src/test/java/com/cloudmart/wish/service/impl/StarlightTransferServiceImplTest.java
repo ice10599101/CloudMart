@@ -36,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -79,10 +80,11 @@ class StarlightTransferServiceImplTest {
         service = new StarlightTransferServiceImpl(transferMapper, quotaMapper,
                 userStatService, communityFeignClient,
                 new com.cloudmart.wish.mq.StarlightNotifyProducer(rocketMQTemplate));
-        // 好友校验默认通过；额度条件更新默认成功
+        // 好友校验默认通过；额度单语句 upsert 默认占用成功（2=既有行更新）
         when(communityFeignClient.checkFriendship(anyLong(), anyLong()))
                 .thenReturn(ApiResponse.ok(Map.of("friends", true)));
-        when(quotaMapper.update(any(), any())).thenReturn(1);
+        when(quotaMapper.occupyQuota(anyLong(), any(), anyInt(), anyInt())).thenReturn(2);
+        when(quotaMapper.lastOccupyMarker()).thenReturn(1L);
         when(quotaMapper.selectOne(any())).thenReturn(quota(50));
         when(userStatService.transferStarlightPair(anyLong(), anyLong(), anyInt(), anyLong()))
                 .thenReturn(new StarlightPairTransfer(901L, 902L, 400, 4100));
@@ -137,11 +139,21 @@ class StarlightTransferServiceImplTest {
         }
 
         @Test
-        @DisplayName("额度条件更新先行占用，随后才对转（同事务顺序）")
+        @DisplayName("额度单语句 upsert 先行占用，随后才对转（同事务顺序）")
         void transfer_quotaOccupiedBeforePairTransfer() {
             service.transfer(FROM, TO, 100, null, "rk-2");
-            verify(quotaMapper).insert(any(StarlightDailyOutQuota.class));
-            verify(quotaMapper).update(any(), any());
+            verify(quotaMapper).occupyQuota(eq(FROM), any(), eq(100), eq(200));
+        }
+
+        @Test
+        @DisplayName("当日首行插入（affected=1）直接接受，不再读取占用标记")
+        void transfer_firstRowInsert_acceptedWithoutMarker() {
+            when(quotaMapper.occupyQuota(anyLong(), any(), anyInt(), anyInt())).thenReturn(1);
+
+            service.transfer(FROM, TO, 10, null, "rk-first-row");
+
+            verify(quotaMapper, never()).lastOccupyMarker();
+            verify(userStatService).transferStarlightPair(FROM, TO, 10, 777L);
         }
     }
 
@@ -150,9 +162,10 @@ class StarlightTransferServiceImplTest {
     class RejectTests {
 
         @Test
-        @DisplayName("日额度条件更新 0 行 → WISH_RATE_LIMITED，不发生对转")
+        @DisplayName("日额度 upsert 既有行且占用标记=0（条件未命中=超限）→ WISH_RATE_LIMITED，不发生对转")
         void transfer_dailyCapExceeded_rejected() {
-            when(quotaMapper.update(any(), any())).thenReturn(0);
+            when(quotaMapper.occupyQuota(anyLong(), any(), anyInt(), anyInt())).thenReturn(2);
+            when(quotaMapper.lastOccupyMarker()).thenReturn(0L);
 
             assertThatThrownBy(() -> service.transfer(FROM, TO, 100, null, "rk-3"))
                     .isInstanceOf(BusinessException.class)

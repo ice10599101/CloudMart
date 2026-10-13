@@ -1,7 +1,6 @@
 package com.cloudmart.wish.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
@@ -17,7 +16,6 @@ import com.cloudmart.wish.service.UserStatService;
 import com.cloudmart.wish.vo.StarlightTransferVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -179,25 +177,23 @@ public class StarlightTransferServiceImpl implements StarlightTransferService {
 
     // ---------------- 内部实现 ----------------
 
-    /** 日额度原子占用：条件更新 0 行即超限，抛 WISH_RATE_LIMITED 整体回滚 */
+    /**
+     * 日额度原子占用：单语句 upsert 条件自增，affected=0 即超限，抛 WISH_RATE_LIMITED
+     * 整体回滚。
+     *
+     * <p>R28/AT12 并发实测修复：旧实现「INSERT 重复键 + 条件 UPDATE」两条语句，
+     * 同一用户首转并发时竞争事务在唯一索引上滞留 duplicate-key S 锁，同事务随后
+     * 的 UPDATE 申请 X 锁构成 S→X 升级环，被 InnoDB 死锁检测回滚（1213）。
+     * 合并为 {@link StarlightDailyOutQuotaMapper#occupyQuota} 单语句后按记录锁串行。</p>
+     */
     private void occupyDailyQuota(Long userId, LocalDate businessDate, int amount) {
-        StarlightDailyOutQuota quota = new StarlightDailyOutQuota();
-        quota.setUserId(userId);
-        quota.setBusinessDate(businessDate);
-        quota.setUsedAmount(0);
-        quota.setVersion(0);
-        try {
-            quotaMapper.insert(quota);
-        } catch (DuplicateKeyException alreadyExists) {
-            // 当日行已存在（并发首转），走条件更新
+        int affected = quotaMapper.occupyQuota(userId, businessDate, amount, DAILY_CAP);
+        if (affected == 1) {
+            // 当日首行插入：单笔 amount ≤ 100 < 200 日 cap，必然占用成功
+            return;
         }
-        int updated = quotaMapper.update(null, new LambdaUpdateWrapper<StarlightDailyOutQuota>()
-                .setSql("used_amount = used_amount + {0}", amount)
-                .setSql("version = version + 1")
-                .eq(StarlightDailyOutQuota::getUserId, userId)
-                .eq(StarlightDailyOutQuota::getBusinessDate, businessDate)
-                .apply("used_amount + {0} <= {1}", amount, DAILY_CAP));
-        if (updated == 0) {
+        // 既有行：LAST_INSERT_ID 标记 0=条件未命中（已达上限）
+        if (quotaMapper.lastOccupyMarker() == 0L) {
             throw new BusinessException(WishErrorCodes.WISH_RATE_LIMITED,
                     "今日转赠已达上限（累计 " + DAILY_CAP + " 星光/天）");
         }
