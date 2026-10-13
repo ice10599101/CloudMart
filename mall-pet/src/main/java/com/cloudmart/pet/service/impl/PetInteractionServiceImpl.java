@@ -66,6 +66,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
     private final com.cloudmart.pet.service.PetLinkedProductService linkedProductService;
     /** R12：统一活动互斥（活动+托管跨表排他） */
     private final PetActivityMutex activityMutex;
+    /** R02/V79：喂食操作幂等台账（同喂食键只结算一次） */
+    private final com.cloudmart.pet.repository.PetFeedOperationMapper feedOperationMapper;
 
     public PetInteractionServiceImpl(PetService petService,
                                      PetStateService stateService,
@@ -85,7 +87,8 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                                      com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService,
                                      com.cloudmart.pet.service.impl.PetCooperationService cooperationService,
                                      PetActivityMutex activityMutex,
-                                     com.cloudmart.pet.service.PetLinkedProductService linkedProductService) {
+                                     com.cloudmart.pet.service.PetLinkedProductService linkedProductService,
+                                     com.cloudmart.pet.repository.PetFeedOperationMapper feedOperationMapper) {
         this.petService = petService;
         this.stateService = stateService;
         this.activityMapper = activityMapper;
@@ -105,6 +108,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         this.cooperationService = cooperationService;
         this.activityMutex = activityMutex;
         this.linkedProductService = linkedProductService;
+        this.feedOperationMapper = feedOperationMapper;
     }
 
     @Override
@@ -156,12 +160,31 @@ public class PetInteractionServiceImpl implements PetInteractionService {
      * F1 喂养道具：条件扣减背包（quantity &gt; 0 原子减 1，无货 409）→ 原子应用恢复效果
      * （LEAST 封顶，hungerFrac 归零与免费喂食同口径）→ 任务/成就/亲密度按喂食同口径推进
      * （不加经验）。可配置占用每日喂食次数；占用失败与扣减同事务回滚（白吃物品不可发生）。
+     * R02/V79：requestKey 为喂食操作幂等键——同键重放（含切宠后）只返回原结果，不重复结算；
+     * 同键不同食物抛 PET_IDEMPOTENCY_CONFLICT。
      */
     @Override
     @Transactional
     public PetVO feedItem(Long userId, String itemCode, String requestKey) {
         // PET-07/T10：动作在宠物行锁内先结算衰减再应用增量（事务内 FOR UPDATE）
         Pet pet = stateService.requireActivePetForUpdate(userId);
+        String feedOperationId = requestKey == null || requestKey.isBlank()
+                ? "feed-" + java.util.UUID.randomUUID() : requestKey.trim();
+        // R02/V79：喂食操作幂等门禁。同用户同主宠的并发在本行锁上串行，后到者必能看到首单台账；
+        // 首单结算后切换主宠的重放同样在此命中——不扣新宠背包、不重复应用效果（权益不串宠）。
+        com.cloudmart.pet.entity.PetFeedOperation settled = feedOperationMapper.selectOne(
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetFeedOperation>()
+                        .eq(com.cloudmart.pet.entity.PetFeedOperation::getUserId, userId)
+                        .eq(com.cloudmart.pet.entity.PetFeedOperation::getOperationId, feedOperationId)
+                        .last("LIMIT 1"));
+        if (settled != null) {
+            if (!itemCode.equals(settled.getItemCode())) {
+                // 同键不同食物：禁止操作键复用，与商城幂等同口径 409
+                throw new BusinessException(PetErrorCodes.PET_IDEMPOTENCY_CONFLICT,
+                        "同一喂食操作键对应不同食物，禁止复用");
+            }
+            return petService.toVo(pet);
+        }
         PetProperties.Interaction cfg = properties.getInteraction();
         PetItemCatalog.FoodItem food = itemCatalog.food(itemCode)
                 .orElseThrow(() -> new BusinessException(PetErrorCodes.PET_ITEM_NOT_FOUND, "这个食物不存在"));
@@ -184,9 +207,7 @@ public class PetInteractionServiceImpl implements PetInteractionService {
                     "今天已经喂了 " + cfg.getFeedDailyLimit() + " 次啦，明天再来吧");
         }
         // 实物商品联动（R02）：CAS 占用一条权益，只有成功占用才应用双倍——
-        // 占用与背包扣减/数值更新同事务，失败整体回滚；同 requestKey 重放不二次消耗
-        String feedOperationId = requestKey == null || requestKey.isBlank()
-                ? "feed-" + java.util.UUID.randomUUID() : requestKey.trim();
+        // 占用与背包扣减/数值更新同事务，失败整体回滚；操作级不重复结算由 V79 台账保证
         java.util.Optional<Long> consumedEntitlement =
                 linkedProductService.consumeOneForFeed(userId, pet.getId(), feedOperationId);
         boolean doubled = consumedEntitlement.isPresent();
@@ -217,7 +238,30 @@ public class PetInteractionServiceImpl implements PetInteractionService {
         intimacyService.gain(pet, PetIntimacySource.FEED);
         dailyQuestService.record(pet, PetQuestType.FEED, 1);
         achievementService.evaluate(pet, PetAchievementService.Event.FEED);
+        recordFeedOperation(userId, pet.getId(), feedOperationId, itemCode, consumedEntitlement.orElse(null));
         return petService.toVo(pet);
+    }
+
+    /**
+     * R02/V79：登记已结算喂食操作（与背包扣减/数值/权益占用同一事务提交）。
+     * uk(user_id, operation_id) 为跨宠物行并发的纵深防线：极端的同键异宠竞争下，
+     * 后提交者 duplicate-key 必整体回滚（背包/数值/活动事实一并撤销），保证只结算一次。
+     */
+    private void recordFeedOperation(Long userId, Long petId, String feedOperationId,
+                                     String itemCode, Long entitlementId) {
+        com.cloudmart.pet.entity.PetFeedOperation operation = new com.cloudmart.pet.entity.PetFeedOperation();
+        operation.setUserId(userId);
+        operation.setOperationId(feedOperationId);
+        operation.setPetId(petId);
+        operation.setItemCode(itemCode);
+        operation.setEntitlementId(entitlementId);
+        operation.setDoubled(entitlementId != null);
+        try {
+            feedOperationMapper.insert(operation);
+        } catch (org.springframework.dao.DuplicateKeyException duplicate) {
+            throw new BusinessException(PetErrorCodes.PET_IDEMPOTENCY_CONFLICT,
+                    "喂食操作已在其他请求中结算，本次请求不重复执行");
+        }
     }
 
     @Override
