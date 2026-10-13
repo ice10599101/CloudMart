@@ -131,22 +131,23 @@ jobs:
           name: it-build-log
           path: /tmp/it-build.log
           retention-days: 7
-      # R26：门禁校验——执行数 > 0 且 skipped == 0。disabledWithoutDocker/skip 激活时
-      # failsafe 报告 Skipped>0 或总数为 0，此前只看 Tests run 总数会把跳过误当执行
-      - name: 集成测试执行数校验（执行>0 且 skipped=0，防止 IT 被静默跳过）
+      # R26/R28：执行数 > 0 防 IT 整体被静默跳过；skipped 身份不再数数量，
+      # 交由下一步 check-it-skips.mjs 做"精确测试ID+原因+期限"白名单门禁
+      - name: 集成测试执行数校验（执行>0，防止 IT 被静默跳过）
         run: |
           total=$(find . -path "*failsafe-reports*" -name "*.txt" -exec grep -hE "^Tests run:" {} \; | awk -F'[:,]' '{s+=$2} END {print s+0}')
-          skipped=$(find . -path "*failsafe-reports*" -name "*.txt" -exec grep -hE "^Tests run:" {} \; | awk -F'[:,]' '{for(i=1;i<=NF;i++) if($i ~ /Skipped/) {gsub(/ /,"",$(i+1)); s+=$(i+1)}} END {print s+0}')
-          echo "failsafe 执行: $total, skipped: $skipped"
+          echo "failsafe 执行总数: $total"
           if [ "$total" -eq 0 ]; then
             echo "::error::failsafe 未执行任何集成测试"; exit 1
           fi
-          # 已核准的显式禁用白名单：mall-ai VectorSearch IT（ES 9.0.2 与 Spring AI
-          # knn DSL 不兼容，向量能力未启用，见该 @Disabled 注记）= 3 skipped
-          allowed_skipped=3
-          if [ "$skipped" -ne "$allowed_skipped" ]; then
-            echo "::error::集成测试 skipped=$skipped 与核准白名单（$allowed_skipped）不符——新增禁用须同步更新白名单"; exit 1
-          fi
+      # R28：skipped 精确门禁——解析 failsafe XML，每个被跳过的用例必须命中
+      # scripts/ci/it-skip-allowlist.json 中未到期的精确条目（类/方法ID），
+      # 禁用解除未删条目同样失败；替代旧的 allowed_skipped=3 数量口径
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+      - name: 集成测试跳过精确白名单校验（测试ID+原因+期限，R28）
+        run: node scripts/ci/check-it-skips.mjs
       # R26：宠物模块专属门禁——发布阻断级改造要求 mall-pet 专属 IT 非零
       - name: 宠物模块专属 IT 门禁
         run: |
@@ -195,9 +196,12 @@ jobs:
           done
           docker rm -f clean-db >/dev/null 2>&1 || true
           exit $failed
-      # T26 第 4 点：存量库续跑路径——migrate 到次末版本模拟存量库，再续跑到 head
-      # （等价真实发布滚动升级；空库路径由上一步覆盖）
-      - name: 存量库续跑验证（次末版本 → head）
+      # T26 第 4 点 / R28：存量库续跑路径——migrate 到次末版本（作为"上个已发布版本"
+      # 的代理；仓库尚无 release tag），灌入该版本 schema 下的代表存量数据后再续跑
+      # head（等价真实发布滚动升级；空库路径由上一步覆盖）。只做空结构升级无法发现
+      # 生成列/唯一约束/数据回填对存量行的破坏，故关键模块须提供
+      # src/test/resources/migration/representative-data.sql 与 -check.sql
+      - name: 存量库续跑验证（上个版本+代表数据 → head，R28）
         run: |
           docker run -d --name upgrade-db -e MYSQL_ROOT_PASSWORD=root -p 33061:3306 mysql:9.4.0
           ready=0
@@ -225,10 +229,35 @@ jobs:
               docker run --rm --network host                 -v "$PWD/$dir:/flyway/sql:ro"                 flyway/flyway:11                 -url="jdbc:mysql://127.0.0.1:33061/${db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"                 -user=root -password=root -locations=filesystem:/flyway/sql "$@"
             }
             if ! fly -target="$prev" migrate; then
-              echo "::error::$module 迁移到次末版本 V${prev} 失败"; failed=1; echo "::endgroup::"; continue
+              echo "::error::$module 迁移到上个版本 V${prev} 失败"; failed=1; echo "::endgroup::"; continue
+            fi
+            # R28：代表数据 + 断言（可选，关键数据迁移模块必须提供）。
+            # fixture 必须按 V${prev} 表结构编写；新增迁移使 prev 推进后，CI 会
+            # 强制维护者同步更新 fixture——代表数据是"上个发布版"的真实存量形态
+            fixture="$module/src/test/resources/migration/representative-data.sql"
+            check="$module/src/test/resources/migration/representative-data-check.sql"
+            if [ -f "$check" ] && [ ! -f "$fixture" ]; then
+              echo "::error::$module 提供了 check 但缺少 fixture（representative-data.sql）"; failed=1; echo "::endgroup::"; continue
+            fi
+            if [ -f "$fixture" ]; then
+              echo "灌入代表存量数据: $fixture（V${prev} schema）"
+              if ! docker exec -i upgrade-db mysql -uroot -proot --default-character-set=utf8mb4 "$db" < "$fixture"; then
+                echo "::error::$module 代表数据灌入失败（fixture 必须兼容 V${prev} schema）"; failed=1; echo "::endgroup::"; continue
+              fi
             fi
             if ! fly migrate; then
-              echo "::error::$module 存量库 V${prev} → V${last} 续跑失败"; failed=1; echo "::endgroup::"; continue
+              echo "::error::$module 存量库 V${prev}（含代表数据） → V${last} 续跑失败"; failed=1; echo "::endgroup::"; continue
+            fi
+            if [ -f "$fixture" ]; then
+              if [ ! -f "$check" ]; then
+                echo "::error::$module 有代表数据但缺少断言 representative-data-check.sql"; failed=1
+              else
+                result=$(docker exec -i upgrade-db mysql -uroot -proot -N --default-character-set=utf8mb4 "$db" < "$check" | tr -d '\r' | tail -1)
+                echo "$module 代表数据断言: $result"
+                if [ "$result" != "OK" ]; then
+                  echo "::error::$module 代表数据迁移后语义断言失败: $result"; failed=1
+                fi
+              fi
             fi
             echo "OK: $module 续跑通过"
             echo "::endgroup::"
@@ -251,14 +280,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # R28：三端统一"锁文件干净安装 → 类型检查 → npm test 单测 → 生产构建"门禁
+
           - dir: CloudMart-ui
-            cmds: npx tsc --noEmit && npx vitest run --maxWorkers=1 --pool=threads && npm run build
+            cmds: npm run typecheck && npm test -- --maxWorkers=1 --pool=threads && npm run build
           - dir: cloudmart-app
-            # R25：A 端纳入请求/幂等等共享行为单测门禁（R28 将扩展到完整套件）
-            cmds: npx tsc --noEmit && npx vitest run && npx expo export --platform web
+            # R28：tsc 前必须先用官方生成器产出 .expo/types/router.d.ts（typedRoutes
+            # 已开启），否则 Href 静默回退宽 string，错误路由无法在类型期发现
+            cmds: npm run typecheck && npm test && npx expo export --platform web
           - dir: cloudmart-mobile
-            # R25：M 端纳入请求/幂等等共享行为单测门禁（R28 将扩展到完整套件）
-            cmds: npx tsc --noEmit && npx vitest run && npm run build:h5 && npm run build:weapp
+            cmds: npx tsc --noEmit && npm test && npm run build:h5 && npm run build:weapp
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -292,6 +323,8 @@ jobs:
         run: node scripts/ci/route-policy-lint.mjs
       - name: 路由清单对照真实 Controller（T25 辅助检查；权威注解门禁见下一步 RouteGuardTest）
         run: node scripts/ci/route-inventory.mjs
+      - name: CI 脚本自测（R28：IT 跳过精确门禁的变异场景）
+        run: node --test scripts/ci/check-it-skips.test.mjs
       - name: 设置 JDK（R27 路由注解门禁）
         uses: actions/setup-java@v5
         with:
