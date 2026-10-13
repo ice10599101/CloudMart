@@ -10,6 +10,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 用户每日收益额度（B06/§2.4）：数据库权威，Redis 仅作展示性快速限频。
@@ -153,6 +154,34 @@ public class PetQuotaService {
                 .eq(PetDailyQuota::getTargetId, targetId)
                 .eq(PetDailyQuota::getBusinessDate, businessDate(userId)));
         return row != null && row.getUsed() != null ? row.getUsed() : 0;
+    }
+
+    /**
+     * 同一用户业务日、同一 targetId 下多类型配额已用次数的批量读（单次 IN 查询）。
+     *
+     * <p>用于 bootstrap 等需要同时展示多个额度余量的聚合读，替代逐类型
+     * {@link #used} 产生的 N 次单行 selectOne；无行的类型按 0 返回。
+     * 调用方不得传入空类型集合（SQL IN 空集非法）。</p>
+     */
+    public java.util.Map<QuotaType, Integer> usedBatch(Long userId,
+                                                        java.util.Collection<QuotaType> types,
+                                                        long targetId) {
+        if (types == null || types.isEmpty()) {
+            throw new IllegalArgumentException("usedBatch types 不能为空");
+        }
+        java.util.Map<QuotaType, Integer> result = new java.util.EnumMap<>(QuotaType.class);
+        types.forEach(type -> result.put(type, 0));
+        List<PetDailyQuota> rows = quotaMapper.selectList(new LambdaQueryWrapper<PetDailyQuota>()
+                .eq(PetDailyQuota::getUserId, userId)
+                .eq(PetDailyQuota::getTargetId, targetId)
+                .eq(PetDailyQuota::getBusinessDate, businessDate(userId))
+                .in(PetDailyQuota::getQuotaType,
+                        types.stream().map(QuotaType::name).toList()));
+        for (PetDailyQuota row : rows) {
+            QuotaType type = QuotaType.valueOf(row.getQuotaType());
+            result.put(type, row.getUsed() != null ? row.getUsed() : 0);
+        }
+        return result;
     }
 
     /** 今日剩余额度（额度耗尽返回 0） */

@@ -21,6 +21,12 @@ public interface PetDailyQuestService {
     /** 今日任务列表（含进度、领奖状态、全清宝箱状态；首次访问自动生成当日任务行） */
     PetDailyQuestVO list(Long userId);
 
+    /**
+     * 今日任务列表（调用方已持有主宠快照的聚合读专用，语义同 {@link #list(Long)}，
+     * 避免同一次聚合请求内重复加载主宠）。pet 必须是调用方按用户校验过的主宠。
+     */
+    PetDailyQuestVO listForPet(Pet pet);
+
     // ---------------- PET-09：任务集查询与按集领取（setId 为真实实体 ID） ----------------
 
     /**

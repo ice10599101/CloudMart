@@ -285,4 +285,32 @@ class PetStateServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("findActivePet（读聚合同口径，无主宠不抛）")
+    class FindActivePetTests {
+
+        @Test
+        @DisplayName("无主宠 -> findActivePet 返回 null，requireActivePet 抛 PET_NOT_FOUND")
+        void noActivePetReturnsNull() {
+            when(petMapper.selectOne(any())).thenReturn(null);
+
+            assertThat(stateService.findActivePet(100L)).isNull();
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> stateService.requireActivePet(100L))
+                    .isInstanceOf(com.cloudmart.common.exception.BusinessException.class)
+                    .satisfies(ex -> assertThat(((com.cloudmart.common.exception.BusinessException) ex).getCode())
+                            .isEqualTo(com.cloudmart.pet.constant.PetErrorCodes.PET_NOT_FOUND));
+        }
+
+        @Test
+        @DisplayName("有主宠 -> 返回经懒衰减结算的同一实体（供同请求子聚合复用）")
+        void activePetSettledAndReused() {
+            Pet active = pet(80, 80, 100, 90, LocalDateTime.now(ZoneId.of("UTC")));
+            when(petMapper.selectOne(any())).thenReturn(active);
+
+            Pet found = stateService.findActivePet(100L);
+
+            assertThat(found).isSameAs(active);
+        }
+    }
+
 }

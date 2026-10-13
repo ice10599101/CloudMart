@@ -65,15 +65,27 @@ public class PetBootstrapService {
         result.put("businessDate", businessDate);
         result.put("nextResetAt", petClock.businessDateStartUtc(businessDate.plusDays(1)));
 
-        Pet activePet = activePetOf(userId);
+        // R30 性能基线：用户全部宠物单次加载，主宠/列表/选中快照同源复用，
+        // 消除原 activePetOf + selectList + selectById 的 3 次重复查询
+        List<Pet> pets = petMapper.selectList(new LambdaQueryWrapper<Pet>()
+                .eq(Pet::getUserId, userId)
+                .orderByDesc(Pet::getIsActive)
+                .orderByAsc(Pet::getId));
+        Pet activePet = pets.stream()
+                .filter(pet -> Boolean.TRUE.equals(pet.getIsActive()))
+                .findFirst()
+                .orElse(null);
+        Long selectedPetId = petId != null ? petId
+                : activePet == null ? null : activePet.getId();
+
         result.put("activePetId", activePet == null ? null : activePet.getId());
-        result.put("pets", petSummaries(userId));
-        result.put("selectedPet", petSnapshot(userId, petId != null ? petId
-                : activePet == null ? null : activePet.getId()));
+        result.put("pets", petSummaries(pets));
+        result.put("selectedPet", petSnapshot(pets, selectedPetId));
         result.put("walletSummary", walletSummary(userId));
         result.put("capabilities", capabilities());
-        result.put("quotas", quotas(userId));
-        result.put("actionAvailability", actionAvailability(userId));
+        Map<String, Object> quotas = quotas(userId);
+        result.put("quotas", quotas);
+        result.put("actionAvailability", actionAvailability(userId, quotas));
         result.put("pendingOperations", pendingOperations(userId));
         return result;
     }
@@ -83,11 +95,14 @@ public class PetBootstrapService {
         Map<String, Object> result = new HashMap<>();
         result.put("serverNow", petClock.nowUtc());
         result.put("businessDate", petClock.businessDate());
+        // R30：主宠按读口径懒衰减结算后全请求复用；无主宠返回 null（各子聚合降级空视图，
+        // 不再由 event/quest 子服务各自重复加载主宠）
+        Pet activePet = stateService.findActivePet(userId);
         result.put("accountBusyActivity", accountBusy(userId));
-        result.put("selectedPetActivity", selectedPetActivity(userId, petId));
+        result.put("selectedPetActivity", selectedPetActivity(userId, petId, activePet));
         result.put("pendingClaimsCount", pendingClaimsCount(userId));
-        result.put("dailySetSummary", dailySetSummary(userId));
-        result.put("eventSummary", eventSummary(userId));
+        result.put("dailySetSummary", dailySetSummary(userId, activePet));
+        result.put("eventSummary", eventSummary(userId, activePet));
         result.put("cooperationSummary", cooperationSummary(userId));
         // PET-28/T60：恢复中心——可自助恢复的在途事项计数（各端据此展示"去处理"入口，
         // 直接跳原实体；用户操作编号定位经 traceId/requestKey 由各域既有查询支持）
@@ -132,19 +147,8 @@ public class PetBootstrapService {
 
     // ---------------- 私有聚合 ----------------
 
-    private Pet activePetOf(Long userId) {
-        return petMapper.selectOne(new LambdaQueryWrapper<Pet>()
-                .eq(Pet::getUserId, userId)
-                .eq(Pet::getIsActive, true)
-                .last("LIMIT 1"));
-    }
-
-    private List<Map<String, Object>> petSummaries(Long userId) {
-        return petMapper.selectList(new LambdaQueryWrapper<Pet>()
-                        .eq(Pet::getUserId, userId)
-                        .orderByDesc(Pet::getIsActive)
-                        .orderByAsc(Pet::getId))
-                .stream()
+    private List<Map<String, Object>> petSummaries(List<Pet> pets) {
+        return pets.stream()
                 .map(pet -> {
                     Map<String, Object> item = new HashMap<>();
                     item.put("petId", pet.getId());
@@ -156,13 +160,17 @@ public class PetBootstrapService {
                 .toList();
     }
 
-    /** 选中宠物的权威快照；petId 为空返回 null；非本人/不存在拒绝（§7.2） */
-    private Map<String, Object> petSnapshot(Long userId, Long petId) {
+    /** 选中宠物的权威快照；petId 为空返回 null；非本人/不存在拒绝（§7.2）。
+     *  宠物实体取自 bootstrap 已加载的本人宠物列表，不再二次 selectById。 */
+    private Map<String, Object> petSnapshot(List<Pet> ownedPets, Long petId) {
         if (petId == null) {
             return null;
         }
-        Pet pet = petMapper.selectById(petId);
-        if (pet == null || !pet.getUserId().equals(userId)) {
+        Pet pet = ownedPets.stream()
+                .filter(item -> item.getId().equals(petId))
+                .findFirst()
+                .orElse(null);
+        if (pet == null) {
             throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "宠物不存在或无权访问");
         }
         Map<String, Object> snapshot = new HashMap<>();
@@ -221,28 +229,36 @@ public class PetBootstrapService {
         return capabilities;
     }
 
-    /** 关键每日额度余量（数据库权威口径，targetId=0 的全局日额度） */
+    /**
+     * 关键每日额度余量（数据库权威口径，targetId=0 的全局日额度）。
+     * R30：四类额度一次 IN 批量读（原逐类型 4 次 selectOne，叠加 actionAvailability
+     * 重复调用共 8 次 pet_daily_quota 查询）。
+     */
     private Map<String, Object> quotas(Long userId) {
+        Map<PetQuotaService.QuotaType, Integer> used = quotaService.usedBatch(userId,
+                List.of(PetQuotaService.QuotaType.FEED, PetQuotaService.QuotaType.PLAY_REWARD,
+                        PetQuotaService.QuotaType.WALL_POST, PetQuotaService.QuotaType.REPORT),
+                0L);
         Map<String, Object> quotas = new HashMap<>();
-        quotas.put("feed", quotaService.remaining(userId, PetQuotaService.QuotaType.FEED, 0L,
-                properties.getInteraction().getFeedDailyLimit()));
-        quotas.put("playReward", quotaService.remaining(userId, PetQuotaService.QuotaType.PLAY_REWARD, 0L,
-                properties.getInteraction().getPlayRewardDailyLimit()));
-        quotas.put("wallPost", quotaService.remaining(userId, PetQuotaService.QuotaType.WALL_POST, 0L,
-                properties.getWall().getDailyPostLimit()));
-        quotas.put("report", quotaService.remaining(userId, PetQuotaService.QuotaType.REPORT, 0L,
-                properties.getModeration().getReportDailyLimit()));
+        quotas.put("feed", Math.max(0, properties.getInteraction().getFeedDailyLimit()
+                - used.get(PetQuotaService.QuotaType.FEED)));
+        quotas.put("playReward", Math.max(0, properties.getInteraction().getPlayRewardDailyLimit()
+                - used.get(PetQuotaService.QuotaType.PLAY_REWARD)));
+        quotas.put("wallPost", Math.max(0, properties.getWall().getDailyPostLimit()
+                - used.get(PetQuotaService.QuotaType.WALL_POST)));
+        quotas.put("report", Math.max(0, properties.getModeration().getReportDailyLimit()
+                - used.get(PetQuotaService.QuotaType.REPORT)));
         return quotas;
     }
 
-    private Map<String, Object> actionAvailability(Long userId) {
-        Map<String, Object> quotas = quotas(userId);
+    /** 复用 {@link #quotas(Long)} 的当次结果，不再重复查 4 次配额表 */
+    private Map<String, Object> actionAvailability(Long userId, Map<String, Object> quotas) {
         Map<String, Object> availability = new HashMap<>();
         boolean busy = activityMutex.hasBusyActivity(userId) || activityMutex.hasActiveCustody(userId);
         availability.put("busy", busy);
-        availability.put("canFeed", Integer.valueOf(quotas.get("feed").toString()) > 0 && !busy);
-        availability.put("canPlay", Integer.valueOf(quotas.get("playReward").toString()) > 0 && !busy);
-        availability.put("canWallPost", Integer.valueOf(quotas.get("wallPost").toString()) > 0);
+        availability.put("canFeed", ((Integer) quotas.get("feed")) > 0 && !busy);
+        availability.put("canPlay", ((Integer) quotas.get("playReward")) > 0 && !busy);
+        availability.put("canWallPost", ((Integer) quotas.get("wallPost")) > 0);
         return availability;
     }
 
@@ -266,17 +282,23 @@ public class PetBootstrapService {
         return busy;
     }
 
-    /** 选中宠物的进行中活动（petId 缺省取主宠；非本人拒绝） */
-    private Map<String, Object> selectedPetActivity(Long userId, Long petId) {
-        Long targetPetId = petId;
-        if (targetPetId == null) {
-            Pet activePet = activePetOf(userId);
-            targetPetId = activePet == null ? null : activePet.getId();
+    /**
+     * 选中宠物的进行中活动（petId 缺省复用请求内已结算主宠；显式 petId 支持查看本人非主宠，
+     * 该分支保留 selectById；非本人拒绝）。
+     */
+    private Map<String, Object> selectedPetActivity(Long userId, Long petId, Pet activePet) {
+        Long targetPetId;
+        Pet pet;
+        if (petId == null) {
+            if (activePet == null) {
+                return null;
+            }
+            targetPetId = activePet.getId();
+            pet = activePet;
+        } else {
+            targetPetId = petId;
+            pet = petMapper.selectById(targetPetId);
         }
-        if (targetPetId == null) {
-            return null;
-        }
-        Pet pet = petMapper.selectById(targetPetId);
         if (pet == null || !pet.getUserId().equals(userId)) {
             throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "宠物不存在或无权访问");
         }
@@ -304,10 +326,14 @@ public class PetBootstrapService {
         return count == null ? 0 : count;
     }
 
-    /** 今日任务集摘要（展示型 Fail-Open：任务服务异常降级 null） */
-    private Map<String, Object> dailySetSummary(Long userId) {
+    /** 今日任务集摘要（展示型 Fail-Open：无主宠返回 null；任务服务异常降级 null）。
+     *  R30：复用请求内已结算主宠，经 listForPet 避免重复加载。 */
+    private Map<String, Object> dailySetSummary(Long userId, Pet activePet) {
+        if (activePet == null) {
+            return null;
+        }
         try {
-            com.cloudmart.pet.vo.PetDailyQuestVO quest = questService.list(userId);
+            com.cloudmart.pet.vo.PetDailyQuestVO quest = questService.listForPet(activePet);
             Map<String, Object> summary = new HashMap<>();
             summary.put("questDate", quest.questDate());
             summary.put("completedCount", quest.completedCount());
@@ -321,10 +347,14 @@ public class PetBootstrapService {
         }
     }
 
-    /** 限时活动摘要（进行中/可领奖计数，明细走 GET /events） */
-    private Map<String, Object> eventSummary(Long userId) {
+    /** 限时活动摘要（进行中/可领奖计数，明细走 GET /events）。
+     *  R30：复用请求内已结算主宠，经 eventsForPet 避免重复加载；无主宠返回 null。 */
+    private Map<String, Object> eventSummary(Long userId, Pet activePet) {
+        if (activePet == null) {
+            return null;
+        }
         try {
-            List<com.cloudmart.pet.vo.PetEventVO> events = eventService.events(userId);
+            List<com.cloudmart.pet.vo.PetEventVO> events = eventService.eventsForPet(activePet);
             // PET-06：计数在截断前计算（原先 limit(10) 再 size，>10 个待领被低估）；
             // 明细列表仍截断展示
             List<String> claimableAll = events.stream()

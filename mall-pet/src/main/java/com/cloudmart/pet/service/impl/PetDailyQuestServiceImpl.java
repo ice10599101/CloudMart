@@ -137,6 +137,12 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     @Transactional
     public PetDailyQuestVO list(Long userId) {
         Pet pet = petService.requireOwnedPet(userId);
+        return listForPet(pet);
+    }
+
+    @Override
+    @Transactional
+    public PetDailyQuestVO listForPet(Pet pet) {
         return buildVo(pet, ensureToday(pet));
     }
 

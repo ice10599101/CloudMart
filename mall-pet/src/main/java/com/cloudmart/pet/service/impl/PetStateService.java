@@ -500,12 +500,24 @@ public class PetStateService {
      * 直接委托本方法，保证"取主宠"只有一处实现。</p>
      */
     public Pet requireActivePet(Long userId) {
-        Pet pet = findByUserId(userId);
+        Pet pet = findActivePet(userId);
         if (pet == null) {
             throw new BusinessException(PetErrorCodes.PET_NOT_FOUND,
                     "你还没有宠物，先去领养一只吧");
         }
-        return applyIdleDecay(pet);
+        return pet;
+    }
+
+    /**
+     * 读聚合专用：主宠不存在时返回 {@code null}（不抛 {@code PET_NOT_FOUND}），
+     * 存在时与 {@link #requireActivePet} 同口径执行懒衰减结算。
+     *
+     * <p>用于 bootstrap/activity-center 等"无宠物降级为空视图而非 4xx"的聚合端点，
+     * 使同一次请求内多个子聚合可复用同一个已结算快照，避免各自重复查库。</p>
+     */
+    public Pet findActivePet(Long userId) {
+        Pet pet = findByUserId(userId);
+        return pet == null ? null : applyIdleDecay(pet);
     }
 
     /**
