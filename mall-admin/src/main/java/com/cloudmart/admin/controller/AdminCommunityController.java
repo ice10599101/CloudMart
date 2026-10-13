@@ -47,6 +47,7 @@ public class AdminCommunityController {
     }
 
     @GetMapping("/community/posts")
+    @RequiresPermission("community:post:list")
     @Operation(summary = "帖子列表")
     public ApiResponse<Object> listPosts(@RequestParam Map<String, Object> params) {
         return communityFeignClient.listPosts(sanitizeParams(params));
@@ -77,6 +78,7 @@ public class AdminCommunityController {
     }
 
     @GetMapping("/community/comments")
+    @RequiresPermission("community:comment:list")
     @Operation(summary = "评论列表")
     public ApiResponse<Object> listComments(@RequestParam Map<String, Object> params) {
         return communityFeignClient.listComments(sanitizeParams(params));
@@ -99,6 +101,7 @@ public class AdminCommunityController {
     }
 
     @GetMapping("/community/tags")
+    @RequiresPermission("community:tag:list")
     @Operation(summary = "标签列表")
     public ApiResponse<Object> listTags(@RequestParam Map<String, Object> params) {
         return communityFeignClient.listTags(sanitizeParams(params));
@@ -137,6 +140,7 @@ public class AdminCommunityController {
     }
 
     @GetMapping("/community/reports")
+    @RequiresPermission("community:report:list")
     @Operation(summary = "举报列表")
     public ApiResponse<Object> listReports(@RequestParam Map<String, Object> params) {
         return communityFeignClient.listReports(sanitizeParams(params));
@@ -151,6 +155,7 @@ public class AdminCommunityController {
     }
 
     @GetMapping("/community/badges")
+    @RequiresPermission("community:badge:list")
     @Operation(summary = "徽章列表")
     public ApiResponse<Object> listBadges(@RequestParam Map<String, Object> params) {
         return communityFeignClient.listBadges(sanitizeParams(params));
@@ -242,6 +247,7 @@ public class AdminCommunityController {
     }
 
     @GetMapping("/community/growth/level-configs")
+    @RequiresPermission("community:growth:list")
     @Operation(summary = "等级配置列表")
     public ApiResponse<Object> listLevelConfigs(@RequestParam Map<String, Object> params) {
         return communityFeignClient.listLevelConfigs(params);
@@ -280,6 +286,7 @@ public class AdminCommunityController {
     }
 
     @GetMapping("/review/pending/posts")
+    @RequiresPermission("community:review:list")
     @Operation(summary = "待审核帖子列表")
     public ApiResponse<Object> listPendingReviewPosts(@RequestParam Map<String, Object> params) {
         return communityFeignClient.listPendingReviewPosts(params);
@@ -302,6 +309,7 @@ public class AdminCommunityController {
     }
 
     @GetMapping("/review/sensitive-words")
+    @RequiresPermission("community:review:list")
     @Operation(summary = "敏感词列表")
     public ApiResponse<Object> listSensitiveWords(@RequestParam Map<String, Object> params) {
         return communityFeignClient.listSensitiveWords(sanitizeParams(params));
