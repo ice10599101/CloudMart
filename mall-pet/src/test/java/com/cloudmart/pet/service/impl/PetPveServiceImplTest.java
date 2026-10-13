@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
@@ -33,6 +34,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -370,6 +372,75 @@ class PetPveServiceImplTest {
             claim.setId(1L);
             claim.setStatus("COMPLETED");
             return claim;
+        }
+    }
+
+    @Nested
+    @DisplayName("R30：PVE 列表宠物名批量 enrich（消除 N+1）")
+    class BatchEnrichTests {
+
+        private Pet petRow(long petId, String name) {
+            Pet pet = new Pet();
+            pet.setId(petId);
+            pet.setName(name);
+            return pet;
+        }
+
+        @Test
+        @DisplayName("openRuns：整页 2 个副本只发 1 次 IN 查询且宠物 ID 去重，不再逐行 selectById")
+        @SuppressWarnings("unchecked")
+        void openRuns_batchLoadsPetNamesOnce() {
+            PetPveRun first = fightingRun(1, 0, INITIATOR);
+            PetPveRun second = fightingRun(1, 0, INITIATOR);
+            second.setId(101L);
+            Page<PetPveRun> page = new Page<>(1, 10, 2);
+            page.setRecords(List.of(first, second));
+            when(runMapper.selectPage(any(), any())).thenReturn(page);
+            when(petMapper.selectBatchIds(any())).thenReturn(
+                    List.of(petRow(1L, "发起人宠"), petRow(2L, "队友宠")));
+
+            Page<PetPveRunVO> result = service.openRuns(1, 10);
+
+            ArgumentCaptor<Collection<Long>> idCaptor = ArgumentCaptor.forClass(Collection.class);
+            verify(petMapper, times(1)).selectBatchIds(idCaptor.capture());
+            assertThat(idCaptor.getValue()).containsExactlyInAnyOrder(1L, 2L);
+            verify(petMapper, never()).selectById(any());
+            assertThat(result.getRecords()).hasSize(2);
+            assertThat(result.getRecords())
+                    .extracting(PetPveRunVO::initiatorPetName)
+                    .containsOnly("发起人宠");
+            assertThat(result.getRecords())
+                    .extracting(PetPveRunVO::partnerPetName)
+                    .containsOnly("队友宠");
+        }
+
+        @Test
+        @DisplayName("空页不触发宠物名查询")
+        void openRuns_emptyPage_skipsBatchQuery() {
+            Page<PetPveRun> empty = new Page<>(1, 10, 0);
+            empty.setRecords(List.of());
+            when(runMapper.selectPage(any(), any())).thenReturn(empty);
+
+            Page<PetPveRunVO> result = service.openRuns(1, 10);
+
+            assertThat(result.getRecords()).isEmpty();
+            verify(petMapper, never()).selectBatchIds(any());
+        }
+
+        @Test
+        @DisplayName("detail：单局 2 个宠物名合并为 1 次 IN 查询")
+        void detail_batchLoadsPetNamesOnce() {
+            PetPveRun run = fightingRun(1, 0, INITIATOR);
+            when(runMapper.selectById(RUN_ID)).thenReturn(run);
+            when(petMapper.selectBatchIds(any())).thenReturn(
+                    List.of(petRow(1L, "发起人宠"), petRow(2L, "队友宠")));
+
+            PetPveRunVO vo = service.detail(INITIATOR, RUN_ID);
+
+            verify(petMapper, times(1)).selectBatchIds(any());
+            verify(petMapper, never()).selectById(any());
+            assertThat(vo.initiatorPetName()).isEqualTo("发起人宠");
+            assertThat(vo.partnerPetName()).isEqualTo("队友宠");
         }
     }
 }

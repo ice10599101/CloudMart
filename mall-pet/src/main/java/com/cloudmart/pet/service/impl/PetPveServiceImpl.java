@@ -32,10 +32,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
-import java.util.Random;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * 协作 PVE 副本（R03/R04 状态机重写）。
@@ -561,11 +565,22 @@ public class PetPveServiceImpl implements PetPveService {
 
     private Page<PetPveRunVO> toVoPage(Page<PetPveRun> result) {
         Page<PetPveRunVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
-        voPage.setRecords(result.getRecords().stream().map(r -> toVO(r, null, List.of())).toList());
+        // R30：整页宠物名一次批量加载（原逐行 2 次 selectById，每页最多 2N 次查询）
+        List<PetPveRun> runs = result.getRecords();
+        Map<Long, String> petNames = petNamesById(runs.stream()
+                .flatMap(run -> Stream.of(run.getInitiatorPetId(), run.getPartnerPetId()))
+                .toList());
+        voPage.setRecords(runs.stream().map(r -> toVO(r, null, List.of(), petNames)).toList());
         return voPage;
     }
 
     private PetPveRunVO toVO(PetPveRun run, Long viewerId, List<PetPveRunVO.RoundLog> rounds) {
+        return toVO(run, viewerId, rounds,
+                petNamesById(List.of(run.getInitiatorPetId(), run.getPartnerPetId())));
+    }
+
+    private PetPveRunVO toVO(PetPveRun run, Long viewerId, List<PetPveRunVO.RoundLog> rounds,
+                             Map<Long, String> petNames) {
         Long nextActor = run.getNextActorUserId();
         String blockedReason = null;
         boolean canAttack = false;
@@ -583,8 +598,8 @@ public class PetPveServiceImpl implements PetPveService {
         return new PetPveRunVO(
                 run.getId(), run.getBossCode(), run.getBossName(),
                 run.getBossMaxHp(), run.getBossHp(),
-                run.getInitiatorUserId(), petNameOf(run.getInitiatorPetId()),
-                run.getPartnerUserId(), petNameOf(run.getPartnerPetId()),
+                run.getInitiatorUserId(), petNames.get(run.getInitiatorPetId()),
+                run.getPartnerUserId(), petNames.get(run.getPartnerPetId()),
                 run.getInitiatorPetHp(), run.getPartnerPetHp() == null ? -1 : run.getPartnerPetHp(),
                 run.getStatus(), PetPveRun.REWARD_SETTLED.equals(run.getRewardStatus()), rounds,
                 run.getCreatedAt(), run.getFinishedAt(),
@@ -601,10 +616,20 @@ public class PetPveServiceImpl implements PetPveService {
         }
     }
 
-    private String petNameOf(Long petId) {
-        if (petId == null) return null;
-        Pet pet = petMapper.selectById(petId);
-        return pet != null ? pet.getName() : null;
+    /**
+     * R30：按宠物 ID 批量加载名称（单次 IN 查询）。
+     * 供列表整页 enrich 与单局详情复用，替代逐行 {@code selectById} 的 N+1 查询。
+     */
+    private Map<Long, String> petNamesById(Collection<Long> petIds) {
+        List<Long> distinctIds = petIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (distinctIds.isEmpty()) {
+            return Map.of();
+        }
+        return petMapper.selectBatchIds(distinctIds).stream()
+                .collect(Collectors.toMap(Pet::getId, Pet::getName, (first, second) -> first));
     }
 
     private String toJson(PetBattleEngine.Fighter fighter) {
