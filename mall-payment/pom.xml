@@ -122,6 +122,18 @@
             <groupId>org.apache.seata</groupId>
             <artifactId>seata-all</artifactId>
         </dependency>
+        <!-- R28-4：并发 IT——Testcontainers 真实 MySQL 9（CI 默认）；
+             授权环境经 PAYMENT_IT_MYSQL_HOST 直连专用 mysql-it(8307) 外部模式 -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-mysql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
