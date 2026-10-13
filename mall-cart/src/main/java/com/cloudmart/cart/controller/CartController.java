@@ -72,6 +72,7 @@ public class CartController {
     }
 
     @DeleteMapping
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     @Operation(summary = "清空购物车", description = "清空当前用户的购物车")
     public ApiResponse<Void> clearCart(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {

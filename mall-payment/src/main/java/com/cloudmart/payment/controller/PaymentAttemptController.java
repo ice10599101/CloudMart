@@ -50,6 +50,7 @@ public class PaymentAttemptController {
     }
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     @Operation(summary = "创建支付尝试", description = "R09：单订单单活动尝试；归属/金额服务端判定；"
             + "同渠道复用、换渠道关闭旧尝试（replacedPrevious=true 明示）；"
             + "returnUrl 必须命中服务端白名单；返回 attemptId/status/action/expiresAt 及 mock 回调载荷（仅 MOCK）")

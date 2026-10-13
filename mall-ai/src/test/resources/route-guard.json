@@ -1,0 +1,5 @@
+{
+  "exemptions": [
+    ["POST","/chat","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"]
+  ]
+}

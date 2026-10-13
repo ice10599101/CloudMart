@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,6 +30,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/internal/refunds")
+@PreAuthorize("hasRole('INTERNAL')")
 @RequiredArgsConstructor
 @Validated
 @Tag(name = "内部退款", description = "T02：订单服务专用退款接口（服务令牌 order:refund）")

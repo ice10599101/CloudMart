@@ -1,0 +1,12 @@
+{
+  "exemptions": [
+    ["POST","/rooms/{roomId}/leave","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/ws-tickets","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/rooms/{roomId}/enter","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/webrtc/signal","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/webrtc/tickets","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/webrtc/ice","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/seckill/rooms/{roomId}/execute","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["DELETE","/webrtc/signal/{roomId}","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"]
+  ]
+}

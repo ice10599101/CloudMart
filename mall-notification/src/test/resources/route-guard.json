@@ -1,0 +1,11 @@
+{
+  "exemptions": [
+    ["PUT","/conversations/{conversationId}/read","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/notifications/subscribe/bind","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/conversations","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/conversations/{conversationId}/messages","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["PUT","/notifications/{notificationId}/read","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["PUT","/conversations/messages/{messageId}/recall","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["PUT","/notifications/read-all","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"]
+  ]
+}

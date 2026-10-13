@@ -1,0 +1,14 @@
+{
+  "exemptions": [
+    ["DELETE","/users/addresses/{addressId}","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["PUT","/users/profile","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["PUT","/users/addresses/{addressId}","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/invites/bind","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/users/account-deletion","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["PUT","/users/addresses/{addressId}/default","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["PUT","/users/nickname","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/users/addresses","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["PUT","/users/password","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["DELETE","/users/account-deletion","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"]
+  ]
+}

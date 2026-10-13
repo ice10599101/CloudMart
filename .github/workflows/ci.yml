@@ -290,8 +290,19 @@ jobs:
           node-version: '26'
       - name: 路由权限清单 lint（S05：重复键/非法 YAML/必填字段）
         run: node scripts/ci/route-policy-lint.mjs
-      - name: 路由清单对照真实 Controller（T25：新增未归类写路由阻断；存量欠账见 baseline）
+      - name: 路由清单对照真实 Controller（T25 辅助检查；权威注解门禁见下一步 RouteGuardTest）
         run: node scripts/ci/route-inventory.mjs
+      - name: 设置 JDK（R27 路由注解门禁）
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '26'
+      - name: R27 路由注解门禁（Spring 真实解析：全限定/多路径/继承/@RequiresPermission，含 mall-pet）
+        run: >-
+          ./mvnw -B -ntp -pl mall-admin,mall-ai,mall-auth,mall-cart,mall-community,mall-coupon,
+          mall-file,mall-gen,mall-inventory,mall-job,mall-live,mall-marketing,mall-notification,
+          mall-order,mall-payment,mall-pet,mall-product,mall-risk,mall-seckill,mall-user,mall-wish,mall-wms
+          -am test -Dtest=RouteGuardTest -Dsurefire.failIfNoSpecifiedTests=false
       - name: 密钥泄漏扫描（gitleaks）
         uses: gitleaks/gitleaks-action@v2
         env:

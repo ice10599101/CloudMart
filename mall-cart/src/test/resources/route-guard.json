@@ -1,0 +1,9 @@
+{
+  "exemptions": [
+    ["DELETE","/checked/skus","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["DELETE","/items/{skuId}","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["PUT","/items/{skuId}","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/items","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["DELETE","/checked","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"]
+  ]
+}

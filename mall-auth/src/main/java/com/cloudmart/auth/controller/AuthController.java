@@ -38,6 +38,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ApiResponse<Void> logout(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         // SEC-02：登出必须由已验签的用户域令牌驱动（资源服务器保证 jwt 非空）；
@@ -49,6 +50,7 @@ public class AuthController {
 
     /** SEC-02：退出全部设备——认证状态版本递增 + 撤销全部刷新令牌家族 */
     @PostMapping("/logout-all")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ApiResponse<Void> logoutAll(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
         requireUserDomain(jwt);

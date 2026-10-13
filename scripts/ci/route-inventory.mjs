@@ -1,4 +1,15 @@
-// 路由清单对照门禁（T25 / ENG-01 落地）：
+// 路由清单对照门禁（T25 落地 / R27 后降级为辅助检查）：
+//   ⚠️ R27 起，权威路由门禁为各服务 src/test/**/routeguard/RouteGuardTest
+//   （基于 Spring RequestMappingHandlerMapping 真实解析，覆盖全限定注解、
+//   value/path、多路径、类级继承、mall-common @RequiresPermission/@RequiresAdmin，
+//   含 mall-pet；存量豁免逐项目录在各服务 src/test/resources/route-guard.json）。
+//
+//   本脚本保留为 route-policy.yaml 声明完整性的辅助 lint（正则扫描，已知盲区：
+//   不扫描 mall-pet；守卫在 mapping 注解上一行时不识别），其"已归类"口径不代表
+//   全部写路由均有真实守卫——权威结论以 Java 门禁 [R27] 输出（覆盖/公开/豁免/违规）
+//   为准。R27 已修正：空 value 裸注解按根路径处理（不再跨行误读兄弟注解字符串），
+//   守卫识别支持全限定 @PreAuthorize 与 @RequiresAdmin。
+//
 //   1. 扫描全部 mall-*/src/main/java/**/controller/*.java 的类级 @RequestMapping 前缀
 //      与方法级 @GetMapping/@PostMapping/@PutMapping/@DeleteMapping/@PatchMapping，
 //      枚举真实 HTTP 路由清单（method + path + 是否带 @PreAuthorize）。
@@ -99,6 +110,35 @@ function extractAnnPath(line) {
   return m ? m[1] : '';
 }
 
+/**
+ * 提取方法级 mapping 注解路径：仅在注解括号未闭合（多行注解）时向下跨行收集，
+ * 直到括号平衡。裸注解（如 @DeleteMapping）或同行已闭合时，绝不读取下一行——
+ * 下一行可能是兄弟注解（如 @PreAuthorize("isAuthenticated()")），其字符串
+ * 不是路径（R27：旧回退逻辑曾把守卫表达式误解析为 /isAuthenticated()）。
+ */
+function extractMappingPath(lines, i) {
+  const annIdx = lines[i].search(/@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping)\b/);
+  const head = lines[i].slice(annIdx);
+  let depth = 0;
+  let text = '';
+  for (let k = i; k < lines.length; k++) {
+    const chunk = k === i ? head : lines[k];
+    text += ' ' + chunk;
+    for (const ch of chunk) {
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+    }
+    if (depth <= 0) break;
+  }
+  const m = text.match(/"([^"]*)"/);
+  return m ? m[1] : '';
+}
+
+// 守卫注解：Spring 简名/全限定 @PreAuthorize，mall-common @RequiresPermission/@RequiresAdmin
+const GUARD_ANNOTATION_RE =
+  /^\s*@(org\.springframework\.security\.access\.prepost\.)?PreAuthorize\b|^\s*@(com\.cloudmart\.common\.annotation\.)?Requires(Permission|Admin)\b/;
+const mapRe = /^\s*@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping)\b/;
+
 function scanController(mod, file) {
   const src = readFileSync(file, 'utf8');
   const lines = src.split(/\r?\n/);
@@ -111,23 +151,22 @@ function scanController(mod, file) {
     if (!classPrefix && /^\s*@RequestMapping\(\s*"/.test(lines[i])) {
       classPrefix = extractAnnPath(lines[i]).replace(/\/$/, '');
     }
-    if (/^\s*@(PreAuthorize|RequiresPermission)/.test(lines[i])) classPreAuth = true;
+    // 守卫识别口径与 Java RouteGuardTest 对齐：支持全限定写法与 mall-common 两个注解
+    if (GUARD_ANNOTATION_RE.test(lines[i])) classPreAuth = true;
   }
 
-  const mapRe = /^\s*@(GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping)\b/;
   for (let i = 0; i < lines.length; i++) {
     const am = lines[i].match(mapRe);
     if (!am) continue;
     const httpMethod = am[1].replace(/Mapping$/, '').toUpperCase();
-    let subPath = extractAnnPath(lines[i]);
-    if (!subPath && i + 1 < lines.length) subPath = extractAnnPath(lines[i + 1]);
+    const subPath = extractMappingPath(lines, i);
 
     // 注解区：向下到下一个 mapping 注解/类结束为止；途中遇 public 即处理器方法
     // （@Operation description 等可跨多行，固定行数窗口会漏扫）
     let preAuth = classPreAuth;
     let isHandler = false;
     for (let j = i + 1; j < lines.length; j++) {
-      if (/^\s*@(PreAuthorize|RequiresPermission)/.test(lines[j])) preAuth = true;
+      if (GUARD_ANNOTATION_RE.test(lines[j])) preAuth = true;
       if (/^\s*public\s/.test(lines[j])) { isHandler = true; break; }
       if (mapRe.test(lines[j])) break; // 下一个 mapping：当前条目非处理器
       if (/^\s*public class /.test(lines[j])) break;
@@ -242,4 +281,8 @@ if (errors.length > 0) {
   );
   process.exit(1);
 }
-console.log('route-inventory PASS（T25）：全部写路由已归类，admin/internal 写端点均有显式守卫。');
+console.log(
+  `route-inventory PASS（T25 辅助检查；R27 权威注解门禁见各服务 RouteGuardTest）: 共 ${inventory.length} 条`
+  + `（写路由 ${writeRoutes.length} 条；策略条目 ${policy.length} 条；`
+  + `存量欠账 ${legacyCount} 条在基线内，新增未归类 ${unclassified.length} 条）；`
+  + '注意：本结果不含 mall-pet，真实覆盖数以 Java 门禁为准。');

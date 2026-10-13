@@ -1,0 +1,7 @@
+{
+  "exemptions": [
+    ["POST","/tcc/try","platform","存量TCC端点当前无在线调用方，随库存事务改造迁移/internal后删除豁免","2027-06-30"],
+    ["POST","/tcc/confirm/{xid}","platform","存量TCC端点当前无在线调用方，随库存事务改造迁移/internal后删除豁免","2027-06-30"],
+    ["POST","/tcc/cancel/{xid}","platform","存量TCC端点当前无在线调用方，随库存事务改造迁移/internal后删除豁免","2027-06-30"]
+  ]
+}

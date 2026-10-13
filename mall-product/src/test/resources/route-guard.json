@@ -1,0 +1,12 @@
+{
+  "exemptions": [
+    ["DELETE","/wishlists/{productId}","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["PUT","/admin/brands/{id}","platform","存量管理写端点缺方法级@PreAuthorize（网关/api/admin+服务令牌边界已鉴权），R27时间盒内按权限码分批补齐","2027-06-30"],
+    ["POST","/admin/brands","platform","存量管理写端点缺方法级@PreAuthorize（网关/api/admin+服务令牌边界已鉴权），R27时间盒内按权限码分批补齐","2027-06-30"],
+    ["POST","/reviews","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/products/{productId}/questions","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["DELETE","/admin/brands/{id}","platform","存量管理写端点缺方法级@PreAuthorize（网关/api/admin+服务令牌边界已鉴权），R27时间盒内按权限码分批补齐","2027-06-30"],
+    ["POST","/wishlists/{productId}","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"],
+    ["POST","/products/{productId}/questions/{questionId}/answer","platform","存量用户写端点缺方法级@PreAuthorize（网关+SecurityConfig边界已要求认证），R27时间盒内分批补齐","2027-06-30"]
+  ]
+}

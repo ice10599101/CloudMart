@@ -1,5 +1,5 @@
 {
-  "comment": "T25 存量未归类写路由基线（生成于本轮审计）——治理目标清零：修复一条删一条；新增未归类路由将被 CI 阻断，禁止把新条目加入本文件。",
+  "comment": "T25 存量未归类写路由基线（生成于本轮审计）——治理目标清零：修复一条删一条；新增未归类路由将被 CI 阻断，禁止把新条目加入本文件。R27：原基线由旧版正则扫描器生成，空 value 注解曾跨行误抓 @Operation summary/兄弟注解字符串形成污染 key（如 /posts/发布帖子、/shipping/hasRole('INTERNAL')）；扫描器修复后已将本文件 key 更正为 Spring 真实组合路径，并删除已真实补守卫的死条目（cart 清空购物车、wms shipping/warehouses）与已由 route-policy 覆盖的条目（product reviews）。同批存量口径不变，权威注解门禁为各服务 RouteGuardTest。",
   "generatedIn": "CloudMart 全栈审计改造（T25）",
   "entries": [
     {
@@ -23,19 +23,13 @@
     {
       "module": "mall-cart",
       "method": "DELETE",
-      "path": "/清空购物车",
-      "file": "mall-cart/src/main/java/com/cloudmart/cart/controller/CartController.java"
-    },
-    {
-      "module": "mall-cart",
-      "method": "DELETE",
       "path": "/checked/skus",
       "file": "mall-cart/src/main/java/com/cloudmart/cart/controller/CartController.java"
     },
     {
       "module": "mall-community",
       "method": "POST",
-      "path": "/browse-history/上报浏览足迹",
+      "path": "/browse-history",
       "file": "mall-community/src/main/java/com/cloudmart/community/controller/BrowseHistoryController.java"
     },
     {
@@ -65,7 +59,7 @@
     {
       "module": "mall-community",
       "method": "POST",
-      "path": "/polls/创建投票",
+      "path": "/polls",
       "file": "mall-community/src/main/java/com/cloudmart/community/controller/PollController.java"
     },
     {
@@ -77,7 +71,7 @@
     {
       "module": "mall-community",
       "method": "POST",
-      "path": "/posts/{postId}/comments/发表评论",
+      "path": "/posts/{postId}/comments",
       "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostCommentController.java"
     },
     {
@@ -89,7 +83,7 @@
     {
       "module": "mall-community",
       "method": "POST",
-      "path": "/posts/发布帖子",
+      "path": "/posts",
       "file": "mall-community/src/main/java/com/cloudmart/community/controller/PostController.java"
     },
     {
@@ -137,7 +131,7 @@
     {
       "module": "mall-community",
       "method": "POST",
-      "path": "/reports/提交举报",
+      "path": "/reports",
       "file": "mall-community/src/main/java/com/cloudmart/community/controller/ReportController.java"
     },
     {
@@ -149,7 +143,7 @@
     {
       "module": "mall-community",
       "method": "POST",
-      "path": "/surveys/创建问卷",
+      "path": "/surveys",
       "file": "mall-community/src/main/java/com/cloudmart/community/controller/SurveyController.java"
     },
     {
@@ -203,13 +197,13 @@
     {
       "module": "mall-community",
       "method": "PUT",
-      "path": "/settings/更新用户设置",
+      "path": "/settings",
       "file": "mall-community/src/main/java/com/cloudmart/community/controller/UserSettingController.java"
     },
     {
       "module": "mall-coupon",
       "method": "POST",
-      "path": "/coupon-templates/创建优惠券模板",
+      "path": "/coupon-templates",
       "file": "mall-coupon/src/main/java/com/cloudmart/coupon/controller/CouponController.java"
     },
     {
@@ -299,7 +293,7 @@
     {
       "module": "mall-notification",
       "method": "POST",
-      "path": "/conversations/创建会话",
+      "path": "/conversations",
       "file": "mall-notification/src/main/java/com/cloudmart/notification/controller/ChatController.java"
     },
     {
@@ -365,12 +359,6 @@
     {
       "module": "mall-product",
       "method": "POST",
-      "path": "/reviews/提交评价",
-      "file": "mall-product/src/main/java/com/cloudmart/product/controller/ReviewController.java"
-    },
-    {
-      "module": "mall-product",
-      "method": "POST",
       "path": "/wishlists/{productId}",
       "file": "mall-product/src/main/java/com/cloudmart/product/controller/WishlistController.java"
     },
@@ -383,19 +371,19 @@
     {
       "module": "mall-risk",
       "method": "POST",
-      "path": "/check/执行风控检查",
+      "path": "/check",
       "file": "mall-risk/src/main/java/com/cloudmart/risk/controller/RiskCheckController.java"
     },
     {
       "module": "mall-user",
       "method": "POST",
-      "path": "/users/account-deletion/申请全账号注销",
+      "path": "/users/account-deletion",
       "file": "mall-user/src/main/java/com/cloudmart/user/controller/AccountDeletionController.java"
     },
     {
       "module": "mall-user",
       "method": "DELETE",
-      "path": "/users/account-deletion/取消注销",
+      "path": "/users/account-deletion",
       "file": "mall-user/src/main/java/com/cloudmart/user/controller/AccountDeletionController.java"
     },
     {
@@ -407,7 +395,7 @@
     {
       "module": "mall-user",
       "method": "POST",
-      "path": "/users/addresses/新增收货地址",
+      "path": "/users/addresses",
       "file": "mall-user/src/main/java/com/cloudmart/user/controller/AddressController.java"
     },
     {
@@ -545,7 +533,7 @@
     {
       "module": "mall-wish",
       "method": "POST",
-      "path": "/wishes/发布心愿",
+      "path": "/wishes",
       "file": "mall-wish/src/main/java/com/cloudmart/wish/controller/WishController.java"
     },
     {
@@ -610,21 +598,9 @@
     },
     {
       "module": "mall-wms",
-      "method": "POST",
-      "path": "/shipping/hasRole('INTERNAL')",
-      "file": "mall-wms/src/main/java/com/cloudmart/wms/controller/ShippingController.java"
-    },
-    {
-      "module": "mall-wms",
       "method": "PUT",
       "path": "/shipping/{id}/status",
       "file": "mall-wms/src/main/java/com/cloudmart/wms/controller/ShippingController.java"
-    },
-    {
-      "module": "mall-wms",
-      "method": "POST",
-      "path": "/warehouses/创建仓库",
-      "file": "mall-wms/src/main/java/com/cloudmart/wms/controller/WarehouseController.java"
     },
     {
       "module": "mall-wms",
