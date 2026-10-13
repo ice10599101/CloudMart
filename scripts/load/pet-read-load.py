@@ -9,6 +9,9 @@ R30 扩展：纳入协作 PVE 列表（N+1 修复点），输出 p50/p95/p99 与
   GATEWAY=http://... ACCOUNT=... PASSWORD=... REQUESTS=200 CONCURRENCY=10 \
     python scripts/load/pet-read-load.py
   RESULT_CSV=baseline-before.csv ...   # 额外输出每端点 CSV
+
+免登录模式（凭据不经脚本；TOKEN 从浏览器/网关日志取，过期重取）：
+  GATEWAY=http://... TOKEN=eyJ... python scripts/load/pet-read-load.py
 """
 import csv
 import json
@@ -24,6 +27,8 @@ from typing import Optional
 GATEWAY = os.environ.get("GATEWAY", "http://127.0.0.1:8090")
 ACCOUNT = os.environ.get("ACCOUNT", "")
 PASSWORD = os.environ.get("PASSWORD", "")
+# 已签发的 JWT：提供时跳过账号密码登录（凭据不落命令行）
+TOKEN = os.environ.get("TOKEN", "")
 REQUESTS = int(os.environ.get("REQUESTS", "200"))
 CONCURRENCY = int(os.environ.get("CONCURRENCY", "10"))
 P95_BASELINE_MS = float(os.environ.get("P95_BASELINE_MS", "500"))
@@ -98,13 +103,17 @@ def percentile(sorted_samples: list[float], q: float) -> float:
 
 
 def main() -> None:
-    if not ACCOUNT or not PASSWORD:
-        print("请设置 ACCOUNT/PASSWORD（压测专用账号，勿用生产凭据）")
-        sys.exit(2)
-
-    token = login()
+    # 优先使用外部提供的已签发 token；没有才要求账号密码登录
+    token = TOKEN or None
+    if token:
+        print("使用 TOKEN 免登录模式（不发送账号密码）")
+    else:
+        if not ACCOUNT or not PASSWORD:
+            print("请设置 TOKEN（已签发 JWT）或 ACCOUNT/PASSWORD（压测专用账号）")
+            sys.exit(2)
+        token = login()
     rounds = max(1, REQUESTS // CONCURRENCY)
-    print(f"登录 OK：{rounds} 轮 × {len(PATHS)} 端点（并发 {CONCURRENCY}）= "
+    print(f"开始压测：{rounds} 轮 × {len(PATHS)} 端点（并发 {CONCURRENCY}）= "
           f"{rounds * len(PATHS)} 请求")
 
     latencies: dict[str, list[float]] = {p: [] for p in PATHS}
