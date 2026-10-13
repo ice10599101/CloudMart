@@ -15,4 +15,4 @@ CREATE TABLE IF NOT EXISTS `community_exp_daily_quota` (
     `updated_at`    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_user_date` (`user_id`, `business_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4_0900_ai_ci COMMENT='R21 社区经验日配额占用（行锁原子发放）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='R21 社区经验日配额占用（行锁原子发放）';
