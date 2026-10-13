@@ -5,7 +5,7 @@
  * 沿用 pet-cream 设计系统（奶油卡、挤出按钮、仪表色）。
  */
 import { useCallback, useEffect, useState } from 'react'
-import { App, ConfigProvider, Spin, theme as antdTheme } from 'antd'
+import { ConfigProvider, Spin, theme as antdTheme } from 'antd'
 import {
     getPetWallet,
     listPetWalletTransactions,

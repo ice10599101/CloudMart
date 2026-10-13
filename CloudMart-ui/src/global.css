@@ -71,8 +71,8 @@
 
 /* T22 直播心愿挂件主播设置入口（LiveRoom 信息区） */
 .wish-widget-config-btn {
-  background: rgba(233, 69, 96, 0.12);
-  border: 1px solid rgba(233, 69, 96, 0.45);
+  background: rgba(233, 69, 96, 12%);
+  border: 1px solid rgba(233, 69, 96, 45%);
   border-radius: 6px;
   color: #e94560;
   cursor: pointer;
@@ -82,5 +82,5 @@
 }
 
 .wish-widget-config-btn:hover {
-  background: rgba(233, 69, 96, 0.22);
+  background: rgba(233, 69, 96, 22%);
 }

@@ -11,9 +11,9 @@
 .tab {
   padding: 6px 14px;
   border-radius: var(--r-pill);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 30%);
   font-size: 13px;
   color: var(--mocha);
   cursor: pointer;
@@ -24,7 +24,7 @@
   color: var(--espresso);
   font-weight: 500;
   border-color: var(--brass-400);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 50%), 0 0 0 2px rgba(200, 155, 90, 18%);
 }
 
 .block {
@@ -50,7 +50,7 @@
 .annCard {
   padding: 16px 18px;
   border-radius: 120px 120px var(--r-lg) var(--r-lg);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF9, #F9EFE1);
   box-shadow: var(--z2), var(--edge);
   text-align: center;
@@ -87,10 +87,10 @@
 .shareCard {
   padding: 16px 18px;
   border-radius: var(--r-md);
-  border: 1px solid rgba(200, 155, 90, 0.5);
+  border: 1px solid rgba(200, 155, 90, 50%);
   background: linear-gradient(180deg, #FFFDF8, #F7EADA);
-  box-shadow: 0 3px 0 rgba(169, 124, 80, 0.35), var(--z1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: 0 3px 0 rgba(169, 124, 80, 35%), var(--z1),
+    inset 0 1px 0 rgba(255, 255, 255, 90%);
 }
 
 .shareTitle {
@@ -112,7 +112,7 @@
   margin-top: 10px;
   padding: 8px 12px;
   border-radius: var(--r-sm);
-  background: rgba(200, 155, 90, 0.14);
+  background: rgba(200, 155, 90, 14%);
   font-size: 13px;
   color: var(--brass-600);
 }
@@ -191,9 +191,9 @@
 .pick {
   padding: 6px 12px;
   border-radius: var(--r-pill);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 30%);
   font-size: 13px;
   color: var(--mocha);
   cursor: pointer;
@@ -204,7 +204,7 @@
   color: var(--espresso);
   font-weight: 500;
   border-color: var(--brass-400);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 50%), 0 0 0 2px rgba(200, 155, 90, 18%);
 }
 
 .inputRow {
@@ -216,7 +216,7 @@
 
 .input {
   background: #FFFDF8 !important;
-  border: 1px solid rgba(200, 155, 90, 0.45) !important;
+  border: 1px solid rgba(200, 155, 90, 45%) !important;
   border-radius: var(--r-pill) !important;
   color: var(--espresso) !important;
   height: 44px;
@@ -229,7 +229,7 @@
 
 .input:focus {
   border-color: var(--brass-400) !important;
-  box-shadow: 0 0 0 3px rgba(200, 155, 90, 0.15) !important;
+  box-shadow: 0 0 0 3px rgba(200, 155, 90, 15%) !important;
 }
 
 .note {

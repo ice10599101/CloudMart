@@ -4,7 +4,7 @@ import {
   ModalForm,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Tag, Popconfirm, Descriptions, Image, Rate, Input, Space, Alert } from 'antd'
+import { Button, Tag, Popconfirm, Descriptions, Image, Rate, Input, Alert } from 'antd'
 import {
   getReviews,
   updateReviewStatus,

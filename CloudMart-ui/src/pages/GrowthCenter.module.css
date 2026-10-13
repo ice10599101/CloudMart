@@ -120,7 +120,7 @@
 }
 
 .frameItem:hover {
-  background: rgba(233, 69, 96, 0.06);
+  background: rgba(233, 69, 96, 6%);
 }
 
 .frameItem:disabled {
@@ -175,6 +175,6 @@
 }
 
 .frameItemActive {
-  background: rgba(233, 69, 96, 0.1);
+  background: rgba(233, 69, 96, 10%);
   outline: 1px solid #e94560;
 }

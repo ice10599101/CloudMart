@@ -26,6 +26,57 @@ import { useMessage } from '@/utils/useMessage'
 
 const { Paragraph } = Typography
 
+/** 新增账号表单：username/nickname/password/角色多选（POST /admin/users 全字段走后端校验） */
+function CreateUserForm({ roles, onDone }: { roles: AdminRoleRow[]; onDone: () => void }) {
+  const message = useMessage()
+  const [username, setUsername] = useState('')
+  const [nickname, setNickname] = useState('')
+  const [password, setPassword] = useState('')
+  const [roleIds, setRoleIds] = useState<number[]>([])
+  const [saving, setSaving] = useState(false)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <input className="ant-input" placeholder="用户名（3-50 位，唯一）" value={username} onChange={(e) => setUsername(e.target.value)} />
+      <input className="ant-input" placeholder="昵称" value={nickname} onChange={(e) => setNickname(e.target.value)} />
+      <input className="ant-input" type="password" placeholder="初始密码（6-100 位）" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <Select
+        mode="multiple"
+        placeholder="选择角色"
+        value={roleIds}
+        onChange={setRoleIds}
+        options={roles.map((r) => ({ value: r.id, label: `${r.roleName}（${r.roleKey}）` }))}
+      />
+      <Button
+        type="primary"
+        loading={saving}
+        onClick={async () => {
+          if (username.trim().length < 3 || password.length < 6) {
+            message.warning('用户名至少 3 位、密码至少 6 位')
+            return
+          }
+          setSaving(true)
+          try {
+            await createAdminUser({
+              username: username.trim(),
+              nickname: nickname.trim() || username.trim(),
+              password,
+              roleIds,
+              status: 1,
+            })
+            message.success('账号已创建（SEC-03：初始密码请线下分发）')
+            onDone()
+          } finally {
+            setSaving(false)
+          }
+        }}
+      >
+        创建
+      </Button>
+    </div>
+  )
+}
+
 export default function AdminUsers() {
   const actionRef = useRef<ActionType>(null)
   const message = useMessage()
@@ -177,7 +228,7 @@ export default function AdminUsers() {
         destroyOnClose
       >
         <Paragraph type="secondary">
-          选择该账号可执行的功能域（T24：权限以接口动作拆分，角色下菜单/权限点在"角色管理"维护）。
+          选择该账号可执行的功能域（T24：权限以接口动作拆分，角色下菜单/权限点在“角色管理”维护）。
           账号基础信息（用户名/密码）创建后如需变更请用对应操作。
         </Paragraph>
         <Select
@@ -234,53 +285,3 @@ export default function AdminUsers() {
   )
 }
 
-/** 新增账号表单：username/nickname/password/角色多选（POST /admin/users 全字段走后端校验） */
-function CreateUserForm({ roles, onDone }: { roles: AdminRoleRow[]; onDone: () => void }) {
-  const message = useMessage()
-  const [username, setUsername] = useState('')
-  const [nickname, setNickname] = useState('')
-  const [password, setPassword] = useState('')
-  const [roleIds, setRoleIds] = useState<number[]>([])
-  const [saving, setSaving] = useState(false)
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <input className="ant-input" placeholder="用户名（3-50 位，唯一）" value={username} onChange={(e) => setUsername(e.target.value)} />
-      <input className="ant-input" placeholder="昵称" value={nickname} onChange={(e) => setNickname(e.target.value)} />
-      <input className="ant-input" type="password" placeholder="初始密码（6-100 位）" value={password} onChange={(e) => setPassword(e.target.value)} />
-      <Select
-        mode="multiple"
-        placeholder="选择角色"
-        value={roleIds}
-        onChange={setRoleIds}
-        options={roles.map((r) => ({ value: r.id, label: `${r.roleName}（${r.roleKey}）` }))}
-      />
-      <Button
-        type="primary"
-        loading={saving}
-        onClick={async () => {
-          if (username.trim().length < 3 || password.length < 6) {
-            message.warning('用户名至少 3 位、密码至少 6 位')
-            return
-          }
-          setSaving(true)
-          try {
-            await createAdminUser({
-              username: username.trim(),
-              nickname: nickname.trim() || username.trim(),
-              password,
-              roleIds,
-              status: 1,
-            })
-            message.success('账号已创建（SEC-03：初始密码请线下分发）')
-            onDone()
-          } finally {
-            setSaving(false)
-          }
-        }}
-      >
-        创建
-      </Button>
-    </div>
-  )
-}

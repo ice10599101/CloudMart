@@ -17,7 +17,6 @@ import {
     removePetFurniture,
     updatePetRoomSettings,
     updatePetRoomTheme,
-    visitPetHome,
     visitPetHomeEntry,
     type PetHome,
     type PetHomeItem,

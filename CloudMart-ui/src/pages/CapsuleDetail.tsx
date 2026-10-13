@@ -123,7 +123,7 @@ export default function CapsuleDetail() {
         return () => window.clearInterval(timer)
     }, [capsule, revealed])
 
-    const isOwner = user?.id != null && capsule?.userId != null
+    const isOwner = typeof user?.id === 'number' && typeof capsule?.userId === 'number'
         && String(user.id) === String(capsule.userId)
 
     const expired = useMemo(

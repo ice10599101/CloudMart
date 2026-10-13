@@ -40,7 +40,7 @@
   gap: 10px;
   padding: 12px 20px;
   border-radius: 14px;
-  background: rgba(255, 143, 61, 0.1);
+  background: rgba(255, 143, 61, 10%);
 }
 
 .streakIcon {
@@ -112,11 +112,11 @@
 }
 
 .cell {
-  color: var(--color-text, rgba(0, 0, 0, 0.88));
+  color: var(--color-text, rgba(0, 0, 0, 88%));
 }
 
 .cellSigned {
-  background: rgba(82, 196, 26, 0.1);
+  background: rgba(82, 196, 26, 10%);
   color: #52c41a;
   font-weight: 600;
 }

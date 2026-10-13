@@ -11,9 +11,9 @@
 .tab {
   padding: 6px 14px;
   border-radius: var(--r-pill);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 30%);
   font-size: 13px;
   color: var(--mocha);
   cursor: pointer;
@@ -24,7 +24,7 @@
   color: var(--espresso);
   font-weight: 500;
   border-color: var(--brass-400);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 50%), 0 0 0 2px rgba(200, 155, 90, 18%);
 }
 
 .summary {
@@ -63,7 +63,7 @@
 .levelCard {
   padding: 16px 18px;
   border-radius: 120px 120px var(--r-lg) var(--r-lg);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF9, #F9EFE1);
   box-shadow: var(--z2), var(--edge);
   text-align: center;
@@ -96,7 +96,7 @@
   inset: 0 auto 0 0;
   border-radius: var(--r-pill);
   background: linear-gradient(90deg, var(--rose-300), var(--brass-400));
-  box-shadow: inset 0 -3px 0 rgba(74, 63, 53, 0.14), inset 0 2px 0 rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 -3px 0 rgba(74, 63, 53, 14%), inset 0 2px 0 rgba(255, 255, 255, 50%);
   transition: width 400ms ease;
 }
 
@@ -122,8 +122,8 @@
 .ladderItem {
   padding: 8px 6px;
   border-radius: var(--r-sm);
-  border: 1px solid rgba(200, 155, 90, 0.3);
-  background: rgba(255, 253, 248, 0.7);
+  border: 1px solid rgba(200, 155, 90, 30%);
+  background: rgba(255, 253, 248, 70%);
   text-align: center;
   font-size: 12px;
   color: var(--mocha-light);
@@ -133,7 +133,7 @@
   border-color: var(--brass-400);
   background: linear-gradient(180deg, #FFFDF8, #F2E3CE);
   color: var(--espresso);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.35);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 35%);
 }
 
 .ladderLevel {
@@ -146,7 +146,7 @@
 .sessionCard {
   padding: 14px 16px;
   border-radius: var(--r-lg);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF9, #F7EADA);
   box-shadow: var(--z1), var(--edge);
 }
@@ -169,7 +169,7 @@
 .diaryItem {
   padding: 12px 14px;
   border-radius: var(--r-md);
-  border: 1px solid rgba(200, 155, 90, 0.35);
+  border: 1px solid rgba(200, 155, 90, 35%);
   background: linear-gradient(180deg, #FFFDF9, #FDF6EC);
   box-shadow: var(--z1);
   margin-bottom: 10px;
@@ -187,8 +187,8 @@
 .diaryType {
   padding: 2px 10px;
   border-radius: var(--r-pill);
-  background: rgba(200, 155, 90, 0.16);
-  border: 1px solid rgba(200, 155, 90, 0.4);
+  background: rgba(200, 155, 90, 16%);
+  border: 1px solid rgba(200, 155, 90, 40%);
   color: var(--brass-600);
 }
 
@@ -218,7 +218,7 @@
 .albumItem {
   position: relative;
   border-radius: var(--r-sm);
-  border: 1px solid rgba(200, 155, 90, 0.4);
+  border: 1px solid rgba(200, 155, 90, 40%);
   overflow: hidden;
   background: var(--cream-100);
   box-shadow: var(--z1);
@@ -248,7 +248,7 @@
   min-height: 44px;
   padding: 0 20px;
   border-radius: var(--r-pill);
-  border: 1px solid rgba(200, 155, 90, 0.55);
+  border: 1px solid rgba(200, 155, 90, 55%);
   background: transparent;
   color: var(--mocha);
   font-size: 14px;
@@ -257,14 +257,14 @@
 }
 
 .filePick:hover {
-  background: rgba(253, 246, 236, 0.7);
+  background: rgba(253, 246, 236, 70%);
 }
 
 /* 记忆 */
 .memoryItem {
   padding: 12px 14px;
   border-radius: var(--r-md);
-  border: 1px solid rgba(200, 155, 90, 0.35);
+  border: 1px solid rgba(200, 155, 90, 35%);
   background: linear-gradient(180deg, #FFFDF9, #FDF6EC);
   box-shadow: var(--z1);
   margin-bottom: 10px;
@@ -349,9 +349,9 @@
 .pick {
   padding: 6px 12px;
   border-radius: var(--r-pill);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 30%);
   font-size: 13px;
   color: var(--mocha);
   cursor: pointer;
@@ -362,7 +362,7 @@
   color: var(--espresso);
   font-weight: 500;
   border-color: var(--brass-400);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 50%), 0 0 0 2px rgba(200, 155, 90, 18%);
 }
 
 .inputRow {
@@ -373,7 +373,7 @@
 
 .input {
   background: #FFFDF8 !important;
-  border: 1px solid rgba(200, 155, 90, 0.45) !important;
+  border: 1px solid rgba(200, 155, 90, 45%) !important;
   border-radius: var(--r-pill) !important;
   color: var(--espresso) !important;
   height: 44px;
@@ -386,7 +386,7 @@
 
 .input:focus {
   border-color: var(--brass-400) !important;
-  box-shadow: 0 0 0 3px rgba(200, 155, 90, 0.15) !important;
+  box-shadow: 0 0 0 3px rgba(200, 155, 90, 15%) !important;
 }
 
 .note {

@@ -240,7 +240,7 @@ export default function SocialBoard({ myPetId, onChanged }: {
     }, [loadRelations, message, relMessage, relTarget, relType, run])
 
     const handleRelation = useCallback(async (relationId: number | string | null, accept: boolean) => {
-        if (relationId == null) return
+        if (relationId === null) return
         const res = await run(`rel-${accept ? 'accept' : 'reject'}:${relationId}`,
             () => (accept ? acceptPetRelation(relationId) : rejectPetRelation(relationId)))
         if (res?.success) {
@@ -250,7 +250,7 @@ export default function SocialBoard({ myPetId, onChanged }: {
     }, [loadRelations, message, run])
 
     const dissolveRelation = useCallback(async (relationId: number | string | null) => {
-        if (relationId == null) return
+        if (relationId === null) return
         const res = await run(`rel-dissolve:${relationId}`, () => dissolvePetRelation(relationId))
         if (res?.success) {
             message.success('已解除关系')

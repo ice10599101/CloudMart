@@ -667,7 +667,7 @@ export default function LiveRoomPage() {
             {room.startTime && <div>开播：{new Date(room.startTime).toLocaleString()}</div>}
           </div>
           {/* T22：主播本人挂件设置入口（观众不可见） */}
-          {user?.id != null && user.id === room.anchorUserId && (
+          {typeof user?.id === 'number' && user.id === room.anchorUserId && (
             <div style={{ marginTop: 10 }}>
               <WishLiveWidgetConfig streamerId={room.anchorUserId} isAnchor />
             </div>

@@ -11,9 +11,9 @@
 .tab {
   padding: 6px 14px;
   border-radius: var(--r-pill);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 30%);
   font-size: 13px;
   color: var(--mocha);
   cursor: pointer;
@@ -24,7 +24,7 @@
   color: var(--espresso);
   font-weight: 500;
   border-color: var(--brass-400);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 50%), 0 0 0 2px rgba(200, 155, 90, 18%);
 }
 
 .summary {
@@ -77,7 +77,7 @@
   width: 30px;
   text-align: center;
   font-size: 22px;
-  filter: drop-shadow(0 2px 2px rgba(74, 63, 53, 0.14));
+  filter: drop-shadow(0 2px 2px rgba(74, 63, 53, 14%));
 }
 
 .rowMain {
@@ -118,9 +118,9 @@
 .pick {
   padding: 6px 12px;
   border-radius: var(--r-pill);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 30%);
   font-size: 13px;
   color: var(--mocha);
   cursor: pointer;
@@ -131,7 +131,7 @@
   color: var(--espresso);
   font-weight: 500;
   border-color: var(--brass-400);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 50%), 0 0 0 2px rgba(200, 155, 90, 18%);
 }
 
 .pickNote {
@@ -157,8 +157,8 @@
   padding: 2px 10px;
   border-radius: var(--r-pill);
   font-size: 11px;
-  background: rgba(200, 155, 90, 0.16);
-  border: 1px solid rgba(200, 155, 90, 0.4);
+  background: rgba(200, 155, 90, 16%);
+  border: 1px solid rgba(200, 155, 90, 40%);
   color: var(--brass-600);
   white-space: nowrap;
 }
@@ -180,7 +180,7 @@
 .wallCard {
   padding: 12px 14px;
   border-radius: var(--r-md);
-  border: 1px solid rgba(200, 155, 90, 0.4);
+  border: 1px solid rgba(200, 155, 90, 40%);
   background: linear-gradient(180deg, #FFFDF9, #F9EFE1);
   box-shadow: var(--z1);
   margin-bottom: 10px;
@@ -245,7 +245,7 @@
 
 .input {
   background: #FFFDF8 !important;
-  border: 1px solid rgba(200, 155, 90, 0.45) !important;
+  border: 1px solid rgba(200, 155, 90, 45%) !important;
   border-radius: var(--r-pill) !important;
   color: var(--espresso) !important;
   height: 44px;
@@ -258,7 +258,7 @@
 
 .input:focus {
   border-color: var(--brass-400) !important;
-  box-shadow: 0 0 0 3px rgba(200, 155, 90, 0.15) !important;
+  box-shadow: 0 0 0 3px rgba(200, 155, 90, 15%) !important;
 }
 
 .pager {

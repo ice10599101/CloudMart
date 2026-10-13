@@ -5,7 +5,6 @@ import { Button, Modal, Popconfirm, Tag, Tree, Typography, Input } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   listAdminRoles,
-  getAdminRole,
   createAdminRole,
   updateAdminRole,
   deleteAdminRole,
@@ -32,13 +31,43 @@ interface MenuTreeNode {
   menuType?: string
 }
 
+function EditRoleForm({ role, onDone }: { role: AdminRoleRow; onDone: () => void }) {
+  const message = useMessage()
+  const [roleName, setRoleName] = useState(role.roleName)
+  const [remark, setRemark] = useState(role.remark ?? '')
+  const [saving, setSaving] = useState(false)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <Input value={roleName} onChange={(e) => setRoleName(e.target.value)} placeholder="角色名" />
+      <Input value={role.roleKey} disabled placeholder="权限字符（创建后不可改）" />
+      <Input value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="备注" />
+      <Button
+        type="primary"
+        loading={saving}
+        onClick={async () => {
+          setSaving(true)
+          try {
+            await updateAdminRole(role.id, { roleName, remark })
+            message.success('角色已更新')
+            onDone()
+          } finally {
+            setSaving(false)
+          }
+        }}
+      >
+        保存
+      </Button>
+    </div>
+  )
+}
+
 export default function Roles() {
   const actionRef = useRef<ActionType>(null)
   const message = useMessage()
   const [modalVisible, setModalVisible] = useState(false)
   const [editing, setEditing] = useState<AdminRoleRow | null>(null)
   const [menuTree, setMenuTree] = useState<MenuTreeNode[]>([])
-  const [checkedKeys, setCheckedKeys] = useState<number[]>([])
   const [menuOpen, setMenuOpen] = useState<AdminRoleRow | null>(null)
   const [roleMenuChecked, setRoleMenuChecked] = useState<number[]>([])
   const [createOpen, setCreateOpen] = useState(false)
@@ -188,7 +217,7 @@ export default function Roles() {
           <Input placeholder="角色名（如：客服运营）" value={newRole.roleName} onChange={(e) => setNewRole({ ...newRole, roleName: e.target.value })} />
           <Input placeholder="权限字符（唯一，如 customer_service）" value={newRole.roleKey} onChange={(e) => setNewRole({ ...newRole, roleKey: e.target.value })} />
           <Input placeholder="备注（职责边界说明）" value={newRole.remark} onChange={(e) => setNewRole({ ...newRole, remark: e.target.value })} />
-          <Text type="secondary">创建后在列表"菜单权限"中勾选该角色的能力范围。</Text>
+          <Text type="secondary">创建后在列表“菜单权限”中勾选该角色的能力范围。</Text>
           <Button
             type="primary"
             loading={saving}
@@ -217,33 +246,3 @@ export default function Roles() {
   )
 }
 
-function EditRoleForm({ role, onDone }: { role: AdminRoleRow; onDone: () => void }) {
-  const message = useMessage()
-  const [roleName, setRoleName] = useState(role.roleName)
-  const [remark, setRemark] = useState(role.remark ?? '')
-  const [saving, setSaving] = useState(false)
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <Input value={roleName} onChange={(e) => setRoleName(e.target.value)} placeholder="角色名" />
-      <Input value={role.roleKey} disabled placeholder="权限字符（创建后不可改）" />
-      <Input value={remark} onChange={(e) => setRemark(e.target.value)} placeholder="备注" />
-      <Button
-        type="primary"
-        loading={saving}
-        onClick={async () => {
-          setSaving(true)
-          try {
-            await updateAdminRole(role.id, { roleName, remark })
-            message.success('角色已更新')
-            onDone()
-          } finally {
-            setSaving(false)
-          }
-        }}
-      >
-        保存
-      </Button>
-    </div>
-  )
-}

@@ -11,9 +11,9 @@
 .tab {
   padding: 6px 14px;
   border-radius: var(--r-pill);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 30%);
   font-size: 13px;
   color: var(--mocha);
   cursor: pointer;
@@ -24,7 +24,7 @@
   color: var(--espresso);
   font-weight: 500;
   border-color: var(--brass-400);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 50%), 0 0 0 2px rgba(200, 155, 90, 18%);
 }
 
 .block {
@@ -50,7 +50,7 @@
 .gameCard {
   padding: 14px 16px;
   border-radius: var(--r-lg);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF9, #F7EADA);
   box-shadow: var(--z1), var(--edge);
 }
@@ -82,16 +82,16 @@
   place-items: center;
   min-height: 44px;
   border-radius: var(--r-sm);
-  border: 1px dashed rgba(169, 124, 80, 0.45);
-  background: rgba(255, 253, 248, 0.6);
+  border: 1px dashed rgba(169, 124, 80, 45%);
+  background: rgba(255, 253, 248, 60%);
   font-size: 16px;
   color: var(--mocha-light);
 }
 
 .gameCellDone {
   border-style: solid;
-  border-color: rgba(126, 146, 112, 0.6);
-  background: rgba(156, 175, 136, 0.18);
+  border-color: rgba(126, 146, 112, 60%);
+  background: rgba(156, 175, 136, 18%);
   color: var(--sage-500);
 }
 
@@ -99,7 +99,7 @@
   border-style: solid;
   border-color: var(--brass-400);
   background: linear-gradient(180deg, #FFFDF8, #F2E3CE);
-  box-shadow: 0 0 0 2px rgba(200, 155, 90, 0.22);
+  box-shadow: 0 0 0 2px rgba(200, 155, 90, 22%);
   color: var(--espresso);
 }
 
@@ -112,9 +112,9 @@
 .slotBtn {
   min-height: 52px;
   border-radius: var(--r-md);
-  border: 1px solid rgba(200, 155, 90, 0.5);
+  border: 1px solid rgba(200, 155, 90, 50%);
   background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
-  box-shadow: 0 3px 0 rgba(169, 124, 80, 0.35), var(--z1);
+  box-shadow: 0 3px 0 rgba(169, 124, 80, 35%), var(--z1);
   font-size: 15px;
   color: var(--espresso);
   cursor: pointer;
@@ -122,7 +122,7 @@
 
 .slotBtn:active {
   transform: translateY(2px);
-  box-shadow: 0 1px 0 rgba(169, 124, 80, 0.35);
+  box-shadow: 0 1px 0 rgba(169, 124, 80, 35%);
 }
 
 .slotBtn:disabled {
@@ -143,8 +143,8 @@
   margin-top: 12px;
   padding: 12px 14px;
   border-radius: var(--r-md);
-  border: 1px solid rgba(200, 155, 90, 0.45);
-  background: rgba(255, 253, 248, 0.9);
+  border: 1px solid rgba(200, 155, 90, 45%);
+  background: rgba(255, 253, 248, 90%);
   font-size: 13px;
   color: var(--espresso);
 }
@@ -206,7 +206,7 @@
 .collectCard {
   padding: 10px 12px;
   border-radius: var(--r-md);
-  border: 1px solid rgba(200, 155, 90, 0.35);
+  border: 1px solid rgba(200, 155, 90, 35%);
   background: linear-gradient(180deg, #FFFDF9, #FDF6EC);
   box-shadow: var(--z1);
   font-size: 13px;
@@ -214,7 +214,7 @@
 }
 
 .collectLocked {
-  background: rgba(242, 227, 206, 0.6);
+  background: rgba(242, 227, 206, 60%);
   color: var(--mocha);
   box-shadow: none;
 }
@@ -236,9 +236,9 @@
 .pick {
   padding: 6px 12px;
   border-radius: var(--r-pill);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 30%);
   font-size: 13px;
   color: var(--mocha);
   cursor: pointer;
@@ -249,7 +249,7 @@
   color: var(--espresso);
   font-weight: 500;
   border-color: var(--brass-400);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 50%), 0 0 0 2px rgba(200, 155, 90, 18%);
 }
 
 .pager {

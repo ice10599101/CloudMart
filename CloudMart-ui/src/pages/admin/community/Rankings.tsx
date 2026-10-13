@@ -164,7 +164,7 @@ export default function Rankings() {
       />
 
       <Modal
-        open={detailSeason != null}
+        open={detailSeason !== null}
         title={`赛季榜单详情：${detailSeason?.name ?? ''}`}
         footer={null}
         onCancel={() => setDetailSeason(null)}

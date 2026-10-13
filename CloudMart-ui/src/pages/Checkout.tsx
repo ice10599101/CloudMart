@@ -751,7 +751,7 @@ export default function Checkout() {
                     style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, paddingLeft: 12 }}
                   >
                     <span style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
-                      {line.type === 'TIERED' ? `满减：${line.name ?? '活动'}${line.minAmount != null ? `（满 ¥${Number(line.minAmount).toFixed(0)}）` : ''}` : `优惠券：${line.name ?? ''}`}
+                      {line.type === 'TIERED' ? `满减：${line.name ?? '活动'}${line.minAmount !== undefined && line.minAmount !== null ? `（满 ¥${Number(line.minAmount).toFixed(0)}）` : ''}` : `优惠券：${line.name ?? ''}`}
                     </span>
                     <span style={{ color: 'var(--color-primary)', fontSize: 12 }}>
                       -¥{Number(line.amount).toFixed(2)}

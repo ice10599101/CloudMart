@@ -118,6 +118,7 @@ export default function WishDetail() {
   const [refreshTick, setRefreshTick] = useState(0)
   const [blessTick, setBlessTick] = useState(0)
   const [checkedInToday, setCheckedInToday] = useState(false)
+  const { message } = App.useApp()
   // ---- 心愿 v2：目标清单 / 归档 / 举报 / 成长完整时间轴 ----
   const [goals, setGoals] = useState<WishGoalStep[]>([])
   const [goalsOpen, setGoalsOpen] = useState(false)
@@ -159,7 +160,6 @@ export default function WishDetail() {
   const [timelineHasMore, setTimelineHasMore] = useState(false)
   const [timelineLoading, setTimelineLoading] = useState(false)
 
-  const { message } = App.useApp()
   const { user } = useAuthStore()
 
   useEffect(() => {
@@ -686,7 +686,7 @@ export default function WishDetail() {
               </Button>
             )}
             {/* T22 申诉闭环：仅作者且后端透出可申诉决定 ID（7 日窗口内） */}
-            {wish.moderationDecisionId != null && (
+            {wish.moderationDecisionId !== undefined && wish.moderationDecisionId !== null && (
               <Button icon={<WarningOutlined />} onClick={() => setAppealOpen(true)}>
                 申诉
               </Button>
@@ -1155,6 +1155,31 @@ export default function WishDetail() {
           placeholder="如：内容为原创分享，未违反社区规范，请复核……"
         />
       </Modal>
+
+      {/* 举报心愿：非作者可见入口；提交后走统一举报中心查询进度 */}
+      <Modal
+        open={reportOpen}
+        title="举报该心愿"
+        okText="提交举报"
+        cancelText="取消"
+        onOk={handleReportWish}
+        onCancel={() => setReportOpen(false)}
+        confirmLoading={reportSaving}
+        destroyOnClose
+      >
+        <p style={{ marginBottom: 12 }}>
+          请填写举报说明（必填，1-500 字）。恶意举报将影响账号信用，处理进度可在设置页「我的举报与申诉」查看。
+        </p>
+        <Input.TextArea
+          value={reportReason}
+          onChange={(e) => setReportReason(e.target.value)}
+          maxLength={500}
+          showCount
+          autoSize={{ minRows: 4, maxRows: 8 }}
+          placeholder="如：涉嫌广告引流、虚假内容、人身攻击……"
+        />
+      </Modal>
+
       <Modal
         open={inheritOpen}
         title="传承给同路人"

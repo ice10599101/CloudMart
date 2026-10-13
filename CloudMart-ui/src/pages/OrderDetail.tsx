@@ -12,7 +12,7 @@ import {
 } from '@ant-design/icons'
 import { history, useParams } from 'umi'
 import { fetchOrderById, cancelOrder, confirmReceipt, requestRefund } from '@/api/order'
-import { applyAfterSale, cancelAfterSale, getAfterSaleDetail, type AfterSaleCase } from '@/api/afterSale'
+import { applyAfterSale, type AfterSaleCase } from '@/api/afterSale'
 import { type Order, type OrderStatus, ORDER_STATUS_LABELS } from '@/types'
 import OrderItemReview from '@/components/OrderItemReview'
 
@@ -589,7 +589,7 @@ export default function OrderDetail() {
                     ¥{order.payAmount.toFixed(2)}
                   </span>
                 </div>
-                {order.refundedAmount != null && order.refundedAmount > 0 && (
+                {typeof order.refundedAmount === 'number' && order.refundedAmount > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 8 }}>
                     <span style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>
                       已退金额{order.refundStatus === 'PARTIAL' ? '（部分退款）' : '（全额退款）'}

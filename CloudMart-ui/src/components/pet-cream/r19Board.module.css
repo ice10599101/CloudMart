@@ -10,9 +10,9 @@
 .tab {
   padding: 6px 14px;
   border-radius: var(--r-pill);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF8, #F9EFE1);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.3);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 30%);
   font-size: 13px;
   color: var(--mocha);
   cursor: pointer;
@@ -23,7 +23,7 @@
   color: var(--espresso);
   font-weight: 500;
   border-color: var(--brass-400);
-  box-shadow: 0 2px 0 rgba(169, 124, 80, 0.5), 0 0 0 2px rgba(200, 155, 90, 0.18);
+  box-shadow: 0 2px 0 rgba(169, 124, 80, 50%), 0 0 0 2px rgba(200, 155, 90, 18%);
 }
 
 .toolbar {
@@ -113,7 +113,7 @@
   padding: 12px 14px;
   margin-bottom: 8px;
   border-radius: var(--r-md);
-  border: 1px solid rgba(200, 155, 90, 0.4);
+  border: 1px solid rgba(200, 155, 90, 40%);
   background: linear-gradient(180deg, #FFFDF9, #FDF6EC);
   box-shadow: var(--z1);
 }
@@ -154,9 +154,9 @@
 .hpTrack {
   height: 12px;
   border-radius: var(--r-pill);
-  background: rgba(169, 124, 80, 0.16);
+  background: rgba(169, 124, 80, 16%);
   overflow: hidden;
-  box-shadow: inset 0 1px 3px rgba(169, 124, 80, 0.3);
+  box-shadow: inset 0 1px 3px rgba(169, 124, 80, 30%);
 }
 
 .hpFill {
@@ -207,8 +207,8 @@
   max-height: 180px;
   overflow-y: auto;
   border-radius: var(--r-md);
-  border: 1px dashed rgba(169, 124, 80, 0.4);
-  background: rgba(255, 253, 248, 0.7);
+  border: 1px dashed rgba(169, 124, 80, 40%);
+  background: rgba(255, 253, 248, 70%);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -238,7 +238,7 @@
 .hero {
   padding: 14px 16px;
   border-radius: var(--r-lg);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF9, #F7EADA);
   box-shadow: var(--z1), var(--edge);
   margin-bottom: 12px;
@@ -301,7 +301,7 @@
 .entitlementHero {
   padding: 14px 16px;
   border-radius: var(--r-lg);
-  border: 1px solid rgba(200, 155, 90, 0.45);
+  border: 1px solid rgba(200, 155, 90, 45%);
   background: linear-gradient(180deg, #FFFDF9, #F7EADA);
   box-shadow: var(--z1), var(--edge);
   font-size: 15px;
@@ -330,8 +330,8 @@
   margin-top: 10px;
   padding: 10px 12px;
   border-radius: var(--r-md);
-  border: 1px solid rgba(200, 155, 90, 0.4);
-  background: rgba(255, 253, 248, 0.9);
+  border: 1px solid rgba(200, 155, 90, 40%);
+  background: rgba(255, 253, 248, 90%);
   font-size: 13px;
   color: var(--espresso);
   line-height: 1.7;

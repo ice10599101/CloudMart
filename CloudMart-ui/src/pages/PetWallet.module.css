@@ -4,7 +4,7 @@
   min-height: 100vh;
   padding: 24px 20px 48px;
   background:
-    radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 42%),
+    radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 85%), rgba(255, 255, 255, 0%) 42%),
     linear-gradient(180deg, #FDF6EC 0%, #F7EADA 100%);
   color: #4A3F35;
 }
@@ -28,7 +28,7 @@
   font-weight: 600;
   letter-spacing: 1px;
   margin: 0;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 90%);
 }
 
 .mastheadSub {
@@ -40,8 +40,8 @@
 
 .mastheadRule {
   height: 4px;
-  border-top: 1px solid rgba(200, 155, 90, 0.55);
-  border-bottom: 1px solid rgba(231, 220, 203, 0.9);
+  border-top: 1px solid rgba(200, 155, 90, 55%);
+  border-bottom: 1px solid rgba(231, 220, 203, 90%);
 }
 
 .balance {
