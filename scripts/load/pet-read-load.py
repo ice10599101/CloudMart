@@ -49,7 +49,8 @@ PATHS = [
 
 
 def call(method: str, path: str, body: Optional[dict] = None,
-         token: Optional[str] = None) -> tuple[int, float]:
+         token: Optional[str] = None) -> tuple[int, float, str]:
+    """返回 (HTTP状态码, 毫秒, 响应体文本)。网络层失败状态码记 0。"""
     req = urllib.request.Request(
         GATEWAY + path,
         data=json.dumps(body).encode() if body is not None else None,
@@ -61,13 +62,13 @@ def call(method: str, path: str, body: Optional[dict] = None,
     start = time.monotonic()
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            resp.read()
-            return resp.status, (time.monotonic() - start) * 1000
+            text = resp.read().decode("utf-8", errors="replace")
+            return resp.status, (time.monotonic() - start) * 1000, text
     except urllib.error.HTTPError as e:
-        e.read()
-        return e.code, (time.monotonic() - start) * 1000
-    except Exception:
-        return 0, (time.monotonic() - start) * 1000
+        text = e.read().decode("utf-8", errors="replace")
+        return e.code, (time.monotonic() - start) * 1000, text
+    except Exception as exc:
+        return 0, (time.monotonic() - start) * 1000, f"NETWORK_ERROR: {exc}"
 
 
 def login() -> str:
@@ -117,13 +118,26 @@ def main() -> None:
           f"{rounds * len(PATHS)} 请求")
 
     latencies: dict[str, list[float]] = {p: [] for p in PATHS}
-    errors: dict[str, int] = {p: 0 for p in PATHS}
+    # 错误按性质分桶：4xx=业务态（如未领养宠物）、5xx=服务端错误、0=网络错误
+    err_4xx: dict[str, int] = {p: 0 for p in PATHS}
+    err_5xx: dict[str, int] = {p: 0 for p in PATHS}
+    err_net: dict[str, int] = {p: 0 for p in PATHS}
+    # 每个端点保留首个非 200 响应作为诊断样本（线程安全由 GIL 下赋值原子性保证）
+    first_error_sample: dict[str, tuple[int, str]] = {}
 
     def worker(path: str) -> None:
-        status, ms = call("GET", path, token=token)
+        status, ms, body = call("GET", path, token=token)
         latencies[path].append(ms)
-        if status != 200:
-            errors[path] += 1
+        if status == 200:
+            return
+        if status == 0:
+            err_net[path] += 1
+        elif 400 <= status < 500:
+            err_4xx[path] += 1
+        else:
+            err_5xx[path] += 1
+        if path not in first_error_sample:
+            first_error_sample[path] = (status, body[:300])
 
     start_all = time.monotonic()
     with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
@@ -132,10 +146,13 @@ def main() -> None:
     wall = time.monotonic() - start_all
 
     total_calls = sum(len(v) for v in latencies.values())
-    total_errors = sum(errors.values())
+    total_4xx = sum(err_4xx.values())
+    total_5xx = sum(err_5xx.values())
+    total_net = sum(err_net.values())
+    total_hard_errors = total_5xx + total_net
     rows = []
     print(f"\n{'端点':<42}{'n':>5}{'p50':>9}{'p95':>9}{'p99':>9}{'max':>9}"
-          f"{'err':>5}{'err%':>7}")
+          f"{'4xx':>5}{'5xx':>5}{'net':>5}")
     all_p95 = []
     for path in PATHS:
         samples = sorted(latencies[path])
@@ -145,16 +162,21 @@ def main() -> None:
         p95 = percentile(samples, 0.95)
         p99 = percentile(samples, 0.99)
         mx = samples[-1]
-        err_rate = errors[path] / len(samples) * 100
         all_p95.append(p95)
         rows.append({
             "endpoint": path, "n": len(samples),
             "p50_ms": round(p50, 1), "p95_ms": round(p95, 1),
             "p99_ms": round(p99, 1), "max_ms": round(mx, 1),
-            "errors": errors[path], "error_rate_pct": round(err_rate, 2),
+            "err_4xx": err_4xx[path], "err_5xx": err_5xx[path],
+            "err_network": err_net[path],
         })
         print(f"{path:<42}{len(samples):>5}{p50:>8.0f}ms{p95:>8.0f}ms"
-              f"{p99:>8.0f}ms{mx:>8.0f}ms{errors[path]:>5}{err_rate:>6.1f}%")
+              f"{p99:>8.0f}ms{mx:>8.0f}ms{err_4xx[path]:>5}{err_5xx[path]:>5}{err_net[path]:>5}")
+
+    if first_error_sample:
+        print("\n非 200 响应样本（每端点首个，用于区分业务态与系统故障）：")
+        for path, (status, body) in first_error_sample.items():
+            print(f"  [{status}] {path}\n        {body}")
 
     if RESULT_CSV:
         with open(RESULT_CSV, "w", newline="", encoding="utf-8") as fh:
@@ -164,11 +186,16 @@ def main() -> None:
         print(f"\nCSV 已写入：{RESULT_CSV}")
 
     worst_p95 = max(all_p95) if all_p95 else 0.0
-    passed = worst_p95 <= P95_BASELINE_MS and total_errors == 0
+    # 判定口径：p95 达标且无 5xx/网络错误即 PASS；4xx 多为压测账号业务态（如未领养宠物），
+    # 单独提示不计入系统失败，但必须在结论中说明
+    passed = worst_p95 <= P95_BASELINE_MS and total_hard_errors == 0
     verdict = "PASS" if passed else "FAIL"
     print(f"\n墙钟: {wall:.1f}s · 吞吐: {total_calls / wall:.0f} req/s · "
-          f"错误 {total_errors}/{total_calls} · p95 最差端点 {worst_p95:.0f}ms"
-          f"（基线 {P95_BASELINE_MS:.0f}ms）→ {verdict}")
+          f"非200: 4xx={total_4xx}(业务态) 5xx={total_5xx} net={total_net} · "
+          f"p95 最差端点 {worst_p95:.0f}ms（基线 {P95_BASELINE_MS:.0f}ms）→ {verdict}")
+    if total_4xx and total_hard_errors == 0:
+        print("提示：存在 4xx 业务响应（见上方样本），通常是压测账号缺少前置数据"
+              "（如未领养宠物），不属于服务故障；对比基线时这些端点的延迟仅供参考。")
     sys.exit(0 if passed else 1)
 
 
