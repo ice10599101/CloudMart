@@ -77,7 +77,7 @@ export function SeasonPanel() {
       }
     } else {
       form.setFieldsValue({ name: '', range: undefined })
-      setTiers([{ rankMin: 1, rankMax: 1, rewardStarlight: 100, rewardExp: 0 }])
+      setTiers([{ rankMin: 1, rankMax: 1, rewardCoins: 100, rewardExp: 0 }])
     }
   }
 
@@ -226,8 +226,8 @@ export function SeasonPanel() {
               />
               <InputNumber
                 min={0}
-                value={tier.rewardStarlight}
-                onChange={(v) => setTiers(tiers.map((t, i) => (i === idx ? { ...t, rewardStarlight: v ?? 0 } : t)))}
+                value={tier.rewardCoins}
+                onChange={(v) => setTiers(tiers.map((t, i) => (i === idx ? { ...t, rewardCoins: v ?? 0 } : t)))}
                 addonBefore="星光"
                 style={{ width: 150 }}
               />
@@ -245,7 +245,7 @@ export function SeasonPanel() {
               )}
             </Space>
           ))}
-          <Button type="dashed" block onClick={() => setTiers([...tiers, { rankMin: 1, rankMax: 1, rewardStarlight: 0, rewardExp: 0 }])}>
+          <Button type="dashed" block onClick={() => setTiers([...tiers, { rankMin: 1, rankMax: 1, rewardCoins: 0, rewardExp: 0 }])}>
             增加梯度
           </Button>
         </Card>

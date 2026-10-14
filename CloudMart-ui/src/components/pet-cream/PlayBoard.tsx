@@ -358,7 +358,8 @@ export default function PlayBoard({ myPetId, onChanged }: {
         const res = await run(`coop-claim:${id}`, () => claimCooperationReward(id))
         if (res?.success) {
             const reward = (res.data as unknown as { reward?: { type?: string; amount?: number } }).reward
-            message.success(reward ? `已领取 ${reward.type ?? '奖励'} ${reward.amount ?? ''}`.trim() : '已领取')
+            const rewardLabel = reward?.type === 'PET_COIN' ? '宠物币' : reward?.type === 'ITEM' ? '道具' : '奖励'
+            message.success(reward ? `已领取 ${rewardLabel} ${reward.amount ?? ''}`.trim() : '已领取')
             await loadCoops()
             onChanged?.()
         }

@@ -475,7 +475,7 @@ export interface PetShopItem {
   description: string
   icon: string
   rarity: 'COMMON' | 'RARE' | 'EPIC'
-  priceStarlight: number
+  priceCoins: number
   slot: string | null
   species: string | null
   color: string | null
@@ -499,7 +499,7 @@ export interface PetShopItem {
 export interface PetShopResult {
   /** 宠物币余额（null=余额服务降级，前端隐藏） */
   balance: number | null
-  currency: 'PET_COIN' | 'STARLIGHT'
+  currency: 'PET_COIN'
   items: PetShopItem[]
 }
 
@@ -539,7 +539,7 @@ export interface PetSkillItem {
   /** 效果文案（服务端生成） */
   effectText: string
   icon: string
-  priceStarlight: number
+  priceCoins: number
   requiredLevel: number
   learned: boolean
   equipped: boolean
@@ -556,7 +556,7 @@ export interface PetEvolutionStatus {
   nextName: string | null
   nextDescription: string | null
   requiredLevel: number | null
-  costStarlight: number | null
+  costCoins: number | null
   bonusMaxHp: number | null
   bonusStrength: number | null
   bonusIntelligence: number | null
@@ -580,7 +580,7 @@ export interface PetEventItem {
   claimable: boolean
   claimed: boolean
   expired: boolean
-  rewardStarlight: number
+  rewardCoins: number
   rewardExp: number
   rewardItemCode: string | null
   startsAt: string | null
@@ -631,9 +631,34 @@ export function getPetShop() {
   return request.get<ApiResponse<PetShopResult>>('/pet/shop')
 }
 
-/** 购买物品（先入包再扣宠物币；余额不足 402；重复购买 409 PET_ITEM_ALREADY_OWNED） */
-export function buyPetItem(data: { itemType: PetItemType; itemCode: string }) {
-  return request.post<ApiResponse<PetInventoryItem>>('/pet/shop/buy', data)
+/**
+ * C13 统一购买结果（POST /pet/purchases）：扣款/交付/订单同事务，幂等重放返回原结果。
+ */
+export interface PetPurchaseResult {
+  orderId: string | null
+  operationId: string
+  walletTxId: string | null
+  totalAmount: number
+  petId: number | string
+  itemType: PetItemType
+  itemCode: string
+  delivered: string[]
+  duplicate: boolean
+  errorCode: string | null
+}
+
+/**
+ * C13：商城/家具/食物唯一购买入口（旧 /pet/shop/buy 与 /pet/home/furniture/buy 已删除）。
+ * petId 可空（首次执行绑定当前主宠并冻结）；必需 Idempotency-Key（拦截器按请求指纹生成，
+ * persistentIntent 保证超时/刷新后重试复用原键，禁止重新生成一笔独立交易）。
+ */
+export function buyPetItem(data: {
+  petId?: number | string
+  itemType: PetItemType
+  itemCode: string
+  expectedConfigVersion?: string
+}) {
+  return request.post<ApiResponse<PetPurchaseResult>>('/pet/purchases', data, { persistentIntent: true })
 }
 
 /** 宠物背包 */
@@ -676,19 +701,14 @@ export function getPetEvolution() {
   return request.get<ApiResponse<PetEvolutionStatus>>('/pet/evolution')
 }
 
-/** 执行进化（等级不足/已满阶 409；宠物币不足 402） */
-export function evolvePet() {
-  return request.post<ApiResponse<PetEvolutionStatus>>('/pet/evolution/evolve')
+/** C17：执行进化——必需显式期望阶段（与当前不符 409 PET_STATE_CONFLICT）；宠物币不足 402 */
+export function evolvePet(petId: number | string | undefined, expectedFromStage: number) {
+  return request.post<ApiResponse<PetEvolutionStatus>>('/pet/evolution/evolve', { petId, expectedFromStage })
 }
 
 /** 社区宠物活动列表（进度惰性统计） */
 export function listPetEvents() {
   return request.get<ApiResponse<PetEventItem[]>>('/pet/events')
-}
-
-/** 领取活动奖励（未完成/已领/已结束 409） */
-export function claimPetEvent(eventCode: string) {
-  return request.post<ApiResponse<PetEventItem>>(`/pet/events/${eventCode}/claim`)
 }
 
 /** 串门邻居列表（他人公开宠物） */
@@ -779,6 +799,8 @@ export interface PetCareerPanel {
 
 /** 每日任务项 */
 export interface PetDailyQuestItem {
+  /** C14：任务实体 ID（按集领奖路径参数） */
+  id: string | null
   code: string
   name: string
   description: string
@@ -789,6 +811,7 @@ export interface PetDailyQuestItem {
   status: string
   statusLabel: string
   claimable: boolean
+  actionTarget?: string | null
   expReward: number
   currencyReward: number
 }
@@ -850,7 +873,7 @@ export interface PetHomeItem {
   icon: string
   rarity: string
   comfort: number
-  priceStarlight: number
+  priceCoins: number
   requiredLevel: number
   posX: number | null
   posY: number | null
@@ -1027,19 +1050,9 @@ export function promotePetCareer() {
   return request.post<ApiResponse<PetCareerItem>>('/pet/career/promote')
 }
 
-/** 每日任务面板 */
+/** 每日任务面板（C14：领奖走 /daily-quest-sets/{setId} 实例路由，setId 随面板返回） */
 export function getPetDailyQuests() {
   return request.get<ApiResponse<PetDailyQuestPanel>>('/pet/daily-quests')
-}
-
-/** 领取每日任务奖励 */
-export function claimPetDailyQuest(code: string) {
-  return request.post<ApiResponse<PetDailyQuestItem>>(`/pet/daily-quests/${code}/claim`)
-}
-
-/** 领取全清宝箱（有未领任务时 409 PET_QUEST_CHEST_NOT_READY） */
-export function claimPetDailyQuestChest() {
-  return request.post<ApiResponse<PetDailyQuestPanel>>('/pet/daily-quests/chest/claim')
 }
 
 /** 宠物关系面板 */
@@ -1072,12 +1085,7 @@ export function getPetHome() {
   return request.get<ApiResponse<PetHome>>('/pet/home')
 }
 
-/** 购买家具（先入包再扣宠物币） */
-export function buyPetFurniture(furnitureCode: string) {
-  return request.post<ApiResponse<PetInventoryItem>>('/pet/home/furniture/buy', { furnitureCode })
-}
-
-/** 摆放家具（越界 400 / 格子占用 409） */
+/** 摆放家具（越界 400 / 格子占用 409；购买统一走 buyPetItem({itemType:'FURNITURE'})） */
 export function placePetFurniture(data: { furnitureCode: string; posX: number; posY: number }) {
   return request.post<ApiResponse<PetHome>>('/pet/home/furniture/place', data)
 }
@@ -1516,10 +1524,6 @@ export interface PetQuestClaimResult {
 export interface PetClaimAllResult {
   results: PetQuestClaimResult[]
   chest: PetQuestClaimResult
-}
-
-export function claimAllDailyQuests() {
-  return request.post<ApiResponse<PetClaimAllResult>>('/pet/daily-quests/claim-all')
 }
 
 /** 停止陪伴会话（结算有效窗口内未计入时间；幂等） */

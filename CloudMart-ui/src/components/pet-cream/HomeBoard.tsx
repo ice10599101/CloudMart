@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { App, Input, Spin } from 'antd'
 import {
-    buyPetFurniture,
+    buyPetItem,
     getPetHome,
     likePetHome,
     listPetVisitNeighbors,
@@ -155,7 +155,7 @@ export default function HomeBoard({ onChanged }: { onChanged?: () => void }) {
     const buy = useCallback(async (item: PetHomeItem) => {
         setBusy(`buy:${item.code}`)
         try {
-            const { data: res } = await buyPetFurniture(item.code)
+            const { data: res } = await buyPetItem({ itemType: 'FURNITURE', itemCode: item.code })
             if (res.success) {
                 message.success(`${item.name} 已入背包`)
                 await load()
@@ -411,7 +411,7 @@ export default function HomeBoard({ onChanged }: { onChanged?: () => void }) {
                                     {item.comfort > 0 ? ` · 舒适度 +${item.comfort}` : ''}
                                 </p>
                             </div>
-                            <span className={styles.price}>⭐ {item.priceStarlight}</span>
+                            <span className={styles.price}>⭐ {item.priceCoins}</span>
                             {item.owned ? (
                                 <CreamChip color="#7E9270">已拥有</CreamChip>
                             ) : (

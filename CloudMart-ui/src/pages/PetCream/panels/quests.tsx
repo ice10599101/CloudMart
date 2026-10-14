@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { App, Spin } from 'antd'
 import {
-    claimAllDailyQuests,
     claimAllPetQuestsInSet,
-    claimPetDailyQuest,
-    claimPetDailyQuestChest,
     claimPetQuestChestInSet,
     claimPetQuestInSet,
     getPetDailyQuests,
@@ -56,17 +53,17 @@ export function QuestsPanel({ onChanged }: { onChanged: () => void }) {
         void load()
     }, [load])
 
-    const claim = useCallback(async (code: string | null) => {
-        setBusy(code ?? 'chest')
+    const claim = useCallback(async (questId: string | null) => {
+        if (!panel?.setId) {
+            message.warning('任务集数据未就绪，请刷新后重试')
+            return
+        }
+        setBusy(questId ?? 'chest')
         try {
-            // PET-09/PET-23：按任务集实体领取（归属/宽限截止/集绑定校验）；存量无集行走旧路由
-            const { data: res } = code
-                ? (panel?.setId
-                    ? await claimPetQuestInSet(panel.setId, code)
-                    : await claimPetDailyQuest(code))
-                : (panel?.setId
-                    ? await claimPetQuestChestInSet(panel.setId)
-                    : await claimPetDailyQuestChest())
+            // C14：领奖唯一路径——按任务集实例（setId/questId 均为实体 ID）
+            const { data: res } = questId
+                ? await claimPetQuestInSet(panel.setId, questId)
+                : await claimPetQuestChestInSet(panel.setId)
             if (res.success) {
                 message.success('领取成功')
                 await load()
@@ -77,16 +74,17 @@ export function QuestsPanel({ onChanged }: { onChanged: () => void }) {
         } finally {
             setBusy(null)
         }
-    }, [load, message, onChanged])
+    }, [load, message, onChanged, panel?.setId])
 
     /** 一键领取：把所有可领的奖励一次收掉（宝箱由服务端规则判定，不可领时不给按钮） */
     const claimAll = useCallback(async () => {
+        if (!panel?.setId) {
+            message.warning('任务集数据未就绪，请刷新后重试')
+            return
+        }
         setBusy('all')
         try {
-            // PET-23：集批领绑定原 set/pet（切宠不错对象）；无集行走旧路由
-            const { data: res } = panel?.setId
-                ? await claimAllPetQuestsInSet(panel.setId)
-                : await claimAllDailyQuests()
+            const { data: res } = await claimAllPetQuestsInSet(panel.setId)
             if (res.success) {
                 // R13：逐项结果汇总——不再无条件"都收好了"，失败项明确提示
                 const claimed = res.data.results.filter(item => item.status === 'CLAIMED').length
@@ -171,9 +169,9 @@ export function QuestsPanel({ onChanged }: { onChanged: () => void }) {
                                 <span className={styles.rewardChip}>{`宠物币 +${quest.currencyReward}`}</span>
                             </div>
                         </div>
-                        {quest.claimable ? (
-                            <CreamButton variant="ghost" loading={busy === quest.code}
-                                onClick={() => void claim(quest.code)}>领取</CreamButton>
+                        {quest.claimable && quest.id ? (
+                            <CreamButton variant="ghost" loading={busy === quest.id}
+                                onClick={() => void claim(quest.id)}>领取</CreamButton>
                         ) : (
                             <CreamChip color={STAT_TONE.cleanliness}>{quest.statusLabel}</CreamChip>
                         )}

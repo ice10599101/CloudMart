@@ -13,7 +13,7 @@ import styles from '../../PetCream.module.css'
 
 // ---------------- 面板：技能 · 进化 ----------------
 
-export function SkillsPanel({ petLevel, onChanged }: { petLevel: number; onChanged: () => void }) {
+export function SkillsPanel({ petId, petLevel, onChanged }: { petId: number | string; petLevel: number; onChanged: () => void }) {
     const { message } = App.useApp()
     const [skills, setSkills] = useState<PetSkillItem[] | null>(null)
     const [evo, setEvo] = useState<PetEvolutionStatus | null>(null)
@@ -50,9 +50,12 @@ export function SkillsPanel({ petLevel, onChanged }: { petLevel: number; onChang
     }, [load, message, onChanged])
 
     const evolve = useCallback(async () => {
+        if (!evo || !petId) {
+            return
+        }
         setBusy('evolve')
         try {
-            const { data: res } = await evolvePet()
+            const { data: res } = await evolvePet(petId, evo.currentStage)
             if (res.success) {
                 message.success('进化成功！')
                 await load()
@@ -63,7 +66,7 @@ export function SkillsPanel({ petLevel, onChanged }: { petLevel: number; onChang
         } finally {
             setBusy(null)
         }
-    }, [load, message, onChanged])
+    }, [evo, petId, load, message, onChanged])
 
     if (!skills || !evo) {
         return <Spin />
@@ -76,7 +79,7 @@ export function SkillsPanel({ petLevel, onChanged }: { petLevel: number; onChang
             {evo.nextCode ? (
                 <>
                     <p className={styles.panelDesc}>
-                        下一形态：{evo.nextName} · 需 Lv.{evo.requiredLevel} · 宠物币 {evo.costStarlight}
+                        下一形态：{evo.nextName} · 需 Lv.{evo.requiredLevel} · 宠物币 {evo.costCoins}
                     </p>
                     <div className={styles.renameRow}>
                         <CreamButton block loading={busy === 'evolve'} disabled={petLevel < (evo.requiredLevel ?? 0)}
@@ -109,7 +112,7 @@ export function SkillsPanel({ petLevel, onChanged }: { petLevel: number; onChang
                         <CreamButton variant="ghost" loading={busy === item.code}
                             disabled={petLevel < item.requiredLevel}
                             onClick={() => void learn(item)}>
-                            {petLevel < item.requiredLevel ? `Lv.${item.requiredLevel}` : `⭐ ${item.priceStarlight}`}
+                            {petLevel < item.requiredLevel ? `Lv.${item.requiredLevel}` : `⭐ ${item.priceCoins}`}
                         </CreamButton>
                     )}
                 </div>

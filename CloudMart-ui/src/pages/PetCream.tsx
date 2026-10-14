@@ -614,7 +614,7 @@ export default function PetCreamPage() {
                     {activePanel === 'chat' && pet ? <ChatPanel petName={pet.name} /> : null}
                     {activePanel === 'shop' ? <ShopPanel onChanged={() => void load()} /> : null}
                     {activePanel === 'inventory' ? <InventoryPanel onChanged={() => void load()} /> : null}
-                    {activePanel === 'skills' ? <SkillsPanel petLevel={pet?.level ?? 1} onChanged={() => void load()} /> : null}
+                    {activePanel === 'skills' ? <SkillsPanel petId={pet?.petId ?? ''} petLevel={pet?.level ?? 1} onChanged={() => void load()} /> : null}
                     {activePanel === 'events' ? <EventsPanel onChanged={() => void load()} /> : null}
                     {activePanel === 'achievements' ? <AchievementsPanel /> : null}
                     {activePanel === 'reminders' ? <RemindersPanel /> : null}

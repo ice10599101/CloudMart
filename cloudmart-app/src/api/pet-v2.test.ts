@@ -52,10 +52,10 @@ describe('petApiV2 RN 网络适配（批次A-C2 新契约）', () => {
     expect(requestMock).toHaveBeenCalledWith(expect.objectContaining({ url: '/pet/events?status=CLAIMABLE' }))
   })
 
-  it('任务集 chest：setId 编码进路径', async () => {
-    await petApiV2.claimQuestChestInSet('2026-10-05')
+  it('C14 任务集 chest：数字 setId 实体 ID 编码进路径（日期串不再回退）', async () => {
+    await petApiV2.claimQuestChestInSet('99')
     expect(requestMock).toHaveBeenCalledWith(expect.objectContaining({
-      url: '/pet/daily-quest-sets/2026-10-05/chest/claim',
+      url: '/pet/daily-quest-sets/99/chest/claim',
       method: 'POST',
     }))
   })

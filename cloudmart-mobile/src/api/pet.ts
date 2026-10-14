@@ -315,7 +315,7 @@ export interface PetShopItem {
   description: string
   icon: string
   rarity: 'COMMON' | 'RARE' | 'EPIC'
-  priceStarlight: number
+  priceCoins: number
   slot: string | null
   species: string | null
   color: string | null
@@ -336,9 +336,9 @@ export interface PetShopItem {
 }
 
 export interface PetShopResult {
-  /** 星光余额（null=余额服务降级，前端隐藏） */
+  /** 宠物币余额（null=余额服务降级，前端隐藏） */
   balance: number | null
-  currency: 'PET_COIN' | 'STARLIGHT'
+  currency: 'PET_COIN'
   items: PetShopItem[]
 }
 
@@ -399,6 +399,20 @@ export interface PetChatPersona {
   intimacyLevelName: string
 }
 
+/** C13 统一购买结果（POST /pet/purchases）：扣款/交付/订单同事务，幂等重放返回原结果 */
+export interface PetPurchaseResult {
+  orderId: string | null
+  operationId: string
+  walletTxId: string | null
+  totalAmount: number
+  petId: number | string
+  itemType: PetItemType
+  itemCode: string
+  delivered: string[]
+  duplicate: boolean
+  errorCode: string | null
+}
+
 /** 背包物品 */
 export interface PetInventoryItem {
   itemType: PetItemType
@@ -433,7 +447,7 @@ export interface PetSkillItem {
   effectValue: number
   effectText: string
   icon: string
-  priceStarlight: number
+  priceCoins: number
   requiredLevel: number
   learned: boolean
   equipped: boolean
@@ -450,7 +464,7 @@ export interface PetEvolutionStatus {
   nextName: string | null
   nextDescription: string | null
   requiredLevel: number | null
-  costStarlight: number | null
+  costCoins: number | null
   bonusMaxHp: number | null
   bonusStrength: number | null
   bonusIntelligence: number | null
@@ -474,7 +488,7 @@ export interface PetEventItem {
   claimable: boolean
   claimed: boolean
   expired: boolean
-  rewardStarlight: number
+  rewardCoins: number
   rewardExp: number
   rewardItemCode: string | null
   startsAt: string | null
@@ -706,11 +720,12 @@ export const petApi = {
   /** 宠物商城（装备/皮肤/技能书 + 星光余额） */
   getShop: () => request<PetShopResult>({ url: '/pet/shop' }),
   /**
-   * 购买物品（先入包再扣星光；余额不足 402，重复购买 409）。
-   * R25：扣费类操作使用持久意图；未知结果按原键查 /pet/purchase-requests/{key}，不重复下单。
+   * C13 统一购买（商城/家具/食物唯一入口 POST /pet/purchases）：扣款/交付/订单同事务。
+   * petId 可空（首次执行绑定当前主宠并冻结）；R25 持久意图——未知结果按原键查
+   * /pet/purchase-requests/{key}，不重复下单。
    */
-  buyItem: (data: { itemType: PetItemType; itemCode: string }) =>
-    request<PetInventoryItem>({ url: '/pet/shop/buy', method: 'POST', data, persistentIntent: true }),
+  buyItem: (data: { petId?: number | string; itemType: PetItemType; itemCode: string; expectedConfigVersion?: string }) =>
+    request<PetPurchaseResult>({ url: '/pet/purchases', method: 'POST', data, persistentIntent: true }),
 
   /** R25：按请求键查询购买状态（COMPLETED/PROCESSING/UNKNOWN）——断网/超时/重启恢复入口 */
   getPurchaseRequestStatus: (requestKey: string) =>
@@ -740,16 +755,14 @@ export const petApi = {
 
   /** 进化状态 */
   getEvolution: () => request<PetEvolutionStatus>({ url: '/pet/evolution' }),
-  /** 执行进化（等级不足/已满阶 409；星光不足 402） */
-  evolve: () => request<PetEvolutionStatus>({ url: '/pet/evolution/evolve', method: 'POST' }),
+  /** C17：执行进化（显式期望阶段，不匹配 409；等级不足/已满阶 409；宠物币不足 402） */
+  evolve: (petId: number | string | undefined, expectedFromStage: number) =>
+    request<PetEvolutionStatus>({ url: '/pet/evolution/evolve', method: 'POST', data: { petId, expectedFromStage } }),
 
   /** 社区宠物活动列表 */
-  /** R18：支持按状态视图拉取（AVAILABLE/CLAIMABLE/HISTORY），含 occurrenceId */
+  /** R18：支持按状态视图拉取（AVAILABLE/CLAIMABLE/HISTORY），含 occurrenceId；C15 领奖仅走 occurrence 入口 */
   listEvents: (status?: 'AVAILABLE' | 'CLAIMABLE' | 'HISTORY') =>
     request<PetEventItem[]>({ url: `/pet/events${status ? `?status=${status}` : ''}` }),
-  /** 领取活动奖励 */
-  claimEvent: (eventCode: string) =>
-    request<PetEventItem>({ url: `/pet/events/${eventCode}/claim`, method: 'POST' }),
 
   /** 串门邻居列表 */
   listVisitNeighbors: () => request<PetVisitNeighbor[]>({ url: '/pet/visit/neighbors' }),
@@ -823,17 +836,11 @@ export const petApi = {
 
   /** 每日任务面板 */
   getDailyQuests: () => request<PetDailyQuestPanel>({ url: '/pet/daily-quests' }),
-  /** PET-09/PET-23：任务集路由（setId 实体归属校验） */
+  /** C14：任务集路由（setId/questId 均为实体 ID，唯一领奖路径） */
   claimDailyQuestInSet: (setId: number | string, questId: number | string) =>
     request<PetDailyQuestItem>({ url: `/pet/daily-quest-sets/${setId}/quests/${questId}/claim`, method: 'POST' }),
   claimDailyQuestChestInSet: (setId: number | string) =>
     request<PetDailyQuestPanel>({ url: `/pet/daily-quest-sets/${setId}/chest/claim`, method: 'POST' }),
-  /** 领取每日任务奖励 */
-  claimDailyQuest: (code: string) =>
-    request<PetDailyQuestItem>({ url: `/pet/daily-quests/${code}/claim`, method: 'POST' }),
-  /** 领取全清宝箱 */
-  claimDailyQuestChest: () =>
-    request<PetDailyQuestPanel>({ url: '/pet/daily-quests/chest/claim', method: 'POST' }),
 
   /** 关系面板 */
   getRelations: () => request<PetRelationPanel>({ url: '/pet/relations' }),
@@ -856,9 +863,7 @@ export const petApi = {
 
   /** 我的家园（每日首次进入有奖励） */
   getHome: () => request<PetHome>({ url: '/pet/home' }),
-  /** 购买家具（先入包再扣星光） */
-  buyFurniture: (furnitureCode: string) =>
-    request<PetInventoryItem>({ url: '/pet/home/furniture/buy', method: 'POST', data: { furnitureCode } }),
+  /** C13：家具购买统一走 buyItem({ itemType: 'FURNITURE', itemCode })（旧 /home/furniture/buy 已删） */
   /** 摆放家具 */
   placeFurniture: (data: { furnitureCode: string; posX: number; posY: number }) =>
     request<PetHome>({
@@ -1105,6 +1110,8 @@ export interface PetCareerPanel {
 
 /** 每日任务项 */
 export interface PetDailyQuestItem {
+  /** C14：任务实体 ID（按集领奖路径参数） */
+  id: string | null
   code: string
   name: string
   description: string
@@ -1115,6 +1122,7 @@ export interface PetDailyQuestItem {
   status: string
   statusLabel: string
   claimable: boolean
+  actionTarget?: string | null
   expReward: number
   currencyReward: number
 }
@@ -1176,7 +1184,7 @@ export interface PetHomeItem {
   icon: string
   rarity: string
   comfort: number
-  priceStarlight: number
+  priceCoins: number
   requiredLevel: number
   posX: number | null
   posY: number | null
@@ -1481,13 +1489,9 @@ export const petCompanionApi = {
     request<{ reportId: number | string; status: string; deduped: boolean }>({
       url: '/pet/reports', method: 'POST', data: data as unknown as Record<string, unknown> }),
 
-  /** PET-09/PET-23：按集批领（绑定原 set/pet） */
+  /** C14：按集批领（唯一一键领奖路径；绑定原 set/pet） */
   claimAllDailyQuestsInSet: (setId: number | string) =>
     request<{ results: Array<{ status: string }>; chest: { status: string } }>({ url: `/pet/daily-quest-sets/${setId}/claim-all`, method: 'POST' }),
-  claimAllDailyQuests: () =>
-    request<{ results: Array<{ status: string }>; chest: { status: string } }>({
-      url: '/pet/daily-quests/claim-all', method: 'POST',
-    }),
   stopCompanion: () =>
     request<Record<string, unknown>>({ url: '/pet/companion/stop', method: 'POST' }),
   /** B12 装备替换预览：后端收 itemCode（装备编码），不是 itemId */

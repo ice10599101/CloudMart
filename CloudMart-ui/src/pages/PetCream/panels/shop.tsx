@@ -24,7 +24,7 @@ export function ShopPanel({ onChanged }: { onChanged: () => void }) {
     const { message } = App.useApp()
     const [shop, setShop] = useState<{ balance: number | null; currency: string; items: Array<{
         itemType: PetItemType; code: string; name: string; description: string; icon: string
-        rarity: string; priceStarlight: number
+        rarity: string; priceCoins: number
     }> } | null>(null)
     const [busy, setBusy] = useState<string | null>(null)
 
@@ -77,7 +77,7 @@ export function ShopPanel({ onChanged }: { onChanged: () => void }) {
                             <p className={styles.panelDesc}>{item.description}</p>
                         </div>
                         <span style={{ fontSize: 13, color: 'var(--brass-600)', whiteSpace: 'nowrap' }}>
-                            ⭐ {item.priceStarlight}
+                            ⭐ {item.priceCoins}
                         </span>
                         <CreamButton variant="ghost" loading={busy === item.code}
                             onClick={() => void buy(item)}>购买</CreamButton>

@@ -101,9 +101,9 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
         <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs, flex: 1 }}>
           {`今日进度 ${panel.claimedCount}/${panel.totalCount} · 全清宝箱 经验+${panel.chestExp} 宠物币+${panel.chestCurrency}`}
         </Text>
-        {(panel.quests.some((quest) => quest.claimable) || panel.chestClaimable) && (
+        {(panel.quests.some((quest) => quest.claimable) || panel.chestClaimable) && panel.setId && (
           <CreamButton disabled={pending === 'claim-all'} onPress={() => run('claim-all', () =>
-            panel.setId ? petApi.claimAllDailyQuestsInSet(panel.setId) : petApi.claimAllDailyQuests(), (data) => {
+            petApi.claimAllDailyQuestsInSet(panel.setId!), (data) => {
             // R13：按逐项结果汇总提示，失败项不掩盖
             const results = (data as { results?: Array<{ status: string }>; chest?: { status: string } }).results ?? []
             const claimed = results.filter((item) => item.status === 'CLAIMED').length
@@ -143,9 +143,9 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
               ) : (
                 <CreamButton
                   variant={quest.claimable ? 'primary' : 'ghost'}
-                  disabled={!quest.claimable || pending === `quest-${quest.code}`}
-                  onPress={() => run(`quest-${quest.code}`, () =>
-                    panel.setId ? petApi.claimDailyQuestInSet(panel.setId, quest.code) : petApi.claimDailyQuest(quest.code), '奖励到手啦！')}
+                  disabled={!quest.claimable || pending === `quest-${quest.id ?? quest.code}` || !panel.setId || !quest.id}
+                  onPress={() => run(`quest-${quest.id ?? quest.code}`, () =>
+                    petApi.claimDailyQuestInSet(panel.setId!, quest.id!), '奖励到手啦！')}
                 >
                   {quest.claimable ? '领取奖励' : quest.statusLabel}
                 </CreamButton>
@@ -159,9 +159,9 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
       ) : (
         <CreamButton
           variant={panel.chestClaimable ? 'primary' : 'ghost'}
-          disabled={!panel.chestClaimable || pending === 'chest'}
+          disabled={!panel.chestClaimable || pending === 'chest' || !panel.setId}
           onPress={() => run('chest', () =>
-            panel.setId ? petApi.claimDailyQuestChestInSet(panel.setId) : petApi.claimDailyQuestChest(), '宝箱开啦！')}
+            petApi.claimDailyQuestChestInSet(panel.setId!), '宝箱开啦！')}
         >
           {panel.chestClaimable ? '开启全清宝箱' : '全部领取后可开宝箱'}
         </CreamButton>

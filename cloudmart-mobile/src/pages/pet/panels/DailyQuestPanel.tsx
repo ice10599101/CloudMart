@@ -103,12 +103,11 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
         size='mini'
         style={{ marginBottom: '12rpx' }}
         loading={pending === 'claim-all'}
+        disabled={!panel.setId}
         onClick={() => run(
           'claim-all',
-          // R18：有任务集版本走 setId+claim-all（期次归属明确），旧集合回退旧路由
-          () => panel.setId
-            ? petCompanionApi.claimAllDailyQuestsInSet(panel.setId)
-            : petCompanionApi.claimAllDailyQuests(),
+          // C14：唯一一键领奖路径——按任务集实例
+          () => petCompanionApi.claimAllDailyQuestsInSet(panel.setId!),
           (data) => {
           const payload = data as { results?: Array<{ status: string }>; chest?: { status: string } }
           const claimed = (payload.results ?? []).filter((item) => item.status === 'CLAIMED').length
@@ -152,8 +151,8 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
             ) : (
               <View
                 className={`${cream.tab} ${quest.claimable ? cream.tabActive : cream.lockedTab}`}
-                onClick={quest.claimable && pending !== `q-${quest.code}` ? () => run(`q-${quest.code}`, () =>
-                  panel.setId ? petApi.claimDailyQuestInSet(panel.setId, quest.code) : petApi.claimDailyQuest(quest.code), '奖励到手啦！') : undefined}
+                onClick={quest.claimable && quest.id && panel.setId && pending !== `q-${quest.id}` ? () => run(`q-${quest.id}`, () =>
+                  petApi.claimDailyQuestInSet(panel.setId!, quest.id!), '奖励到手啦！') : undefined}
               >
                 <Text>{quest.claimable ? '领取' : quest.statusLabel}</Text>
               </View>
@@ -166,8 +165,8 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
       ) : (
         <View
           className={`${cream.tab} ${panel.chestClaimable ? cream.tabActive : cream.lockedTab}`}
-          onClick={panel.chestClaimable && pending !== 'chest' ? () => run('chest', () =>
-              panel.setId ? petApi.claimDailyQuestChestInSet(panel.setId) : petApi.claimDailyQuestChest(), '宝箱开啦！') : undefined}
+          onClick={panel.chestClaimable && panel.setId && pending !== 'chest' ? () => run('chest', () =>
+              petApi.claimDailyQuestChestInSet(panel.setId!), '宝箱开啦！') : undefined}
         >
           <Text>{panel.chestClaimable ? '开启全清宝箱' : '全部领取后可开宝箱'}</Text>
         </View>

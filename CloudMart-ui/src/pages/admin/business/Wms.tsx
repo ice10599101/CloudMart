@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { ProTable, ModalForm, ProFormText, ProFormDigit, ProFormSelect, ProFormTextArea, ProFormList } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Tag, Popconfirm, Button, Tabs, Modal, Descriptions, InputNumber, Space } from 'antd'
+import { Tag, Popconfirm, Button, Tabs, Modal, Descriptions, InputNumber, Select, Space } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   getPickOrders,
@@ -13,6 +13,7 @@ import {
   createPickOrder,
   createInboundOrder,
   receiveInboundItem,
+  newInboundReceiptId,
   completeInboundOrder,
 } from '@/api/admin/business'
 import { safeProTableRequest } from '@/utils/proTable'
@@ -70,6 +71,9 @@ export default function Wms() {
   const [receiveTargetId, setReceiveTargetId] = useState<number | null>(null)
   const [receiveItemId, setReceiveItemId] = useState<number | null>(null)
   const [receiveQuantity, setReceiveQuantity] = useState<number | null>(null)
+  // C19：弹窗打开即生成稳定 receiptId，确认/重试原样回传（幂等收敛）
+  const [receiveReceiptId, setReceiveReceiptId] = useState<string | null>(null)
+  const [receiveQuality, setReceiveQuality] = useState<'PASSED' | 'QUARANTINE'>('PASSED')
   const [receiveSubmitting, setReceiveSubmitting] = useState(false)
 
   const fetchInboundDetail = async (id: number) => {
@@ -107,14 +111,21 @@ export default function Wms() {
   }
 
   const handleReceive = async () => {
-    if (receiveTargetId === null || receiveItemId === null || receiveQuantity === null) return
+    if (receiveTargetId === null || receiveItemId === null || receiveQuantity === null || !receiveReceiptId) return
     setReceiveSubmitting(true)
     try {
-      await receiveInboundItem(receiveTargetId, receiveItemId, receiveQuantity)
+      // C19：同一次确认携带同一 receiptId——网络超时后点"确认收货"是重放而非新收货
+      await receiveInboundItem(receiveTargetId, {
+        itemId: receiveItemId,
+        receivedQuantity: receiveQuantity,
+        receiptId: receiveReceiptId,
+        qualityResult: receiveQuality,
+      })
       message.success('收货登记成功')
       setReceiveTargetId(null)
       setReceiveItemId(null)
       setReceiveQuantity(null)
+      setReceiveReceiptId(null)
       inboundActionRef.current?.reload()
     } finally {
       setReceiveSubmitting(false)
@@ -216,6 +227,8 @@ export default function Wms() {
               setReceiveTargetId(record.id)
               setReceiveItemId(null)
               setReceiveQuantity(null)
+              setReceiveQuality('PASSED')
+              setReceiveReceiptId(newInboundReceiptId())
             }}
           >
             收货
@@ -415,7 +428,10 @@ export default function Wms() {
     <Modal
       title="收货入库"
       open={receiveTargetId !== null}
-      onCancel={() => setReceiveTargetId(null)}
+      onCancel={() => {
+        setReceiveTargetId(null)
+        setReceiveReceiptId(null)
+      }}
       onOk={handleReceive}
       confirmLoading={receiveSubmitting}
       okText="确认收货"
@@ -442,6 +458,21 @@ export default function Wms() {
             style={{ width: '100%' }}
             placeholder="本次实收数量"
           />
+        </div>
+        <div>
+          <div style={{ marginBottom: 4 }}>质检结果</div>
+          <Select
+            value={receiveQuality}
+            onChange={(v) => setReceiveQuality(v)}
+            style={{ width: '100%' }}
+            options={[
+              { value: 'PASSED', label: '合格入库（计入可售）' },
+              { value: 'QUARANTINE', label: '隔离验收（不计可售）' },
+            ]}
+          />
+        </div>
+        <div style={{ color: 'var(--ant-color-text-tertiary)', fontSize: 12 }}>
+          收货流水号：{receiveReceiptId ?? '-'}（网络异常时请勿关弹窗，重试会按此号幂等收敛）
         </div>
       </Space>
     </Modal>

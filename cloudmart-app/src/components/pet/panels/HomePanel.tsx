@@ -163,7 +163,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                 {item.icon} {item.name} · {item.categoryLabel} · 舒适度 +{item.comfort}
               </Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={{ color: colors.primary, fontSize: FontSize.xs }}>✨ {item.priceStarlight}</Text>
+                <Text style={{ color: colors.primary, fontSize: FontSize.xs }}>✨ {item.priceCoins}</Text>
                 {item.owned ? (
                   <ChipButton
                     label="摆放"
@@ -191,7 +191,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                     label={item.eligible ? '购买' : item.lockReason ?? '未解锁'}
                     primary
                     disabled={!item.eligible || pending === `buy-${item.code}`}
-                    onPress={() => run(`buy-${item.code}`, () => petApi.buyFurniture(item.code), '买到啦')}
+                    onPress={() => run(`buy-${item.code}`, () => petApi.buyItem({ itemType: 'FURNITURE', itemCode: item.code }), '买到啦')}
                   />
                 )}
               </View>

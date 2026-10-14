@@ -154,7 +154,7 @@ export function CarePanel({ pet, linkedProductEnabled = true, onRefresh, onNavig
         return
       }
       if (code === 'NETWORK_ERROR') {
-        const requestKey = getPersistedIntentKey('POST', '/pet/shop/buy', payload)
+        const requestKey = getPersistedIntentKey('POST', '/pet/purchases', payload)
         if (requestKey) {
           try {
             const { data: status } = await petApi.getPurchaseRequestStatus(requestKey)
@@ -267,7 +267,7 @@ export function CarePanel({ pet, linkedProductEnabled = true, onRefresh, onNavig
               <Text className={styles.careMeta}>
                 需要 Lv.{item.requiredLevel}
                 {item.requiredEvolutionStage > 0 ? ` · 进化${item.requiredEvolutionStage}阶` : ''}
-                {' · '}✨{item.priceStarlight}
+                {' · '}✨{item.priceCoins}
               </Text>
               <View className={styles.careActions}>
                 {item.owned ? (
@@ -368,7 +368,7 @@ export function CarePanel({ pet, linkedProductEnabled = true, onRefresh, onNavig
               <Text className={styles.careTitle}>
                 {skill.icon} {skill.name} · {skill.skillType === 'ACTIVE' ? '主动技' : '被动技'}
               </Text>
-              <Text className={styles.careMeta}>{skill.effectText} · ✨{skill.priceStarlight} · 需要 Lv.{skill.requiredLevel}</Text>
+              <Text className={styles.careMeta}>{skill.effectText} · ✨{skill.priceCoins} · 需要 Lv.{skill.requiredLevel}</Text>
               <Text className={styles.careMeta}>{skill.description}</Text>
               <View className={styles.careActions}>
                 {skill.learned ? (
@@ -400,14 +400,14 @@ export function CarePanel({ pet, linkedProductEnabled = true, onRefresh, onNavig
               <Text className={styles.careTitle}>{evolution.icon} {evolution.nextName}</Text>
               <Text className={styles.careMeta}>{evolution.nextDescription}</Text>
               <Text className={styles.careMeta}>
-                需要 Lv.{evolution.requiredLevel} · 消耗 ✨{evolution.costStarlight} · 生命+{evolution.bonusMaxHp}
+                需要 Lv.{evolution.requiredLevel} · 消耗 ✨{evolution.costCoins} · 生命+{evolution.bonusMaxHp}
                 力量+{evolution.bonusStrength} 智力+{evolution.bonusIntelligence} 敏捷+{evolution.bonusAgility} 魅力+{evolution.bonusCharm}
               </Text>
               <View className={styles.careActions}>
                 <Button
                   className={styles.miniBtn}
                   disabled={!evolution.canEvolve || carePending === 'evolve'}
-                  onClick={() => void runCare('evolve', () => petApi.evolve(), '进化成功！')}
+                  onClick={() => void runCare('evolve', () => petApi.evolve(pet.petId, evolution.currentStage), '进化成功！')}
                 >
                   {evolution.canEvolve ? '进化' : (evolution.lockReason || '条件未满足')}
                 </Button>
@@ -425,27 +425,29 @@ export function CarePanel({ pet, linkedProductEnabled = true, onRefresh, onNavig
               <Text className={styles.careTitle}>🎯 {event.name}</Text>
               <Text className={styles.careMeta}>
                 {EVENT_TYPE_LABEL[event.eventType] ?? event.eventType} 进度 {event.progress}/{event.targetValue}
-                {' · '}奖励 经验+{event.rewardExp} ✨+{event.rewardStarlight}
+                {' · '}奖励 经验+{event.rewardExp} ✨+{event.rewardCoins}
               </Text>
               <View className={styles.careActions}>
                 {event.claimed ? (
                   <Text className={styles.careMeta}>已领取</Text>
                 ) : event.expired ? (
                   <Text className={styles.careMeta}>已结束</Text>
-                ) : (
+                ) : event.occurrenceId ? (
                   <Button
                     className={styles.miniBtn}
-                    disabled={!event.claimable || carePending === `event-${event.occurrenceId ?? event.code}`}
+                    disabled={!event.claimable || carePending === `event-${event.occurrenceId}`}
                     onClick={() => void runCare(
-                      `event-${event.occurrenceId ?? event.code}`,
-                      // R18：期次事件以 occurrenceId 为唯一归属；仅历史/当日型事件回退 code
-                      event.occurrenceId
-                        ? () => petApi.claimEventOccurrence(event.occurrenceId as string)
-                        : () => petApi.claimEvent(event.code),
+                      `event-${event.occurrenceId}`,
+                      // C15：领奖唯一入口——按期次 occurrenceId（旧 eventCode 旁路已删除）
+                      () => petApi.claimEventOccurrence(event.occurrenceId as string),
                       '奖励到手啦！')}
                   >
                     {event.claimable ? '领取奖励' : `还差 ${Math.max(0, event.targetValue - event.progress)} 次`}
                   </Button>
+                ) : (
+                  <Text className={styles.careMeta}>
+                    {event.claimable ? '等待新一期开放' : '进行中'}
+                  </Text>
                 )}
               </View>
             </View>

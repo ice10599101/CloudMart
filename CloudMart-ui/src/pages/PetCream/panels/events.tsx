@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { App, Spin } from 'antd'
 import {
-    claimPetEvent,
     claimPetEventOccurrence,
     listPetEventsByStatus,
     type PetEventItem,
@@ -30,12 +29,14 @@ export function EventsPanel({ onChanged }: { onChanged: () => void }) {
     }, [load])
 
     const claim = useCallback(async (item: PetEventItem) => {
-        setBusy(item.code)
+        if (!item.occurrenceId) {
+            message.warning('该活动暂不支持在此领取，请等待新一期开放')
+            return
+        }
+        setBusy(item.occurrenceId)
         try {
-            // R33：期次驱动活动按 occurrenceId 领取（历史期次不覆盖）；否则走旧 eventCode 入口
-            const { data: res } = item.occurrenceId
-                ? await claimPetEventOccurrence(item.occurrenceId)
-                : await claimPetEvent(item.code)
+            // C15：领奖唯一入口——按期次 occurrenceId（旧 eventCode 旁路已删除）
+            const { data: res } = await claimPetEventOccurrence(item.occurrenceId)
             if (res.success) {
                 message.success('活动奖励已领取')
                 await load()
@@ -71,11 +72,11 @@ export function EventsPanel({ onChanged }: { onChanged: () => void }) {
                             </span>
                         </p>
                         <p className={styles.panelDesc}>
-                            {item.description} · ⭐{item.rewardStarlight} exp+{item.rewardExp}
+                            {item.description} · ⭐{item.rewardCoins} exp+{item.rewardExp}
                         </p>
                     </div>
-                    {item.claimable ? (
-                        <CreamButton variant="ghost" loading={busy === item.code}
+                    {item.claimable && item.occurrenceId ? (
+                        <CreamButton variant="ghost" loading={busy === item.occurrenceId}
                             onClick={() => void claim(item)}>领取</CreamButton>
                     ) : (
                         <CreamChip color={STAT_TONE.cleanliness}>

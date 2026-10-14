@@ -438,11 +438,20 @@ export function createInboundOrder(data: Record<string, any>) {
   return request.post('/admin/business/wms/inbound-orders', data)
 }
 
-/** 收货入库（按明细登记实收数量） */
-export function receiveInboundItem(id: number | string, itemId: number | string, receivedQuantity: number) {
-  return request.put(`/admin/business/wms/inbound-orders/${id}/receive`, undefined, {
-    params: { itemId, receivedQuantity },
-  })
+/**
+ * C19 收货入库：统一请求体（itemId/实收数/receiptId/质检结果）。
+ * receiptId 在打开收货弹窗时生成并保留——双击/超时重试必须原样回传，服务端按其幂等收敛。
+ */
+export function receiveInboundItem(
+  id: number | string,
+  data: { itemId: number | string; receivedQuantity: number; receiptId: string; qualityResult?: 'PASSED' | 'QUARANTINE' },
+) {
+  return request.put(`/admin/business/wms/inbound-orders/${id}/receive`, data)
+}
+
+/** C19：生成收货流水 ID（后台确认时生成，重试原样回传；去横线 UUID 前 32 位以内） */
+export function newInboundReceiptId() {
+  return `RCP${crypto.randomUUID().replace(/-/g, '').slice(0, 28)}`
 }
 
 /** 完成入库（关闭入库单） */

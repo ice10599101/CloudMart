@@ -160,7 +160,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                     {item.icon} {item.name} · {item.categoryLabel}
                   </Text>
                   <Text className={styles.jobMeta}>
-                    舒适度 +{item.comfort} · 需要 Lv.{item.requiredLevel} · ✨ {item.priceStarlight}
+                    舒适度 +{item.comfort} · 需要 Lv.{item.requiredLevel} · ✨ {item.priceCoins}
                   </Text>
                 </View>
                 {item.owned ? (
@@ -191,7 +191,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                   <Button
                     className={item.eligible ? styles.miniBtn : styles.locked}
                     disabled={!item.eligible || pending === `buy-${item.code}`}
-                    onClick={() => run(`buy-${item.code}`, () => petApi.buyFurniture(item.code), '买到啦')}
+                    onClick={() => run(`buy-${item.code}`, () => petApi.buyItem({ itemType: 'FURNITURE', itemCode: item.code }), '买到啦')}
                   >
                     {item.eligible ? '购买' : item.lockReason ?? '未解锁'}
                   </Button>

@@ -309,7 +309,7 @@ export interface AdminPetSeasonReward {
   seasonId?: number | string
   rankMin: number
   rankMax: number
-  rewardStarlight: number
+  rewardCoins: number
   rewardExp: number
 }
 
