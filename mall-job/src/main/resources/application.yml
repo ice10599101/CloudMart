@@ -6,6 +6,7 @@ spring:
     name: mall-job
   config:
     import:
+      - nacos:shared-runtime.yml?group=DEFAULT_GROUP&refreshEnabled=true
       - optional:nacos:mall-job.yml?refreshEnabled=true
       - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
   cloud:

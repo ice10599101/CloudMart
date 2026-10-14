@@ -8,6 +8,7 @@ spring:
     exclude: org.springframework.boot.security.oauth2.server.resource.autoconfigure.servlet.OAuth2ResourceServerAutoConfiguration
   config:
     import:
+      - nacos:shared-runtime.yml?group=DEFAULT_GROUP&refreshEnabled=true
       - optional:nacos:mall-community.yml?refreshEnabled=true
       - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
   cloud:

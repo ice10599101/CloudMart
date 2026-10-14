@@ -15,7 +15,7 @@ import java.time.Duration;
  * 旧 {@code X-Internal-Call} 头对 mall-wish 不再构成信任凭证（保留是为兼容
  * 其他尚未完成服务令牌改造的下游）。</p>
  *
- * <p>密钥经部署环境变量 {@code WISH_SERVICE_TOKEN_SECRET} 注入，缺失时启动失败。</p>
+ * <p>密钥经部署环境变量 {@code CLOUDMART_SERVICE_TOKEN_SECRET} 注入，缺失时启动失败。</p>
  */
 @Component
 public class WishServiceTokenProvider {
@@ -24,7 +24,7 @@ public class WishServiceTokenProvider {
     private volatile ServiceTokenSigner cachedSigner;
 
     public WishServiceTokenProvider(
-            @Value("${wish.service-token.secret:${WISH_SERVICE_TOKEN_SECRET:}}") String secret) {
+            @Value("${wish.service-token.secret:${CLOUDMART_SERVICE_TOKEN_SECRET:}}") String secret) {
         // 惰性签发：本地 IDE 未注入密钥时服务仍可启动，首次调用 mall-wish 才报明确错误
         this.secret = secret;
     }

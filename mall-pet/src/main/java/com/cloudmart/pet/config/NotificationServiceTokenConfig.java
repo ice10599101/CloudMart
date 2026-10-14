@@ -29,7 +29,7 @@ public class NotificationServiceTokenConfig {
     @Bean
     @Scope("prototype")
     public RequestInterceptor notificationServiceTokenInterceptor(
-            @Value("${pet.service-token.secret:${WISH_SERVICE_TOKEN_SECRET:}}") String secret) {
+            @Value("${pet.service-token.secret:${CLOUDMART_SERVICE_TOKEN_SECRET:}}") String secret) {
         return template -> template.header(ServiceTokenCodec.HEADER_NAME,
                 signerFor(secret).sign("mall-notification"));
     }

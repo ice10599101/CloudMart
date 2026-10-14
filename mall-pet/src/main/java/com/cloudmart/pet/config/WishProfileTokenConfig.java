@@ -22,7 +22,7 @@ public class WishProfileTokenConfig {
     @Bean
     @Scope("prototype")
     public RequestInterceptor wishProfileServiceTokenInterceptor(
-            @Value("${wish.service-token.secret:${WISH_SERVICE_TOKEN_SECRET:}}") String secret) {
+            @Value("${wish.service-token.secret:${CLOUDMART_SERVICE_TOKEN_SECRET:}}") String secret) {
         return template -> template.header(ServiceTokenCodec.HEADER_NAME,
                 signerFor(secret).sign("mall-wish"));
     }

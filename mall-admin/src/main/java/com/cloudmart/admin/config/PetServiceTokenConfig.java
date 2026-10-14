@@ -30,7 +30,7 @@ public class PetServiceTokenConfig {
     @Bean
     @Scope("prototype")
     public RequestInterceptor petServiceTokenInterceptor(
-            @Value("${pet.service-token.secret:${PET_SERVICE_TOKEN_SECRET:${WISH_SERVICE_TOKEN_SECRET:}}}")
+            @Value("${pet.service-token.secret:${PET_SERVICE_TOKEN_SECRET:${CLOUDMART_SERVICE_TOKEN_SECRET:}}}")
             String secret) {
         return template -> {
             ServiceTokenSigner signer = signerFor(secret);

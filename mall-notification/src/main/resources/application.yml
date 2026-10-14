@@ -11,6 +11,7 @@ spring:
           jwk-set-uri: http://localhost:9001/oauth2/jwks
   config:
     import:
+      - nacos:shared-runtime.yml?group=DEFAULT_GROUP&refreshEnabled=true
       - optional:nacos:mall-notification.yml?refreshEnabled=true
       - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
   cloud:

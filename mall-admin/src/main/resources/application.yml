@@ -13,6 +13,7 @@ spring:
       max-request-size: 20MB
   config:
     import:
+      - nacos:shared-runtime.yml?group=DEFAULT_GROUP&refreshEnabled=true
       - optional:nacos:mall-admin.yml?refreshEnabled=true
       - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
   cloud:

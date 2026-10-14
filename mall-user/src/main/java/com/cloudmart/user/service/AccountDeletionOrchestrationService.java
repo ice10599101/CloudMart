@@ -95,7 +95,7 @@ public class AccountDeletionOrchestrationService {
             com.cloudmart.user.feign.FileErasureFeignClient fileErasureFeignClient,
             AuthStateFeignClient authStateFeignClient,
             com.cloudmart.user.feign.OrderBlockFeignClient orderQueryFeignClient,
-            @Value("${wish.service-token.secret:${WISH_SERVICE_TOKEN_SECRET:}}") String secret,
+            @Value("${wish.service-token.secret:${CLOUDMART_SERVICE_TOKEN_SECRET:}}") String secret,
             @Value("${account-deletion.instance-id:${HOSTNAME:deletion-default}}") String instanceId) {
         this.taskMapper = taskMapper;
         this.stepMapper = stepMapper;

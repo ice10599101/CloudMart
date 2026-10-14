@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
  * SEC-01 身份边界配置。
  *
  * <p>{@code serviceTokenSecret} 必须通过部署环境变量注入（默认复用
- * {@code WISH_SERVICE_TOKEN_SECRET}，与 mall-admin/mall-job/mall-wish 共享同一
+ * {@code CLOUDMART_SERVICE_TOKEN_SECRET}，与 mall-admin/mall-job/mall-wish 共享同一
  * 服务令牌密钥），缺失时服务拒绝启动校验：没有密钥意味着服务令牌无法校验，
  * 任何管理端点都不允许在无校验状态下开放。</p>
  */

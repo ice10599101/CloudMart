@@ -16,7 +16,7 @@ import java.time.Duration;
  * iss=mall-admin、aud=mall-wish、scope=wish:admin。
  *
  * <p>开发体验（B20 补充）：签发器惰性初始化——本地 IDE 未设置
- * {@code WISH_SERVICE_TOKEN_SECRET} 时服务仍可启动（其余功能不受影响），首次
+ * {@code CLOUDMART_SERVICE_TOKEN_SECRET} 时服务仍可启动（其余功能不受影响），首次
  * 调用 mall-wish 才报明确错误；mall-wish 侧始终拒绝无令牌调用（安全边界由
  * 服务端强制）。生产部署必须注入密钥，否则跨服务调用全部失败。</p>
  *
@@ -30,7 +30,7 @@ public class WishServiceTokenConfig {
     @Bean
     @Scope("prototype")
     public RequestInterceptor wishServiceTokenInterceptor(
-            @Value("${wish.service-token.secret:${WISH_SERVICE_TOKEN_SECRET:}}") String secret) {
+            @Value("${wish.service-token.secret:${CLOUDMART_SERVICE_TOKEN_SECRET:}}") String secret) {
         return template -> template.header(ServiceTokenCodec.HEADER_NAME,
                 signerFor(secret).sign("mall-wish"));
     }

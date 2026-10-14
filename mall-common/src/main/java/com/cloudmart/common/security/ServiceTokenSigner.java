@@ -9,7 +9,7 @@ import java.util.Objects;
  *
  * <p>与 {@link ServiceTokenCodec} 配套：接收方（如 mall-wish）按路径强校验
  * iss/aud/scope；调用方只对自己被授权的能力域签发令牌。密钥通过部署环境变量
- * {@code WISH_SERVICE_TOKEN_SECRET} 注入，缺失时构造失败（fail fast），
+ * {@code CLOUDMART_SERVICE_TOKEN_SECRET} 注入，缺失时构造失败（fail fast），
  * 不允许服务在无法签名的情况下带着"裸头信任"继续运行。</p>
  */
 public final class ServiceTokenSigner {
@@ -23,7 +23,7 @@ public final class ServiceTokenSigner {
     public ServiceTokenSigner(String secret, String issuer, String scope, Duration ttl, Clock clock) {
         if (secret == null || secret.length() < ServiceTokenCodec.MIN_SECRET_LENGTH) {
             throw new IllegalStateException("服务令牌密钥缺失或弱于 " + ServiceTokenCodec.MIN_SECRET_LENGTH
-                    + " 字节：请通过部署环境变量 WISH_SERVICE_TOKEN_SECRET 注入");
+                    + " 字节：请通过部署环境变量 CLOUDMART_SERVICE_TOKEN_SECRET 注入");
         }
         Objects.requireNonNull(issuer, "issuer 不能为空");
         Objects.requireNonNull(scope, "scope 不能为空");

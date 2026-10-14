@@ -87,12 +87,12 @@ public abstract class WishIntegrationTestBase {
      * <ul>
      *   <li>默认（CI/本地有 Docker）：Testcontainers 自给自足——真实 MySQL 9 + Redis
      *       按用例 JVM 独占启动，不依赖私人远程机器；天然隔离，无需授权标志与跨运行锁；</li>
-     *   <li>外部容器（WISH_IT_MYSQL_HOST 显式设置）：沿用授权环境 mysql-it:8307 /
+     *   <li>外部容器（CLOUDMART_IT_MYSQL_HOST 显式设置）：沿用授权环境 mysql-it:8307 /
      *       redis-it:8380 共享实例——保留 B23 显式启用标志与跨运行互斥锁
      *       （共享实例靠 TRUNCATE/FLUSHDB 隔离，并发运行互踩）。</li>
      * </ul>
      */
-    static final boolean USE_EXTERNAL_INFRA = System.getenv("WISH_IT_MYSQL_HOST") != null;
+    static final boolean USE_EXTERNAL_INFRA = System.getenv("CLOUDMART_IT_MYSQL_HOST") != null;
 
     static final MySQLContainer<?> MYSQL = USE_EXTERNAL_INFRA ? null : new MySQLContainer<>("mysql:9.4.0")
             .withStartupTimeout(Duration.ofMinutes(5));
@@ -121,7 +121,7 @@ public abstract class WishIntegrationTestBase {
         if (!USE_EXTERNAL_INFRA) {
             return;
         }
-        String enabled = System.getProperty("wish.it.enabled", System.getenv("WISH_IT_ENABLED"));
+        String enabled = System.getProperty("wish.it.enabled", System.getenv("CLOUDMART_IT_ENABLED"));
         if (!"true".equals(enabled)) {
             throw new IllegalStateException("IT 未显式启用：请以 -Dwish.it.enabled=true 显式触发（B23 防误跑）");
         }
@@ -158,8 +158,8 @@ public abstract class WishIntegrationTestBase {
         if (!USE_EXTERNAL_INFRA) {
             return; // Testcontainers 独占实例，无跨运行互踩问题
         }
-        String host = System.getenv().getOrDefault("WISH_IT_REDIS_HOST", "129.204.152.168");
-        int port = Integer.parseInt(System.getenv().getOrDefault("WISH_IT_REDIS_PORT", "8380"));
+        String host = System.getenv().getOrDefault("CLOUDMART_IT_REDIS_HOST", "129.204.152.168");
+        int port = Integer.parseInt(System.getenv().getOrDefault("CLOUDMART_IT_REDIS_PORT", "8380"));
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(host, port);
         config.setDatabase(RUN_LOCK_REDIS_DB);
         lockFactory = new LettuceConnectionFactory(config);

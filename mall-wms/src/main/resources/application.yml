@@ -6,6 +6,7 @@ spring:
     name: mall-wms
   config:
     import:
+      - nacos:shared-runtime.yml?group=DEFAULT_GROUP&refreshEnabled=true
       - optional:nacos:mall-wms.yml?refreshEnabled=true
       - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
   cloud:

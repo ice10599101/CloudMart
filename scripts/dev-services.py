@@ -4,7 +4,6 @@ import json
 import os
 from pathlib import Path
 import re
-import secrets
 import signal
 import socket
 import subprocess
@@ -31,12 +30,18 @@ def environment():
                 continue
             key, value = line.split("=", 1)
             env.setdefault(key.strip(), value.strip().strip("\"'"))
-    private = ROOT / ".tmp-c26/local-service-secret.json"
-    private.parent.mkdir(exist_ok=True)
-    if not private.exists():
-        private.write_text(json.dumps({"CLOUDMART_SERVICE_TOKEN_SECRET": secrets.token_urlsafe(48)}), encoding="utf-8")
-    if not env.get("CLOUDMART_SERVICE_TOKEN_SECRET"):
-        env.update(json.loads(private.read_text(encoding="utf-8")))
+    # Runtime values come from shared-runtime.yml in Nacos. Strip inherited
+    # business variables so an old Windows process cannot override that config.
+    # Database baseline tools load their own Docker/bootstrap .env values.
+    runtime_names = set()
+    for pattern in ("mall-*/src/main/resources/*.y*ml", "mall-*/src/main/java/**/*.java"):
+        for config in ROOT.glob(pattern):
+            runtime_names.update(re.findall(r"\$\{([A-Z][A-Z0-9_]*)(?=[:}])",
+                                           config.read_text(encoding="utf-8-sig")))
+    bootstrap = {"NACOS_SERVER_ADDR", "NACOS_USERNAME", "NACOS_PASSWORD", "NACOS_NAMESPACE", "HOSTNAME"}
+    for key in list(env):
+        if key in runtime_names - bootstrap or key.startswith("WISH_"):
+            env.pop(key)
     return env
 
 

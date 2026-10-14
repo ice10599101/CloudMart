@@ -26,7 +26,7 @@ import java.util.Objects;
  *
  * <p>实现说明：为避免给 mall-common 引入新的 JWT 依赖，这里直接按 RFC 7515
  * 生成/校验 compact JWS（HS256 = HMAC-SHA256），签名校验使用常量时间比较。
- * 密钥通过部署环境注入（{@code WISH_SERVICE_TOKEN_SECRET}），禁止写入仓库。</p>
+ * 密钥通过部署环境注入（{@code CLOUDMART_SERVICE_TOKEN_SECRET}），禁止写入仓库。</p>
  */
 public final class ServiceTokenCodec {
 
@@ -222,7 +222,7 @@ public final class ServiceTokenCodec {
     private static void requireSecret(String secret) {
         if (secret == null || secret.length() < MIN_SECRET_LENGTH) {
             throw new IllegalStateException("服务令牌密钥缺失或弱于 " + MIN_SECRET_LENGTH
-                    + " 字节：请通过部署环境变量 WISH_SERVICE_TOKEN_SECRET 注入");
+                    + " 字节：请通过部署环境变量 CLOUDMART_SERVICE_TOKEN_SECRET 注入");
         }
     }
 

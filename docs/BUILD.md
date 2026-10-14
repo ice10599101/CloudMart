@@ -32,16 +32,18 @@ CI（`.github/workflows/ci.yml`）执行同一命令集：push/PR 到 master 自
 
 `mall-common` 的 `ProdStartupGuard` 在 `prod` profile 下强制校验：
 
-- `cloudmart.security.service-token-secret` 必须配置（环境变量 `CLOUDMART_SERVICE_TOKEN_SECRET`），
+- `cloudmart.security.service-token-secret` 必须配置（由 Nacos `shared-runtime.yml` 中的 `CLOUDMART_SERVICE_TOKEN_SECRET` 提供），
   长度 ≥32 字符，且不得包含已知弱口令片段（123456/changeit/secret/password/changeme/test）。
 - 不满足时**拒绝启动**（fail-fast）——绝不允许内部端点在无密钥状态下对外服务。
 
-部署生产前注入：
+部署前在对应环境的 Nacos `DEFAULT_GROUP/shared-runtime.yml` 配置：
 
 ```
-CLOUDMART_SERVICE_TOKEN_SECRET=<≥32 字节随机串>
-CLOUDMART_SECURITY_JWKS_URI=<mall-auth JWKS 地址>
+CLOUDMART_SERVICE_TOKEN_SECRET: <≥32 字节随机串>
+CLOUDMART_SECURITY_JWKS_URI: <mall-auth JWKS 地址>
 ```
+
+变量位置、Windows 删除清单和启动入口见 [NACOS_CONFIGURATION.md](NACOS_CONFIGURATION.md)。
 
 ## Flyway 基线与迁移门禁（C26）
 

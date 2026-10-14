@@ -6,6 +6,7 @@ spring:
     name: mall-auth
   config:
     import:
+      - nacos:shared-runtime.yml?group=DEFAULT_GROUP&refreshEnabled=true
       - optional:nacos:mall-auth.yml?server-addr=${NACOS_SERVER_ADDR:127.0.0.1:8848}&refreshEnabled=true
       - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&server-addr=${NACOS_SERVER_ADDR:127.0.0.1:8848}&refresh=true
   cloud:
