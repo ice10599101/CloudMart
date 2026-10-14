@@ -14,9 +14,6 @@ import tools.jackson.databind.ValueDeserializer;
 import tools.jackson.databind.ValueSerializer;
 import tools.jackson.databind.module.SimpleModule;
 
-import java.io.IOException;
-import java.time.DateTimeException;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -31,8 +28,9 @@ import java.time.format.DateTimeParseException;
  *
  * <ul>
  *   <li>业务 ID：Long 一律输出字符串（雪花 ID 超 JS 安全整数，客户端 Number 解析丢精度）；</li>
- *   <li>时间点：LocalDateTime 统一 RFC 3339 UTC（{@code 2026-09-26T01:00:00Z}），
- *       反序列化兼容带 Z/带偏移/无时区（无时区按 UTC 解释）。</li>
+ *   <li>时间点：LocalDateTime 统一 RFC 3339 UTC（{@code 2026-09-26T01:00:00Z}）。
+ *       入参必须携带时区（{@code Z} 或显式偏移，如 {@code +08:00}），服务端归一到 UTC；
+ *       无时区裸时间（C24 已移除旧客户端兼容）直接判 400，禁止静默猜时区。</li>
  * </ul>
  *
  * <p>@Order(LOWEST_PRECEDENCE) 保证本定制器最后应用、覆盖 common 的 JsSafeLong 注册。</p>
@@ -58,7 +56,10 @@ public class PetJsonMapperCustomizer {
         }
     }
 
-    /** 兼容解析：带 Z / 带偏移 / 无时区（无时区按 UTC 解释，存储口径即 UTC） */
+    /**
+     * 严格解析（C24/R22）：仅接受带时区的 RFC 3339（{@code Z} 或显式偏移），归一到 UTC。
+     * 无时区裸时间不再按 UTC 猜测，直接报 400——客户端改时区不能改变时间点语义。
+     */
     static class UtcLocalDateTimeDeserializer extends ValueDeserializer<LocalDateTime> {
         @Override
         public LocalDateTime deserialize(JsonParser parser, DeserializationContext ctxt) {
@@ -67,18 +68,18 @@ public class PetJsonMapperCustomizer {
                 return null;
             }
             try {
-                boolean hasZone = text.endsWith("Z")
-                        || (text.length() > 6 && text.charAt(text.length() - 3) == ':'
-                        && (text.lastIndexOf('+') > 10 || text.lastIndexOf('-') > 10));
-                if (hasZone) {
-                    return OffsetDateTime.parse(text).atZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
-                }
-                return LocalDateTime.parse(text);
-            } catch (DateTimeException e) {
+                // ISO_OFFSET_DATE_TIME 同时接受 ...Z 与 ...+08:00；解析成功即携带时区
+                return OffsetDateTime.parse(text).atZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+            } catch (DateTimeParseException offsetFailure) {
                 try {
-                    return LocalDateTime.ofInstant(Instant.parse(text), ZoneOffset.UTC);
+                    // 语法是合法本地时间但缺时区：明确拒绝，而非静默按 UTC 解释
+                    LocalDateTime.parse(text);
+                    throw ctxt.weirdStringException(text, LocalDateTime.class,
+                            "时间戳必须携带时区偏移（RFC 3339，如 2026-09-26T01:00:00Z 或 "
+                                    + "2026-09-26T09:00:00+08:00），禁止无时区裸时间");
                 } catch (DateTimeParseException ignored) {
-                    throw new IllegalArgumentException("无法解析时间: " + text, e);
+                    throw ctxt.weirdStringException(text, LocalDateTime.class,
+                            "不是合法的 RFC 3339 时间戳");
                 }
             }
         }

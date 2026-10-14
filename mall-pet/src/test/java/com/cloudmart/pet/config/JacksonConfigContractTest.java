@@ -7,6 +7,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * T16/B07/P03 契约验证（Jackson 3 / Spring Boot 4 MVC 实际路径）：
@@ -33,11 +34,29 @@ class JacksonConfigContractTest {
         assertThat(json).contains("\"count\":5");
         assertThat(json).contains("\"time\":\"2026-09-26T11:56:12Z\"");
 
-        // 反序列化兼容：带 Z / 带偏移 / 无时区（按 UTC 解释）
+        // C24/R22：带显式偏移的入参归一到 UTC（+08:00 19:56 → UTC 11:56）
         Sample parsed = mapper.readValue(
                 "{\"id\":\"2103814471804837889\",\"count\":5,\"time\":\"2026-09-26T19:56:12+08:00\"}",
                 Sample.class);
         assertThat(parsed.time()).isEqualTo(LocalDateTime.of(2026, 9, 26, 11, 56, 12));
+
+        // 带 Z 后缀同样合法
+        Sample zoned = mapper.readValue(
+                "{\"id\":\"2103814471804837889\",\"count\":5,\"time\":\"2026-09-26T11:56:12Z\"}",
+                Sample.class);
+        assertThat(zoned.time()).isEqualTo(LocalDateTime.of(2026, 9, 26, 11, 56, 12));
+
+        // C24：无时区裸时间必须明确拒绝（不再静默按 UTC 猜测）
+        assertThatThrownBy(() -> mapper.readValue(
+                "{\"id\":\"2103814471804837889\",\"count\":5,\"time\":\"2026-09-26T11:56:12\"}",
+                Sample.class))
+                .hasMessageContaining("时区偏移");
+
+        // 非法时间串同样拒绝
+        assertThatThrownBy(() -> mapper.readValue(
+                "{\"id\":\"2103814471804837889\",\"count\":5,\"time\":\"not-a-timestamp\"}",
+                Sample.class))
+                .hasMessageContaining("RFC 3339");
     }
 
     @Test

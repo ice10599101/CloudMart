@@ -5,9 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * 平台级邮件验证码通道配置（cloudmart.mail.*）。
  *
- * <p>各服务在自身 application.yml 中将本前缀映射到部署环境变量（如注册用
- * {@code CLOUDMART_MAIL_*}，注销保留 {@code WISH_MAIL_*} 兼容回退），
- * 任一必填项缺失即视为通道未配置。</p>
+ * <p>各服务在自身 application.yml 中将本前缀映射到部署环境变量 {@code CLOUDMART_MAIL_*}
+ * （C24：旧 {@code WISH_MAIL_*} 回退已移除），任一必填项缺失即视为通道未配置。</p>
  */
 @ConfigurationProperties(prefix = "cloudmart.mail")
 public record MailChannelProperties(String host, int port, String username, String password, String from) {
