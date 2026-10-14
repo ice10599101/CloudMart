@@ -9,10 +9,16 @@ import {
   CloseCircleOutlined,
   ExclamationCircleOutlined,
   UndoOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import { history, useParams } from 'umi'
 import { fetchOrderById, cancelOrder, confirmReceipt, requestRefund } from '@/api/order'
-import { applyAfterSale, type AfterSaleCase } from '@/api/afterSale'
+import {
+  applyAfterSale,
+  cancelAfterSale,
+  listOrderAfterSales,
+  type AfterSaleCase,
+} from '@/api/afterSale'
 import { type Order, type OrderStatus, ORDER_STATUS_LABELS } from '@/types'
 import OrderItemReview from '@/components/OrderItemReview'
 
@@ -54,6 +60,19 @@ const STEP_ITEMS = [
   { title: '已发货', desc: '运输中' },
   { title: '已完成', desc: '交易完成' },
 ]
+
+const AFTER_SALE_TYPE_LABELS: Record<string, string> = {
+  REFUND_ONLY: '仅退款',
+  RETURN_REFUND: '退货退款',
+}
+
+const AFTER_SALE_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+  PENDING: { label: '待商家受理', color: '#FAAD14', bg: 'rgba(250,173,20,0.1)' },
+  APPROVED: { label: '商家已受理', color: 'var(--color-primary)', bg: 'rgba(var(--color-primary-rgb), 0.1)' },
+  REJECTED: { label: '已拒绝', color: '#FF4D4F', bg: 'rgba(255,77,79,0.1)' },
+  REFUNDED: { label: '已退款', color: '#52C41A', bg: 'rgba(82,196,26,0.1)' },
+  CLOSED: { label: '已关闭', color: 'var(--color-text-tertiary)', bg: 'rgba(139,157,195,0.1)' },
+}
 
 function getStepIndex(status: OrderStatus): number {
   const map: Record<OrderStatus, number> = {
@@ -162,12 +181,23 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true)
   const [refundModalOpen, setRefundModalOpen] = useState(false)
   const [refundReason, setRefundReason] = useState('')
-  // T11：售后案件（PAID/SHIPPED 可申请；进度时间线展示）
+  // T11：售后案件（PAID/SHIPPED 可申请；详情页展示该订单全部案件进度，PENDING 可撤销）
   const [afterSaleModalOpen, setAfterSaleModalOpen] = useState(false)
   const [afterSaleType, setAfterSaleType] = useState<'REFUND_ONLY' | 'RETURN_REFUND'>('REFUND_ONLY')
   const [afterSaleReason, setAfterSaleReason] = useState('')
-  const [afterSaleCase, setAfterSaleCase] = useState<AfterSaleCase | null>(null)
+  const [afterSaleCases, setAfterSaleCases] = useState<AfterSaleCase[]>([])
   const [afterSaleSubmitting, setAfterSaleSubmitting] = useState(false)
+  const [cancellingCaseId, setCancellingCaseId] = useState<number | null>(null)
+
+  const loadAfterSales = useCallback(async (orderId: number) => {
+    try {
+      const { data: res } = await listOrderAfterSales(orderId)
+      setAfterSaleCases(res.data ?? [])
+    } catch {
+      // Fail-Open：售后记录加载失败不阻断订单详情主体展示
+      setAfterSaleCases([])
+    }
+  }, [])
 
   const submitAfterSale = useCallback(async () => {
     if (!order || !afterSaleReason.trim()) {
@@ -176,26 +206,57 @@ export default function OrderDetail() {
     }
     setAfterSaleSubmitting(true)
     try {
-      const { data: res } = await applyAfterSale(order.id, {
+      await applyAfterSale(order.id, {
         type: afterSaleType,
         reason: afterSaleReason.trim(),
       })
-      setAfterSaleCase(res.data)
       message.success('售后申请已提交，等待商家受理')
       setAfterSaleModalOpen(false)
+      setAfterSaleReason('')
+      await loadAfterSales(order.id)
     } catch {
       message.error('售后申请失败')
     } finally {
       setAfterSaleSubmitting(false)
     }
-  }, [order, afterSaleType, afterSaleReason])
+  }, [order, afterSaleType, afterSaleReason, loadAfterSales])
+
+  const handleCancelAfterSale = useCallback(
+    (afterSaleCase: AfterSaleCase) => {
+      if (!order) return
+      Modal.confirm({
+        title: '取消售后申请',
+        content: `确认撤销案件「${afterSaleCase.caseNo}」的售后申请吗？撤销后可重新发起。`,
+        okText: '确认撤销',
+        cancelText: '再想想',
+        okButtonProps: { danger: true },
+        onOk: async () => {
+          setCancellingCaseId(afterSaleCase.id)
+          try {
+            await cancelAfterSale(afterSaleCase.id)
+            message.success('售后申请已取消')
+            await loadAfterSales(order.id)
+          } catch {
+            message.error('取消售后失败')
+          } finally {
+            setCancellingCaseId(null)
+          }
+        },
+      })
+    },
+    [order, loadAfterSales],
+  )
 
   const loadOrder = async () => {
     if (!id) return
     setLoading(true)
     try {
       const res = await fetchOrderById(id)
-      setOrder(res.data.data)
+      const loadedOrder = res.data.data
+      setOrder(loadedOrder)
+      if (loadedOrder) {
+        await loadAfterSales(loadedOrder.id)
+      }
     } catch {
       message.error('加载订单失败')
     } finally {
@@ -205,7 +266,8 @@ export default function OrderDetail() {
 
   useEffect(() => {
     loadOrder()
-  }, [id])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, loadAfterSales])
 
   const handleCancel = async () => {
     if (!order) return
@@ -559,6 +621,118 @@ export default function OrderDetail() {
           </div>
         </SectionCard>
 
+        {afterSaleCases.length > 0 && (
+          <SectionCard
+            title="售后记录"
+            icon={<SafetyCertificateOutlined style={{ color: 'var(--color-primary)', fontSize: 16 }} />}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {afterSaleCases.map((afterSaleCase) => {
+                const statusMeta = AFTER_SALE_STATUS_META[afterSaleCase.status] ?? {
+                  label: afterSaleCase.status,
+                  color: 'var(--color-text-tertiary)',
+                  bg: 'rgba(139,157,195,0.1)',
+                }
+                return (
+                  <div
+                    key={afterSaleCase.id}
+                    style={{ border: '1px solid var(--color-border)', borderRadius: 12, padding: '14px 16px' }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ color: 'var(--color-text-secondary)', fontSize: 14, fontWeight: 600 }}>
+                          {AFTER_SALE_TYPE_LABELS[afterSaleCase.type] ?? afterSaleCase.type}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: statusMeta.color,
+                            background: statusMeta.bg,
+                            padding: '2px 10px',
+                            borderRadius: 10,
+                          }}
+                        >
+                          {statusMeta.label}
+                        </span>
+                        <span style={{ color: 'var(--color-text-tertiary)', fontSize: 12, fontFamily: 'monospace' }}>
+                          案件号：{afterSaleCase.caseNo}
+                        </span>
+                      </div>
+                      {afterSaleCase.status === 'PENDING' && (
+                        <Button
+                          size="small"
+                          danger
+                          loading={cancellingCaseId === afterSaleCase.id}
+                          onClick={() => handleCancelAfterSale(afterSaleCase)}
+                        >
+                          取消售后
+                        </Button>
+                      )}
+                    </div>
+
+                    <div style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginBottom: 8 }}>
+                      申请原因：{afterSaleCase.reason}
+                    </div>
+
+                    {afterSaleCase.status === 'REJECTED' && afterSaleCase.rejectReason && (
+                      <div style={{ color: '#FF4D4F', fontSize: 13, marginBottom: 8 }}>
+                        拒绝原因：{afterSaleCase.rejectReason}
+                      </div>
+                    )}
+
+                    {(afterSaleCase.refundAmount !== null || afterSaleCase.refundNo !== null) && (
+                      <div style={{ display: 'flex', gap: 20, color: 'var(--color-text-secondary)', fontSize: 13, marginBottom: 8 }}>
+                        {afterSaleCase.refundAmount !== null && (
+                          <span>退款金额：¥{Number(afterSaleCase.refundAmount).toFixed(2)}</span>
+                        )}
+                        {afterSaleCase.refundNo !== null && <span>退款单号：{afterSaleCase.refundNo}</span>}
+                      </div>
+                    )}
+
+                    {afterSaleCase.timeline.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', marginTop: 4 }}>
+                        {afterSaleCase.timeline.map((entry, index) => (
+                          <div
+                            key={`${entry.createdAt}-${index}`}
+                            style={{ display: 'flex', gap: 10, paddingBottom: index < afterSaleCase.timeline.length - 1 ? 12 : 0, position: 'relative' }}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <div
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: '50%',
+                                  background: 'var(--color-primary)',
+                                  flexShrink: 0,
+                                  marginTop: 5,
+                                }}
+                              />
+                              {index < afterSaleCase.timeline.length - 1 && (
+                                <div style={{ width: 2, flex: 1, background: 'rgba(var(--color-primary-rgb), 0.2)', marginTop: 4 }} />
+                              )}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ color: 'var(--color-text-secondary)', fontSize: 13, fontWeight: 500 }}>
+                                {entry.action}
+                                {entry.operator ? <span style={{ color: 'var(--color-text-tertiary)', fontWeight: 400 }}> · {entry.operator}</span> : null}
+                              </div>
+                              {entry.detail && (
+                                <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12, marginTop: 2 }}>{entry.detail}</div>
+                              )}
+                              <div style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>{entry.createdAt}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </SectionCard>
+        )}
+
         <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
           <div style={{ flex: 1 }}>
             <SectionCard
@@ -695,7 +869,7 @@ export default function OrderDetail() {
         />
       </Modal>
 
-      {/* T11：申请售后 Modal（类型+原因；进度在提交后展示） */}
+      {/* T11：申请售后 Modal（类型+原因；提交后进度在「售后记录」区块展示） */}
       <Modal
         open={afterSaleModalOpen}
         title="申请售后"
@@ -715,46 +889,35 @@ export default function OrderDetail() {
           </Button>,
         ]}
       >
-        {afterSaleCase ? (
-          <div>
-            <p>申请已提交（案件号 {afterSaleCase.caseNo}），等待商家受理。</p>
-            {afterSaleCase.timeline?.map((e) => (
-              <p key={e.createdAt} style={{ color: 'var(--color-text-tertiary)', fontSize: 12 }}>
-                {e.createdAt} · {e.action}
-              </p>
-            ))}
+        <div>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ marginBottom: 6, color: 'var(--color-text-secondary)' }}>售后类型</div>
+            <select
+              value={afterSaleType}
+              onChange={(e) => setAfterSaleType(e.target.value as 'REFUND_ONLY' | 'RETURN_REFUND')}
+              style={{
+                width: '100%',
+                padding: '8px',
+                borderRadius: 8,
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-bg-container)',
+                color: 'var(--color-text-secondary)',
+              }}
+            >
+              <option value="REFUND_ONLY">仅退款（未发货/与商家协商）</option>
+              {order?.status === 'SHIPPED' && <option value="RETURN_REFUND">退货退款（按商品项）</option>}
+            </select>
           </div>
-        ) : (
           <div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ marginBottom: 6, color: 'var(--color-text-secondary)' }}>售后类型</div>
-              <select
-                value={afterSaleType}
-                onChange={(e) => setAfterSaleType(e.target.value as 'REFUND_ONLY' | 'RETURN_REFUND')}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  borderRadius: 8,
-                  border: '1px solid var(--color-border)',
-                  background: 'var(--color-bg-container)',
-                  color: 'var(--color-text-secondary)',
-                }}
-              >
-                <option value="REFUND_ONLY">仅退款（未发货/与商家协商）</option>
-                {order?.status === 'SHIPPED' && <option value="RETURN_REFUND">退货退款（按商品项）</option>}
-              </select>
-            </div>
-            <div>
-              <div style={{ marginBottom: 6, color: 'var(--color-text-secondary)' }}>售后原因</div>
-              <Input.TextArea
-                rows={4}
-                value={afterSaleReason}
-                onChange={(e) => setAfterSaleReason(e.target.value)}
-                placeholder="请描述售后原因"
-              />
-            </div>
+            <div style={{ marginBottom: 6, color: 'var(--color-text-secondary)' }}>售后原因</div>
+            <Input.TextArea
+              rows={4}
+              value={afterSaleReason}
+              onChange={(e) => setAfterSaleReason(e.target.value)}
+              placeholder="请描述售后原因"
+            />
           </div>
-        )}
+        </div>
       </Modal>
     </div>
   )
