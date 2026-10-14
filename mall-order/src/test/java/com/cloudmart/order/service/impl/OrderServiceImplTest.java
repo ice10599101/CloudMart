@@ -153,7 +153,7 @@ class OrderServiceImplTest {
 
             OrderItemDTO itemDTO = new OrderItemDTO(1L, 1L, 10L, "Test Product", null, null, new BigDecimal("100.00"), 1);
             when(orderConverter.toItemDTOList(List.of(item))).thenReturn(List.of(itemDTO));
-            OrderDTO expected = new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PENDING_PAYMENT", "张三", "13800138000", "北京市", null, null, null, null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null);
+            OrderDTO expected = new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PENDING_PAYMENT", "张三", "13800138000", "北京市", null, null, null, null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null, "NONE", BigDecimal.ZERO);
             when(orderConverter.toDTO(eq(order), any())).thenReturn(expected);
 
             OrderDTO result = orderService.getOrderById(100L, 1L);
@@ -201,7 +201,7 @@ class OrderServiceImplTest {
             when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
 
             OrderItemDTO itemDTO = new OrderItemDTO(1L, 1L, 10L, "Test Product", null, null, new BigDecimal("100.00"), 1);
-            OrderDTO expected = new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "CANCELLED", "张三", "13800138000", "北京市", null, null, null, null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null);
+            OrderDTO expected = new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "CANCELLED", "张三", "13800138000", "北京市", null, null, null, null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null, "NONE", BigDecimal.ZERO);
             when(orderConverter.toItemDTOList(List.of(item))).thenReturn(List.of(itemDTO));
             when(orderConverter.toDTO(cancelledOrder, List.of(itemDTO))).thenReturn(expected);
 
@@ -268,7 +268,7 @@ class OrderServiceImplTest {
             when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
 
             OrderItemDTO itemDTO = new OrderItemDTO(1L, 1L, 10L, "Test Product", null, null, new BigDecimal("100.00"), 1);
-            OrderDTO expected = new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "SHIPPED", "张三", "13800138000", "北京市", null, null, null, null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null);
+            OrderDTO expected = new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "SHIPPED", "张三", "13800138000", "北京市", null, null, null, null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null, "NONE", BigDecimal.ZERO);
             when(orderConverter.toItemDTOList(List.of(item))).thenReturn(List.of(itemDTO));
             when(orderConverter.toDTO(shippedOrder, List.of(itemDTO))).thenReturn(expected);
 
@@ -350,7 +350,7 @@ class OrderServiceImplTest {
             when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(item));
 
             OrderItemDTO itemDTO = new OrderItemDTO(1L, 1L, 10L, "Test Product", null, null, new BigDecimal("100.00"), 1);
-            OrderDTO expected = new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "COMPLETED", "张三", "13800138000", "北京市", null, null, null, null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null);
+            OrderDTO expected = new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "COMPLETED", "张三", "13800138000", "北京市", null, null, null, null, List.of(itemDTO), LocalDateTime.of(2026, 1, 1, 0, 0), null, "NONE", BigDecimal.ZERO);
             when(orderConverter.toItemDTOList(List.of(item))).thenReturn(List.of(itemDTO));
             when(orderConverter.toDTO(completedOrder, List.of(itemDTO))).thenReturn(expected);
 
@@ -395,7 +395,7 @@ class OrderServiceImplTest {
             when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
             when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of());
             when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(
-                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null));
+                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null, "NONE", BigDecimal.ZERO));
 
             OrderDTO result = orderService.requestRefund(100L, 1L, "defective");
 
@@ -589,7 +589,7 @@ class OrderServiceImplTest {
             when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
             when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of());
             when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(
-                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null));
+                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null, "NONE", BigDecimal.ZERO));
 
             orderService.approveRefund(1L);
 
@@ -623,7 +623,7 @@ class OrderServiceImplTest {
             when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
             when(orderConverter.toItemDTOList(anyList())).thenReturn(List.of());
             when(orderConverter.toDTO(any(Order.class), anyList())).thenReturn(
-                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null));
+                    new OrderDTO(1L, "ORD20260101000001", new BigDecimal("100.00"), new BigDecimal("100.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "北京市", null, null, null, null, List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null, "NONE", BigDecimal.ZERO));
 
             orderService.approveRefund(1L);
 

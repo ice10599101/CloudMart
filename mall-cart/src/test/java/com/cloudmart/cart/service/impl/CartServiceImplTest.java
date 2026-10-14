@@ -58,7 +58,7 @@ class CartServiceImplTest {
     }
 
     private CartItemDTO buildCartItemDTO(Long skuId, int quantity, int checked) {
-        return new CartItemDTO(null, 1L, 100L, skuId, quantity, checked, "Phone", "phone.jpg", "Red", new BigDecimal("999.00"));
+        return new CartItemDTO(null, 1L, 100L, skuId, quantity, checked, "Phone", "phone.jpg", "Red", new BigDecimal("999.00"), null, null);
     }
 
     @Nested

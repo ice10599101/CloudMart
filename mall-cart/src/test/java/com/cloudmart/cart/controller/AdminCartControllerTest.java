@@ -42,7 +42,7 @@ class AdminCartControllerTest {
     @Test
     @DisplayName("查询用户购物车 - 成功返回信封格式")
     void getCartByUserId_ShouldReturn200WithEnvelope() throws Exception {
-        CartItemDTO itemDto = new CartItemDTO(1L, 1L, 100L, 200L, 2, 1, "商品A", "img.jpg", "红色", new BigDecimal("99.00"));
+        CartItemDTO itemDto = new CartItemDTO(1L, 1L, 100L, 200L, 2, 1, "商品A", "img.jpg", "红色", new BigDecimal("99.00"), null, null);
         CartDTO dto = new CartDTO(List.of(itemDto), 2, new BigDecimal("198.00"));
 
         given(cartService.getCart(1L)).willReturn(dto);

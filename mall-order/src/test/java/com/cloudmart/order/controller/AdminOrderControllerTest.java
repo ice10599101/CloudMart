@@ -48,13 +48,13 @@ class AdminOrderControllerTest {
         OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("99.00"), 2);
         OrderDTO dto = new OrderDTO(1L, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"),
                 BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "地址",
-                null, null, null, null, List.of(itemDto), null, null);
+                null, null, null, null, List.of(itemDto), null, null, "NONE", BigDecimal.ZERO);
         Meta meta = new Meta(1, 10, 1L);
         ApiResponse<List<OrderDTO>> response = ApiResponse.ok(List.of(dto), meta);
 
         given(orderService.listAllOrders(null, null, null, 1, 10)).willReturn(response);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "PAID", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "PAID", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null, "NONE", BigDecimal.ZERO);
         given(orderConverter.orderDtoToVOList(List.of(dto))).willReturn(List.of(vo));
 
         mockMvc.perform(get("/admin/orders"))
@@ -72,11 +72,11 @@ class AdminOrderControllerTest {
     void getOrderById_ShouldReturn200WithEnvelope() throws Exception {
         OrderDTO dto = new OrderDTO(1L, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"),
                 BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "地址",
-                null, null, null, null, List.of(), null, null);
+                null, null, null, null, List.of(), null, null, "NONE", BigDecimal.ZERO);
 
         given(orderService.getAdminOrderById(1L)).willReturn(dto);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "PAID", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "PAID", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null, "NONE", BigDecimal.ZERO);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/admin/orders/1"))
@@ -91,12 +91,12 @@ class AdminOrderControllerTest {
     void shipOrder_ShouldReturn200WithEnvelope() throws Exception {
         OrderDTO dto = new OrderDTO(1L, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"),
                 BigDecimal.ZERO, null, "SHIPPED", "张三", "13800138000", "北京市",
-                null, null, null, null, List.of(), null, null);
+                null, null, null, null, List.of(), null, null, "NONE", BigDecimal.ZERO);
         given(orderService.shipOrder(any(), any(), any(), any()))
                 .willReturn(dto);
 
         OrderVO vo = new OrderVO(1L, "ORD123", "SHIPPED", new BigDecimal("198.00"), new BigDecimal("198.00"),
-                BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
+                BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null, "NONE", BigDecimal.ZERO);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
@@ -113,11 +113,11 @@ class AdminOrderControllerTest {
     void cancelOrder_ShouldReturn200WithEnvelope() throws Exception {
         OrderDTO dto = new OrderDTO(1L, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"),
                 BigDecimal.ZERO, null, "CANCELLED", "张三", "13800138000", "地址",
-                null, null, null, null, List.of(), null, null);
+                null, null, null, null, List.of(), null, null, "NONE", BigDecimal.ZERO);
 
         given(orderService.adminCancelOrder(1L)).willReturn(dto);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "CANCELLED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "CANCELLED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null, "NONE", BigDecimal.ZERO);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/admin/orders/1/cancel"))
@@ -131,11 +131,11 @@ class AdminOrderControllerTest {
     void approveRefund_ShouldReturn200WithEnvelope() throws Exception {
         OrderDTO dto = new OrderDTO(1L, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"),
                 BigDecimal.ZERO, null, "REFUNDED", "张三", "13800138000", "地址",
-                null, null, null, null, List.of(), null, null);
+                null, null, null, null, List.of(), null, null, "NONE", BigDecimal.ZERO);
 
         given(orderService.approveRefund(1L)).willReturn(dto);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "REFUNDED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "REFUNDED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null, "NONE", BigDecimal.ZERO);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/admin/orders/1/approve-refund"))
@@ -149,11 +149,11 @@ class AdminOrderControllerTest {
     void rejectRefund_ShouldReturn200WithEnvelope() throws Exception {
         OrderDTO dto = new OrderDTO(1L, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"),
                 BigDecimal.ZERO, null, "REFUND_REJECTED", "张三", "13800138000", "地址",
-                null, null, "商品已拆封", null, List.of(), null, null);
+                null, null, "商品已拆封", null, List.of(), null, null, "NONE", BigDecimal.ZERO);
 
         given(orderService.rejectRefund(1L, "商品已拆封")).willReturn(dto);
 
-        OrderVO vo = new OrderVO(1L, "ORD123", "REFUND_REJECTED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null);
+        OrderVO vo = new OrderVO(1L, "ORD123", "REFUND_REJECTED", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "张三", "13800138000", "北京市", List.of(), null, null, null, "NONE", BigDecimal.ZERO);
         given(orderConverter.orderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/admin/orders/1/reject-refund")

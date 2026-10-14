@@ -121,10 +121,13 @@ public class CartServiceImpl implements CartService {
         cartItemMapper.upsertIncrement(userId, request.productId(), request.skuId(), request.quantity());
         CartItem entity = cartItemMapper.findByUserAndSku(userId, request.skuId());
 
+        // C22：商品与 SKU 已通过上方可售校验；invalid 保持 null（业务语义=有效/未打标，
+        // 系统只产生 null 与 true 两态），读取路径 markInvalidItems 才批量打失效标
         CartItemDTO item = new CartItemDTO(
                 entity.getId(), userId, entity.getProductId(), entity.getSkuId(),
                 entity.getQuantity(), entity.getChecked(),
-                productInfo.name(), matchedSku.image(), matchedSku.attributes(), matchedSku.price()
+                productInfo.name(), matchedSku.image(), matchedSku.attributes(), matchedSku.price(),
+                null, null
         );
 
         serializeAndPut(key, skuField, item, userId);
@@ -151,13 +154,17 @@ public class CartServiceImpl implements CartService {
         cartItemMapper.updateById(entity);
 
         CartItemDTO cached = findCachedItem(userId, skuId);
+        // C22：失效标记沿用缓存权威值（缓存缺失时为 null=待读取路径 markInvalid 校验），
+        // 勾选/数量改动不得把已打标的失效态抹掉
         CartItemDTO updated = new CartItemDTO(
                 entity.getId(), userId, entity.getProductId(), entity.getSkuId(),
                 entity.getQuantity(), entity.getChecked(),
                 cached != null ? cached.productName() : null,
                 cached != null ? cached.skuImage() : null,
                 cached != null ? cached.skuAttributes() : null,
-                cached != null ? cached.price() : null
+                cached != null ? cached.price() : null,
+                cached != null ? cached.invalid() : null,
+                cached != null ? cached.invalidReason() : null
         );
         if (updated.price() == null || updated.productName() == null) {
             updated = enrichItem(updated, new java.util.HashMap<>());
@@ -238,10 +245,12 @@ public class CartServiceImpl implements CartService {
         }
         for (CartItem entity : rows) {
             try {
+                // C22：DB 权威行无商品快照，失效态显式置 null——语义是"尚未校验"，
+                // 读取路径 enrichItem/markInvalidItems 会补快照并打失效标
                 CartItemDTO item = new CartItemDTO(
                         entity.getId(), userId, entity.getProductId(), entity.getSkuId(),
                         entity.getQuantity(), entity.getChecked(),
-                        null, null, null, null
+                        null, null, null, null, null, null
                 );
                 redisTemplate.opsForHash().put(key, entity.getSkuId().toString(),
                         objectMapper.writeValueAsString(item));
@@ -285,11 +294,13 @@ public class CartServiceImpl implements CartService {
         if (skuImage == null) {
             skuImage = productInfo.mainImage();
         }
+        // C22：补商品快照时保留原失效标记（失效判定由 markInvalidItems 单点负责）
         return new CartItemDTO(item.id(), item.userId(), item.productId(), item.skuId(),
                 item.quantity(), item.checked(),
                 productInfo.name(), skuImage,
                 matchedSku != null ? matchedSku.attributes() : null,
-                matchedSku != null ? matchedSku.price() : null);
+                matchedSku != null ? matchedSku.price() : null,
+                item.invalid(), item.invalidReason());
     }
 
     /**

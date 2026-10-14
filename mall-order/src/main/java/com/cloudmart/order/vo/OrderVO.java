@@ -25,14 +25,4 @@ public record OrderVO(
     @Schema(description = "T05：退款汇总状态（NONE/PARTIAL/FULL）") String refundStatus,
     @Schema(description = "T05：已退累计金额") java.math.BigDecimal refundedAmount
 ) {
-    /** 兼容旧 14 参签名 */
-    public OrderVO(Long id, String orderNo, String status, BigDecimal totalAmount,
-                   BigDecimal payAmount, BigDecimal discountAmount, Long couponId,
-                   String receiverName, String receiverPhone, String receiverAddress,
-                   List<OrderItemVO> items, LocalDateTime createdAt, LocalDateTime shippedAt,
-                   LocalDateTime completedAt) {
-        this(id, orderNo, status, totalAmount, payAmount, discountAmount, couponId,
-                receiverName, receiverPhone, receiverAddress, items, createdAt, shippedAt,
-                completedAt, "NONE", java.math.BigDecimal.ZERO);
-    }
 }

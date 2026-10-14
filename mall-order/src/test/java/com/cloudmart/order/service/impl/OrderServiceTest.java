@@ -143,7 +143,7 @@ class OrderServiceTest {
         orderItem.setQuantity(2);
 
         OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("99.00"), 2);
-        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "CANCELLED", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null);
+        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "CANCELLED", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null, "NONE", BigDecimal.ZERO);
 
         when(orderMapper.selectById(orderId)).thenReturn(order);
         when(orderMapper.updateStatusIfMatch(orderId, "PENDING_PAYMENT", "CANCELLED")).thenReturn(1);
@@ -221,7 +221,7 @@ class OrderServiceTest {
         orderItem.setQuantity(2);
 
         OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("99.00"), 2);
-        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "SHIPPED", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null);
+        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "SHIPPED", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null, "NONE", BigDecimal.ZERO);
 
         when(orderMapper.selectById(orderId)).thenReturn(order);
         when(orderMapper.updateStatusAndShippedAtIfMatch(orderId, "PAID", "SHIPPED")).thenReturn(1);
@@ -264,7 +264,7 @@ class OrderServiceTest {
         orderItem.setQuantity(2);
 
         OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("99.00"), 2);
-        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "COMPLETED", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null);
+        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "COMPLETED", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null, "NONE", BigDecimal.ZERO);
 
         when(orderMapper.selectById(orderId)).thenReturn(order);
         when(orderMapper.updateStatusAndCompletedAtIfMatch(orderId, "SHIPPED", "COMPLETED")).thenReturn(1);
@@ -302,7 +302,7 @@ class OrderServiceTest {
         orderItem.setQuantity(2);
 
         OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("99.00"), 2);
-        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "地址", null, null, refundReason, null, List.of(itemDto), null, null);
+        OrderDTO expectedDto = new OrderDTO(orderId, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "PAID", "张三", "13800138000", "地址", null, null, refundReason, null, List.of(itemDto), null, null, "NONE", BigDecimal.ZERO);
 
         when(orderMapper.selectById(orderId)).thenReturn(order);
         when(orderItemMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(orderItem));
@@ -376,7 +376,7 @@ class OrderServiceTest {
         orderItem.setQuantity(2);
 
         OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("99.00"), 2);
-        OrderDTO expectedDto = new OrderDTO(1L, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "PENDING_PAYMENT", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null);
+        OrderDTO expectedDto = new OrderDTO(1L, "ORD123", new BigDecimal("198.00"), new BigDecimal("198.00"), BigDecimal.ZERO, null, "PENDING_PAYMENT", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null, "NONE", BigDecimal.ZERO);
 
         when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
         when(inventoryFeignClient.deductStock(any(InventoryDeductRequest.class))).thenReturn(ApiResponse.ok(true));
@@ -432,7 +432,7 @@ class OrderServiceTest {
         orderItem.setQuantity(2);
 
         OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("9.90"), 2);
-        OrderDTO expectedDto = new OrderDTO(1L, "ORD123", new BigDecimal("19.80"), new BigDecimal("19.80"), BigDecimal.ZERO, null, "PENDING_PAYMENT", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null);
+        OrderDTO expectedDto = new OrderDTO(1L, "ORD123", new BigDecimal("19.80"), new BigDecimal("19.80"), BigDecimal.ZERO, null, "PENDING_PAYMENT", "张三", "13800138000", "地址", null, null, null, null, List.of(itemDto), null, null, "NONE", BigDecimal.ZERO);
 
         when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
         when(inventoryFeignClient.deductStock(any(InventoryDeductRequest.class))).thenReturn(ApiResponse.ok(true));
@@ -518,7 +518,7 @@ class OrderServiceTest {
         orderItem.setQuantity(1);
 
         OrderItemDTO itemDto = new OrderItemDTO(10L, 300L, 200L, "商品A", "img.jpg", "红色", new BigDecimal("9.90"), 1);
-        OrderDTO expectedDto = new OrderDTO(1L, "ORD124", new BigDecimal("9.90"), new BigDecimal("9.90"), BigDecimal.ZERO, null, "PENDING_PAYMENT", null, null, null, null, null, null, null, List.of(itemDto), null, null);
+        OrderDTO expectedDto = new OrderDTO(1L, "ORD124", new BigDecimal("9.90"), new BigDecimal("9.90"), BigDecimal.ZERO, null, "PENDING_PAYMENT", null, null, null, null, null, null, null, List.of(itemDto), null, null, "NONE", BigDecimal.ZERO);
 
         when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
         when(inventoryFeignClient.deductStock(any(InventoryDeductRequest.class))).thenReturn(ApiResponse.ok(true));
