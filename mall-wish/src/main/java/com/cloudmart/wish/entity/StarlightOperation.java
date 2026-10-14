@@ -12,7 +12,7 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * 通用星光交易幂等记录（C11）。
+ * 星光交易幂等记录（C11：心愿域中立通用机制，原 wish_pet_operation/pet 桥接命名全部退役）。
  *
  * <p>以 {@code operationId} 为业务操作唯一键：去重行与余额更新/流水写入同一事务提交，
  * 因此"该操作已生效"与"余额已变化"原子成立。仅成功结果落库——失败事务整体回滚，
@@ -21,8 +21,8 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
-@TableName("wish_starlight_operation")
-public class WishStarlightOperation {
+@TableName("starlight_operation")
+public class StarlightOperation {
 
     @TableId(type = IdType.ASSIGN_ID)
     private Long id;
@@ -47,9 +47,6 @@ public class WishStarlightOperation {
 
     /** 请求摘要（用户+类型+金额+来源+refId），冲突判定依据 */
     private String requestDigest;
-
-    /** 退款原单操作键（P02/TX-04：仅退款流水填写；累计退款校验与审计按原单聚合） */
-    private String refundOfOperationId;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

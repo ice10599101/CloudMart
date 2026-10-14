@@ -4,7 +4,7 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.wish.enums.ResourceLogSource;
 import com.cloudmart.wish.mq.StarlightNotifyProducer;
 import com.cloudmart.wish.service.UserStatService;
-import com.cloudmart.wish.vo.PetWalletOperationVO;
+import com.cloudmart.wish.vo.StarlightOperationVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,7 +23,7 @@ import java.util.Map;
 /**
  * 内部星光发放 Controller（N-2 评价返星光等跨服务激励）。
  *
- * <p>与 /internal/pet-support/starlight/earn（PET_REWARD 专用）分离：
+ * <p>C11 前与宠物专用 PET_REWARD 发放端点并存，该端点随宠物本地币账本改造已删除；
  * 本端点接收显式 source 并按白名单校验，避免跨业务流水混用审计口径。
  * hasRole('INTERNAL') 由服务令牌建立（SEC-01），发行方白名单见
  * mall-community/mall-wish yml 的 service-token-paths（P2-24 教训：双向都要配）。</p>
@@ -47,7 +47,7 @@ public class InternalStarlightController {
     @Transactional(rollbackFor = Exception.class)
     @Operation(summary = "幂等发放星光", description = "携带 operationId 幂等：重复相同请求返回原结果，"
             + "同键不同内容返回 WISH_OPERATION_CONFLICT(409)；余额达上限时截断（credited < amount）")
-    public ApiResponse<PetWalletOperationVO> earn(
+    public ApiResponse<StarlightOperationVO> earn(
             @Parameter(description = "用户 ID", required = true) @RequestParam("userId") Long userId,
             @Parameter(description = "星光数量（正整数）", required = true) @RequestParam("amount") Integer amount,
             @Parameter(description = "关联业务 ID（评价记录 ID，审计用）", required = true) @RequestParam("refId") Long refId,
@@ -58,7 +58,7 @@ public class InternalStarlightController {
             throw new com.cloudmart.common.exception.BusinessException(
                     "WISH_SOURCE_NOT_ALLOWED", "星光来源未登记：" + source);
         }
-        PetWalletOperationVO result = userStatService.earnStarlightIdempotent(userId, amount, resolved, refId, operationId);
+        StarlightOperationVO result = userStatService.earnStarlightIdempotent(userId, amount, resolved, refId, operationId);
         // R19：邀请奖励首次实际入账（非幂等重放、入账量>0）在事务提交后通知，深链跳邀请中心
         if (resolved == ResourceLogSource.INVITE_REWARD
                 && !result.duplicate()

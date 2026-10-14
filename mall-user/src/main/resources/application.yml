@@ -142,12 +142,14 @@ cloudmart:
       mall-auth: admin:auth
       # USER-01：注销阻塞核验（/internal/orders/has-open-orders）
       mall-order: order:internal
-      # R07/N-3：邀请奖励交付 + 邀请裂变双向星光奖励（/internal/starlight/earn，义务台账补发）
+      # R07：邀请奖励交付（/internal/starlight/earn，义务台账补发）
       mall-wish: wish:starlight
       # T06：注销分域擦除（community 复用既有 internal scope）
       mall-community: community:internal
       mall-notification: notification:internal
       mall-file: file:internal
+      # N-3 邀请裂变：双向星光奖励（/internal/starlight/earn）
+      mall-wish: wish:starlight
 
 # 注册发码：echo-code 仅供无邮件通道的开发/测试环境回显验证码，生产必须关闭
 user:

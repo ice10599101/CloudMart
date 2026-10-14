@@ -1,9 +1,9 @@
 package com.cloudmart.wish.repository;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.cloudmart.wish.entity.WishStarlightOperation;
+import com.cloudmart.wish.entity.StarlightOperation;
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
-public interface WishStarlightOperationMapper extends BaseMapper<WishStarlightOperation> {
+public interface StarlightOperationMapper extends BaseMapper<StarlightOperation> {
 }

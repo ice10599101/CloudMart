@@ -52,7 +52,7 @@ class UserStatServiceImplTest {
     @Mock
     private BadgeService badgeService;
     @Mock
-    private com.cloudmart.wish.repository.WishStarlightOperationMapper wishStarlightOperationMapper;
+    private com.cloudmart.wish.repository.StarlightOperationMapper starlightOperationMapper;
 
     private UserStatServiceImpl userStatService;
 
@@ -65,13 +65,13 @@ class UserStatServiceImplTest {
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), WishUserStat.class);
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""),
-                com.cloudmart.wish.entity.WishStarlightOperation.class);
+                com.cloudmart.wish.entity.StarlightOperation.class);
     }
 
     @BeforeEach
     void setUp() {
         userStatService = new UserStatServiceImpl(wishUserStatMapper, wishResourceLogMapper,
-                wishStarlightOperationMapper, badgeService);
+                starlightOperationMapper, badgeService);
         // initUserStat 的存在性检查默认无记录（允许 insert）
         when(wishUserStatMapper.selectById(USER_ID)).thenReturn(null);
     }
@@ -341,128 +341,6 @@ class UserStatServiceImplTest {
         return stat;
     }
 
-    @Nested
-    @DisplayName("refundStarlightIdempotent - 宠物旧单退款（P02/TX-04）")
-    class RefundTests {
-
-        private com.cloudmart.wish.entity.WishStarlightOperation originalSpend(int credited) {
-            com.cloudmart.wish.entity.WishStarlightOperation original = new com.cloudmart.wish.entity.WishStarlightOperation();
-            original.setOperationId("orig-1");
-            original.setUserId(USER_ID);
-            original.setOperationType(ResourceLogType.SPEND.name());
-            original.setAmount(credited);
-            original.setCreditedAmount(credited);
-            original.setRefId(3001L);
-            return original;
-        }
-
-        @Test
-        @DisplayName("正常退款：等于实扣金额全额入账，不受余额上限截断，PET_REFUND 流水")
-        void refund_success_bypassesCap() {
-            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class))).thenReturn(1);
-            when(wishStarlightOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
-            when(wishStarlightOperationMapper.selectList(any())).thenReturn(java.util.List.of());
-            when(wishUserStatMapper.update(any(), any())).thenReturn(1);
-            // 余额已在 4990（接近 5000 上限）：退款仍须全额 20 入账
-            when(wishUserStatMapper.selectOne(any())).thenReturn(buildStat(4990));
-
-            com.cloudmart.wish.vo.PetWalletOperationVO vo = userStatService.refundStarlightIdempotent(
-                    USER_ID, 20, "orig-1", "refund-1");
-
-            assertThat(vo.creditedAmount()).isEqualTo(20);
-            assertThat(vo.balanceAfter()).isEqualTo(5010);
-            ArgumentCaptor<WishResourceLog> captor = ArgumentCaptor.forClass(WishResourceLog.class);
-            verify(wishResourceLogMapper).insert(captor.capture());
-            assertThat(captor.getValue().getDelta()).isEqualTo(20);
-            assertThat(captor.getValue().getSource()).isEqualTo(ResourceLogSource.PET_REFUND.name());
-            ArgumentCaptor<com.cloudmart.wish.entity.WishStarlightOperation> opCaptor =
-                    ArgumentCaptor.forClass(com.cloudmart.wish.entity.WishStarlightOperation.class);
-            verify(wishStarlightOperationMapper).updateById(opCaptor.capture());
-            assertThat(opCaptor.getValue().getRefundOfOperationId()).isEqualTo("orig-1");
-            assertThat(opCaptor.getValue().getCreditedAmount()).isEqualTo(20);
-        }
-
-        @Test
-        @DisplayName("原单不存在：409 冲突，不写流水")
-        void refund_originalMissing_conflict() {
-            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class))).thenReturn(1);
-            when(wishStarlightOperationMapper.selectOne(any())).thenReturn(null);
-
-            assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
-                    USER_ID, 20, "orig-missing", "refund-1"))
-                    .isInstanceOfSatisfying(BusinessException.class, ex ->
-                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_OPERATION_CONFLICT));
-            verify(wishResourceLogMapper, never()).insert(any(WishResourceLog.class));
-        }
-
-        @Test
-        @DisplayName("原单不属于该用户：409 冲突（越权退款拒绝）")
-        void refund_notOwner_conflict() {
-            com.cloudmart.wish.entity.WishStarlightOperation other = originalSpend(20);
-            other.setUserId(9999L);
-            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class))).thenReturn(1);
-            when(wishStarlightOperationMapper.selectOne(any())).thenReturn(other);
-
-            assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
-                    USER_ID, 20, "orig-1", "refund-1"))
-                    .isInstanceOfSatisfying(BusinessException.class, ex ->
-                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_OPERATION_CONFLICT));
-        }
-
-        @Test
-        @DisplayName("非全额退款（首版不支持部分退）：409 冲突")
-        void refund_partialAmount_conflict() {
-            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class))).thenReturn(1);
-            when(wishStarlightOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
-
-            assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
-                    USER_ID, 10, "orig-1", "refund-1"))
-                    .isInstanceOfSatisfying(BusinessException.class, ex ->
-                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_OPERATION_CONFLICT));
-        }
-
-        @Test
-        @DisplayName("累计退款超过原单实扣：409 冲突")
-        void refund_cumulativeExceeded_conflict() {
-            com.cloudmart.wish.entity.WishStarlightOperation prior = new com.cloudmart.wish.entity.WishStarlightOperation();
-            prior.setCreditedAmount(20);
-            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class))).thenReturn(1);
-            when(wishStarlightOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
-            when(wishStarlightOperationMapper.selectList(any())).thenReturn(java.util.List.of(prior));
-
-            assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
-                    USER_ID, 20, "orig-1", "refund-2"))
-                    .isInstanceOfSatisfying(BusinessException.class, ex ->
-                            assertThat(ex.getCode()).isEqualTo(WishErrorCodes.WISH_OPERATION_CONFLICT));
-        }
-
-        @Test
-        @DisplayName("重复同键退款请求：返回原结果（duplicate）")
-        void refund_duplicateKey_returnsOriginal() {
-            java.util.concurrent.atomic.AtomicReference<String> digestRef =
-                    new java.util.concurrent.atomic.AtomicReference<>();
-            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class)))
-                    .thenAnswer(inv -> {
-                        digestRef.set(((com.cloudmart.wish.entity.WishStarlightOperation) inv.getArgument(0))
-                                .getRequestDigest());
-                        throw new org.springframework.dao.DuplicateKeyException("dup");
-                    });
-            when(wishStarlightOperationMapper.selectOne(any())).thenAnswer(inv -> {
-                com.cloudmart.wish.entity.WishStarlightOperation existing = new com.cloudmart.wish.entity.WishStarlightOperation();
-                existing.setOperationId("refund-1");
-                existing.setRequestDigest(digestRef.get());
-                existing.setAmount(20);
-                existing.setCreditedAmount(20);
-                return existing;
-            });
-
-            com.cloudmart.wish.vo.PetWalletOperationVO vo = userStatService.refundStarlightIdempotent(
-                    USER_ID, 20, "orig-1", "refund-1");
-
-            assertThat(vo.duplicate()).isTrue();
-            assertThat(vo.creditedAmount()).isEqualTo(20);
-        }
-    }
 
     @Nested
     @DisplayName("transferStarlightPair - R06 等额对转（守恒）")

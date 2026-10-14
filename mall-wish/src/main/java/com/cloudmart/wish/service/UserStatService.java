@@ -6,7 +6,7 @@ import com.cloudmart.wish.enums.ResourceLogType;
 import com.cloudmart.wish.vo.LevelUpVO;
 import com.cloudmart.wish.vo.MyLevelVO;
 import com.cloudmart.wish.vo.MyResourcesVO;
-import com.cloudmart.wish.vo.PetWalletOperationVO;
+import com.cloudmart.wish.vo.StarlightOperationVO;
 import com.cloudmart.wish.vo.ResourceLogVO;
 
 import java.util.List;
@@ -132,36 +132,8 @@ public interface UserStatService {
      * @param operationId 业务操作唯一键（调用方生成，如 CLAIM_WORK:9007199254740993）
      * @return 操作结果（含实际入账量、操作后余额、是否重复请求命中）
      */
-    PetWalletOperationVO earnStarlightIdempotent(Long userId, int amount, ResourceLogSource source,
+    StarlightOperationVO earnStarlightIdempotent(Long userId, int amount, ResourceLogSource source,
                                                  Long refId, String operationId);
-
-    /**
-     * 幂等扣减星光（B01）：语义同 {@link #earnStarlightIdempotent}；
-     * 余额不足整体回滚（不留去重行），可按原单重试。
-     *
-     * @return 操作结果（creditedAmount 等于 cost，balanceAfter 为扣减后余额）
-     */
-    PetWalletOperationVO spendStarlightIdempotent(Long userId, int cost, ResourceLogSource source,
-                                                  Long refId, String operationId);
-
-    /**
-     * 按操作键查询已完成的交易结果（B01 内部结果查询端点数据源）。
-     * 只读；不存在返回 null（表示结果未知，调用方可按原单重试）。
-     */
-    PetWalletOperationVO findOperation(String operationId);
-
-    /**
-     * 宠物旧单幂等退款（P02/TX-04）：仅限原 SPEND 扣款单的全额原路退回。
-     *
-     * <p>约束：原单必须存在、同用户、SPEND 方向且实际扣款大于 0；退款金额必须等于
-     * 原单实际扣款（首版不支持部分退款）；按原单累计退款不得超过实扣金额。
-     * 退款不走余额上限截断（可超上限入账），流水来源 PET_REFUND，refundOfOperationId
-     * 关联原单。重复同 refundOperationId 请求返回原结果。</p>
-     *
-     * @return 操作结果（creditedAmount=退款入账额，balanceAfter 为退款后余额）
-     */
-    PetWalletOperationVO refundStarlightIdempotent(Long userId, int amount, String originalOperationId,
-                                                   String refundOperationId);
 
     /**
      * 查询用户时区（限频 TTL 按用户时区计算当日 23:59:59，文档第 32 章）。
