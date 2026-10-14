@@ -40,6 +40,8 @@ export default function UserProfileScreen() {
   const isOwnProfile = String(currentUser?.id ?? '') === userId
 
   const [publicInfo, setPublicInfo] = useState<User | null>(null)
+  // “已加入 N 天”按页面挂载时刻计算（无轮询需求，快照即可），避免渲染期调用 Date.now 破坏纯度
+  const [nowMs] = useState(() => Date.now())
   /** TA的宠物卡片（未公开/无宠物失败即隐藏，Fail-Open 不影响主页其它内容） */
   const [petCard, setPetCard] = useState<PetPublicCard | null>(null)
 
@@ -61,7 +63,12 @@ export default function UserProfileScreen() {
     }
   }, [userId])
 
-  useEffect(() => { loadProfile() }, [loadProfile])
+  useEffect(() => {
+    async function run() {
+      await loadProfile()
+    }
+    void run()
+  }, [loadProfile])
 
   const loadPosts = async () => {
     if (!userId) return
@@ -106,10 +113,13 @@ export default function UserProfileScreen() {
   }
 
   useEffect(() => {
-    if (activeTab === 'posts') loadPosts()
-    else if (activeTab === 'wishes') loadWishes()
-    else if (activeTab === 'comments') loadUserComments()
-    else loadCollections()
+    async function run() {
+      if (activeTab === 'posts') await loadPosts()
+      else if (activeTab === 'wishes') await loadWishes()
+      else if (activeTab === 'comments') await loadUserComments()
+      else await loadCollections()
+    }
+    void run()
   }, [activeTab])
 
   const handleFollow = async () => {
@@ -262,7 +272,7 @@ export default function UserProfileScreen() {
           {publicInfo?.createdAt ? (
             <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 4 }}>
               加入 {new Date(publicInfo.createdAt).toLocaleDateString('zh-CN')} · 已加入{' '}
-              {Math.max(1, Math.ceil((Date.now() - new Date(publicInfo.createdAt).getTime()) / 86_400_000))} 天
+              {Math.max(1, Math.ceil((nowMs - new Date(publicInfo.createdAt).getTime()) / 86_400_000))} 天
             </Text>
           ) : null}
 

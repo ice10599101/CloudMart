@@ -78,7 +78,11 @@ export default function MyWishesScreen() {
   }, [statusFilter])
 
   useEffect(() => {
-    if (isLoggedIn) loadWishes(null, true)
+    if (!isLoggedIn) return
+    async function run() {
+      await loadWishes(null, true)
+    }
+    void run()
   }, [isLoggedIn, loadWishes])
 
   const onRefresh = useCallback(async () => {

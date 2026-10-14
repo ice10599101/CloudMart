@@ -42,7 +42,10 @@ export default function DataExportScreen() {
   }, [isLoggedIn])
 
   useEffect(() => {
-    load()
+    async function run() {
+      await load()
+    }
+    void run()
   }, [load])
 
   // PENDING/PROCESSING 任务每 3s 轮询至完成

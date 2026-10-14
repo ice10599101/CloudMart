@@ -50,7 +50,11 @@ export default function StarlightLogScreen() {
   }, [filter])
 
   useEffect(() => {
-    if (isLoggedIn) loadLogs(null, true)
+    if (!isLoggedIn) return
+    async function run() {
+      await loadLogs(null, true)
+    }
+    void run()
   }, [isLoggedIn])
 
   const renderItem = ({ item }: { item: ResourceLogItem }) => {

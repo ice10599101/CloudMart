@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Animated, Alert } from 'react-native'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from '@/hooks/use-theme-context'
 import { growthApi } from '@/api/growth'
 import { useAuthStore } from '@/store/auth'
@@ -43,7 +43,7 @@ export default function CheckInPage() {
   const [expOpen, setExpOpen] = useState(false)
   const [avatarFrame, setAvatarFrameState] = useState('none')
   const { user } = useAuthStore()
-  const fadeAnim = useRef(new Animated.Value(1)).current
+  const [fadeAnim] = useState(() => new Animated.Value(1))
 
   const loadCalendar = async (year: number, month: number) => {
     try {
@@ -79,7 +79,10 @@ export default function CheckInPage() {
   }
 
   useEffect(() => {
-    loadData()
+    async function init() {
+      await loadData()
+    }
+    void init()
   }, [])
 
   useEffect(() => {

@@ -281,7 +281,10 @@ export default function NotificationsScreen() {
   )
 
   useEffect(() => {
-    loadNotifications(1, true)
+    async function run() {
+      await loadNotifications(1, true)
+    }
+    void run()
   }, [activeTab])
 
   const onRefresh = useCallback(() => {

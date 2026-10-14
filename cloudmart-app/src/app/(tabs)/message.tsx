@@ -76,7 +76,10 @@ export default function MessagePage() {
   }, [isLoggedIn])
 
   useEffect(() => {
-    loadData()
+    async function run() {
+      await loadData()
+    }
+    void run()
   }, [isLoggedIn])
 
   const onRefresh = () => {

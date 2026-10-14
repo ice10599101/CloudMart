@@ -45,7 +45,10 @@ export function ActivityCenterPanel({ onRefresh }: { onRefresh: () => void }) {
   }, [])
 
   useEffect(() => {
-    void load()
+    async function run() {
+      await load()
+    }
+    void run()
   }, [load])
 
   const claimableIds = activities.filter((item) => item.canClaim).map((item) => item.activityId)

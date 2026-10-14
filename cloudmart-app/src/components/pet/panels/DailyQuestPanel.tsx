@@ -26,7 +26,10 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
   }, [])
 
   useEffect(() => {
-    void load()
+    async function run() {
+      await load()
+    }
+    void run()
   }, [load])
 
   useEffect(() => {

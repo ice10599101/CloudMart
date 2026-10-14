@@ -131,9 +131,12 @@ export default function PublishPage() {
       router.push('/login')
       return
     }
-    if (params.edit && !isEditing) {
-      loadPostForEdit(parseInt(params.edit))
+    if (!params.edit || isEditing) return
+    const editId = params.edit
+    async function run() {
+      await loadPostForEdit(parseInt(editId))
     }
+    void run()
   }, [params.edit, isLoggedIn])
 
   const uploadMediaFiles = async (): Promise<{ mediaUrls: string[]; coverImage: string; mediaType: string }> => {

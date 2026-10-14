@@ -47,7 +47,11 @@ export default function BadgeWallScreen() {
   }, [])
 
   useEffect(() => {
-    if (isLoggedIn) loadBadges()
+    if (!isLoggedIn) return
+    async function run() {
+      await loadBadges()
+    }
+    void run()
   }, [isLoggedIn, loadBadges])
 
   const onRefresh = useCallback(async () => {

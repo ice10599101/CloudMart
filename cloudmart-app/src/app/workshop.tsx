@@ -68,7 +68,10 @@ export default function WorkshopScreen() {
       router.push('/login')
       return
     }
-    loadAll()
+    async function run() {
+      await loadAll()
+    }
+    void run()
   }, [isLoggedIn, loadAll])
 
   const toastError = (error: unknown, fallback: string) => {

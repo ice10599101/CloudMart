@@ -602,7 +602,10 @@ export default function DriftBottleScreen() {
   }, [isLoggedIn])
 
   useEffect(() => {
-    loadBottles()
+    async function run() {
+      await loadBottles()
+    }
+    void run()
   }, [loadBottles])
 
   // 每日配额（投瓶 10/天、打捞 20/天，对齐 Web 端配额 chips）
@@ -618,7 +621,10 @@ export default function DriftBottleScreen() {
   }, [isLoggedIn])
 
   useEffect(() => {
-    void loadQuota()
+    async function run() {
+      await loadQuota()
+    }
+    void run()
   }, [loadQuota])
 
   /** 收藏漂流瓶（仅捞起人，PICKED 态；幂等） */

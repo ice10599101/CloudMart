@@ -64,8 +64,10 @@ export default function SearchScreen() {
   }
 
   useEffect(() => {
-    loadHotSearches()
-    loadSearchHistory()
+    async function run() {
+      await Promise.all([loadHotSearches(), loadSearchHistory()])
+    }
+    void run()
   }, [])
 
   const handleSearch = useCallback(async (text: string) => {

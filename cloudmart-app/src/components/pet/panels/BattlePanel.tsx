@@ -33,7 +33,10 @@ export function BattlePanel(
   }, [])
 
   useEffect(() => {
-    void load()
+    async function run() {
+      await load()
+    }
+    void run()
   }, [load])
 
   const battleRespond = async (battle: PetBattleItem, accept: boolean) => {

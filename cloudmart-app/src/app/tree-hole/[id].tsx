@@ -14,12 +14,15 @@ import type { AiResource } from '@/types'
 /** AI 回复逐字浮现（打字机）；仅列表最后一条 AI 消息播放入场 */
 function TypeText({ text, active }: { text: string; active: boolean }) {
   const [shown, setShown] = useState(active ? '' : text)
+  const [prevKey, setPrevKey] = useState({ text, active })
+  // text/active 变化时于渲染期重置（React 官方"派生 state"模式：
+  // 同组件条件 setState 会立即重渲染，避免 effect 内同步 setState 的级联渲染）
+  if (prevKey.text !== text || prevKey.active !== active) {
+    setPrevKey({ text, active })
+    setShown(active ? '' : text)
+  }
   useEffect(() => {
-    if (!active) {
-      setShown(text)
-      return
-    }
-    setShown('')
+    if (!active) return
     let i = 0
     const timer = setInterval(() => {
       i += 1

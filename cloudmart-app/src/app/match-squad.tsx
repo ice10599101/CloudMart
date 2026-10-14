@@ -63,8 +63,10 @@ export default function MatchSquadScreen() {
   }, [user])
 
   useEffect(() => {
-    loadRecommend(keyword)
-    loadMyGroups()
+    async function run() {
+      await Promise.all([loadRecommend(keyword), loadMyGroups()])
+    }
+    void run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadRecommend, loadMyGroups])
 

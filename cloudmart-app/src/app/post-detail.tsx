@@ -150,10 +150,11 @@ export default function PostDetailScreen() {
   }
 
   useEffect(() => {
-    if (postId) {
-      loadPost()
-      loadComments()
+    if (!postId) return
+    async function run() {
+      await Promise.all([loadPost(), loadComments()])
     }
+    void run()
   }, [postId])
 
   const handleLike = async () => {

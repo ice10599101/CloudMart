@@ -29,11 +29,15 @@ export function ProfileModal(
 
   useEffect(() => {
     if (!open) return
-    setProfileName(pet.name)
-    setProfileOwnerTitle(pet.ownerTitle ?? '主人')
-    const appearance = parseResult<{ color?: string; accessory?: string }>(pet.appearance)
-    setProfileColor(appearance?.color ?? PET_COLORS[0])
-    setProfileAccessory(appearance?.accessory ?? 'none')
+    // pet 是弹窗本地可编辑草稿的外部数据源：打开/pet 变更时同步（异步边界避免级联渲染）
+    async function syncDraft() {
+      setProfileName(pet.name)
+      setProfileOwnerTitle(pet.ownerTitle ?? '主人')
+      const appearance = parseResult<{ color?: string; accessory?: string }>(pet.appearance)
+      setProfileColor(appearance?.color ?? PET_COLORS[0])
+      setProfileAccessory(appearance?.accessory ?? 'none')
+    }
+    void syncDraft()
   }, [open, pet])
 
   const saveProfile = async () => {

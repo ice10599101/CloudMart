@@ -33,7 +33,7 @@ export default function StarCountUp({
     const [display, setDisplay] = useState(value)
     const prevValueRef = useRef(value)
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const badgeOpacity = useRef(new Animated.Value(0)).current
+    const [badgeOpacity] = useState(() => new Animated.Value(0))
 
     // 数字滚动：ease-out 曲线，从旧值补间到新值
     useEffect(() => {

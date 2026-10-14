@@ -46,7 +46,10 @@ export function SocialPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: () =>
   }, [tab, pet.petId])
 
   useEffect(() => {
-    void loadActive()
+    async function run() {
+      await loadActive()
+    }
+    void run()
   }, [loadActive])
 
   const doBlock = async () => {

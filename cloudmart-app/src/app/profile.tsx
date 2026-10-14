@@ -98,17 +98,22 @@ export default function ProfilePage() {
   const [avatarUploading, setAvatarUploading] = useState(false)
 
   useEffect(() => {
-    if (user) {
-      setNickname(user.nickname || '')
-      setSignature(user.signature || '')
-      setGender(user.gender || 'UNKNOWN')
-      setBirthday(user.birthday || '')
-      setConstellation(user.constellation || '')
-      setOccupation(user.occupation || '')
-      setSchool(user.school || '')
-      setLocation(user.location || '')
-      setHobbies(user.hobbies || '')
+    const currentUser = user
+    if (!currentUser) return
+    // 用户资料是本地可编辑草稿的外部数据源：登录态/资料变更时同步一次。
+    // 置于 effect 内异步边界（无外部系统可订阅，只能在 user 变化时重同步）
+    async function syncDraft(source: NonNullable<typeof currentUser>) {
+      setNickname(source.nickname || '')
+      setSignature(source.signature || '')
+      setGender(source.gender || 'UNKNOWN')
+      setBirthday(source.birthday || '')
+      setConstellation(source.constellation || '')
+      setOccupation(source.occupation || '')
+      setSchool(source.school || '')
+      setLocation(source.location || '')
+      setHobbies(source.hobbies || '')
     }
+    void syncDraft(currentUser)
   }, [user])
 
   const handleAvatarUpload = async () => {

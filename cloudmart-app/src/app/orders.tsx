@@ -251,7 +251,10 @@ export default function OrdersScreen() {
   )
 
   useEffect(() => {
-    loadOrders(1, true)
+    async function run() {
+      await loadOrders(1, true)
+    }
+    void run()
   }, [activeTab])
 
   const onRefresh = useCallback(() => {

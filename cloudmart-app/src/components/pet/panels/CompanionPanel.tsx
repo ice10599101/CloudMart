@@ -153,12 +153,15 @@ export function CompanionPanel(
 
   useEffect(() => {
     // 各页签懒加载：切换到对应页签时拉取一次（数据量小，不做缓存失效）
-    if (tab === 'anniversary' && !ann) void loadAnn()
-    if (tab === 'persona' && !persona) void loadPersona()
-    if (tab === 'feed') void loadFeed()
-    if (tab === 'diary' && !diary) void loadDiary(true)
-    if (tab === 'memory') void loadMemories()
-    if (tab === 'settings') void loadSettings()
+    async function loadActiveTab() {
+      if (tab === 'anniversary' && !ann) await loadAnn()
+      if (tab === 'persona' && !persona) await loadPersona()
+      if (tab === 'feed') await loadFeed()
+      if (tab === 'diary' && !diary) await loadDiary(true)
+      if (tab === 'memory') await loadMemories()
+      if (tab === 'settings') await loadSettings()
+    }
+    void loadActiveTab()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab])
 

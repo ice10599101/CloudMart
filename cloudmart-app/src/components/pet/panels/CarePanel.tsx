@@ -84,7 +84,10 @@ export function CarePanel(
   }, [])
 
   useEffect(() => {
-    void loadCareData(careTab)
+    async function run() {
+      await loadCareData(careTab)
+    }
+    void run()
   }, [careTab, loadCareData])
 
   /** 养成面板统一动作：服务端权威 → 提示 → 刷新面板与主宠状态 */

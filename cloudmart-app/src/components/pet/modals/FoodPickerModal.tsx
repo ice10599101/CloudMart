@@ -26,8 +26,8 @@ export function FoodPickerModal(
   useEffect(() => {
     if (!visible) return
     let cancelled = false
-    setFoodOptions(null)
     void (async () => {
+      setFoodOptions(null)
       try {
         const { data: res } = await petApi.listInventory()
         const foods = res.data.filter((it) => it.itemType === 'FOOD' && (it.quantity ?? 0) > 0)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Animated, Easing, Modal, Pressable, Text, View , Vibration } from 'react-native'
 import type { LevelUpEvent } from '@/api/wish'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -31,9 +31,12 @@ interface Particle {
  * 触感反馈（Vibration.vibrate）增强仪式感；弹窗弹出为 spring 缓动。
  */
 export default function LevelUpModal({ levelUp, onClose }: LevelUpModalProps) {
-    const burstAnims = useRef<Animated.Value[]>([])
-    const modalScale = useRef(new Animated.Value(0.7)).current
-    const modalOpacity = useRef(new Animated.Value(0)).current
+    // Animated.Value 是稳定可变节点：惰性 state 持有，池与粒子一一对应
+    const [burstAnims] = useState<Animated.Value[]>(() =>
+        Array.from({ length: PARTICLE_COUNT }, () => new Animated.Value(0)),
+    )
+    const [modalScale] = useState(() => new Animated.Value(0.7))
+    const [modalOpacity] = useState(() => new Animated.Value(0))
 
     // 粒子角度均分 360°，颜色/大小按索引伪随机（保证重放稳定）
     const particles = useMemo<Particle[]>(() => {
@@ -64,9 +67,9 @@ export default function LevelUpModal({ levelUp, onClose }: LevelUpModalProps) {
         ]).start()
 
         // 粒子炸裂：每个粒子从中心位移到目标点并淡出
-        burstAnims.current.forEach((anim) => anim.setValue(0))
+        burstAnims.forEach((anim) => anim.setValue(0))
         Animated.parallel(
-            burstAnims.current.map((anim, i) =>
+            burstAnims.map((anim, i) =>
                 Animated.timing(anim, {
                     toValue: 1,
                     duration: particles[i]?.duration ?? 800,
@@ -75,12 +78,7 @@ export default function LevelUpModal({ levelUp, onClose }: LevelUpModalProps) {
                 }),
             ),
         ).start()
-    }, [levelUp, modalOpacity, modalScale, particles])
-
-    // Animated.Value 池与粒子列表一一对应
-    if (burstAnims.current.length !== PARTICLE_COUNT) {
-        burstAnims.current = Array.from({ length: PARTICLE_COUNT }, () => new Animated.Value(0))
-    }
+    }, [levelUp, modalOpacity, modalScale, particles, burstAnims])
 
     if (!levelUp) return null
 
@@ -90,7 +88,7 @@ export default function LevelUpModal({ levelUp, onClose }: LevelUpModalProps) {
                 {/* 粒子炸裂层 */}
                 <View style={particleLayerStyle} pointerEvents="none">
                     {particles.map((p, i) => {
-                        const anim = burstAnims.current[i]
+                        const anim = burstAnims[i]
                         return (
                             <Animated.View
                                 key={p.key}

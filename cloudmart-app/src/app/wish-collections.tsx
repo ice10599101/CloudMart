@@ -51,7 +51,11 @@ export default function WishCollectionsScreen() {
   }, [])
 
   useEffect(() => {
-    if (isLoggedIn) loadList(null, true)
+    if (!isLoggedIn) return
+    async function run() {
+      await loadList(null, true)
+    }
+    void run()
   }, [isLoggedIn])
 
   const handleUncollect = async (item: WishCollectionItem) => {

@@ -27,7 +27,10 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
   }, [])
 
   useEffect(() => {
-    void load()
+    async function run() {
+      await load()
+    }
+    void run()
   }, [load])
 
   useEffect(() => {

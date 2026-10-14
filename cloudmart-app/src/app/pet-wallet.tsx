@@ -103,10 +103,11 @@ export default function PetWalletScreen() {
   )
 
   useEffect(() => {
-    if (isLoggedIn) {
-      void loadWallet()
-      void loadTransactions(null, true)
+    if (!isLoggedIn) return
+    async function run() {
+      await Promise.all([loadWallet(), loadTransactions(null, true)])
     }
+    void run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, filter])
 
@@ -140,9 +141,11 @@ export default function PetWalletScreen() {
   }, [])
 
   useEffect(() => {
-    if (mainTab === 'orders' && orders.length === 0 && !ordersError) {
-      void loadOrders(null, true)
+    if (mainTab !== 'orders' || orders.length > 0 || ordersError) return
+    async function run() {
+      await loadOrders(null, true)
     }
+    void run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mainTab])
 

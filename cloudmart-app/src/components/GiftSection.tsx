@@ -57,7 +57,11 @@ export default function GiftSection({ targetType, targetId, refreshTick = 0 }: G
   }
 
   useEffect(() => {
-    if (targetId) void loadRecords()
+    if (!targetId) return
+    async function run() {
+      await loadRecords()
+    }
+    void run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetType, targetId, refreshTick])
 

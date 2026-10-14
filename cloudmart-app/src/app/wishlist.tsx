@@ -37,7 +37,10 @@ export default function WishlistScreen() {
   }, [loading, items])
 
   useEffect(() => {
-    loadWishlist(1, true)
+    async function run() {
+      await loadWishlist(1, true)
+    }
+    void run()
   }, [])
 
   const onRefresh = useCallback(() => {

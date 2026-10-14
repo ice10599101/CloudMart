@@ -212,7 +212,10 @@ export default function PetScreen() {
       router.replace('/login')
       return
     }
-    void refresh()
+    async function run() {
+      await refresh()
+    }
+    void run()
   }, [isLoggedIn, refresh])
 
   // B06 动作可执行性：随主宠刷新（喂食/玩耍等当前能否执行与原因）
@@ -382,21 +385,25 @@ export default function PetScreen() {
   useEffect(() => {
     const intent = params.intent
     if (!intent) return
-    setPanel('home')
-    if (['feed', 'play', 'clean', 'rest'].includes(intent)) {
-      void runInteraction(intent as 'feed' | 'play' | 'clean' | 'rest')
-    } else if (intent === 'openProfile') {
-      openProfile()
-    } else {
-      const mapping: Record<string, PanelKey> = {
-        openWork: 'work', openStudy: 'study', openBottle: 'bottle',
-        openBattle: 'battle', openChat: 'chat', openAchievements: 'achievements',
-        openRankings: 'rankings',
-        // 二期：Cocos 养成按钮 → 养成面板（原文档 §89）
-        openCare: 'care',
+    const action = intent
+    async function handleIntent() {
+      setPanel('home')
+      if (['feed', 'play', 'clean', 'rest'].includes(action)) {
+        await runInteraction(action as 'feed' | 'play' | 'clean' | 'rest')
+      } else if (action === 'openProfile') {
+        await openProfile()
+      } else {
+        const mapping: Record<string, PanelKey> = {
+          openWork: 'work', openStudy: 'study', openBottle: 'bottle',
+          openBattle: 'battle', openChat: 'chat', openAchievements: 'achievements',
+          openRankings: 'rankings',
+          // 二期：Cocos 养成按钮 → 养成面板（原文档 §89）
+          openCare: 'care',
+        }
+        if (mapping[action]) setPanel(mapping[action])
       }
-      if (mapping[intent]) setPanel(mapping[intent])
     }
+    void handleIntent()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.intent])
 

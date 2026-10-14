@@ -80,8 +80,10 @@ export default function InviteCenterScreen() {
 
   useEffect(() => {
     if (!isLoggedIn) return
-    void loadInvite()
-    void loadLogs(null, true)
+    async function run() {
+      await Promise.all([loadInvite(), loadLogs(null, true)])
+    }
+    void run()
   }, [isLoggedIn, loadInvite, loadLogs])
 
   const handleRefresh = useCallback(() => {

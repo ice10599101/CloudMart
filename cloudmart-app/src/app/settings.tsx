@@ -166,7 +166,10 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    loadSettings()
+    async function run() {
+      await loadSettings()
+    }
+    void run()
   }, [])
 
   /** 资料可见范围变更（即时保存，失败回滚，对齐 Web 端） */

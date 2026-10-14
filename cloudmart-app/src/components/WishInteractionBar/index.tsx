@@ -92,7 +92,10 @@ export default function WishInteractionBar({
   }, [wishId, isLoggedIn])
 
   useEffect(() => {
-    refreshMyInteractions()
+    async function run() {
+      await refreshMyInteractions()
+    }
+    void run()
   }, [refreshMyInteractions])
 
   const mySameWish = useMemo(

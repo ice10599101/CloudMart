@@ -46,7 +46,10 @@ export default function AnnualReportScreen() {
       router.replace('/login')
       return
     }
-    loadReport(year)
+    async function run() {
+      await loadReport(year)
+    }
+    void run()
   }, [user, year, loadReport])
 
   const maxCategoryCount = report?.topCategories.reduce((max, c) => Math.max(max, c.count), 1) ?? 1

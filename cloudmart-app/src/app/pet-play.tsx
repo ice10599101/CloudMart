@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -8,12 +8,19 @@ import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { WishColors as BaseWishColors } from '@/constants/wish-theme'
-import { PetCreamTheme, PetCreamSemantic } from '@/constants/pet-cream'
+import { PetCreamTheme } from '@/constants/pet-cream'
 
 /** 法式奶油皮肤：覆写愿望主题的视觉键（本页专用；accentCyan 是本页主按钮色，一并转黄铜） */
 const WishColors = { ...BaseWishColors, ...PetCreamTheme, accentCyan: PetCreamTheme.primary }
 
 const CATCH_WINDOWS = 10
+
+/** 接球小游戏当前窗口目标槽位（服务端序列权威） */
+type MinigameTarget = 'LEFT' | 'CENTER' | 'RIGHT' | null
+
+function asMinigameTarget(value: string | undefined): MinigameTarget {
+  return value === 'LEFT' || value === 'CENTER' || value === 'RIGHT' ? value : null
+}
 
 interface RoundState {
   roundId: string
@@ -62,6 +69,38 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
+/** 玩法操作按钮（模块级组件：onPress 被识别为事件处理器，
+ *  使传入回调内的 ref/时间读取不被纯度分析误判为渲染期执行） */
+function PlayButton({
+  label,
+  onPress,
+  primary = false,
+  disabled = false,
+}: {
+  label: string
+  onPress: () => void
+  primary?: boolean
+  disabled?: boolean
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      style={{
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: BorderRadius.md,
+        backgroundColor: primary ? WishColors.accentCyan : 'transparent',
+        borderWidth: 1,
+        borderColor: WishColors.border,
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      <Text style={{ fontSize: FontSize.xs, color: primary ? '#FFFDF8' : WishColors.textSecondary }}>{label}</Text>
+    </TouchableOpacity>
+  )
+}
+
 /** 玩法中心（N 系列）：接球 / 托管 / 摘要 / 合作 / 图鉴；服务端权威（§7.4-§7.7） */
 export default function PetPlayScreen() {
   const insets = useSafeAreaInsets()
@@ -69,6 +108,10 @@ export default function PetPlayScreen() {
   const [pet, setPet] = useState<PetInfo | null>(null)
   const [round, setRound] = useState<RoundState | null>(null)
   const [remaining, setRemaining] = useState(0)
+  // PET-17/T41：当前窗口目标随计时 tick 推进（禁止渲染期读取时钟/ref 计算）
+  const [activeTarget, setActiveTarget] = useState<MinigameTarget>(null)
+  // R11：服务端时钟偏移（state：effect 与事件回调共用，不可使用会被变异的 ref）
+  const [serverOffsetMs, setServerOffsetMs] = useState(0)
   const [mgResult, setMgResult] = useState('')
   const [custody, setCustody] = useState<CustodyState | null>(null)
   const [digest, setDigest] = useState<DigestState | null>(null)
@@ -121,19 +164,24 @@ export default function PetPlayScreen() {
   }, [isLoggedIn])
 
   useEffect(() => {
-    if (isLoggedIn) void loadAll()
+    if (!isLoggedIn) return
+    async function init() {
+      await loadAll()
+    }
+    void init()
   }, [isLoggedIn, loadAll])
 
   useEffect(() => {
     if (!round) return
+    // interval 回调属于外部订阅：时钟读取/setState 均在此事件上下文进行
     const timer = setInterval(() => {
       setRemaining(Math.max(0, Math.round((round.deadlineAt - Date.now()) / 1000)))
+      const serverNow = Date.now() + serverOffsetMs
+      const windowIndex = Math.floor((serverNow - round.startedAt) / round.windowMs) + 1
+      setActiveTarget(asMinigameTarget(round.sequence[windowIndex - 1]))
     }, 500)
     return () => clearInterval(timer)
-  }, [round])
-
-  // R11：服务端时钟偏移——窗口归属以服务端时间为准，windowIndex=floor((serverNow-startedAt)/windowMs)+1
-  const serverOffsetRef = useRef(0)
+  }, [round, serverOffsetMs])
 
   const startRound = async () => {
     if (!pet) return
@@ -143,18 +191,21 @@ export default function PetPlayScreen() {
       const data = res.data.data as unknown as Record<string, unknown> & { roundId: number | string; deadlineAt: string; startedAt?: string; serverNow?: string; windowMs?: number }
       const startedAt = data.startedAt ? Date.parse(data.startedAt) : Date.now()
       const windowMs = typeof data.windowMs === 'number' ? data.windowMs : 3000
-      if (data.serverNow) {
-        serverOffsetRef.current = Date.parse(data.serverNow) - Date.now()
-      }
+      const offset = data.serverNow ? Date.parse(data.serverNow) - Date.now() : serverOffsetMs
+      setServerOffsetMs(offset)
+      const sequence = Array.isArray(data.sequence) ? (data.sequence as string[]) : []
       setRound({
         roundId: String(data.roundId),
         deadlineAt: new Date(data.deadlineAt).getTime(),
         startedAt,
         windowMs,
         submitted: 0,
-        sequence: Array.isArray(data.sequence) ? (data.sequence as string[]) : [],
+        sequence,
         acceptedWindows: [],
       })
+      // 首帧目标即时显示（事件上下文中读取时钟合法；后续由 500ms tick 推进）
+      const firstWindowIndex = Math.floor((Date.now() + offset - startedAt) / windowMs) + 1
+      setActiveTarget(asMinigameTarget(sequence[firstWindowIndex - 1]))
       setMgResult('')
       setRemaining(30)
     } catch (error) {
@@ -165,7 +216,7 @@ export default function PetPlayScreen() {
   const catchSlot = async (slot: 'LEFT' | 'CENTER' | 'RIGHT') => {
     if (!round) return
     // R11：窗口号由服务端时钟决定（不再按点击次数递增）；服务端 accepted 权威
-    const serverNow = Date.now() + serverOffsetRef.current
+    const serverNow = Date.now() + serverOffsetMs
     const windowIndex = Math.floor((serverNow - round.startedAt) / round.windowMs) + 1
     if (windowIndex < 1 || windowIndex > CATCH_WINDOWS) return
     try {
@@ -195,22 +246,26 @@ export default function PetPlayScreen() {
       if (roundData && roundData.roundId) {
         const startedAt = Date.parse(String(roundData.startedAt))
         const windowMs = typeof roundData.windowMs === 'number' ? roundData.windowMs : 3000
-        if (roundData.serverNow) {
-          serverOffsetRef.current = Date.parse(String(roundData.serverNow)) - Date.now()
-        }
+        const offset = roundData.serverNow
+          ? Date.parse(String(roundData.serverNow)) - Date.now()
+          : serverOffsetMs
+        setServerOffsetMs(offset)
         const acceptedWindows = Array.isArray(roundData.acceptedWindows)
           ? (roundData.acceptedWindows as number[]).map(Number)
           : []
+        const sequence = Array.isArray(roundData.sequence) ? (roundData.sequence as string[]) : []
         setRound({
           roundId: String(roundData.roundId),
           deadlineAt: new Date(String(roundData.deadlineAt)).getTime(),
           startedAt,
           windowMs,
           submitted: acceptedWindows.length,
-          sequence: Array.isArray(roundData.sequence) ? (roundData.sequence as string[]) : [],
+          sequence,
           acceptedWindows,
         })
-        setRemaining(Math.max(0, Math.round((new Date(String(roundData.deadlineAt)).getTime() - (Date.now() + serverOffsetRef.current)) / 1000)))
+        const restoredWindowIndex = Math.floor((Date.now() + offset - startedAt) / windowMs) + 1
+        setActiveTarget(asMinigameTarget(sequence[restoredWindowIndex - 1]))
+        setRemaining(Math.max(0, Math.round((new Date(String(roundData.deadlineAt)).getTime() - (Date.now() + offset)) / 1000)))
       }
     } catch {
       // 无进行中对局或查询失败：保持未开局状态
@@ -229,6 +284,7 @@ export default function PetPlayScreen() {
             : '本局未达标（需接住 3 个），无收益',
         )
         setRound(null)
+        setActiveTarget(null)
         // 结算后刷新对局历史
         const histRes = await petApi.listMinigameRounds(1, 10)
         if (histRes.data.data) setHistory(histRes.data.data)
@@ -239,12 +295,20 @@ export default function PetPlayScreen() {
   }
 
   useEffect(() => {
-    if (round && remaining === 0) void settleRound()
+    if (!round || remaining !== 0) return
+    async function settleWhenTimeout() {
+      await settleRound()
+    }
+    void settleWhenTimeout()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remaining, round])
 
   useEffect(() => {
-    if (isLoggedIn) void restoreCurrentRound()
+    if (!isLoggedIn) return
+    async function restore() {
+      await restoreCurrentRound()
+    }
+    void restore()
   }, [isLoggedIn, restoreCurrentRound])
 
   const confirmDigest = async () => {
@@ -279,24 +343,6 @@ export default function PetPlayScreen() {
     }
   }
 
-  const btn = (label: string, onPress: () => void, primary = false, disabled = false) => (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={disabled}
-      style={{
-        paddingVertical: 8,
-        paddingHorizontal: 14,
-        borderRadius: BorderRadius.md,
-        backgroundColor: primary ? WishColors.accentCyan : 'transparent',
-        borderWidth: 1,
-        borderColor: WishColors.border,
-        opacity: disabled ? 0.5 : 1,
-      }}
-    >
-      <Text style={{ fontSize: FontSize.xs, color: primary ? '#FFFDF8' : WishColors.textSecondary }}>{label}</Text>
-    </TouchableOpacity>
-  )
-
   return (
     <View style={{ flex: 1, backgroundColor: WishColors.bgBase, paddingTop: insets.top }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.lg, paddingBottom: Spacing.sm }}>
@@ -309,30 +355,24 @@ export default function PetPlayScreen() {
 
       <ScrollView contentContainerStyle={{ padding: Spacing.lg, paddingBottom: Spacing.xl }}>
         <Card title="🎯 接球小游戏（每日 5 局有收益）">
-          {!round && !mgResult && btn('开始一局', () => void startRound(), true, !pet)}
+          {!round && !mgResult && (
+            <PlayButton label="开始一局" onPress={() => void startRound()} primary disabled={!pet} />
+          )}
           {round && (
             <View style={{ gap: Spacing.xs }}>
               <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text }}>
                 {remaining}s · 接住 {round.submitted}/{CATCH_WINDOWS}
               </Text>
-              {(() => {
-                // PET-17/T41：本窗目标提示（服务端序列权威；已提交窗口标灰）
-                const serverNow = Date.now() + serverOffsetRef.current
-                const windowIndex = Math.floor((serverNow - round.startedAt) / round.windowMs) + 1
-                const target = windowIndex >= 1 && windowIndex <= round.sequence.length
-                  ? round.sequence[windowIndex - 1] : null
-                const label = target === 'LEFT' ? '左' : target === 'CENTER' ? '中' : target === 'RIGHT' ? '右' : null
-                return label ? (
-                  <Text style={{ fontSize: FontSize.sm, color: WishColors.accentCyan }}>
-                    本窗目标：{label}
-                  </Text>
-                ) : null
-              })()}
+              {activeTarget ? (
+                <Text style={{ fontSize: FontSize.sm, color: WishColors.accentCyan }}>
+                  本窗目标：{activeTarget === 'LEFT' ? '左' : activeTarget === 'CENTER' ? '中' : '右'}
+                </Text>
+              ) : null}
               <View style={{ flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap' }}>
-                {btn('←左', () => void catchSlot('LEFT'), false, remaining === 0)}
-                {btn('●中', () => void catchSlot('CENTER'), false, remaining === 0)}
-                {btn('右→', () => void catchSlot('RIGHT'), false, remaining === 0)}
-                {btn('提前结束', () => void settleRound())}
+                <PlayButton label="←左" onPress={() => void catchSlot('LEFT')} disabled={remaining === 0} />
+                <PlayButton label="●中" onPress={() => void catchSlot('CENTER')} disabled={remaining === 0} />
+                <PlayButton label="右→" onPress={() => void catchSlot('RIGHT')} disabled={remaining === 0} />
+                <PlayButton label="提前结束" onPress={() => void settleRound()} />
               </View>
             </View>
           )}
@@ -358,12 +398,12 @@ export default function PetPlayScreen() {
               <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>
                 托管中 · 喂食 {custody.careFeedUsed ?? 0}/2 · 清洁 {custody.careCleanUsed ?? 0}/1
               </Text>
-              {btn('提前结束（名额不恢复）', () => void custodyAction(false))}
+              <PlayButton label="提前结束（名额不恢复）" onPress={() => void custodyAction(false)} />
             </View>
           ) : custody?.weekUsed ? (
             <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary }}>本周已使用，下周一再试</Text>
           ) : (
-            btn('开始托管（24 小时）', () => void custodyAction(true), true)
+            <PlayButton label="开始托管（24 小时）" onPress={() => void custodyAction(true)} primary />
           )}
         </Card>
 
@@ -372,7 +412,7 @@ export default function PetPlayScreen() {
             <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>
               完成 {digest.finishedTasks} · 待领 {digest.claimableTasks} · 来访 {digest.visits} · 里程碑 {digest.milestones}
             </Text>
-            {btn('我知道了', () => void confirmDigest())}
+            <PlayButton label="我知道了" onPress={() => void confirmDigest()} />
           </Card>
         )}
 
@@ -388,9 +428,15 @@ export default function PetPlayScreen() {
                   <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary, flex: 1 }}>
                     {status === 'INVITED' ? '待接受' : status === 'ACTIVE' ? '进行中' : status === 'COMPLETED' ? '已达成' : '已结束'}
                   </Text>
-                  {status === 'INVITED' && btn('接受', () => void coopAction(id, 'accept'), true)}
-                  {status === 'COMPLETED' && btn('领取', () => void coopAction(id, 'claim'), true)}
-                  {(status === 'INVITED' || status === 'ACTIVE') && btn('退出', () => void coopAction(id, 'leave'))}
+                  {status === 'INVITED' && (
+                    <PlayButton label="接受" onPress={() => void coopAction(id, 'accept')} primary />
+                  )}
+                  {status === 'COMPLETED' && (
+                    <PlayButton label="领取" onPress={() => void coopAction(id, 'claim')} primary />
+                  )}
+                  {(status === 'INVITED' || status === 'ACTIVE') && (
+                    <PlayButton label="退出" onPress={() => void coopAction(id, 'leave')} />
+                  )}
                 </View>
               )
             })

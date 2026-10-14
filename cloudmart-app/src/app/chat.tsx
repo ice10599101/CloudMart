@@ -59,7 +59,10 @@ export default function ChatPage() {
   const scrollViewRef = useRef<ScrollView>(null)
   const currentUserId = currentUser?.id
   const messagesRef = useRef<ChatMessage[]>([])
-  messagesRef.current = messages
+  // ref 镜像最新消息供轮询闭包读取：在 effect 中同步（禁止渲染期写 ref）
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
 
   const loadMessages = useCallback(async (convId: number) => {
     try {
@@ -136,12 +139,10 @@ export default function ChatPage() {
     return () => clearInterval(timer)
   }, [conversationId])
 
-  /** 撤回自己的消息（2 分钟内，对齐 Web 端；WS 同步「该消息已撤回」） */
-  const handleRecall = (msg: ChatMessage) => {
-    if (Date.now() - new Date(msg.createdAt).getTime() > RECALL_WINDOW_MS) {
-      Alert.alert('提示', '超过 2 分钟，无法撤回')
-      return
-    }
+  /** 撤回确认弹窗（2 分钟内，对齐 Web 端；WS 同步「该消息已撤回」）。
+   *  时间窗判断内联于调用处事件处理器：map 渲染回调中间接调用组件体函数时，
+   *  React Compiler 纯度分析无法排除渲染期调用，会将 Date.now 判为违规 */
+  const confirmRecall = (msg: ChatMessage) => {
     Alert.alert('撤回消息', '确定撤回这条消息吗？', [
       { text: '取消', style: 'cancel' },
       {
@@ -285,7 +286,13 @@ export default function ChatPage() {
                 {!msg.isRecalled && isMine && (
                   <TouchableOpacity
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    onLongPress={() => handleRecall(msg)}
+                    onLongPress={() => {
+                      if (Date.now() - new Date(msg.createdAt).getTime() > RECALL_WINDOW_MS) {
+                        Alert.alert('提示', '超过 2 分钟，无法撤回')
+                        return
+                      }
+                      confirmRecall(msg)
+                    }}
                     style={{ justifyContent: 'flex-end', paddingBottom: Spacing.sm }}
                   >
                     <Text style={{ fontSize: 12, color: theme.textTertiary }}>⏱</Text>

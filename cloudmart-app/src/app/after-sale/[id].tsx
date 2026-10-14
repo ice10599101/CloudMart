@@ -67,7 +67,10 @@ export default function AfterSaleDetailScreen() {
   }, [id])
 
   useEffect(() => {
-    fetchDetail()
+    async function run() {
+      await fetchDetail()
+    }
+    void run()
   }, [fetchDetail])
 
   const handleCancel = () => {

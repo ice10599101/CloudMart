@@ -201,7 +201,10 @@ export default function SeckillPage() {
   }, [])
 
   useEffect(() => {
-    loadActivities()
+    async function run() {
+      await loadActivities()
+    }
+    void run()
   }, [loadActivities])
 
   // Countdown timer

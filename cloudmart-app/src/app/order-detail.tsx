@@ -108,8 +108,10 @@ export default function OrderDetailPage() {
   }, [id])
 
   useEffect(() => {
-    fetchOrder()
-    fetchAfterSaleCases()
+    async function run() {
+      await Promise.all([fetchOrder(), fetchAfterSaleCases()])
+    }
+    void run()
   }, [fetchOrder, fetchAfterSaleCases])
 
   const handleCancel = () => {

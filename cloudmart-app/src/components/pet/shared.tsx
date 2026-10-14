@@ -228,20 +228,32 @@ export function useCountdown(finishedAt: string | null): number {
   const [remaining, setRemaining] = useState(0)
   useEffect(() => {
     if (!finishedAt) {
-      setRemaining(0)
+      // 异步边界内重置（避免 effect 同步 setState 级联渲染）
+      async function reset() {
+        setRemaining(0)
+      }
+      void reset()
       return
     }
+    let active = true
     const compute = () => {
       const target = Date.parse(finishedAt.length === 19 ? `${finishedAt}Z` : finishedAt)
       return Number.isNaN(target) ? 0 : Math.max(0, Math.floor((target - Date.now()) / 1000))
     }
-    setRemaining(compute())
+    async function init() {
+      if (active) setRemaining(compute())
+    }
+    void init()
     const timer = setInterval(() => {
+      if (!active) return
       const next = compute()
       setRemaining(next)
       if (next <= 0) clearInterval(timer)
     }, 1000)
-    return () => clearInterval(timer)
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
   }, [finishedAt])
   return remaining
 }

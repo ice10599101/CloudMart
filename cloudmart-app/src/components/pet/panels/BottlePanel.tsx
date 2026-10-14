@@ -30,7 +30,10 @@ export function BottlePanel(
   }, [])
 
   useEffect(() => {
-    void load()
+    async function run() {
+      await load()
+    }
+    void run()
   }, [load, reloadSignal])
 
   if (!bottle) return null

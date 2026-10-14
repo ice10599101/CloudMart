@@ -58,6 +58,15 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   )
 }
 
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={{ backgroundColor: WishColors.bgContainer, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: WishColors.border, padding: Spacing.lg, marginBottom: Spacing.md }}>
+      <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: WishColors.text, marginBottom: Spacing.sm }}>{title}</Text>
+      {children}
+    </View>
+  )
+}
+
 export default function PrivacyCenterScreen() {
   const insets = useSafeAreaInsets()
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn)
@@ -82,7 +91,10 @@ export default function PrivacyCenterScreen() {
   }, [isLoggedIn])
 
   useEffect(() => {
-    load()
+    async function run() {
+      await load()
+    }
+    void run()
   }, [load])
 
   const cancelDeletion = () => {
@@ -106,13 +118,6 @@ export default function PrivacyCenterScreen() {
       },
     ])
   }
-
-  const Card = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <View style={{ backgroundColor: WishColors.bgContainer, borderRadius: BorderRadius.lg, borderWidth: 1, borderColor: WishColors.border, padding: Spacing.lg, marginBottom: Spacing.md }}>
-      <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: WishColors.text, marginBottom: Spacing.sm }}>{title}</Text>
-      {children}
-    </View>
-  )
 
   return (
     <View style={{ flex: 1, backgroundColor: WishColors.bgBase, paddingTop: insets.top }}>

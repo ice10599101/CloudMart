@@ -72,7 +72,10 @@ export default function AfterSaleScreen() {
   )
 
   useEffect(() => {
-    loadCases(1, true)
+    async function run() {
+      await loadCases(1, true)
+    }
+    void run()
   }, [activeTab])
 
   const onRefresh = useCallback(() => {

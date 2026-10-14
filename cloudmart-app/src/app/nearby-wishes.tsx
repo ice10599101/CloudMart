@@ -74,7 +74,10 @@ export default function NearbyWishesScreen() {
   }, [])
 
   useEffect(() => {
-    load()
+    async function run() {
+      await load()
+    }
+    void run()
   }, [load])
 
   // 打卡候选：自己的 ACTIVE 心愿

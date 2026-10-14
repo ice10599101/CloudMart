@@ -27,27 +27,30 @@ export default function SurveyCard({ surveyId }: SurveyCardProps) {
 
   useEffect(() => {
     if (!surveyId) return
-    setLoading(true)
-    communityApi
-      .getSurvey(surveyId)
-      .then((res) => {
-        const data = (res.data as unknown as { data?: SurveyData })?.data
-        if (data) {
-          setSurvey(data)
-          const optAns: Record<number, number[]> = {}
-          const txtAns: Record<number, string> = {}
-          for (const answer of data.myAnswers ?? []) {
-            if (answer.optionIds?.length) optAns[answer.questionId] = answer.optionIds
-            if (answer.text) txtAns[answer.questionId] = answer.text
+    async function run() {
+      setLoading(true)
+      communityApi
+        .getSurvey(surveyId)
+        .then((res) => {
+          const data = (res.data as unknown as { data?: SurveyData })?.data
+          if (data) {
+            setSurvey(data)
+            const optAns: Record<number, number[]> = {}
+            const txtAns: Record<number, string> = {}
+            for (const answer of data.myAnswers ?? []) {
+              if (answer.optionIds?.length) optAns[answer.questionId] = answer.optionIds
+              if (answer.text) txtAns[answer.questionId] = answer.text
+            }
+            setOptionAnswers(optAns)
+            setTextAnswers(txtAns)
+          } else {
+            setNotFound(true)
           }
-          setOptionAnswers(optAns)
-          setTextAnswers(txtAns)
-        } else {
-          setNotFound(true)
-        }
-      })
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false))
+        })
+        .catch(() => setNotFound(true))
+        .finally(() => setLoading(false))
+    }
+    void run()
   }, [surveyId])
 
   const toggleOption = (questionId: number, optionIndex: number, multi: boolean) => {

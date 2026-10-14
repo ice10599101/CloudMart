@@ -84,7 +84,7 @@ export default function DailySigninScreen() {
     } catch {
       // 余额卡片加载失败不阻塞签到
     }
-  }, [])
+  }, [setResources])
 
   const loadAll = useCallback(async () => {
     await Promise.all([
@@ -97,17 +97,21 @@ export default function DailySigninScreen() {
     ])
     setLoading(false)
     setRefreshing(false)
-  }, [year, month, loadCalendar, loadResources])
+  }, [year, month, loadCalendar, loadResources, setMilestones, setLoading, setRefreshing])
 
   useEffect(() => {
-    if (isLoggedIn) loadAll()
+    if (!isLoggedIn) return
+    async function run() {
+      await loadAll()
+    }
+    void run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn])
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
     await loadAll()
-  }, [loadAll])
+  }, [loadAll, setRefreshing])
 
   const switchMonth = (direction: 1 | -1) => {
     let nextYear = year

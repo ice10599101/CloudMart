@@ -61,7 +61,10 @@ export default function WishBlessList({ wishId, blessCount, refreshTick = 0 }: W
   }
 
   useEffect(() => {
-    loadFirstPage()
+    async function run() {
+      await loadFirstPage()
+    }
+    void run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wishId, refreshTick])
 

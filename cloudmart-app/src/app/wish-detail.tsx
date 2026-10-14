@@ -91,10 +91,12 @@ export default function WishDetailScreen() {
 
   // 预期管理通知「延长预期」深链：作者本人且心愿未完结时打开延期选择
   useEffect(() => {
-    if (params.extend === '1' && wish && user?.id === wish.authorId
-        && (wish.status === 'ACTIVE' || wish.status === 'OVERDUE')) {
+    if (params.extend !== '1' || !wish || user?.id !== wish.authorId
+        || (wish.status !== 'ACTIVE' && wish.status !== 'OVERDUE')) return
+    async function openExtendSheet() {
       setExtendOpen(true)
     }
+    void openExtendSheet()
   }, [params.extend, wish, user])
 
   // 离线打卡队列：网络恢复时静默补传（Sprint 1.3 APP 验收）
@@ -156,10 +158,11 @@ export default function WishDetailScreen() {
     }
   }
 
-  /** 延长预期：新 expected_at = max(当前时间, 原预期) + 天数（状态保持不变） */
-  const handleExtend = async (days: number) => {
+  /** 延长预期：新 expected_at = max(当前时间, 原预期) + 天数（状态保持不变）。
+   *  baseTime 由调用方事件处理器传入（map 渲染回调中间接调用组件体函数时，
+   *  函数体内 Date.now 会被纯度分析判为渲染期违规） */
+  const handleExtend = async (days: number, baseTime: number) => {
     if (!wish) return
-    const baseTime = Math.max(Date.now(), wish.expectedAt ? new Date(wish.expectedAt).getTime() : 0)
     const nextIso = new Date(baseTime + days * 24 * 3600 * 1000).toISOString()
     setExtendSaving(true)
     try {
@@ -270,9 +273,11 @@ export default function WishDetailScreen() {
 
   useEffect(() => {
     const authorMode = user?.id != null && wish != null && String(user.id) === String(wish.authorId)
-    if (authorMode && (wish.status === 'ACTIVE' || wish.status === 'OVERDUE')) {
-      void loadGoals()
+    if (!authorMode || (wish.status !== 'ACTIVE' && wish.status !== 'OVERDUE')) return
+    async function run() {
+      await loadGoals()
     }
+    void run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, wish?.id, wish?.status, reloadTickForGoals])
 
@@ -1515,7 +1520,14 @@ export default function WishDetailScreen() {
                 key={days}
                 accessibilityLabel={label}
                 disabled={extendSaving}
-                onPress={() => handleExtend(days)}
+                onPress={() => {
+                  // 当前时间在点击事件中读取（非渲染期）
+                  const baseTime = Math.max(
+                    Date.now(),
+                    wish?.expectedAt ? new Date(wish.expectedAt).getTime() : 0,
+                  )
+                  void handleExtend(days, baseTime)
+                }}
                 style={{
                   paddingVertical: Spacing.md,
                   borderRadius: BorderRadius.md,

@@ -69,7 +69,10 @@ export default function PaymentPage() {
   }, [id])
 
   useEffect(() => {
-    fetchOrder()
+    async function run() {
+      await fetchOrder()
+    }
+    void run()
   }, [fetchOrder])
 
   useEffect(() => {

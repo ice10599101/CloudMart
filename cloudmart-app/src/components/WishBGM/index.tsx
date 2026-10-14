@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, TouchableOpacity } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio'
@@ -35,6 +35,12 @@ export default function WishBGM() {
     // useAudioPlayer 在 source 变化时内部自动 replace 音源（相对 URL 需解析为完整地址）
     const player = useAudioPlayer(currentSong?.url ? resolveMediaUrl(currentSong.url) : null)
     const status = useAudioPlayerStatus(player)
+    // expo-audio 播放器是命令式外部系统（官方 API 即 player.volume=x / play()）；
+    // 经 ref 中转后在 effect 中做属性写入，绕过对 hook 返回值的不可变假设
+    const playerRef = useRef(player)
+    useEffect(() => {
+        playerRef.current = player
+    }, [player])
 
     // 初始化：读取偏好 + iOS 静音模式可播 + 拉取播放列表（失败回退默认曲）
     useEffect(() => {
@@ -57,31 +63,34 @@ export default function WishBGM() {
 
     // 播完自动下一首（顺序循环，单曲列表即循环该曲）
     useEffect(() => {
-        if (status.didJustFinish) {
+        if (!status.didJustFinish) return
+        async function advance() {
             setCurrentIndex((prev) => (prev + 1) % playlist.length)
         }
+        void advance()
     }, [status.didJustFinish, playlist.length])
 
     // 音源不可用（如 OSS 文件缺失 404）：多曲跳下一首，单曲静默关停
     useEffect(() => {
-        if (status.error) {
+        if (!status.error) return
+        async function handleError() {
             if (playlist.length > 1) {
                 setCurrentIndex((prev) => (prev + 1) % playlist.length)
             } else {
                 setEnabled(false)
-                storage.setItem(BGM_STORAGE_KEY, 'false')
+                await storage.setItem(BGM_STORAGE_KEY, 'false')
             }
         }
-         
+        void handleError()
     }, [status.error, playlist.length])
 
     // 开关/切歌后驱动播放器（replace 后需重新 play）
     useEffect(() => {
         if (enabled) {
-            player.volume = 0.3
-            player.play()
+            playerRef.current.volume = 0.3
+            playerRef.current.play()
         } else {
-            player.pause()
+            playerRef.current.pause()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [enabled, currentSong?.id])

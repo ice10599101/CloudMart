@@ -126,12 +126,14 @@ export default function AiAssistantScreen() {
   }, [])
 
   useEffect(() => {
-    if (!user) {
-      setGoalsLoading(false)
-      return
+    async function init() {
+      if (!user) {
+        setGoalsLoading(false)
+        return
+      }
+      await Promise.all([loadGoals(), loadMatrix()])
     }
-    loadGoals()
-    loadMatrix()
+    void init()
   }, [user, loadGoals, loadMatrix])
 
   const toastByCode = (code: string, fallbackMessage?: string) => {

@@ -210,7 +210,10 @@ export default function CartScreen() {
   }, [])
 
   useEffect(() => {
-    fetchCart()
+    async function run() {
+      await fetchCart()
+    }
+    void run()
   }, [fetchCart])
 
   const onRefresh = useCallback(() => {

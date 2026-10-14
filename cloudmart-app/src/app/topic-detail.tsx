@@ -68,7 +68,10 @@ export default function TopicDetailScreen() {
   }, [tagId, tagName, loading])
 
   useEffect(() => {
-    loadPosts(1, true)
+    async function run() {
+      await loadPosts(1, true)
+    }
+    void run()
   }, [tagId, tagName])
 
   const handleRefresh = useCallback(async () => {

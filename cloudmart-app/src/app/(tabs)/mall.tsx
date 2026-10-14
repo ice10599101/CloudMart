@@ -98,11 +98,17 @@ export default function MallPage() {
   }, [activeCategory, loading, products])
 
   useEffect(() => {
-    loadCategories()
+    async function run() {
+      await loadCategories()
+    }
+    void run()
   }, [])
 
   useEffect(() => {
-    loadProducts(1, true)
+    async function run() {
+      await loadProducts(1, true)
+    }
+    void run()
   }, [activeCategory])
 
   const onRefresh = useCallback(() => {

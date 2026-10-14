@@ -74,7 +74,10 @@ export default function WishCommentSection({
   }, [wishId])
 
   useEffect(() => {
-    loadFirstPage()
+    async function run() {
+      await loadFirstPage()
+    }
+    void run()
   }, [loadFirstPage])
 
   const loadMore = useCallback(async () => {

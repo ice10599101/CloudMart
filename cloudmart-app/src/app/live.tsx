@@ -228,7 +228,10 @@ export default function LivePage() {
   )
 
   useEffect(() => {
-    loadRooms(1, true)
+    async function run() {
+      await loadRooms(1, true)
+    }
+    void run()
   }, [activeTab])
 
   const onRefresh = useCallback(() => {

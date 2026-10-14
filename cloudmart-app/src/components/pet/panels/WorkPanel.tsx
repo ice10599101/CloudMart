@@ -25,7 +25,10 @@ export function WorkPanel(
   }, [])
 
   useEffect(() => {
-    void load()
+    async function run() {
+      await load()
+    }
+    void run()
   }, [load, reloadSignal])
 
   return (

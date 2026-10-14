@@ -134,7 +134,10 @@ export default function CheckoutPage() {
   )
 
   useEffect(() => {
-    loadData()
+    async function run() {
+      await loadData()
+    }
+    void run()
   }, [productIdParam, quantityParam])
 
   const itemTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -151,7 +154,11 @@ export default function CheckoutPage() {
   // R12：购物车行/券变化时拉服务端报价（失败静默保留本地估算，提交时服务端 fail-closed 复核）
   useEffect(() => {
     if (items.length === 0) {
-      setServerQuote(null)
+      // 空购物车清空报价（异步边界：避免 effect 同步 setState 级联渲染）
+      async function clearQuote() {
+        setServerQuote(null)
+      }
+      void clearQuote()
       return
     }
     let cancelled = false

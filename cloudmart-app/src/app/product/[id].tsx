@@ -125,8 +125,10 @@ export default function ProductDetailScreen() {
   }, [id, isLoggedIn])
 
   useEffect(() => {
-    fetchProduct()
-    checkWishlistStatus()
+    async function run() {
+      await Promise.all([fetchProduct(), checkWishlistStatus()])
+    }
+    void run()
   }, [fetchProduct, checkWishlistStatus])
 
   const handleWishlistToggle = async () => {

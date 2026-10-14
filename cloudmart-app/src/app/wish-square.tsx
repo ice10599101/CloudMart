@@ -62,7 +62,10 @@ export default function WishSquareScreen() {
   )
 
   useEffect(() => {
-    loadWishes(activeCategory, null, true)
+    async function run() {
+      await loadWishes(activeCategory, null, true)
+    }
+    void run()
   }, [activeCategory])
 
   const onRefresh = useCallback(async () => {

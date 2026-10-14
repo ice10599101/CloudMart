@@ -28,20 +28,24 @@ export default function PollCard({ pollId, config }: PollCardProps) {
 
   useEffect(() => {
     if (!pollId) return
-    setLoading(true)
-    communityApi
-      .getPoll(pollId)
-      .then((res) => {
-        const data = (res.data as unknown as { data?: PollData })?.data
-        if (data) {
-          setPoll(data)
-          setSelected(data.myOptionIds ?? [])
-        } else {
-          setNotFound(true)
-        }
-      })
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false))
+    const targetPollId = pollId
+    async function run() {
+      setLoading(true)
+      communityApi
+        .getPoll(targetPollId)
+        .then((res) => {
+          const data = (res.data as unknown as { data?: PollData })?.data
+          if (data) {
+            setPoll(data)
+            setSelected(data.myOptionIds ?? [])
+          } else {
+            setNotFound(true)
+          }
+        })
+        .catch(() => setNotFound(true))
+        .finally(() => setLoading(false))
+    }
+    void run()
   }, [pollId])
 
   const question = poll?.question ?? config?.question ?? '投票'

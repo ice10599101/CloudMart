@@ -71,8 +71,11 @@ export default function FollowingScreen() {
   }, [targetUserId])
 
   useEffect(() => {
-    if (activeTab === 'following') fetchFollowing()
-    else fetchFollowers()
+    async function run() {
+      if (activeTab === 'following') await fetchFollowing()
+      else await fetchFollowers()
+    }
+    void run()
   }, [activeTab, fetchFollowing, fetchFollowers])
 
   const handleRefresh = async () => {

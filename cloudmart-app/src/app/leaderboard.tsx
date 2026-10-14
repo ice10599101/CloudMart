@@ -51,7 +51,10 @@ export default function LeaderboardScreen() {
   }, [])
 
   useEffect(() => {
-    loadBoard(activeBoard)
+    async function run() {
+      await loadBoard(activeBoard)
+    }
+    void run()
   }, [activeBoard, loadBoard])
 
   const meta = BOARDS.find((b) => b.type === activeBoard)!

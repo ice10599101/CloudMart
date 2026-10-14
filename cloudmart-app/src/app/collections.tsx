@@ -67,7 +67,7 @@ export default function CollectionsScreen() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [user])
 
   const fetchDrafts = useCallback(async () => {
     setLoading(true)
@@ -89,7 +89,7 @@ export default function CollectionsScreen() {
     } catch {
       setCollectedPosts([])
     }
-  }, [user?.id])
+  }, [user])
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -125,12 +125,15 @@ export default function CollectionsScreen() {
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'posts') fetchPosts()
-    else if (activeTab === 'drafts') fetchDrafts()
-    else if (activeTab === 'liked') fetchLiked()
-    else if (activeTab === 'replies') fetchComments()
-    else if (activeTab === 'collections') fetchCollected()
-    else if (activeTab === 'history') fetchHistory()
+    async function run() {
+      if (activeTab === 'posts') await fetchPosts()
+      else if (activeTab === 'drafts') await fetchDrafts()
+      else if (activeTab === 'liked') await fetchLiked()
+      else if (activeTab === 'replies') await fetchComments()
+      else if (activeTab === 'collections') await fetchCollected()
+      else if (activeTab === 'history') await fetchHistory()
+    }
+    void run()
   }, [activeTab, fetchPosts, fetchDrafts, fetchLiked, fetchCollected, fetchHistory, fetchComments])
 
   const handlePublishDraft = (id: number) => {

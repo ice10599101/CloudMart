@@ -564,7 +564,8 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
     const [activePanel, setActivePanel] = useState<PanelType>('none')
     const [fontHexColor, setFontHexColor] = useState('#000000')
     const [highlightHexColor, setHighlightHexColor] = useState('#FFFF00')
-    let editorHTML = initialHTML
+    // WebView 内编辑器 HTML 的最新快照：由 onMessage 事件写入、getHTML 超时兜底读取（不驱动渲染，故用 ref）
+    const editorHTMLRef = useRef(initialHTML)
 
     const execCommand = useCallback((cmd: string, value?: string) => {
       webViewRef.current?.injectJavaScript(`
@@ -687,7 +688,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
           `)
           setTimeout(() => {
             pendingRequests.current.delete(id)
-            resolve(editorHTML)
+            resolve(editorHTMLRef.current)
           }, 500)
         })
       },
@@ -714,7 +715,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       try {
         const data = JSON.parse(event.nativeEvent.data)
         if (data.type === 'change') {
-          editorHTML = data.html
+          editorHTMLRef.current = data.html
           onChange?.(data.html)
         } else if (data.type === 'htmlResponse') {
           const resolve = pendingRequests.current.get(data.requestId)
@@ -728,7 +729,7 @@ const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>(
       } catch {
         // ignore
       }
-    }, [onChange])
+    }, [onChange, setActivePanel])
 
     const togglePanel = (panel: PanelType) => {
       setActivePanel(activePanel === panel ? 'none' : panel)

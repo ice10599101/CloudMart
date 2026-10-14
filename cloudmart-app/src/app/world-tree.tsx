@@ -115,7 +115,10 @@ export default function WorldTreeScreen() {
     }, [mergeFruits])
 
     useEffect(() => {
-        fetchData()
+        async function run() {
+            await fetchData()
+        }
+        void run()
     }, [fetchData])
 
     /** 环境快照轮询：特殊事件触发/到期后 1min 内全端视觉同步 */

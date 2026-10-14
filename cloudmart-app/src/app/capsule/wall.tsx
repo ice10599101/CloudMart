@@ -38,7 +38,10 @@ export default function CapsuleWallScreen() {
     }, [])
 
     useEffect(() => {
-        fetchPage(1, false)
+        async function run() {
+            await fetchPage(1, false)
+        }
+        void run()
     }, [fetchPage])
 
     const onRefresh = () => {

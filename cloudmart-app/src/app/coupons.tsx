@@ -173,8 +173,10 @@ export default function CouponsPage() {
   }, [])
 
   useEffect(() => {
-    loadAvailableCoupons()
-    loadMyCoupons()
+    async function run() {
+      await Promise.all([loadAvailableCoupons(), loadMyCoupons()])
+    }
+    void run()
   }, [loadAvailableCoupons, loadMyCoupons])
 
   const onRefresh = useCallback(() => {

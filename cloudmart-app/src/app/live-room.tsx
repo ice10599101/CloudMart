@@ -48,6 +48,13 @@ interface DanmakuMessage {
   type: 'chat' | 'system' | 'gift'
 }
 
+/** 点赞飘心（Animated 节点由 state 持有，随机横向偏移在事件中生成） */
+interface FloatingHeart {
+  id: number
+  translateY: Animated.Value
+  offsetX: number
+}
+
 /** 由 API_BASE 推导 WS 基址：网关 WS 端点在 /ws（web 同源 /ws 反代，native 直连网关） */
 function resolveWsBase(): string {
   if (Platform.OS === 'web') {
@@ -86,8 +93,10 @@ export default function LiveRoomScreen() {
   const [likeCount, setLikeCount] = useState(0)
   const [wsConnected, setWsConnected] = useState(false)
 
-  const likeScale = useRef(new Animated.Value(1)).current
-  const heartAnimations = useRef<Animated.Value[]>([])
+  const [likeScale] = useState(() => new Animated.Value(1))
+  /** 飘心：事件触发时创建（offsetX 在事件中随机），动画结束按 id 移除 */
+  const [hearts, setHearts] = useState<FloatingHeart[]>([])
+  const heartIdRef = useRef(0)
   const msgIdRef = useRef(0)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -131,8 +140,10 @@ export default function LiveRoomScreen() {
 
   useEffect(() => {
     if (roomId) {
-      loadRoom()
-      enterRoom()
+      async function joinRoom() {
+        await Promise.all([loadRoom(), enterRoom()])
+      }
+      void joinRoom()
     }
     return () => {
       leaveRoom()
@@ -271,11 +282,15 @@ export default function LiveRoomScreen() {
       Animated.timing(likeScale, { toValue: 1, duration: 100, useNativeDriver: true }),
     ]).start()
 
-    const heartY = new Animated.Value(0)
-    heartAnimations.current.push(heartY)
+    const heartId = heartIdRef.current + 1
+    heartIdRef.current = heartId
+    const translateY = new Animated.Value(0)
+    // 随机偏移在点击事件中生成（非渲染期），每颗心独立稳定
+    const offsetX = (Math.random() - 0.5) * 40
+    setHearts((prev) => [...prev, { id: heartId, translateY, offsetX }])
 
-    Animated.timing(heartY, { toValue: -120, duration: 1000, useNativeDriver: true }).start(() => {
-      heartAnimations.current = heartAnimations.current.filter((v) => v !== heartY)
+    Animated.timing(translateY, { toValue: -120, duration: 1000, useNativeDriver: true }).start(() => {
+      setHearts((prev) => prev.filter((heart) => heart.id !== heartId))
     })
 
     try {
@@ -551,17 +566,16 @@ export default function LiveRoomScreen() {
       </View>
 
       {/* 点赞飘心动画 */}
-      {heartAnimations.current.map((anim, idx) => {
-        const offsetX = (Math.random() - 0.5) * 40
+      {hearts.map((heart) => {
         return (
           <Animated.View
-            key={idx}
+            key={heart.id}
             style={{
               position: 'absolute',
               bottom: 80,
-              right: 60 + offsetX,
-              transform: [{ translateY: anim }],
-              opacity: anim.interpolate({ inputRange: [-120, 0], outputRange: [0, 1] }),
+              right: 60 + heart.offsetX,
+              transform: [{ translateY: heart.translateY }],
+              opacity: heart.translateY.interpolate({ inputRange: [-120, 0], outputRange: [0, 1] }),
             }}
           >
             <Text style={{ fontSize: 24 }}>❤️</Text>

@@ -114,7 +114,10 @@ export default function HomePage() {
   }, [activeTab, loading, posts])
 
   useEffect(() => {
-    loadPosts(1, true)
+    async function run() {
+      await loadPosts(1, true)
+    }
+    void run()
   }, [activeTab])
 
   // 热销好物（销量 Top5，对齐 Web 端 Home 侧栏）

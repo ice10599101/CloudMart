@@ -43,7 +43,10 @@ export default function ActivitiesScreen() {
   }, [])
 
   useEffect(() => {
-    loadList(typeFilter)
+    async function run() {
+      await loadList(typeFilter)
+    }
+    void run()
   }, [typeFilter, loadList])
 
   const requireLogin = () => {

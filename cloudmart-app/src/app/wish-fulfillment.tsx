@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator , Animated, Easing } from 'react-native'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
@@ -38,11 +38,13 @@ function BloomCeremony({
   badges: { id: number; name: string }[]
   capped?: boolean
 }) {
-  const emojiScale = useRef(new Animated.Value(0)).current
-  const emojiOpacity = useRef(new Animated.Value(0)).current
-  const ringScale = useRef(new Animated.Value(0.4)).current
-  const ringOpacity = useRef(new Animated.Value(0.8)).current
-  const textOpacity = useRef(new Animated.Value(0)).current
+  // Animated.Value 是稳定可变节点：用惰性 state 持有（只创建一次），
+  // 不用 useRef(...).current —— 后者每次渲染都构造新节点且在渲染期读 ref
+  const [emojiScale] = useState(() => new Animated.Value(0))
+  const [emojiOpacity] = useState(() => new Animated.Value(0))
+  const [ringScale] = useState(() => new Animated.Value(0.4))
+  const [ringOpacity] = useState(() => new Animated.Value(0.8))
+  const [textOpacity] = useState(() => new Animated.Value(0))
 
   useEffect(() => {
     Animated.parallel([
@@ -136,8 +138,8 @@ function BloomCeremony({
 
 /** 单个绽放粒子（从中心向外炸裂） */
 function BloomParticle({ x, y }: { x: number; y: number }) {
-  const translateValue = useRef(new Animated.Value(0)).current
-  const opacityValue = useRef(new Animated.Value(0)).current
+  const [translateValue] = useState(() => new Animated.Value(0))
+  const [opacityValue] = useState(() => new Animated.Value(0))
 
   useEffect(() => {
     Animated.parallel([

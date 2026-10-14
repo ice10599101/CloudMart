@@ -34,13 +34,16 @@ function GroupActivityCard({
   activity,
   theme,
   onJoin,
+  now,
 }: {
   activity: GroupActivity
   theme: ReturnType<typeof useTheme>
   onJoin: (activity: GroupActivity) => void
+  /** 由父组件每秒更新的当前时间戳（保持组件渲染纯净） */
+  now: number
 }) {
   const progress = Math.min(activity.currentCount / activity.groupSize, 1)
-  const isEnded = activity.status !== 0 || new Date(activity.endTime).getTime() <= Date.now()
+  const isEnded = activity.status !== 0 || new Date(activity.endTime).getTime() <= now
 
   return (
     <View
@@ -175,7 +178,8 @@ export default function GroupBuyPage() {
   const [myLoading, setMyLoading] = useState(false)
   const [joiningId, setJoiningId] = useState<number | null>(null)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const [, setTick] = useState(0)
+  // 每秒更新的当前时间戳：倒计时/结束态由该 state 驱动，渲染期不得直接读 Date.now
+  const [nowMs, setNowMs] = useState(() => Date.now())
 
   const loadActivities = useCallback(
     async (pageNum: number, reset = false) => {
@@ -198,12 +202,15 @@ export default function GroupBuyPage() {
   )
 
   useEffect(() => {
-    loadActivities(1, true)
+    async function run() {
+      await loadActivities(1, true)
+    }
+    void run()
   }, [])
 
   // Countdown timer - tick every second to refresh countdown display
   useEffect(() => {
-    countdownRef.current = setInterval(() => setTick((t) => t + 1), 1000)
+    countdownRef.current = setInterval(() => setNowMs(Date.now()), 1000)
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current)
     }
@@ -259,7 +266,7 @@ export default function GroupBuyPage() {
   }, [joiningId, loadMyGroups])
 
   const renderItem = ({ item }: { item: GroupActivity }) => (
-    <GroupActivityCard activity={item} theme={theme} onJoin={handleJoin} />
+    <GroupActivityCard activity={item} theme={theme} onJoin={handleJoin} now={nowMs} />
   )
 
   const renderEmpty = () => (

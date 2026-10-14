@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, Easing, PanResponder, StyleSheet, TouchableOpacity, View } from 'react-native'
-import type { ViewStyle } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Animated, Easing, StyleSheet, TouchableOpacity, View } from 'react-native'
+import type { GestureResponderEvent, ViewStyle } from 'react-native'
 import type { TreeEnvParticle, TreeFruit } from '@/types'
 import type { TreeEnvTheme } from '@/utils/tree-env'
 import { withAlpha } from '@/utils/tree-env'
@@ -13,7 +13,7 @@ export interface WorldTree3DProps {
   onFruitSelect: (fruit: TreeFruit) => void
 }
 
-/** 渲染上限（PanResponder 旋转时全量重渲染成本控制） */
+/** 渲染上限（拖拽旋转时全量重渲染成本控制） */
 const MAX_POINTS = 80
 /** 拖拽旋转手势接管阈值（px，低于此为点按果实不接管） */
 const PAN_ACTIVATE_THRESHOLD = 8
@@ -137,7 +137,7 @@ function EnvParticle({
   index: number
   containerHeight: number
 }) {
-  const progress = useRef(new Animated.Value(0)).current
+  const [progress] = useState(() => new Animated.Value(0))
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -183,17 +183,19 @@ function EnvParticle({
 
 /**
  * 世界树 3D 场景（APP 端 RN 原生版）：
- * 伪 3D 星图降级渲染（与小程序端视觉一致）+ PanResponder 拖拽旋转视角
+ * 伪 3D 星图降级渲染（与小程序端视觉一致）+ View responder 拖拽旋转视角
  * + 动态环境主题（Sprint 2.2：天空/树冠/树心/粒子由 theme 驱动）。
  * 不引入 expo-three/three：expo-three 维护滞后且 three 的 OrbitControls 依赖 DOM，
- * Metro 打包 three 体积与兼容风险高；PanResponder/Animated 为 RN 核心 API 零新增依赖。
+ * Metro 打包 three 体积与兼容风险高；Responder/Animated 为 RN 核心 API 零新增依赖。
  */
 export default function WorldTree3D({ fruits, theme, onFruitSelect }: WorldTree3DProps) {
   const [thetaOffset, setThetaOffset] = useState(0)
   const [phiOffset, setPhiOffset] = useState(0)
   const [sphereHeight, setSphereHeight] = useState(0)
   const rotationRef = useRef({ theta: 0, phi: 0, lastX: 0, lastY: 0, lastEmit: 0 })
-  const corePulse = useRef(new Animated.Value(0.75)).current
+  // 按下锚点：等价 PanResponder gestureState 的 dx/dy 原点（touch-start 位置）
+  const pressAnchorRef = useRef({ x: 0, y: 0 })
+  const [corePulse] = useState(() => new Animated.Value(0.75))
 
   const activeTheme = theme ?? FALLBACK_THEME
   const particleSpec = activeTheme.particle !== 'NONE' ? PARTICLE_SPECS[activeTheme.particle] : null
@@ -210,41 +212,10 @@ export default function WorldTree3D({ fruits, theme, onFruitSelect }: WorldTree3
     return () => loop.stop()
   }, [corePulse])
 
-  const panResponder = useMemo(
-      () =>
-          PanResponder.create({
-            // capture 阶段接管：优先于子元素 TouchableOpacity 的 responder 协商，
-            // react-native-web 下普通 move 协商可能被子组件拦截导致拖不动
-            onMoveShouldSetPanResponderCapture: (_e, gestureState) =>
-                Math.abs(gestureState.dx) > PAN_ACTIVATE_THRESHOLD ||
-                Math.abs(gestureState.dy) > PAN_ACTIVATE_THRESHOLD,
-            onMoveShouldSetPanResponder: (_e, gestureState) =>
-                Math.abs(gestureState.dx) > PAN_ACTIVATE_THRESHOLD ||
-                Math.abs(gestureState.dy) > PAN_ACTIVATE_THRESHOLD,
-            onPanResponderGrant: (e) => {
-              rotationRef.current.lastX = e.nativeEvent.pageX
-              rotationRef.current.lastY = e.nativeEvent.pageY
-              rotationRef.current.lastEmit = 0
-            },
-            onPanResponderMove: (e) => {
-              const now = Date.now()
-              if (now - rotationRef.current.lastEmit < ROTATE_THROTTLE_MS) return
-              rotationRef.current.lastEmit = now
-              const dx = e.nativeEvent.pageX - rotationRef.current.lastX
-              const dy = e.nativeEvent.pageY - rotationRef.current.lastY
-              rotationRef.current.lastX = e.nativeEvent.pageX
-              rotationRef.current.lastY = e.nativeEvent.pageY
-              rotationRef.current.theta -= dx * 0.01
-              rotationRef.current.phi = Math.max(
-                  -MAX_PHI_OFFSET,
-                  Math.min(MAX_PHI_OFFSET, rotationRef.current.phi + dy * 0.005),
-              )
-              setThetaOffset(rotationRef.current.theta)
-              setPhiOffset(rotationRef.current.phi)
-            },
-          }),
-      [],
-  )
+  // 手势位移是否超过接管阈值（capture/冒泡两次协商共用）
+  const moveExceedsThreshold = (e: GestureResponderEvent): boolean =>
+    Math.abs(e.nativeEvent.pageX - pressAnchorRef.current.x) > PAN_ACTIVATE_THRESHOLD ||
+    Math.abs(e.nativeEvent.pageY - pressAnchorRef.current.y) > PAN_ACTIVATE_THRESHOLD
 
   const points = projectFruits(fruits, thetaOffset, phiOffset)
 
@@ -252,7 +223,36 @@ export default function WorldTree3D({ fruits, theme, onFruitSelect }: WorldTree3
       <View
           style={[styles.sphere, { backgroundColor: withAlpha(activeTheme.skyColor, 0.92) }]}
           onLayout={(e) => setSphereHeight(e.nativeEvent.layout.height)}
-          {...panResponder.panHandlers}
+          // 直接使用 View responder 事件（内联回调被识别为事件处理器，
+          // ref/Date.now 仅在手势触发时读写，渲染期不触碰）；等价旧 PanResponder：
+          // 按下记录锚点，移动超阈值才接管，优先于果实 TouchableOpacity
+          onStartShouldSetResponderCapture={(e) => {
+            pressAnchorRef.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY }
+            return false
+          }}
+          onMoveShouldSetResponderCapture={moveExceedsThreshold}
+          onMoveShouldSetResponder={moveExceedsThreshold}
+          onResponderGrant={(e) => {
+            rotationRef.current.lastX = e.nativeEvent.pageX
+            rotationRef.current.lastY = e.nativeEvent.pageY
+            rotationRef.current.lastEmit = 0
+          }}
+          onResponderMove={(e) => {
+            const now = Date.now()
+            if (now - rotationRef.current.lastEmit < ROTATE_THROTTLE_MS) return
+            rotationRef.current.lastEmit = now
+            const dx = e.nativeEvent.pageX - rotationRef.current.lastX
+            const dy = e.nativeEvent.pageY - rotationRef.current.lastY
+            rotationRef.current.lastX = e.nativeEvent.pageX
+            rotationRef.current.lastY = e.nativeEvent.pageY
+            rotationRef.current.theta -= dx * 0.01
+            rotationRef.current.phi = Math.max(
+                -MAX_PHI_OFFSET,
+                Math.min(MAX_PHI_OFFSET, rotationRef.current.phi + dy * 0.005),
+            )
+            setThetaOffset(rotationRef.current.theta)
+            setPhiOffset(rotationRef.current.phi)
+          }}
           accessibilityLabel="世界树星图"
       >
         {BACKGROUND_STARS.map(({ left, top, size, opacity }, index) => (

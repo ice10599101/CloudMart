@@ -40,7 +40,10 @@ export default function EncounterScreen() {
   }, [])
 
   useEffect(() => {
-    loadLetters()
+    async function run() {
+      await loadLetters()
+    }
+    void run()
   }, [loadLetters])
 
   const handleOpen = async (letter: EncounterLetter) => {

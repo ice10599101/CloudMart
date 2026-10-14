@@ -93,8 +93,10 @@ export default function StarlightTransferScreen() {
 
   useEffect(() => {
     if (!isLoggedIn) return
-    void loadLimits()
-    void loadRecords(1, true)
+    async function run() {
+      await Promise.all([loadLimits(), loadRecords(1, true)])
+    }
+    void run()
   }, [isLoggedIn, loadLimits, loadRecords])
 
   const handleRefresh = useCallback(() => {
