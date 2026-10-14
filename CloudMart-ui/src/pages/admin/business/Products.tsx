@@ -103,7 +103,6 @@ function EsOpsPanel() {
           <Descriptions.Item label="写别名">{status.aliasExists ? <Tag color="green">存在</Tag> : <Tag color="red">缺失</Tag>}</Descriptions.Item>
           <Descriptions.Item label="当前写索引">{status.writeIndex ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="别名指向">{status.aliasTargets?.join(', ') || '—'}</Descriptions.Item>
-          <Descriptions.Item label="旧物理索引残留">{status.legacyPhysicalIndexExists ? '是' : '否'}</Descriptions.Item>
         </Descriptions>
       ) : (
         <span style={{ color: 'var(--color-text-tertiary)' }}>{loading ? '加载中...' : '暂无状态数据'}</span>

@@ -522,7 +522,6 @@ export function deleteFile(url: string) {
 export interface EsIndexStatus {
   /** 写别名是否存在 */
   aliasExists: boolean
-  legacyPhysicalIndexExists: boolean
   /** 当前写物理索引名 */
   writeIndex: string | null
   /** 别名指向的物理索引列表 */

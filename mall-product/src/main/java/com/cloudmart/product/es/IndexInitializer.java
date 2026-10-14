@@ -52,12 +52,6 @@ public class IndexInitializer implements ApplicationRunner {
         log.info("Checking ES index [products] on startup...");
         if (indexManager.indexExists()) {
             log.info("ES alias [products] exists, skip index creation");
-        } else if (indexManager.legacyIndexExists()) {
-            // T08：历史部署存在同名实体索引——保持现状（业务继续直用该索引），
-            // 别名体系由 /index/full-rebuild 一次性迁移启用，启动期不做破坏性切换
-            log.warn("ES index [products] is a legacy physical index (no alias). "
-                    + "Keep serving as-is; trigger POST /products/es/index/full-rebuild to migrate "
-                    + "to the versioned alias system.");
         } else {
             boolean created = indexManager.bootstrapAliasSystem();
             if (created) {

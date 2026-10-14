@@ -57,7 +57,6 @@ public class ProductReindexController {
     public ApiResponse<Map<String, Object>> indexStatus() {
         Map<String, Object> info = new LinkedHashMap<>();
         info.put("aliasExists", indexManager.indexExists());
-        info.put("legacyPhysicalIndexExists", indexManager.legacyIndexExists());
         info.put("writeIndex", indexManager.currentWriteIndex().orElse(null));
         info.put("aliasTargets", indexManager.aliasTargets());
         if (indexManager.indexExists()) {
@@ -68,23 +67,20 @@ public class ProductReindexController {
     }
 
     /**
-     * T08 蓝绿全量重建（零停机，除首次遗留迁移外）：
+     * 蓝绿全量重建（零停机）：
      * ① 建下一版本实体索引（products_v{n+1}，新 settings/mapping）；
      * ② 全量 MySQL → 新索引（此时读仍走别名=旧版本，搜索不受影响）；
      * ③ 原子切换别名到新索引；旧版本保留可回滚。
-     * 首次迁移存在与历史同名实体索引的切换：删除遗留索引与建别名之间为毫秒级窗口。
+     * 别名体系首次建立（全新环境）时直接建 v1 并挂别名，无历史物理索引迁移窗口。
      */
     @PostMapping("/index/full-rebuild")
     @Operation(summary = "蓝绿全量重建", description = "建新版本索引→写入→原子切换别名；旧版本保留可回滚")
     @PreAuthorize("hasRole('INTERNAL')")
     public ApiResponse<Map<String, Object>> fullRebuild() {
         Map<String, Object> result = new LinkedHashMap<>();
-        boolean legacyRemoved = false;
+        boolean bootstrapping = !indexManager.indexExists();
 
         String targetIndex = indexManager.nextVersionIndexName();
-        boolean fromLegacy = !indexManager.indexExists() && indexManager.legacyIndexExists();
-        boolean bootstrapping = !indexManager.indexExists() && !indexManager.legacyIndexExists();
-
         if (!indexManager.createVersionedIndex(targetIndex)) {
             throw new BusinessException("ES_INDEX_CREATE_FAILED", "创建版本索引失败: " + targetIndex);
         }
@@ -92,10 +88,6 @@ public class ProductReindexController {
         // 写入新版本期间，读流量仍由别名路由到旧版本（蓝绿窗口）
         int count = productSyncService.reindexAll(targetIndex);
 
-        if (fromLegacy) {
-            // ES 不允许别名与同名实体索引共存：一次性迁移窗口（毫秒级）
-            legacyRemoved = indexManager.deleteLegacyIndex();
-        }
         boolean aliasSwitched = indexManager.switchAliasTo(targetIndex);
         if (!aliasSwitched) {
             throw new BusinessException("ES_ALIAS_SWITCH_FAILED",
@@ -105,7 +97,6 @@ public class ProductReindexController {
         result.put("targetIndex", targetIndex);
         result.put("previousIndex", indexManager.currentWriteIndex()
                 .filter(idx -> !idx.equals(targetIndex)).orElse(null));
-        result.put("legacyPhysicalIndexRemoved", legacyRemoved);
         result.put("bootstrapping", bootstrapping);
         result.put("documentsSynced", count);
         result.put("aliasSwitched", aliasSwitched);
@@ -119,7 +110,6 @@ public class ProductReindexController {
         Map<String, Object> info = new LinkedHashMap<>();
         info.put("writeIndex", indexManager.currentWriteIndex().orElse(null));
         info.put("aliasTargets", indexManager.aliasTargets().keySet());
-        info.put("legacyPhysicalIndexExists", indexManager.legacyIndexExists());
         return ApiResponse.ok(info);
     }
 

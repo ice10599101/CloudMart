@@ -33,9 +33,8 @@ import java.util.Set;
  * 保证 IK 分词器等自定义配置生效）。应用层（ProductDocument/ProductSearchRepository）
  * 永远只引用别名 "products"——别名路由由 ES 完成，业务代码零改动。</p>
  *
- * <p>兼容性：历史部署存在与别名同名的实体索引 "products"。ES 不允许别名与同名
- * 实体索引共存，首次迁移需在该索引删除与别名创建之间存在毫秒级切换窗口
- * （full-rebuild 编排内处理），之后的所有重建均零停机。</p>
+ * <p>开发/测试环境已按 C26 重建为版本化实体索引 + 别名体系，不再存在与别名同名的
+ * 历史物理索引；全新环境由 {@link #bootstrapAliasSystem()} 直接初始化。</p>
  *
  * <p>仅当 {@code elasticsearch.enabled=true} 时启用。</p>
  */
@@ -47,7 +46,6 @@ public class IndexManager {
     /** 读写别名：业务层唯一可见的索引名 */
     public static final String ALIAS_NAME = "products";
     private static final String VERSIONED_PREFIX = "products_v";
-    private static final String LEGACY_INDEX_NAME = "products";
     private static final String SETTINGS_PATH = "es/products-settings.json";
     private static final String MAPPING_PATH = "es/products-mapping.json";
 
@@ -140,22 +138,7 @@ public class IndexManager {
     }
 
     /**
-     * @return 历史遗留的同名实体索引 "products" 是否存在（别名与实体索引不能同名，
-     * 存在即需一次性迁移后才能启用别名体系）
-     */
-    public boolean legacyIndexExists() {
-        return operations.indexOps(IndexCoordinates.of(LEGACY_INDEX_NAME)).exists();
-    }
-
-    /** 删除历史遗留的同名实体索引（一次性迁移步骤，在切换窗口内调用） */
-    public boolean deleteLegacyIndex() {
-        boolean deleted = operations.indexOps(IndexCoordinates.of(LEGACY_INDEX_NAME)).delete();
-        log.warn("[T08] 历史实体索引 [{}] 已删除（一次性迁移步骤）: {}", LEGACY_INDEX_NAME, deleted);
-        return deleted;
-    }
-
-    /**
-     * 首次启用：创建 v1 实体索引并建立别名（无历史索引时的初始化路径）。
+     * 首次启用：创建 v1 实体索引并建立别名（全新环境的初始化路径）。
      */
     public boolean bootstrapAliasSystem() {
         String first = nextVersionIndexName();

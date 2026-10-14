@@ -87,7 +87,6 @@ class ProductReindexControllerTest {
 
             given(indexManager.indexExists()).willReturn(true);
             given(indexManager.currentWriteIndex()).willReturn(Optional.of("products_v2"));
-            given(indexManager.legacyIndexExists()).willReturn(false);
             given(indexManager.getIndexMapping()).willReturn(mapping);
             given(indexManager.getIndexSettings()).willReturn(settings);
 
@@ -103,12 +102,12 @@ class ProductReindexControllerTest {
         @DisplayName("别名不存在时应返回 aliasExists=false")
         void shouldReturnNotExistsWhenIndexMissing() throws Exception {
             given(indexManager.indexExists()).willReturn(false);
-            given(indexManager.legacyIndexExists()).willReturn(false);
             given(indexManager.currentWriteIndex()).willReturn(Optional.empty());
 
             mockMvc.perform(get("/products/es/index/status"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.aliasExists").value(false));
+                    .andExpect(jsonPath("$.data.aliasExists").value(false))
+                    .andExpect(jsonPath("$.data.legacyPhysicalIndexExists").doesNotExist());
         }
     }
 
@@ -130,6 +129,24 @@ class ProductReindexControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.targetIndex").value("products_v3"))
                     .andExpect(jsonPath("$.data.documentsSynced").value(50))
+                    .andExpect(jsonPath("$.data.aliasSwitched").value(true));
+        }
+
+        @Test
+        @DisplayName("全新环境首建：别名不存在 → 建 v1 并挂别名，bootstrapping=true")
+        void shouldBootstrapWhenAliasMissing() throws Exception {
+            given(indexManager.indexExists()).willReturn(false);
+            given(indexManager.nextVersionIndexName()).willReturn("products_v1");
+            given(indexManager.createVersionedIndex("products_v1")).willReturn(true);
+            given(productSyncService.reindexAll("products_v1")).willReturn(0);
+            given(indexManager.currentWriteIndex()).willReturn(Optional.of("products_v1"));
+            given(indexManager.switchAliasTo("products_v1")).willReturn(true);
+
+            mockMvc.perform(post("/products/es/index/full-rebuild"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.targetIndex").value("products_v1"))
+                    .andExpect(jsonPath("$.data.bootstrapping").value(true))
+                    .andExpect(jsonPath("$.data.legacyPhysicalIndexRemoved").doesNotExist())
                     .andExpect(jsonPath("$.data.aliasSwitched").value(true));
         }
 
@@ -156,11 +173,11 @@ class ProductReindexControllerTest {
         @DisplayName("返回当前写索引与别名指向")
         void shouldReturnVersions() throws Exception {
             given(indexManager.currentWriteIndex()).willReturn(Optional.of("products_v2"));
-            given(indexManager.legacyIndexExists()).willReturn(false);
 
             mockMvc.perform(get("/products/es/index/versions"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.writeIndex").value("products_v2"));
+                    .andExpect(jsonPath("$.data.writeIndex").value("products_v2"))
+                    .andExpect(jsonPath("$.data.legacyPhysicalIndexExists").doesNotExist());
         }
     }
 
