@@ -1,13 +1,4 @@
 {
   "comment": "R28 集成测试跳过精确白名单：替代 CI 中固定 allowed_skipped=3 的数量口径，防止不同测试互相抵消。每条必须包含：id(测试类/方法全限定名)、match(class|method)、reason(跳过的技术原因)、owner、expires(期限,到期 CI 自动变红,格式 YYYY-MM-DD)、tracking(恢复条件/跟踪事项)。禁用解除后必须立即删除对应条目（CI 校验条目未被使用即失败）。新增禁用须经评审并写明期限，禁止无期限跳过。",
-  "entries": [
-    {
-      "id": "com.cloudmart.ai.service.VectorSearchIntegrationTest",
-      "match": "class",
-      "reason": "Elasticsearch 9.0.2 与 Spring AI ElasticsearchVectorStore 的 knn 查询 DSL 不兼容（add 正常、similaritySearch 阶段 all shards failed）；ai.vector.enabled 默认关闭、生产未启用向量能力。",
-      "owner": "platform/ai",
-      "expires": "2027-06-30",
-      "tracking": "升级 Spring AI 与 ES 到兼容组合后，在 Testcontainers(ES 真实容器) 中恢复 add/search/delete/topK 三个用例并删除本条。"
-    }
-  ]
+  "entries": []
 }

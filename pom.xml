@@ -23,7 +23,7 @@
         <checkstyle.version>13.4.2</checkstyle.version>
         <lombok.version>1.18.46</lombok.version>
         <easyexcel.version>4.0.3</easyexcel.version>
-        <spring-ai.version>2.0.0-M1</spring-ai.version>
+        <spring-ai.version>2.0.1</spring-ai.version>
 
         <elasticsearch-client.version>9.4.3</elasticsearch-client.version>
         <rocketmq-spring.version>2.3.6</rocketmq-spring.version>

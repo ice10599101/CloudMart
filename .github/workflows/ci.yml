@@ -106,7 +106,7 @@ jobs:
       # docker pull 幂等，预拉后 Testcontainers 复用本地层）
       - name: 预拉取 IT 镜像
         run: |
-          for img in mysql:9.4.0 mysql:9.0 redis:7.4-alpine docker.elastic.co/elasticsearch/elasticsearch:9.0.2; do
+          for img in mysql:9.4.0 mysql:9.0 redis:7.4-alpine docker.elastic.co/elasticsearch/elasticsearch:9.4.0; do
             docker pull "$img" || echo "::warning::预拉取失败（继续，Testcontainers 会自行重试）: $img"
           done
       # E01/T26：*IntegrationTest 由 failsafe 执行，报告落 target/failsafe-reports；
