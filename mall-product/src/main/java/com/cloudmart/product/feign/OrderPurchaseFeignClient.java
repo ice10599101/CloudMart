@@ -29,8 +29,9 @@ public interface OrderPurchaseFeignClient {
     ApiResponse<OrderItemEligibility> reviewEligibility(@RequestParam("userId") Long userId,
                                                         @PathVariable("orderItemId") Long orderItemId);
 
-    /** N-5 问大家：已购标识（回答人"已购"徽标快照；fail-open 由 fallback 兜 false） */
-    @GetMapping("/internal/orders/has-purchased-product")
+    /** N-5 问大家：已购标识（回答人"已购"徽标快照；fail-open 由 fallback 兜 false）。
+     *  C36：path 已含 /internal/orders，方法路径不得重复前缀 */
+    @GetMapping("/has-purchased-product")
     ApiResponse<Boolean> hasPurchasedProduct(@RequestParam("userId") Long userId,
                                              @RequestParam("productId") Long productId);
 }

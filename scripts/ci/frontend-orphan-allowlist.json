@@ -1,0 +1,11 @@
+{
+  "comment": "C36-1 前端孤立模块检查白名单。只有经核实为框架隐式入口/动态加载/平台约定、且无法在 check-frontend-orphans.mjs 入口规则中通用表达的文件才可入单。每条必须含 project(CloudMart-ui|cloudmart-app|cloudmart-mobile)、path(项目相对路径)、reason(实际入口或保留证据，禁止只写‘暂时保留’)、added(加入日期)。新增条目须经核实，无证据条目不得入单。",
+  "entries": [
+    {
+      "project": "cloudmart-mobile",
+      "path": "src/components/empty.tsx",
+      "reason": "Taro/Vite 构建期动态入口：config/index.ts 的 resolveId 插件在第 98/101/108/112 行按平台条件将该文件路径作为模块解析结果返回（H5 与微信小程序的空组件替身），不经过 import 图",
+      "added": "2026-10-15"
+    }
+  ]
+}

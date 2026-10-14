@@ -477,10 +477,6 @@ public class PetEventServiceImpl implements PetEventService {
     /** B16：活动结束后允许领取已达成奖励的时长（默认 24h，创建时快照固定） */
     static final long CLAIM_GRACE_HOURS = 24;
 
-    private int orZero(Integer value) {
-        return value != null ? value : 0;
-    }
-
     private static String orEmpty(String value) {
         return value != null ? value : "";
     }

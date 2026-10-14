@@ -19,7 +19,8 @@ public interface ProductFeignClient {
     @GetMapping("/products/{id}")
     ApiResponse<Map<String, Object>> getProduct(@PathVariable("id") Long id);
 
-    @GetMapping("/products/{productId}/reviews")
+    // C36：对齐下游 ReviewController 真实路由 GET /reviews/product/{productId}
+    @GetMapping("/reviews/product/{productId}")
     ApiResponse<Map<String, Object>> getReviews(
             @PathVariable("productId") Long productId,
             @RequestParam("page") int page,

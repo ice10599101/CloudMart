@@ -15,8 +15,8 @@ public interface CouponFeignClient {
     @PostMapping("/use")
     ApiResponse<Void> useCoupon(@RequestBody UseCouponRequest request);
 
-    /** T06：支付成功核销确认（RESERVED→USED） */
-    @PostMapping("/user-coupons/confirm")
+    /** T06：支付成功核销确认（RESERVED→USED）。C36：path 已含 /user-coupons，方法路径不得重复前缀 */
+    @PostMapping("/confirm")
     ApiResponse<Void> confirmCoupon(@RequestBody UseCouponRequest request);
 
     @PostMapping("/return")

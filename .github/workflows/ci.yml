@@ -291,6 +291,20 @@ jobs:
         run: node --test scripts/ci/check-it-skips.test.mjs
       - name: 仓库卫生门禁（C36：制品/依赖/凭据载体不得入库）
         run: node scripts/ci/check-repo-hygiene.mjs
+      - name: C36 门禁自测（前端孤立/后端死代码与 Feign 契约/Cocos 资源/悬空引用）
+        run: |
+          node --test scripts/ci/check-frontend-orphans.test.mjs \
+                             scripts/ci/check-backend-orphans.test.mjs \
+                             scripts/ci/check-cocos-assets.test.mjs \
+                             scripts/ci/check-dangling-refs.test.mjs
+      - name: 前端模块可达性门禁（C36-1：确定孤立模块）
+        run: node scripts/ci/check-frontend-orphans.mjs
+      - name: 后端可达性门禁（C36-2：private 死方法 + Feign→Controller 契约）
+        run: node scripts/ci/check-backend-orphans.mjs
+      - name: Cocos 资源完整性门禁（C36-3：meta 齐全/uuid 唯一/引用无断链）
+        run: node scripts/ci/check-cocos-assets.mjs
+      - name: 悬空引用门禁（C36-4：删文件后无悬空 import/脚本/文档链接）
+        run: node scripts/ci/check-dangling-refs.mjs
       - name: 设置 JDK（R27 路由注解门禁）
         uses: actions/setup-java@v5
         with:

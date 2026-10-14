@@ -1,0 +1,4 @@
+{
+  "comment": "C36-2 后端可达性检查白名单。仅允许经核实的框架反射入口（private 方法）或暂时存在的 Feign 断链（须附跟踪事项）。每条必须含 id(private 为 文件相对路径#方法名；Feign 为 feign:<报告原文>)、reason(反射机制/调用入口或断链跟踪)、owner、added。条目对应问题消失后 CI 会强制要求删除本条目。",
+  "entries": []
+}
