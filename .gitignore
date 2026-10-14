@@ -89,6 +89,12 @@ CloudMart-ui/public/pet-game/
 /pet-game/temp/
 /pet-game/build/
 
+# C34：水果建模管线生成物——.blend1 自动备份、_preview 渲染图、tools/shots 截图；
+# _work/*.blend 手工源工程与 *.png 复现输入仍纳入版本管理，不在此忽略
+/pet-game/tools/shots/
+/pet-game/tools/fruit-pipeline/_preview/
+*.blend1
+
 # E04：本地验证期临时输出（永不入库）
 admin-login.json
 admin-token.txt

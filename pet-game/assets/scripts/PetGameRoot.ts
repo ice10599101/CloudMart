@@ -45,7 +45,7 @@ const { ccclass } = _decorator
  * 宠物：五果阵容全部进场 = 草莓 / 橘子 / 西瓜 / 蓝莓 / 火龙果（tools/fruit-pipeline 批量产出）。
  *  - 每只都是闭合旋转曲面 + 贴图花纹 + 3D 大眼 + ω 贴面猫嘴 + 腮红 + 软萌帽/鳍叶
  *  - 统一 4 骨轻绑定（Body/Calyx/EyeL/EyeR），三条剪辑：Idle 4s / Happy 1.67s / Blink 0.25s
- *  - 果种按 FRUIT_SPECS 加载：URL ?species= 强制预览 → 宿主 species 槽位映射 → 默认草莓
+ *  - 果种按 FRUIT_SPECS 加载：URL ?species= 强制预览 → 宿主 species 水果码直查 → 默认草莓
  *  - 挤压/拉伸以地面为锚（Body 骨头埋在脚下），是水果动感的核心
  *
  * 职责边界（不变）：只做展示与动画，数值全部来自宿主下发的 PetDisplayState，
@@ -102,28 +102,18 @@ const FRUIT_SPECS: Record<string, FruitSpec> = {
     },
 }
 const DEFAULT_FRUIT = 'strawberry'
-/**
- * 物种槽位映射：mall-pet 的 species 枚举（CAT/DOG/RABBIT/FOX/PANDA）迁移成水果码之前，
- * 按固定顺序把 5 个动物槽位映射到 5 只水果（每个 DB 宠物各得一只果）；
- * 枚举迁移落地后枚举值本身就是水果码，同表直查。URL `?species=orange` 可强制指定预览。
- */
-const SPECIES_SLOT: Record<string, string> = {
-    CAT: 'strawberry', DOG: 'orange', RABBIT: 'watermelon', FOX: 'blueberry', PANDA: 'dragonfruit',
-    STRAWBERRY: 'strawberry', ORANGE: 'orange', WATERMELON: 'watermelon',
-    BLUEBERRY: 'blueberry', DRAGONFRUIT: 'dragonfruit',
-}
 
+/**
+ * C18：mall-pet species 枚举值即水果码（STRAWBERRY/ORANGE/WATERMELON/BLUEBERRY/DRAGONFRUIT），
+ * 旧动物码 CAT/DOG/RABBIT/FOX/PANDA 的槽位映射已删除；无法识别时回落默认草莓。
+ * URL `?species=orange` 可强制指定预览。
+ */
 function resolveFruitKey(urlSpecies: string | null, petSpecies: string | null): string {
-    if (urlSpecies) {
-        const key = urlSpecies.toLowerCase()
+    const candidate = urlSpecies ?? petSpecies
+    if (candidate) {
+        const key = candidate.toLowerCase()
         if (FRUIT_SPECS[key]) {
             return key
-        }
-    }
-    if (petSpecies) {
-        const slot = SPECIES_SLOT[petSpecies.toUpperCase()]
-        if (slot) {
-            return slot
         }
     }
     return DEFAULT_FRUIT
@@ -263,7 +253,7 @@ export class PetGameRoot extends Component {
      * 否则会出现"模型加载出来了但站着不动"或"低状态还蹦得很欢"。
      */
     private loadPet(): void {
-        // 果种解析：URL ?species=（预览强制）→ 宿主下发的 species 槽位 → 默认草莓
+        // 果种解析：URL ?species=（预览强制）→ 宿主下发的 species 水果码 → 默认草莓
         this.fruit = FRUIT_SPECS[resolveFruitKey(this.urlSpecies, this.pendingPet?.species ?? null)]
         const spec = this.fruit
         // 点击宠物本体 → 开心动画 + 通知宿主互动（B06 互动入口的 3D 直触形式）
