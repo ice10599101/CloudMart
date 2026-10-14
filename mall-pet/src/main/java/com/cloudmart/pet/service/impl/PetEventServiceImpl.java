@@ -166,109 +166,12 @@ public class PetEventServiceImpl implements PetEventService {
                 && !now.isAfter(config.getEndsAt().plusHours(CLAIM_GRACE_HOURS));
     }
 
-    @Override
-    @Transactional
-    public PetEventVO claim(Long userId, String eventCode) {
-        Pet pet = stateService.requireActivePet(userId);
-        PetEventConfig config = eventConfigMapper.selectOne(new LambdaQueryWrapper<PetEventConfig>()
-                .eq(PetEventConfig::getCode, eventCode)
-                .eq(PetEventConfig::getEnabled, true)
-                .last("LIMIT 1"));
-        if (config == null) {
-            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND, "活动不存在或已下架");
-        }
-        LocalDateTime now = LocalDateTime.now(ZoneId.of("UTC"));
-        // R33：旧 eventCode 入口仅当能唯一解析当前一期时使用——多期并存歧义明确拒绝
-        List<PetEventOccurrence> current = occurrenceMapper.selectList(new LambdaQueryWrapper<PetEventOccurrence>()
-                .eq(PetEventOccurrence::getEventCode, config.getCode())
-                .eq(PetEventOccurrence::getStatus, "ACTIVE")
-                .ge(PetEventOccurrence::getClaimDeadlineAt, now));
-        if (current.size() > 1) {
-            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FOUND,
-                    "该活动存在多期可领记录，请按期次入口领取");
-        }
-        if (current.size() == 1) {
-            return claimByOccurrence(userId, current.get(0).getId());
-        }
-        // B16：开始前不能领；结束后 24h 内仍可领取已达成奖励
-        requireClaimWindow(config, now);
-        int progress = countProgress(pet, config);
-        int target = config.getTargetValue() != null ? config.getTargetValue() : 1;
-        if (progress < target) {
-            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FINISHED,
-                    "还差 " + (target - progress) + " 次就能完成啦");
-        }
-        markClaimed(pet, config, progress, now);
-
-        int expReward = orZero(config.getRewardExp());
-        if (expReward > 0) {
-            int levelups = stateService.grantExp(pet, expReward);
-            if (levelups > 0) {
-                achievementService.evaluate(pet, PetAchievementService.Event.LEVEL_UP);
-                eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_LEVEL_UP, new PetEventProducer.PetEventMessage(
-                        "LEVEL_UP:" + pet.getId() + ":" + pet.getLevel(),
-                        String.valueOf(userId), "PET_LEVEL_UP",
-                        "宠物升级啦！",
-                        pet.getName() + " 升到了 Lv." + pet.getLevel() + "，快去看看它吧！",
-                        String.valueOf(pet.getId()), "PET_LEVEL_UP"), pet.getId());
-            }
-        }
-        int starlight = orZero(config.getRewardStarlight());
-        if (starlight > 0) {
-            // 操作键绑定 (pet, event, claimDate)：同一活动多次领取只一次收益
-            PetEconomyService.WalletSettlement settlement = economyService.earn(
-                    userId, pet.getId(), "EVENT_CLAIM", pet.getId(), starlight, null,
-                    pet.getId(), config.getCode(), now.toLocalDate());
-            if (!settlement.isCompleted()) {
-                log.info("活动奖励星光结算中, eventCode={}, status={}", config.getCode(), settlement.status());
-            }
-        }
-        grantRewardWithAlternative(pet, config.getRewardItemCode(), orZero(config.getRewardAltStarlight()), now,
-                pet.getId(), config.getCode(), now.toLocalDate());
-        // 直接以本次领奖结果构建 VO：不再回读一次（避免读路径与写路径口径不一致）
-        return buildVo(config, now, progress, now);
-    }
-
-    /** 领奖幂等：claimed_at 为标记；并发重复请求由条件更新/唯一键兜底 */
-    private void markClaimed(Pet pet, PetEventConfig config, int progress, LocalDateTime now) {
-        PetEventProgress existing = progressMapper.selectOne(new LambdaQueryWrapper<PetEventProgress>()
-                .eq(PetEventProgress::getPetId, pet.getId())
-                .eq(PetEventProgress::getEventCode, config.getCode())
-                .last("LIMIT 1"));
-        if (existing == null) {
-            PetEventProgress created = new PetEventProgress();
-            created.setPetId(pet.getId());
-            created.setUserId(pet.getUserId());
-            created.setEventCode(config.getCode());
-            created.setProgress(progress);
-            created.setClaimedAt(now);
-            try {
-                progressMapper.insert(created);
-            } catch (DuplicateKeyException e) {
-                throw new BusinessException(PetErrorCodes.PET_EVENT_ALREADY_CLAIMED, "奖励已经领取过啦");
-            }
-            return;
-        }
-        if (existing.getClaimedAt() != null) {
-            throw new BusinessException(PetErrorCodes.PET_EVENT_ALREADY_CLAIMED, "奖励已经领取过啦");
-        }
-        int updated = progressMapper.update(null, new LambdaUpdateWrapper<PetEventProgress>()
-                .set(PetEventProgress::getClaimedAt, now)
-                .set(PetEventProgress::getProgress, progress)
-                .eq(PetEventProgress::getId, existing.getId())
-                .isNull(PetEventProgress::getClaimedAt));
-        if (updated == 0) {
-            throw new BusinessException(PetErrorCodes.PET_EVENT_ALREADY_CLAIMED, "奖励已经领取过啦");
-        }
-    }
-
-    /** 活动奖励装备入包（已拥有则跳过，不报错——奖励宁多不少地留给用户） */
     /**
      * B16/PET-11：唯一物品发放——已拥有时按快照发固定替代星光（走 B01 幂等操作），
      * 无替代或替代为 0 时明确跳过且不重复入包。幂等键由调用方给齐：
-     * 期次路径含 occurrenceId（同日多期独立），旧 eventCode 路径按领取日收敛。
+     * 期次路径含 occurrenceId（同日多期独立，C15 起为唯一领奖路径）。
      */
-    private void grantRewardWithAlternative(Pet pet, String itemCode, int altStarlight,
+    private void grantRewardWithAlternative(Pet pet, String itemCode, int altCoins,
                                             LocalDateTime now, Object... keyParts) {
         if (itemCode == null || itemCode.isBlank()) {
             return;
@@ -285,15 +188,12 @@ public class PetEventServiceImpl implements PetEventService {
             // R33：插入撞唯一键（并发同来源已发同一物品）→ 转替代星光一次，
             // 不再只记日志把替代奖吞掉（T60：一份 ITEM 或一次 ALTERNATIVE，结果可解释）
         }
-        if (altStarlight <= 0) {
+        if (altCoins <= 0) {
             log.info("活动奖励物品已拥有且无替代星光, petId={}, item={}", pet.getId(), itemCode);
             return;
         }
-        PetEconomyService.WalletSettlement settlement = economyService.earn(
-                pet.getUserId(), pet.getId(), "EVENT_ALT", pet.getId(), altStarlight, null, keyParts);
-        if (!settlement.isCompleted()) {
-            log.info("活动替代星光结算中, status={}", settlement.status());
-        }
+        economyService.earn(
+                pet.getUserId(), pet.getId(), "EVENT_ALT", altCoins, null, keyParts);
     }
 
     /** @return true=物品已入包；false=撞唯一键（并发重复，调用方转替代奖励） */
@@ -395,29 +295,30 @@ public class PetEventServiceImpl implements PetEventService {
                         String.valueOf(pet.getId()), "PET_LEVEL_UP"), pet.getId());
             }
         }
-        if (snapshot.rewardStarlight() > 0) {
+        if (snapshot.rewardCoins() > 0) {
             // PET-11 发奖键含 occurrenceId：同日多期各自独立入账，替代奖励不再跨期合并
-            PetEconomyService.WalletSettlement settlement = economyService.earn(
-                    userId, pet.getId(), "EVENT_CLAIM", pet.getId(), snapshot.rewardStarlight(), null,
+            economyService.earn(
+                    userId, pet.getId(), "EVENT_CLAIM", snapshot.rewardCoins(), null,
                     pet.getId(), config.getCode(), occurrence.getId());
-            if (!settlement.isCompleted()) {
-                log.info("活动奖励星光结算中, eventCode={}, occurrence={}, status={}",
-                        config.getCode(), occurrence.getOccurrenceIndex(), settlement.status());
-            }
         }
-        grantRewardWithAlternative(pet, snapshot.rewardItemCode(), snapshot.rewardAltStarlight(), now,
+        grantRewardWithAlternative(pet, snapshot.rewardItemCode(), snapshot.rewardAltCoins(), now,
                 pet.getId(), config.getCode(), occurrence.getId());
         return buildOccurrenceVo(config, occurrence, snapshot, pet.getId(), now, progress, now);
     }
 
     /**
-     * PET-11：期次奖励快照解析。缺字段逐项回退当前配置；整份缺失/解析失败标记 legacy
-     * （历史期次先按配置口径处理，不做静默套未来配置）。
+     * PET-11：期次奖励快照解析。期次创建时冻结奖励，是领奖与展示的唯一口径——
+     * 整份缺失或解析失败属于数据完整性事故，fail-closed 明确拒绝（C16：删除按当前
+     * 配置发奖的 legacy 旁路，避免运营改配置后静默按新价补发/少发）；个别字段缺失
+     * 仍逐项回退当前配置。
      */
     private OccurrenceRewardSnapshot snapshotOf(PetEventOccurrence occurrence, PetEventConfig config) {
         String raw = occurrence.getRewardSnapshot();
         if (raw == null || raw.isBlank()) {
-            return legacySnapshotOf(occurrence, config);
+            log.error("期次奖励快照缺失，拒绝按当前配置发奖: occurrenceId={}, eventCode={}",
+                    occurrence.getId(), occurrence.getEventCode());
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "本期活动奖励数据不完整，请联系运营核对期次配置");
         }
         java.util.Map<String, Object> snapshot;
         try {
@@ -425,32 +326,24 @@ public class PetEventServiceImpl implements PetEventService {
                     new com.fasterxml.jackson.core.type.TypeReference<java.util.Map<String, Object>>() {
                     });
         } catch (Exception e) {
-            log.warn("期次奖励快照解析失败，回退当前配置: occurrenceId={}, eventCode={}",
-                    occurrence.getId(), occurrence.getEventCode());
-            return legacySnapshotOf(occurrence, config);
+            log.error("期次奖励快照解析失败，拒绝按当前配置发奖: occurrenceId={}, eventCode={}",
+                    occurrence.getId(), occurrence.getEventCode(), e);
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "本期活动奖励数据损坏，请联系运营核对期次配置");
         }
         return new OccurrenceRewardSnapshot(
                 intValueOf(snapshot.get("targetValue"), config.getTargetValue()),
-                intValueOf(snapshot.get("rewardStarlight"), config.getRewardStarlight()),
+                intValueOf(snapshot.get("rewardCoins"), config.getRewardCoins()),
                 intValueOf(snapshot.get("rewardExp"), config.getRewardExp()),
                 stringValueOf(snapshot.get("rewardItemCode"), orEmpty(config.getRewardItemCode())),
-                intValueOf(snapshot.get("rewardAltStarlight"), config.getRewardAltStarlight()),
-                stringValueOf(snapshot.get("eventType"), config.getEventType()),
-                false);
-    }
-
-    private OccurrenceRewardSnapshot legacySnapshotOf(PetEventOccurrence occurrence, PetEventConfig config) {
-        log.warn("期次缺少奖励快照（legacy），按当前配置发放: occurrenceId={}, eventCode={}",
-                occurrence.getId(), occurrence.getEventCode());
-        return new OccurrenceRewardSnapshot(orZero(config.getTargetValue()), orZero(config.getRewardStarlight()),
-                orZero(config.getRewardExp()), orEmpty(config.getRewardItemCode()),
-                orZero(config.getRewardAltStarlight()), config.getEventType(), true);
+                intValueOf(snapshot.get("rewardAltCoins"), config.getRewardAltCoins()),
+                stringValueOf(snapshot.get("eventType"), config.getEventType()));
     }
 
     /** 期次冻结奖励（PET-11）：claim 与 VO 展示共用同一口径 */
-    record OccurrenceRewardSnapshot(int targetValue, int rewardStarlight, int rewardExp,
-                                    String rewardItemCode, int rewardAltStarlight,
-                                    String eventType, boolean legacy) {
+    record OccurrenceRewardSnapshot(int targetValue, int rewardCoins, int rewardExp,
+                                    String rewardItemCode, int rewardAltCoins,
+                                    String eventType) {
     }
 
     private static int intValueOf(Object value, Integer fallback) {
@@ -481,7 +374,7 @@ public class PetEventServiceImpl implements PetEventService {
         boolean expired = !completed && now.isAfter(occurrence.getEndAt());
         return new PetEventVO(config.getCode(), config.getName(), config.getDescription(),
                 config.getEventType(), target, progress, completed, claimable, claimed, expired,
-                snapshot.rewardStarlight(), snapshot.rewardExp(),
+                snapshot.rewardCoins(), snapshot.rewardExp(),
                 snapshot.rewardItemCode().isEmpty() ? null : snapshot.rewardItemCode(),
                 occurrence.getStartAt(), occurrence.getEndAt(), claimedAt,
                 String.valueOf(occurrence.getId()), occurrence.getClaimDeadlineAt());
@@ -498,7 +391,7 @@ public class PetEventServiceImpl implements PetEventService {
         boolean expired = !completed && config.getEndsAt() != null && now.isAfter(config.getEndsAt());
         return new PetEventVO(config.getCode(), config.getName(), config.getDescription(),
                 config.getEventType(), target, progress, completed, claimable, claimed, expired,
-                config.getRewardStarlight(), config.getRewardExp(), config.getRewardItemCode(),
+                config.getRewardCoins(), config.getRewardExp(), config.getRewardItemCode(),
                 config.getStartsAt(), config.getEndsAt(), claimedAt, null, null);
     }
 
@@ -583,20 +476,6 @@ public class PetEventServiceImpl implements PetEventService {
 
     /** B16：活动结束后允许领取已达成奖励的时长（默认 24h，创建时快照固定） */
     static final long CLAIM_GRACE_HOURS = 24;
-
-    /** 领奖资格：已开始、未过领取截止（WINDOW 模式） */
-    private void requireClaimWindow(PetEventConfig config, LocalDateTime now) {
-        if (!"WINDOW".equals(config.getEventMode())) {
-            return;
-        }
-        if (config.getStartsAt() != null && now.isBefore(config.getStartsAt())) {
-            throw new BusinessException(PetErrorCodes.PET_EVENT_NOT_FINISHED, "活动还没有开始哦");
-        }
-        if (config.getEndsAt() != null
-                && now.isAfter(config.getEndsAt().plusHours(CLAIM_GRACE_HOURS))) {
-            throw new BusinessException(PetErrorCodes.PET_EVENT_ENDED, "活动奖励领取已截止，下次早点来～");
-        }
-    }
 
     private int orZero(Integer value) {
         return value != null ? value : 0;

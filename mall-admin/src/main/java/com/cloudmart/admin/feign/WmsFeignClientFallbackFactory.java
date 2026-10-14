@@ -93,7 +93,7 @@ public class WmsFeignClientFallbackFactory implements FallbackFactory<WmsFeignCl
             }
 
             @Override
-            public ApiResponse<Object> receiveInboundItem(Long id, Long itemId, Integer receivedQuantity) {
+            public ApiResponse<Object> receiveInboundItem(Long id, Map<String, Object> body) {
                 throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 

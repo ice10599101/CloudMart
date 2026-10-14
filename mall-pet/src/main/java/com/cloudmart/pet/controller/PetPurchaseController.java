@@ -5,7 +5,6 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.config.PetRequestContext;
-import com.cloudmart.pet.dto.BuyItemRequest;
 import com.cloudmart.pet.entity.PetPurchaseOrder;
 import com.cloudmart.pet.repository.PetPurchaseOrderMapper;
 import com.cloudmart.pet.wallet.impl.PetPurchaseApplicationService;
@@ -35,7 +34,7 @@ import java.util.List;
  * R02 统一购买入口（§7.2）：所有商城/家具/食物购买经 {@link PetPurchaseApplicationService}
  * 编排——意图认领 → 订单 → 钱包扣款 → 资产交付 → 幂等终态同事务。
  * 必需 Idempotency-Key（缺键 400，禁止服务端随机键冒充客户端幂等）。
- * 旧入口 /shop/buy、/home/furniture/buy 为兼容适配，内部委托同一服务，不存在旁路扣款。
+ * C13：本入口是商城/家具/食物购买的唯一路径，旧 /shop/buy、/home/furniture/buy 已删除。
  */
 @RestController
 @RequestMapping

@@ -55,5 +55,26 @@ public enum PetReminderType {
     /** 职业晋升成功 */
     PET_CAREER_PROMOTED,
     /** 有访客来过家园 */
-    PET_HOME_VISIT
+    PET_HOME_VISIT,
+    /** 对战挑战被对方拒绝 */
+    PET_BATTLE_DECLINED,
+    /** 赛季结算奖励到账 */
+    PET_SEASON_REWARD,
+    /** 举报处理结果送达 */
+    PET_REPORT_RESOLVED,
+    /** 宠物领养纪念日 */
+    PET_ANNIVERSARY;
+
+    /** C18：提醒类型生产侧唯一字典——消息体构造前校验，未知/空白类型 fail-closed 拒绝投递 */
+    public static boolean isValid(String code) {
+        if (code == null || code.isBlank()) {
+            return false;
+        }
+        for (PetReminderType type : values()) {
+            if (type.name().equals(code)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

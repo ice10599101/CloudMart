@@ -146,7 +146,7 @@ class PetSkillServiceImplTest {
         config.setSkillType(type);
         config.setEffect("LUCKY_FISH");
         config.setEffectValue(BigDecimal.valueOf(value));
-        config.setPriceStarlight(100);
+        config.setPriceCoins(100);
         config.setRequiredLevel(requiredLevel);
         config.setEnabled(true);
         return config;

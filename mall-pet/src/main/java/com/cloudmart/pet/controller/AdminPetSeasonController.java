@@ -134,7 +134,7 @@ public class AdminPetSeasonController {
 
     /** 奖励梯度保存请求（整表替换） */
     public record SeasonRewardsRequest(@NotNull List<Tier> tiers) {
-        public record Tier(Integer rankMin, Integer rankMax, Integer rewardStarlight, Integer rewardExp) {
+        public record Tier(Integer rankMin, Integer rankMax, Integer rewardCoins, Integer rewardExp) {
         }
     }
 
@@ -153,7 +153,7 @@ public class AdminPetSeasonController {
             reward.setSeasonId(id);
             reward.setRankMin(tier.rankMin());
             reward.setRankMax(tier.rankMax());
-            reward.setRewardStarlight(tier.rewardStarlight() != null ? tier.rewardStarlight() : 0);
+            reward.setRewardCoins(tier.rewardCoins() != null ? tier.rewardCoins() : 0);
             reward.setRewardExp(tier.rewardExp() != null ? tier.rewardExp() : 0);
             return reward;
         }).toList();

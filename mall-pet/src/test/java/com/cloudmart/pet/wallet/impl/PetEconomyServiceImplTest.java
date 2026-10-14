@@ -74,10 +74,10 @@ class PetEconomyServiceImplTest {
     @DisplayName("PAUSED：新收支拒绝 PET_WALLET_MAINTENANCE；余额不展示")
     void paused_rejectsNewFlows() {
         service = serviceOf("PAUSED");
-        assertThatThrownBy(() -> service.earn(1001L, 5L, "QUEST_CLAIM", 9L, 10, null, 9L))
+        assertThatThrownBy(() -> service.earn(1001L, 5L, "QUEST_CLAIM", 10, null, 9L))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_WALLET_MAINTENANCE));
-        assertThatThrownBy(() -> service.spend(1001L, 5L, "SHOP_BUY", 5L, 10, null, 5L))
+        assertThatThrownBy(() -> service.spend(1001L, 5L, "SHOP_BUY", 10, null, 5L))
                 .isInstanceOfSatisfying(BusinessException.class, e ->
                         assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_WALLET_MAINTENANCE));
         assertThat(service.balanceOf(1001L)).isNull();
@@ -92,9 +92,8 @@ class PetEconomyServiceImplTest {
         when(walletService.credit(any(PetWalletCommand.class))).thenReturn(
                 new PetWalletResult(901L, "pw_x", 110, 10, "COMMITTED", false));
 
-        WalletSettlement result = service.earn(1001L, 5L, "BATTLE_REWARD", 11L, 10, null, 11L, "attacker");
+        WalletSettlement result = service.earn(1001L, 5L, "BATTLE_REWARD", 10, null, 11L, "attacker");
 
-        assertThat(result.isCompleted()).isTrue();
         assertThat(result.credited()).isEqualTo(10);
         ArgumentCaptor<PetWalletCommand> captor = ArgumentCaptor.forClass(PetWalletCommand.class);
         verify(walletService).credit(captor.capture());
@@ -112,7 +111,7 @@ class PetEconomyServiceImplTest {
         when(walletService.debit(any(PetWalletCommand.class))).thenReturn(
                 new PetWalletResult(902L, "pw_y", 90, 20, "COMMITTED", false));
 
-        service.spend(1001L, 5L, "SHOP_BUY", 5L, 20, null, 1001L, 5L, "EQUIPMENT", "sword");
+        service.spend(1001L, 5L, "SHOP_BUY", 20, null, 1001L, 5L, "EQUIPMENT", "sword");
 
         ArgumentCaptor<PetWalletCommand> captor = ArgumentCaptor.forClass(PetWalletCommand.class);
         verify(walletService).debit(captor.capture());
@@ -127,8 +126,7 @@ class PetEconomyServiceImplTest {
         when(walletService.credit(any(PetWalletCommand.class))).thenReturn(
                 new PetWalletResult(901L, "pw_x", 110, 10, "COMMITTED", true));
 
-        WalletSettlement result = service.earn(1001L, 5L, "QUEST_CLAIM", 9L, 10, null, 9L);
-        assertThat(result.isCompleted()).isTrue();
+        WalletSettlement result = service.earn(1001L, 5L, "QUEST_CLAIM", 10, null, 9L);
         assertThat(result.duplicate()).isTrue();
     }
 

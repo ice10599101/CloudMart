@@ -146,7 +146,7 @@ class PetSeasonSettlementIT {
         reward.setSeasonId(season.getId());
         reward.setRankMin(min);
         reward.setRankMax(max);
-        reward.setRewardStarlight(100);
+        reward.setRewardCoins(100);
         reward.setRewardExp(0);
         rewardMapper.insert(reward);
         return reward;
@@ -170,8 +170,8 @@ class PetSeasonSettlementIT {
         PetSeason season = newSeason("SETTLING");
         tier(season, 1, 10);
         PetSeasonRanking row = ranking(season, 1);
-        when(economyService.earn(anyLong(), anyLong(), anyString(), anyLong(), anyLong(), any(), any(), any()))
-                .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 100L, 300L, false, null));
+        when(economyService.earn(anyLong(), anyLong(), anyString(), anyLong(), any(), any(), any()))
+                .thenReturn(new PetEconomyService.WalletSettlement(100L, 300L, false));
 
         PetSeasonSettlementTxWorker.BatchOutcome outcome = txWorker.settleBatchInTx(
                 season, rewardMapper.selectList(null), 0, 10, 500);
@@ -182,7 +182,7 @@ class PetSeasonSettlementIT {
         // 幂等键：SEASON_REWARD:{seasonId}:{rankingId}（PET-02 规范）
         org.mockito.ArgumentCaptor<Object[]> keys = org.mockito.ArgumentCaptor.forClass(Object[].class);
         Mockito.verify(economyService).earn(anyLong(), anyLong(), org.mockito.ArgumentMatchers.eq("SEASON_REWARD"),
-                org.mockito.ArgumentMatchers.eq(season.getId()), org.mockito.ArgumentMatchers.eq(100L),
+                org.mockito.ArgumentMatchers.eq(100L),
                 org.mockito.ArgumentMatchers.isNull(), keys.capture());
         assertThat(keys.getValue()).containsExactly(season.getId(), row.getId());
     }
@@ -193,7 +193,7 @@ class PetSeasonSettlementIT {
         PetSeason season = newSeason("SETTLING");
         tier(season, 1, 10);
         PetSeasonRanking row = ranking(season, 1);
-        when(economyService.earn(anyLong(), anyLong(), anyString(), anyLong(), anyLong(), any(), any(), any()))
+        when(economyService.earn(anyLong(), anyLong(), anyString(), anyLong(), any(), any(), any()))
                 .thenThrow(new RuntimeException("钱包入账失败"));
 
         assertThatThrownBy(() -> txWorker.settleBatchInTx(season, rewardMapper.selectList(null), 0, 10, 500))
@@ -209,8 +209,8 @@ class PetSeasonSettlementIT {
         PetSeason season = newSeason("SETTLING");
         tier(season, 1, 10);
         ranking(season, 1);
-        when(economyService.earn(anyLong(), anyLong(), anyString(), anyLong(), anyLong(), any(), any(), any()))
-                .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 100L, 300L, false, null));
+        when(economyService.earn(anyLong(), anyLong(), anyString(), anyLong(), any(), any(), any()))
+                .thenReturn(new PetEconomyService.WalletSettlement(100L, 300L, false));
         txWorker.settleBatchInTx(season, rewardMapper.selectList(null), 0, 10, 500);
         Mockito.reset(economyService);
 
@@ -220,7 +220,7 @@ class PetSeasonSettlementIT {
         assertThat(replay).isNotNull();
         assertThat(replay.rewarded()).isZero();
         Mockito.verify(economyService, Mockito.never())
-                .earn(anyLong(), anyLong(), anyString(), anyLong(), anyLong(), any(), any(), any());
+                .earn(anyLong(), anyLong(), anyString(), anyLong(), any(), any(), any());
     }
 
     @Test

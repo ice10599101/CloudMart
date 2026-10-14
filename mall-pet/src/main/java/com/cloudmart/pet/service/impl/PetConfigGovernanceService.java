@@ -179,8 +179,8 @@ public class PetConfigGovernanceService {
             }
             case "event" -> {
                 checkRange(data, "rewardExp", 0, 2000, "经验奖励需 0~2000");
-                checkRange(data, "rewardStarlight", 0, 2000, "星光奖励需 0~2000");
-                checkRange(data, "rewardAltStarlight", 0, 2000, "替代星光需 0~2000");
+                checkRange(data, "rewardCoins", 0, 2000, "星光奖励需 0~2000");
+                checkRange(data, "rewardAltCoins", 0, 2000, "替代星光需 0~2000");
                 checkRange(data, "targetValue", 1, 10000, "目标次数需 1~10000");
                 // P1-7：外键型校验——奖励物品编码必须真实存在（pet_equipment_config.code），
                 // 否则活动达成后发奖环节静默落空
@@ -224,13 +224,13 @@ public class PetConfigGovernanceService {
                 }
             }
             case "furniture", "equipment", "skin" -> {
-                checkRange(data, "priceStarlight", 0, 5000, "价格需 0~5000");
+                checkRange(data, "priceCoins", 0, 5000, "价格需 0~5000");
                 checkRange(data, "requiredLevel", 1, 100, "等级要求需 1~100");
             }
             case "skill" -> {
                 // P1-7：数值型——价格/等级上限；effect 必须是服务端已实现枚举（否则配置形同虚设）；
                 // effectValue 按 effect 语义校验（比例型 0~1，点数型 0~100），防止配置超大值破坏战斗
-                checkRange(data, "priceStarlight", 0, 100000, "价格需 0~100000");
+                checkRange(data, "priceCoins", 0, 100000, "价格需 0~100000");
                 checkRange(data, "requiredLevel", 1, 100, "等级要求需 1~100");
                 Object effect = data.get("effect");
                 if (effect != null) {
@@ -245,8 +245,8 @@ public class PetConfigGovernanceService {
                 }
             }
             case "evolution" -> {
-                // P1-7：costStarlight 负数 = 刷币漏洞；阶段必须逐阶递进；加成非负
-                checkRange(data, "costStarlight", 0, 100000, "进化费用需 0~100000");
+                // P1-7：costCoins 负数 = 刷币漏洞；阶段必须逐阶递进；加成非负
+                checkRange(data, "costCoins", 0, 100000, "进化费用需 0~100000");
                 checkRange(data, "requiredLevel", 1, 100, "等级要求需 1~100");
                 checkRange(data, "bonusMaxHp", 0, 10000, "生命上限加成需 0~10000");
                 checkRange(data, "bonusStrength", 0, 1000, "力量加成需 0~1000");

@@ -73,30 +73,11 @@ public class PetSeasonSettlementTxWorker {
         job.setTotalCount(total);
         job.setSuccessCount(0);
         job.setFailureCount(0);
-        // PET-26/T54：迟冻榜标记——快照按冻榜时刻的 level/exp 事实；若执行晚于结束超过
-        // 1 小时（调度中断/feature 关闭后重入），期间升级会不可逆地混入排名，作业行留
-        // LEGACY 说明供人工核对（正常路径每分钟驱动，冻结距 endsAt ≤1 分钟）。
         java.time.LocalDateTime freezeAt = LocalDateTime.now(ZoneOffset.UTC);
-        boolean legacyFreeze = season.getEndsAt() != null
-                && freezeAt.isAfter(season.getEndsAt().plusHours(1));
-        String legacyNote = legacyFreeze
-                ? "LEGACY: 冻榜晚于赛季结束超 1 小时，排名含结束后升级（按冻榜时刻事实，非截止时刻）"
-                : null;
-        if (legacyFreeze) {
-            job.setLastError(legacyNote);
-            log.warn("赛季迟冻榜（legacy 排名）: seasonId={}, endsAt={}, freezeAt={}",
-                    season.getId(), season.getEndsAt(), freezeAt);
-        }
         try {
             jobMapper.insert(job);
         } catch (DuplicateKeyException e) {
             // 作业已存在（FREEZING 崩溃后重试重入）：复用既有作业，不重置游标
-            if (legacyNote != null) {
-                jobMapper.update(null, new LambdaUpdateWrapper<PetSeasonSettlementJob>()
-                        .set(PetSeasonSettlementJob::getLastError, legacyNote)
-                        .eq(PetSeasonSettlementJob::getSeasonId, season.getId())
-                        .eq(PetSeasonSettlementJob::getStatus, "RUNNING"));
-            }
         }
         int advanced = seasonMapper.update(null, new LambdaUpdateWrapper<PetSeason>()
                 .set(PetSeason::getStatus, "SETTLING")
@@ -115,7 +96,7 @@ public class PetSeasonSettlementTxWorker {
     /**
      * 按快照名次游标发一批（本批一个事务：逐行奖励事实 CAS + 钱包 + 经验 + outbox 同事务提交）。
      * 游标无行推进返回 null（防御：快照行少于 totalCount 时不死循环）；
-     * 奖励状态先标后付改为"同事务一并提交"——任意一步异常（含钱包 UNKNOWN）整批回滚，
+     * 奖励状态先标后付改为"同事务一并提交"——任意一步异常（含钱包失败）整批回滚，
      * 续跑从原游标重放，已 SUCCEEDED 行被 CAS 跳过不重发。
      */
     @Transactional
@@ -143,18 +124,15 @@ public class PetSeasonSettlementTxWorker {
             }
             PetSeasonReward tier = tierOf(tiers, row.getRankNo());
             if (tier != null) {
-                long starlight = tier.getRewardStarlight() != null ? tier.getRewardStarlight() : 0;
+                long starlight = tier.getRewardCoins() != null ? tier.getRewardCoins() : 0;
                 int expReward = tier.getRewardExp() != null ? tier.getRewardExp() : 0;
                 if (starlight > 0) {
                     // 幂等入账：operationKey 按 PET-02 规范含 seasonId+rankingId（快照行唯一即奖励唯一），
-                    // 同 key 重跑不重发；UNKNOWN 抛出回滚本批（奖励事实随之回滚，续跑重新发）
-                    PetEconomyService.WalletSettlement settlement = economyService.earn(
+                    // 同 key 重跑不重发；钱包失败直接抛异常回滚本批（奖励事实随之回滚，续跑重新发）
+                    economyService.earn(
                             row.getUserId(), row.getPetId(),
-                            "SEASON_REWARD", season.getId(), starlight, null,
+                            "SEASON_REWARD", starlight, null,
                             season.getId(), row.getId());
-                    if (settlement.isUnknown()) {
-                        throw economyService.settlementPending();
-                    }
                 }
                 if (expReward > 0) {
                     stateService.grantExp(requirePet(row.getPetId()), expReward);

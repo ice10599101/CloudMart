@@ -112,7 +112,7 @@ public class PetSkillServiceImpl implements PetSkillService {
         return new PetSkillVO(config.getCode(), config.getName(), config.getDescription(),
                 config.getSkillType(), config.getEffect(), config.getEffectValue(),
                 effectText(config.getEffect(), config.getEffectValue()),
-                config.getIcon(), config.getPriceStarlight(), config.getRequiredLevel(),
+                config.getIcon(), config.getPriceCoins(), config.getRequiredLevel(),
                 learned, learned, bookOwned, eligible, lockReason);
     }
 

@@ -47,7 +47,7 @@ public class PetItemCatalog {
      * 堆叠入包 {@code pet_inventory(quantity)}，喂食时条件扣减。
      */
     public record FoodItem(String code, String name, String icon, String description,
-                           int priceStarlight, int hunger, int happiness, int hp) {
+                           int priceCoins, int hunger, int happiness, int hp) {
     }
 
     private static final long FOOD_CACHE_TTL_NANOS = 60L * 1_000_000_000L;
@@ -107,7 +107,7 @@ public class PetItemCatalog {
                     .map(config -> new FoodItem(config.getCode(), config.getName(),
                             config.getIcon() != null ? config.getIcon() : "🍎",
                             config.getDescription() != null ? config.getDescription() : "",
-                            config.getPriceStarlight() != null ? config.getPriceStarlight() : 0,
+                            config.getPriceCoins() != null ? config.getPriceCoins() : 0,
                             config.getHunger() != null ? config.getHunger() : 0,
                             config.getHappiness() != null ? config.getHappiness() : 0,
                             config.getHp() != null ? config.getHp() : 0))
@@ -242,7 +242,7 @@ public class PetItemCatalog {
 
     public PetShopItemVO toShopItem(PetEquipmentConfig config, boolean owned, String lockReason) {
         return new PetShopItemVO(PetItemType.EQUIPMENT.name(), config.getCode(), config.getName(),
-                config.getDescription(), config.getIcon(), config.getRarity(), config.getPriceStarlight(),
+                config.getDescription(), config.getIcon(), config.getRarity(), config.getPriceCoins(),
                 config.getSlot(), null, null, null, null, null, null,
                 config.getBonusStrength(), config.getBonusIntelligence(), config.getBonusAgility(),
                 config.getBonusCharm(), config.getBonusMaxHp(),
@@ -252,7 +252,7 @@ public class PetItemCatalog {
 
     public PetShopItemVO toShopItem(PetSkinConfig config, boolean owned, String lockReason) {
         return new PetShopItemVO(PetItemType.SKIN.name(), config.getCode(), config.getName(),
-                config.getDescription(), config.getIcon(), config.getRarity(), config.getPriceStarlight(),
+                config.getDescription(), config.getIcon(), config.getRarity(), config.getPriceCoins(),
                 null, config.getSpecies(), config.getColor(), config.getAccessory(), null, null, null,
                 0, 0, 0, 0, 0,
                 config.getRequiredLevel(), config.getRequiredEvolutionStage(),
@@ -261,7 +261,7 @@ public class PetItemCatalog {
 
     public PetShopItemVO toShopItem(PetSkillConfig config, boolean owned, String lockReason) {
         return new PetShopItemVO(PetItemType.SKILL_BOOK.name(), config.getCode(), config.getName(),
-                config.getDescription(), config.getIcon(), "EPIC", config.getPriceStarlight(),
+                config.getDescription(), config.getIcon(), "EPIC", config.getPriceCoins(),
                 null, null, null, null, config.getSkillType(), config.getEffect(), config.getEffectValue(),
                 0, 0, 0, 0, 0,
                 config.getRequiredLevel(), 0,

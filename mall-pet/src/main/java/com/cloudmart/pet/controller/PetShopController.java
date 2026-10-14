@@ -3,7 +3,6 @@ package com.cloudmart.pet.controller;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
-import com.cloudmart.pet.dto.BuyItemRequest;
 import com.cloudmart.pet.dto.EquipItemRequest;
 import com.cloudmart.pet.dto.WearSkinRequest;
 import com.cloudmart.pet.service.PetInventoryService;
@@ -29,10 +28,9 @@ import java.util.List;
 /**
  * 宠物商城与背包接口（原文档 §6.1 背包/装备、§89 宠物商城/皮肤）。
  *
- * <p>R02 收口后本控制器只承载目录查询（/shop、/inventory 系列）与旧购买入口
- * 兼容适配——购买统一经 {@code PetPurchaseApplicationService} 编排
- * （意图认领→订单→钱包扣款→交付→幂等终态同事务），币域 PET_COIN；
- * 不再存在"先入包后扣星光"的本地事务路径。</p>
+ * <p>C13 后本控制器只承载目录查询（/shop、/inventory 系列）；所有购买统一走
+ * {@code POST /pet/purchases}（PetPurchaseController），由 {@code PetPurchaseApplicationService}
+ * 编排（意图认领→订单→钱包扣款→交付→幂等终态同事务），币域 PET_COIN。</p>
  */
 @RestController
 @RequestMapping
@@ -49,16 +47,6 @@ public class PetShopController {
     public ApiResponse<PetShopVO> shop(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(shopService.shop(userId));
-    }
-
-    @PostMapping("/shop/buy")
-    @Operation(summary = "购买物品", description = "等级/进化/种类门槛由服务端校验；星光不足 402（mall-wish）；"
-            + "重复购买 409 PET_ITEM_ALREADY_OWNED")
-    @SentinelResource("PET_SHOP")
-    public ApiResponse<PetInventoryItemVO> buy(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @Valid @RequestBody BuyItemRequest request) {
-        return ApiResponse.ok(shopService.buy(userId, request));
     }
 
     @GetMapping("/inventory")

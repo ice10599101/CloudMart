@@ -98,13 +98,19 @@ public class AdminWmsController {
         return ApiResponse.ok(wmsConverter.fromInboundOrderDTO(inboundOrderService.createInboundOrder(request)));
     }
 
-    @Operation(summary = "收货入库")
+    @Operation(summary = "收货入库（C19 统一请求体）", description = "receiptId 由后台确认时生成、重试原样回传（幂等）；"
+            + "operatorId 取自 X-User-Id 管理身份头；本入口 bizSource 固定 PURCHASE")
     @PutMapping("/inbound-orders/{id}/receive")
     public ApiResponse<InboundOrderVO> receiveItem(
             @PathVariable Long id,
-            @RequestParam Long itemId,
-            @RequestParam Integer receivedQuantity) {
-        return ApiResponse.ok(wmsConverter.fromInboundOrderDTO(inboundOrderService.receiveItem(id, itemId, receivedQuantity)));
+            @Parameter(hidden = true)
+            @RequestHeader(value = com.cloudmart.common.constant.SecurityConstants.USER_ID_HEADER,
+                    required = false) Long operatorId,
+            @Valid @RequestBody ReceiveItemRequest request) {
+        return ApiResponse.ok(wmsConverter.fromInboundOrderDTO(inboundOrderService.receiveItem(
+                id, request.itemId(), request.receivedQuantity(),
+                request.receiptId(), operatorId, request.qualityResult(),
+                com.cloudmart.wms.entity.InboundReceipt.SOURCE_PURCHASE)));
     }
 
     @Operation(summary = "完成入库")

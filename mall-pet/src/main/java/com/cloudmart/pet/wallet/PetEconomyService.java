@@ -1,13 +1,12 @@
 package com.cloudmart.pet.wallet;
 
-import com.cloudmart.common.exception.BusinessException;
-
 /**
  * 宠物经济结算门面（W02/§6.3）：全部玩法收支的统一入口。
  *
  * <ul>
  *   <li><b>PET</b>（默认，唯一正账本）：本地独立钱包 {@link PetWalletService} 同库同事务——
- *       无远程 UNKNOWN，明确失败（冻结/不足）抛 BusinessException 回滚调用方事务；</li>
+ *       结算只有两种结果：成功返回 {@link WalletSettlement}，或明确失败（冻结/不足/维护）
+ *       抛 BusinessException 回滚调用方事务，不存在 UNKNOWN/处理中中间态（C12）；</li>
  *   <li><b>PAUSED</b>（维护窗口）：拒绝新的宠物币收支请求（PET_WALLET_MAINTENANCE），
  *       等待在途事务收敛。</li>
  * </ul>
@@ -19,11 +18,11 @@ import com.cloudmart.common.exception.BusinessException;
 public interface PetEconomyService {
 
     /** 幂等发奖（EARN）：keyParts 构成业务事实键 */
-    WalletSettlement earn(Long userId, Long petId, String bizType, Long bizRefId,
+    WalletSettlement earn(Long userId, Long petId, String bizType,
                           long amount, String rewardSnapshot, Object... keyParts);
 
     /** 幂等扣款（SPEND）：keyParts + 客户端请求键构成购买意图键（新意图独立扣款，重试收敛原单） */
-    WalletSettlement spend(Long userId, Long petId, String bizType, Long bizRefId,
+    WalletSettlement spend(Long userId, Long petId, String bizType,
                            long amount, String rewardSnapshot, Object... keyParts);
 
     /**
@@ -31,24 +30,15 @@ public interface PetEconomyService {
      */
     Long balanceOf(Long userId);
 
-    /** 结算处理中异常（购买类调用方在在途请求未收敛时抛出） */
-    BusinessException settlementPending();
-
     /** 当前钱包模式 */
     Mode mode();
 
     enum Mode { PAUSED, PET }
 
-    /** 结算结果（P01/P03：金额 long 防溢出；duplicate=重放命中原事实） */
-    record WalletSettlement(String status, long credited, Long balanceAfter,
-                            boolean duplicate, String lastError) {
-
-        public boolean isCompleted() {
-            return "COMPLETED".equals(status);
-        }
-
-        public boolean isUnknown() {
-            return "UNKNOWN".equals(status);
-        }
+    /**
+     * 同库同事务结算结果：返回即成功入账（C12：金额 long 防溢出；duplicate=重放命中原事实）。
+     * 失败不产生结果对象——直接由钱包抛出 BusinessException 回滚调用方事务。
+     */
+    record WalletSettlement(long credited, Long balanceAfter, boolean duplicate) {
     }
 }

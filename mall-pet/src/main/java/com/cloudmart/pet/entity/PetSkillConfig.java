@@ -45,7 +45,7 @@ public class PetSkillConfig {
     private String icon;
 
     /** 售价（星光，购买后落背包技能书） */
-    private Integer priceStarlight;
+    private Integer priceCoins;
 
     private Integer requiredLevel;
 

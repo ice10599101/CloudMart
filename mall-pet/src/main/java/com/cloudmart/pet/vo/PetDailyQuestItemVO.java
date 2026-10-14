@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(description = "宠物每日任务项")
 public record PetDailyQuestItemVO(
+        @Schema(description = "任务实体 ID（C14：按集领奖路径参数，字符串承载雪花 ID）") String id,
         @Schema(description = "任务编码") String code,
         @Schema(description = "任务名") String name,
         @Schema(description = "任务描述") String description,

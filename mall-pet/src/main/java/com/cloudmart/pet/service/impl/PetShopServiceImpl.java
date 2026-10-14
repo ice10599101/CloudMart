@@ -1,12 +1,7 @@
 package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.wallet.PetEconomyService;
-import com.cloudmart.pet.config.PetClock;
-import com.cloudmart.pet.config.PetProperties;
-import com.cloudmart.pet.constant.PetErrorCodes;
-import com.cloudmart.pet.dto.BuyItemRequest;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetEquipmentConfig;
 import com.cloudmart.pet.entity.PetInventory;
@@ -21,18 +16,11 @@ import com.cloudmart.pet.repository.PetSkillMapper;
 import com.cloudmart.pet.repository.PetSkinConfigMapper;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.service.PetShopService;
-import com.cloudmart.pet.util.PetJsonUtils;
-import com.cloudmart.pet.config.PetRequestContext;
-import com.cloudmart.pet.wallet.impl.PetPurchaseApplicationService;
-import com.cloudmart.pet.vo.PetInventoryItemVO;
 import com.cloudmart.pet.vo.PetShopItemVO;
 import com.cloudmart.pet.vo.PetShopVO;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -41,19 +29,14 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 宠物商城实现。
+ * 宠物商城目录实现（C13：购买已统一到 {@code POST /pet/purchases}，本类仅负责目录装配）。
  *
- * <p>购买顺序（B01）：先可校验的配置/资格校验 → 幂等扣款（operationId =
- * SHOP_BUY:user:pet:类型:编码，钱包端按业务操作键去重）→ 本地入包（uk 唯一键幂等）。
- * 扣款结果未知（超时/降级）抛 PET_SETTLEMENT_PENDING，客户端按原请求重试幂等，
- * 禁止重新生成一笔独立交易；扣款成功但进程崩溃时由恢复任务按 rewardSnapshot
- * 幂等补入包，永久无法履约则按原单号派生唯一补偿单退款。</p>
+ * <p>装配口径：装备/皮肤/技能书取启用配置并按拥有/已学状态与门槛生成锁定原因；
+ * 食物取配置目录可重复购买；余额查询 Fail-Open（null=前端隐藏余额，不阻断浏览）。</p>
  */
 @Service
 @Slf4j
 public class PetShopServiceImpl implements PetShopService {
-
-    private static final String BIZ_TYPE = "SHOP_BUY";
 
     private final PetService petService;
     private final PetItemCatalog itemCatalog;
@@ -63,9 +46,6 @@ public class PetShopServiceImpl implements PetShopService {
     private final PetInventoryMapper inventoryMapper;
     private final PetSkillMapper skillMapper;
     private final PetEconomyService economyService;
-    private final PetClock petClock;
-    private final PetProperties properties;
-    private final PetPurchaseApplicationService purchaseApplicationService;
 
     public PetShopServiceImpl(PetService petService,
                               PetItemCatalog itemCatalog,
@@ -74,21 +54,15 @@ public class PetShopServiceImpl implements PetShopService {
                               PetSkillConfigMapper skillConfigMapper,
                               PetInventoryMapper inventoryMapper,
                               PetSkillMapper skillMapper,
-                              PetEconomyService economyService,
-                              PetClock petClock,
-                              PetPurchaseApplicationService purchaseApplicationService,
-                              PetProperties properties) {
+                              PetEconomyService economyService) {
         this.petService = petService;
         this.itemCatalog = itemCatalog;
-        this.properties = properties;
         this.equipmentConfigMapper = equipmentConfigMapper;
         this.skinConfigMapper = skinConfigMapper;
         this.skillConfigMapper = skillConfigMapper;
         this.inventoryMapper = inventoryMapper;
         this.skillMapper = skillMapper;
         this.economyService = economyService;
-        this.petClock = petClock;
-        this.purchaseApplicationService = purchaseApplicationService;
     }
 
     @Override
@@ -120,57 +94,15 @@ public class PetShopServiceImpl implements PetShopService {
         // F1：食物道具上架（配置表，可重复购买堆叠入包）
         for (PetItemCatalog.FoodItem food : itemCatalog.listFoods()) {
             items.add(new PetShopItemVO(PetItemType.FOOD.name(), food.code(), food.name(),
-                    food.description(), food.icon(), "COMMON", food.priceStarlight(),
+                    food.description(), food.icon(), "COMMON", food.priceCoins(),
                     null, null, null, null, null, null, null,
                     0, 0, 0, 0, 0,
                     1, 0,
                     false, true, null));
         }
-        // 余额币种随钱包模式切换（PET=宠物币 / LEGACY=社区星光），字段名不再绑定币种
-        String currency = economyService.mode() == com.cloudmart.pet.wallet.PetEconomyService.Mode.PET ? "PET_COIN" : "STARLIGHT";
+        // 维护窗口（PAUSED）时余额为 null：币种仍标 PET_COIN，前端隐藏余额但可浏览目录
+        String currency = "PET_COIN";
         return new PetShopVO(balanceQuietly(userId), currency, items);
-    }
-
-    /**
-     * R02 购买主链收口：旧入口委托 {@link PetPurchaseApplicationService} 统一编排
-     * （意图认领→订单→钱包扣款→交付→幂等终态同事务），本类不再直接扣款/入包，
-     * 只做兼容结果组装（按订单归属读背包行）。无请求键 400（PET_REQUEST_KEY_INVALID）。
-     * 本方法不加事务——购买服务自身是事务边界，禁止包在更大的事务里。
-     */
-    private void requireFeature(boolean enabled) {
-        if (!enabled) {
-            throw new BusinessException(PetErrorCodes.PET_FEATURE_DISABLED, "该功能暂未开放");
-        }
-    }
-
-    public PetInventoryItemVO buy(Long userId, BuyItemRequest request) {
-        // §13.1：开关控制新操作接收；关闭即拒绝新购买（已受理订单由恢复器处理）
-        requireFeature(properties.getFeatureSwitches().isPurchaseV2());
-        if (PetItemType.FURNITURE.name().equals(request.itemType())) {
-            // 三期家具走家园商城（/home/furniture/buy）：这里显式拒绝，避免前端走错入口默默失败
-            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "家具请到家园商城购买哦");
-        }
-        PetPurchaseApplicationService.PurchaseResult result = purchaseApplicationService.purchase(
-                userId, request.petId(), request.itemType(), request.itemCode(),
-                PetRequestContext.idempotencyKey(), request.expectedConfigVersion());
-        // R02/§8.2：同键重放返回原拒绝（errorCode 非空=存储的拒绝终态）——
-        // 真实环境发现：拒绝重放继续组装 VO 会误报"结算中"503，与首次 400 不一致
-        if (result.errorCode() != null) {
-            throw new BusinessException(result.errorCode(), "购买未成功：" + result.errorCode());
-        }
-        PetInventory item = inventoryMapper.selectOne(new LambdaQueryWrapper<PetInventory>()
-                .eq(PetInventory::getPetId, result.petId())
-                .eq(PetInventory::getItemType, request.itemType())
-                .eq(PetInventory::getItemCode, request.itemCode())
-                .last("LIMIT 1"));
-        if (item == null) {
-            // 扣款/交付事实已提交但背包行不可读：不该发生（同事务），显式失败禁止伪装成功
-            throw new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING,
-                    "购买已受理，背包同步稍后完成，请稍后刷新查看");
-        }
-        boolean learned = PetItemType.SKILL_BOOK.name().equals(request.itemType())
-                && learnedSkillCodes(result.petId()).contains(request.itemCode());
-        return itemCatalog.toInventoryVo(item, learned);
     }
 
     private String equipmentLockReason(Pet pet, PetEquipmentConfig config) {
@@ -233,16 +165,8 @@ public class PetShopServiceImpl implements PetShopService {
         try {
             return economyService.balanceOf(userId);
         } catch (Exception e) {
-            log.warn("星光余额查询降级（Fail-Open）: userId={}", userId, e);
+            log.warn("宠物币余额查询降级（Fail-Open）: userId={}", userId, e);
             return null;
         }
     }
-
-
-    /**
-     * 恢复任务回调（B01）：钱包已扣款但本地入包未落地时，按 rewardSnapshot 幂等补入包。
-     * 已拥有（DuplicateKey/存在查询）视为已履约。
-     */
-    /** 恢复任务堆叠履约（F1）：无条件 quantity+1（insert 1 冲突转 +1） */
-
 }

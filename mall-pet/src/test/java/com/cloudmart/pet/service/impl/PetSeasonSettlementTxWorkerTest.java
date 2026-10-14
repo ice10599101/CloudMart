@@ -75,8 +75,8 @@ class PetSeasonSettlementTxWorkerTest {
         PetSeasonRanking row = rankingRow(1);
         when(rankingMapper.selectList(any())).thenReturn(List.of(row));
         when(rankingMapper.update(any(), any())).thenReturn(1);
-        when(economyService.earn(anyLong(), anyLong(), any(), anyLong(), anyLong(), any(), any(), any()))
-                .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 100L, 300L, false, null));
+        when(economyService.earn(anyLong(), anyLong(), any(), anyLong(), any(), any(), any()))
+                .thenReturn(new PetEconomyService.WalletSettlement(100L, 300L, false));
 
         PetSeasonSettlementTxWorker.BatchOutcome outcome = worker.settleBatchInTx(
                 season, List.of(tier(1, 10, 100, 0)), 0, 10, 500);
@@ -84,7 +84,7 @@ class PetSeasonSettlementTxWorkerTest {
         assertThat(outcome.processedToRank()).isEqualTo(1);
         assertThat(outcome.rewarded()).isEqualTo(1);
         ArgumentCaptor<Object[]> keyParts = ArgumentCaptor.forClass(Object[].class);
-        verify(economyService).earn(eq(22L), eq(11L), eq("SEASON_REWARD"), eq(5L),
+        verify(economyService).earn(eq(22L), eq(11L), eq("SEASON_REWARD"),
                 eq(100L), eq(null), keyParts.capture());
         assertThat(keyParts.getValue()).containsExactly(5L, row.getId());
     }
@@ -100,22 +100,20 @@ class PetSeasonSettlementTxWorkerTest {
 
         assertThat(outcome.processedToRank()).isEqualTo(1);
         assertThat(outcome.rewarded()).isZero();
-        verify(economyService, never()).earn(anyLong(), anyLong(), any(), anyLong(), anyLong(), any(), any());
+        verify(economyService, never()).earn(anyLong(), anyLong(), any(), anyLong(), any(), any());
     }
 
     @Test
-    @DisplayName("发奖批：钱包 UNKNOWN 抛出（真实事务下整批回滚，含奖励状态 CAS）")
-    void batchThrowsOnUnknownSettlement() {
+    @DisplayName("发奖批：钱包失败异常透传（真实事务下整批回滚，含奖励状态 CAS）")
+    void batchThrowsWhenWalletFails() {
         when(rankingMapper.selectList(any())).thenReturn(List.of(rankingRow(1)));
         when(rankingMapper.update(any(), any())).thenReturn(1);
-        when(economyService.earn(anyLong(), anyLong(), any(), anyLong(), anyLong(), any(), any(), any()))
-                .thenReturn(new PetEconomyService.WalletSettlement("UNKNOWN", 0L, null, false, "timeout"));
-        when(economyService.settlementPending()).thenReturn(new BusinessException(
-                PetErrorCodes.PET_SETTLEMENT_PENDING, "结算处理中"));
+        when(economyService.earn(anyLong(), anyLong(), any(), anyLong(), any(), any(), any()))
+                .thenThrow(new BusinessException(PetErrorCodes.PET_WALLET_FROZEN, "钱包冻结"));
 
         assertThatThrownBy(() -> worker.settleBatchInTx(season, List.of(tier(1, 10, 100, 0)), 0, 10, 500))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_SETTLEMENT_PENDING);
+                .hasFieldOrPropertyWithValue("code", PetErrorCodes.PET_WALLET_FROZEN);
     }
 
     @Test
@@ -131,7 +129,7 @@ class PetSeasonSettlementTxWorkerTest {
                 season, List.of(tier(1, 10, 0, 50)), 0, 10, 500);
 
         assertThat(outcome.rewarded()).isEqualTo(1);
-        verify(economyService, never()).earn(anyLong(), anyLong(), any(), anyLong(), anyLong(), any(), any());
+        verify(economyService, never()).earn(anyLong(), anyLong(), any(), anyLong(), any(), any());
         verify(stateService).grantExp(pet, 50);
     }
 
@@ -169,7 +167,7 @@ class PetSeasonSettlementTxWorkerTest {
         PetSeasonReward reward = new PetSeasonReward();
         reward.setRankMin(min);
         reward.setRankMax(max);
-        reward.setRewardStarlight(starlight);
+        reward.setRewardCoins(starlight);
         reward.setRewardExp(exp);
         return reward;
     }

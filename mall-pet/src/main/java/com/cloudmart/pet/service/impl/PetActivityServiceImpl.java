@@ -328,10 +328,10 @@ public class PetActivityServiceImpl implements PetActivityService {
 
         intimacyService.gain(pet, PetIntimacySource.WORK);
         int levelups = stateService.grantExp(pet, expReward);
-        // B01：本地奖励已生效；星光结果未知不回滚，对外"结算中"，恢复任务按原单收敛
-        Long credited = earnStarlightIdempotent(activity, pet, currencyReward);
+        // B01/C12：宠物币与本地奖励同库同事务，失败整体回滚（无"结算中"中间态）
+        long credited = earnCoinsIdempotent(activity, pet, currencyReward);
         activity.setResult(PetJsonUtils.toJson(Map.of(
-                "exp", expReward, "currency", currencyReward, "actualCurrency", credited == null ? 0 : credited,
+                "exp", expReward, "currency", currencyReward, "actualCurrency", credited,
                 "intelligenceBonus", intelligenceBonus,
                 "configId", activity.getConfigId() != null ? activity.getConfigId() : 0)));
         activityMapper.updateById(activity);
@@ -415,21 +415,15 @@ public class PetActivityServiceImpl implements PetActivityService {
         return rewards;
     }
 
-    /** 幂等发薪：返回钱包实际到账（未知/失败返回 null，结果 JSON 记 actualCurrency=0 + 结算中状态） */
-    private Long earnStarlightIdempotent(PetActivity activity, Pet pet, long amount) {
+    /** 幂等发薪：返回钱包实际到账（同库同事务——失败抛异常回滚，C12 起无未知态） */
+    private long earnCoinsIdempotent(PetActivity activity, Pet pet, long amount) {
         if (amount <= 0) {
             return 0L;
         }
         String bizType = "WORK".equals(activity.getActivityType()) ? "CLAIM_WORK" : "CLAIM_STUDY";
-        PetEconomyService.WalletSettlement settlement = economyService.earn(
-                activity.getUserId(), activity.getPetId(), bizType, activity.getId(),
-                amount, null, activity.getId());
-        if (settlement.isCompleted()) {
-            return settlement.credited();
-        }
-        log.info("活动奖励星光结算中, activityId={}, status={}",
-                activity.getId(), settlement.status());
-        return null;
+        return economyService.earn(
+                activity.getUserId(), activity.getPetId(), bizType,
+                amount, null, activity.getId()).credited();
     }
 
     // ---------------- 内部共用 ----------------

@@ -276,7 +276,7 @@ class PetSeasonSettlementServiceTest {
         PetSeasonReward reward = new PetSeasonReward();
         reward.setRankMin(min);
         reward.setRankMax(max);
-        reward.setRewardStarlight(starlight);
+        reward.setRewardCoins(starlight);
         reward.setRewardExp(exp);
         return reward;
     }

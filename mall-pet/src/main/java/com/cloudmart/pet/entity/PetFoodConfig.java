@@ -33,7 +33,7 @@ public class PetFoodConfig {
 
     private String description;
 
-    private Integer priceStarlight;
+    private Integer priceCoins;
 
     /** 饱食恢复（0~100） */
     private Integer hunger;

@@ -91,23 +91,26 @@ class PetDailyQuestServiceImplTest {
         economyService = org.mockito.Mockito.mock(PetEconomyService.class);
                 org.mockito.Mockito.when(economyService.earn(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenReturn(new PetEconomyService.WalletSettlement(0L, 1000L, false));
         petClock = org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class);
         receiptMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetQuestEventReceiptMapper.class);
         petMapperMock = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetMapper.class);
         setMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetDailyQuestSetMapper.class);
+        // R22：用户业务日时区解析器（mock 固定 UTC）
+        com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver =
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.support.UserPetTimezoneResolver.class);
+        org.mockito.Mockito.lenient().when(timezoneResolver.resolve(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.time.ZoneOffset.UTC);
         // PET-09：ensureQuestSet 需要真实业务日/截止换算——PetClock 为 mock，补最小桩
         java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
         org.mockito.Mockito.lenient().when(petClock.businessDate()).thenReturn(today);
-        org.mockito.Mockito.lenient().when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any())).thenReturn(today);
-        // R22：生产代码改走用户时区重载
         org.mockito.Mockito.lenient().when(petClock.businessDate(org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
                 .thenReturn(today);
         org.mockito.Mockito.lenient().when(petClock.businessDateOf(
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
                 .thenReturn(today);
+        org.mockito.Mockito.lenient().when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any())).thenReturn(today);
         org.mockito.Mockito.lenient().when(petClock.businessDateStartUtc(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
         org.mockito.Mockito.lenient().when(petClock.nowUtc()).thenReturn(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
@@ -161,16 +164,6 @@ class PetDailyQuestServiceImplTest {
         lenient().when(intimacyService.gain(any(), any())).thenReturn(0);
     }
 
-    /** R22：用户业务时区解析桩（默认上海业务区） */
-    private final com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver =
-            org.mockito.Mockito.mock(com.cloudmart.pet.service.support.UserPetTimezoneResolver.class);
-
-    {
-        // 实例初始化块：mock 在字段构造后、@BeforeEach 构造 questService 前完成默认时区打桩
-        org.mockito.Mockito.lenient().when(timezoneResolver.resolve(org.mockito.ArgumentMatchers.anyLong()))
-                .thenReturn(java.time.ZoneId.of("Asia/Shanghai"));
-    }
-
     @Test
     @org.junit.jupiter.api.DisplayName("PET-09/T14：列表展示读任务行快照（模板改名/改奖励不改变已生成任务展示）")
     void listShowsSnapshotDisplayNotCurrentConfig() {
@@ -199,7 +192,7 @@ class PetDailyQuestServiceImplTest {
         expiredSet.setClaimDeadline(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(1));
         lenient().when(setMapper.selectById(99L)).thenReturn(expiredSet);
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> questService.claimInSet(100L, 99L, "11"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> questService.claimInSet(100L, 99L, 11L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", com.cloudmart.pet.constant.PetErrorCodes.PET_QUEST_NOT_FINISHED);
     }
@@ -224,7 +217,7 @@ class PetDailyQuestServiceImplTest {
         lenient().when(questMapper.selectList(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(new java.util.ArrayList<>(java.util.List.of(row)));
 
-        PetDailyQuestItemVO vo = questService.claimInSet(100L, 99L, "11");
+        PetDailyQuestItemVO vo = questService.claimInSet(100L, 99L, 11L);
 
         assertThat(vo.code()).isEqualTo(QUEST_CODE);
         // 经验发给集绑定的宠物 2，而非当前主宠 1
@@ -236,7 +229,7 @@ class PetDailyQuestServiceImplTest {
     @Test
     @org.junit.jupiter.api.DisplayName("PET-09/T07：非本人任务集领取 → PET_QUEST_NOT_FOUND（归属校验）")
     void claimInSetRejectsForeignSet() {
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> questService.claimInSet(999L, 99L, "11"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> questService.claimInSet(999L, 99L, 11L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", com.cloudmart.pet.constant.PetErrorCodes.PET_QUEST_NOT_FOUND);
     }
@@ -271,10 +264,8 @@ class PetDailyQuestServiceImplTest {
     @org.junit.jupiter.api.DisplayName("PET-10/T20：进度投影失败 → 回执转 FAILED 排期重试，主动作不感知异常")
     void projectionFailureMarksReceiptFailed() {
         java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
-        org.mockito.Mockito.lenient().when(petClock.businessDate(org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
-                .thenReturn(java.time.LocalDate.now());
-        org.mockito.Mockito.lenient().when(petClock.businessDateOf(
-                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
+        org.mockito.Mockito.lenient().when(petClock.businessDate()).thenReturn(java.time.LocalDate.now());
+        org.mockito.Mockito.lenient().when(petClock.businessDateOf(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(java.time.LocalDate.now());
         org.mockito.Mockito.lenient().when(petClock.nowUtc())
                 .thenReturn(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
@@ -414,12 +405,12 @@ class PetDailyQuestServiceImplTest {
         when(questMapper.selectOne(any())).thenReturn(row);
         when(questMapper.update(ArgumentMatchers.<PetDailyQuest>isNull(), any())).thenReturn(1);
 
-        PetDailyQuestItemVO result = questService.claim(100L, QUEST_CODE);
+        PetDailyQuestItemVO result = questService.claimInSet(100L, 99L, 11L);
 
         assertThat(result.status()).isEqualTo("CLAIMED");
         assertThat(result.claimable()).isFalse();
         verify(stateService).grantExp(any(), eq(20));
-        org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CLAIM"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(20L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+        org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CLAIM"), org.mockito.ArgumentMatchers.eq(20L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
         // 领奖本身也加亲密度（长期陪伴数值）
         verify(intimacyService).gain(any(), any());
     }
@@ -431,7 +422,7 @@ class PetDailyQuestServiceImplTest {
         when(questMapper.selectList(any())).thenReturn(List.of(row, chest("IN_PROGRESS")));
         when(questMapper.selectOne(any())).thenReturn(row);
 
-        assertThatThrownBy(() -> questService.claim(100L, QUEST_CODE))
+        assertThatThrownBy(() -> questService.claimInSet(100L, 99L, 11L))
                 .isInstanceOf(BusinessException.class)
                 .extracting(error -> ((BusinessException) error).getCode())
                 .isEqualTo("PET_QUEST_NOT_FINISHED");
@@ -442,7 +433,7 @@ class PetDailyQuestServiceImplTest {
     void chestRejectedWhenQuestsUnclaimed() {
         when(questMapper.selectList(any())).thenReturn(List.of(quest("COMPLETE"), chest("IN_PROGRESS")));
 
-        assertThatThrownBy(() -> questService.claimChest(100L))
+        assertThatThrownBy(() -> questService.claimChestInSet(100L, 99L))
                 .isInstanceOf(BusinessException.class)
                 .extracting(error -> ((BusinessException) error).getCode())
                 .isEqualTo("PET_QUEST_CHEST_NOT_READY");
@@ -454,10 +445,10 @@ class PetDailyQuestServiceImplTest {
         when(questMapper.selectList(any())).thenReturn(List.of(quest("CLAIMED"), chest("IN_PROGRESS")));
         when(questMapper.update(ArgumentMatchers.<PetDailyQuest>isNull(), any())).thenReturn(1);
 
-        questService.claimChest(100L);
+        questService.claimChestInSet(100L, 99L);
 
         verify(stateService).grantExp(any(), eq(properties.getDailyQuest().getChestExp()));
-        org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CHEST"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq((long) properties.getDailyQuest().getChestCurrency()), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+        org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CHEST"), org.mockito.ArgumentMatchers.eq((long) properties.getDailyQuest().getChestCurrency()), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
     @Test
@@ -473,7 +464,7 @@ class PetDailyQuestServiceImplTest {
         when(configMapper.selectOne(any())).thenReturn(nerfed);
         when(questMapper.update(any(), any())).thenReturn(1);
 
-        questService.claim(100L, QUEST_CODE);
+        questService.claimInSet(100L, 99L, 11L);
 
         // 按快照入账，不按被改低的当前配置
         verify(stateService).grantExp(any(), eq(20));
@@ -493,12 +484,12 @@ class PetDailyQuestServiceImplTest {
         when(questMapper.selectList(any())).thenReturn(List.of(row, chest));
         when(questMapper.update(any(), any())).thenReturn(1);
 
-        questService.claimChest(100L);
+        questService.claimChestInSet(100L, 99L);
 
         verify(stateService).grantExp(any(), eq(600));
         org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CHEST"),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(800L),
+                org.mockito.ArgumentMatchers.eq(800L),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
@@ -541,7 +532,7 @@ class PetDailyQuestServiceImplTest {
         when(questMapper.update(ArgumentMatchers.<PetDailyQuest>isNull(), any()))
                 .thenReturn(1, 1, 1);
 
-        com.cloudmart.pet.vo.ClaimAllResult result = questService.claimAll(100L);
+        com.cloudmart.pet.vo.ClaimAllResult result = questService.claimAllInSet(100L, 99L);
 
         assertThat(result.results()).hasSize(2);
         assertThat(result.results().get(0).status()).isEqualTo("CLAIMED");
@@ -561,7 +552,7 @@ class PetDailyQuestServiceImplTest {
                 .thenReturn(java.util.List.of(quest("CLAIMED"), chest("IN_PROGRESS")));
         when(questMapper.update(ArgumentMatchers.<PetDailyQuest>isNull(), any())).thenReturn(1);
 
-        com.cloudmart.pet.vo.ClaimAllResult result = questService.claimAll(100L);
+        com.cloudmart.pet.vo.ClaimAllResult result = questService.claimAllInSet(100L, 99L);
 
         assertThat(result.results()).isEmpty();
         assertThat(result.chest().status()).isEqualTo("CLAIMED");
@@ -584,10 +575,9 @@ class PetDailyQuestServiceImplTest {
     @org.junit.jupiter.api.DisplayName("R32 recordFact：同事实幂等——uk 撞键返回 false 不重复计数")
     void recordFactDedupsSameEventId() {
         java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC);
-        org.mockito.Mockito.lenient().when(petClock.businessDate(org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
-                .thenReturn(java.time.LocalDate.now());
+        org.mockito.Mockito.lenient().when(petClock.businessDate()).thenReturn(java.time.LocalDate.now());
         org.mockito.Mockito.lenient().when(petClock.businessDateOf(
-                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
                 .thenReturn(java.time.LocalDate.now());
         org.mockito.Mockito.lenient().when(questMapper.update(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any())).thenReturn(1);
@@ -613,11 +603,9 @@ class PetDailyQuestServiceImplTest {
     void recordFactSkipsStaleFact() {
         java.time.LocalDateTime past = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusDays(3);
         java.time.LocalDate today = java.time.LocalDate.now();
-        // R22：当前用户业务日=today；历史事实按用户时区归属 3 天前 → 不相等，SKIPPED
-        org.mockito.Mockito.when(petClock.businessDate(org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
-                .thenReturn(today);
+        org.mockito.Mockito.when(petClock.businessDate()).thenReturn(today);
         org.mockito.Mockito.when(petClock.businessDateOf(
-                        org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
                 .thenReturn(today.minusDays(3));
         // 历史日无任务行：credit 命中 0
         org.mockito.Mockito.when(questMapper.update(org.mockito.ArgumentMatchers.any(),

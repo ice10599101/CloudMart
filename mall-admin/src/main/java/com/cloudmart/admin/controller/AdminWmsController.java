@@ -5,7 +5,13 @@ import com.cloudmart.common.annotation.OperLog;
 import com.cloudmart.common.annotation.RequiresPermission;
 import com.cloudmart.common.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -114,11 +120,32 @@ public class AdminWmsController {
     @PutMapping("/wms/inbound-orders/{id}/receive")
     @OperLog(title = "仓储管理", businessType = 2)
     @RequiresPermission("business:wms:edit")
-    @Operation(summary = "收货入库", description = "按明细登记实收数量")
+    @Operation(summary = "收货入库", description = "C19：统一收货请求体；receiptId 由后台确认时生成并保留，重试原样回传")
     public ApiResponse<Object> receiveInboundItem(@PathVariable Long id,
-                                                  @RequestParam Long itemId,
-                                                  @RequestParam Integer receivedQuantity) {
-        return wmsFeignClient.receiveInboundItem(id, itemId, receivedQuantity);
+                                                  @Valid @RequestBody ReceiveInboundItemRequest request) {
+        return wmsFeignClient.receiveInboundItem(id, Map.of(
+                "itemId", request.itemId(),
+                "receivedQuantity", request.receivedQuantity(),
+                "receiptId", request.receiptId(),
+                "qualityResult", request.qualityResult() == null ? "PASSED" : request.qualityResult()));
+    }
+
+    /** C19 管理代理收货请求（操作者由管理员身份头确定，禁止外部自报） */
+    public record ReceiveInboundItemRequest(
+            @Schema(description = "入库明细 ID", requiredMode = Schema.RequiredMode.REQUIRED)
+            @NotNull(message = "itemId 不能为空")
+            Long itemId,
+            @Schema(description = "本次实收数量（正整数）", requiredMode = Schema.RequiredMode.REQUIRED)
+            @NotNull(message = "receivedQuantity 不能为空")
+            @Min(value = 1, message = "收货数量必须为正数")
+            Integer receivedQuantity,
+            @Schema(description = "收货流水 ID（后台生成，重试原样回传）", requiredMode = Schema.RequiredMode.REQUIRED)
+            @NotBlank(message = "receiptId 不能为空")
+            @Size(max = 64, message = "receiptId 最长 64 字符")
+            String receiptId,
+            @Schema(description = "质检结果：PASSED 合格 / QUARANTINE 隔离；缺省 PASSED")
+            String qualityResult
+    ) {
     }
 
     @PutMapping("/wms/inbound-orders/{id}/complete")

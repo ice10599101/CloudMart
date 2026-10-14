@@ -19,7 +19,7 @@ public record PetSkillVO(
         @Schema(description = "效果数值（百分比为 0-1 小数，点数为整数）") BigDecimal effectValue,
         @Schema(description = "效果文案（服务端生成，前端直出）") String effectText,
         String icon,
-        Integer priceStarlight,
+        Integer priceCoins,
         Integer requiredLevel,
         @Schema(description = "是否已学会") Boolean learned,
         @Schema(description = "是否已装配（已学会时有效）") Boolean equipped,

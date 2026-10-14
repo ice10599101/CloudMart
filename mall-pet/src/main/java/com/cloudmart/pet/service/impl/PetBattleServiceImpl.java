@@ -477,15 +477,11 @@ public class PetBattleServiceImpl implements PetBattleService {
         }
 
         if (attackerRewarded && attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
-            // B01：本地奖励已生效；星光经统一操作记录幂等发放，结果未知不回滚本地奖励
-            PetEconomyService.WalletSettlement settlement = economyService.earn(
+            // B01/C12：宠物币经统一操作记录幂等发放，同事务失败回滚整局结算
+            economyService.earn(
                     battle.getAttackerUserId(), battle.getAttackerPetId(),
-                    "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null,
+                    "BATTLE_REWARD", battle.getCurrencyReward(), null,
                     battle.getId(), "attacker");
-            if (!settlement.isCompleted()) {
-                log.info("对战奖励星光结算中, battleId={}, side=attacker, status={}",
-                        battle.getId(), settlement.status());
-            }
         }
 
         if (defenderPetId != null && defenderPetId > 0) {
@@ -508,14 +504,10 @@ public class PetBattleServiceImpl implements PetBattleService {
                 // 两只宠物若已建立关系：对战给关系加亲密度（原文档三期宠物关系）
                 relationService.gainBetween(attacker, defender, PetRelationAction.BATTLE);
                 if (defenderRewarded && !attackerWon && battle.getCurrencyReward() != null && battle.getCurrencyReward() > 0) {
-                    PetEconomyService.WalletSettlement settlement = economyService.earn(
+                    economyService.earn(
                             defender.getUserId(), defender.getId(),
-                            "BATTLE_REWARD", battle.getId(), battle.getCurrencyReward(), null,
+                            "BATTLE_REWARD", battle.getCurrencyReward(), null,
                             battle.getId(), "defender");
-                    if (!settlement.isCompleted()) {
-                        log.info("对战奖励星光结算中, battleId={}, side=defender, status={}",
-                                battle.getId(), settlement.status());
-                    }
                 }
             }
         }

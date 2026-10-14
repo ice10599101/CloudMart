@@ -52,7 +52,7 @@ import java.util.Map;
 public class PetCooperationService {
 
     private static final String COOP_DECOR_CODE = "cooperation_badge";
-    private static final int COOP_ALT_STARLIGHT = 20;
+    private static final int COOP_ALT_COINS = 20;
 
     private final PetMapper petMapper;
     private final PetClock petClock;
@@ -529,13 +529,10 @@ public class PetCooperationService {
                 reward = Map.of("type", "ITEM", "itemCode", COOP_DECOR_CODE, "duplicate", true);
             }
         } else {
-            PetEconomyService.WalletSettlement settlement = economyService.earn(
-                    userId, boundPetId, "COOP_REWARD_ALT", cooperationId, COOP_ALT_STARLIGHT, null,
-                    cooperationId, userId);
-            if (!settlement.isCompleted()) {
-                throw new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING, "替代星光结算中，稍后按原操作查询");
-            }
-            reward = Map.of("type", "STARLIGHT", "amount", settlement.credited());
+            long credited = economyService.earn(
+                    userId, boundPetId, "COOP_REWARD_ALT", COOP_ALT_COINS, null,
+                    cooperationId, userId).credited();
+            reward = Map.of("type", "PET_COIN", "amount", credited);
         }
         claim.setStatus("COMPLETED");
         claim.setRewardSnapshot(PetJsonUtils.toJson(Map.of("policy", "ITEM_FIRST_ELSE_COIN")));

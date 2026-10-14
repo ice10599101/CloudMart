@@ -92,9 +92,8 @@ class PetEvolutionServiceImplTest {
         economyService = org.mockito.Mockito.mock(PetEconomyService.class);
                 org.mockito.Mockito.when(economyService.spend(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenReturn(new PetEconomyService.WalletSettlement(0L, 1000L, false));
         com.cloudmart.pet.config.PetClock petClock = org.mockito.Mockito.mock(com.cloudmart.pet.config.PetClock.class);
         org.mockito.Mockito.when(petClock.nowUtc())
                 .thenAnswer(inv -> java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
@@ -130,13 +129,13 @@ class PetEvolutionServiceImplTest {
         when(petMapper.selectById(1L)).thenReturn(pet);
         when(evolutionConfigMapper.selectList(any())).thenReturn(List.of(evolve1()));
 
-        PetEvolutionVO result = evolutionService.evolve(100L, 1L, null);
+        PetEvolutionVO result = evolutionService.evolve(100L, 1L, 0);
 
         // 阶段推进走条件更新（WHERE evolution_stage=fromStage），不再全实体覆盖
         verify(petMapper).update(any(), any());
         assertThat(result.currentStage()).isEqualTo(1);
         // 扣款键冻结 fromStage+stageTo（重试收敛原单，不会把重试解释为下一阶段）
-        org.mockito.Mockito.verify(economyService).spend(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("EVOLVE"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(600L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+        org.mockito.Mockito.verify(economyService).spend(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("EVOLVE"), org.mockito.ArgumentMatchers.eq(600L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
         verify(inventoryMapper).insert(any(PetInventory.class));
         verify(achievementService).evaluate(pet, PetAchievementService.Event.EVOLUTION);
     }
@@ -148,7 +147,7 @@ class PetEvolutionServiceImplTest {
         when(petMapper.selectById(1L)).thenReturn(pet);
         when(evolutionConfigMapper.selectList(any())).thenReturn(List.of(evolve1()));
 
-        PetEvolutionVO first = evolutionService.evolve(100L, 1L, null);
+        PetEvolutionVO first = evolutionService.evolve(100L, 1L, 0);
 
         // 第二次同键：dedup 行已存在（uk 冲突），返回首次终态快照——
         // 即使钱包等级余额满足下一阶段，重放也绝不再次选择 nextConfig
@@ -159,15 +158,15 @@ class PetEvolutionServiceImplTest {
         PetRequestDedupService dedupServiceBean = new PetRequestDedupServiceImpl(dedupMapper);
         PetRequestDedup existing = new PetRequestDedup();
         existing.setStatus("COMPLETED");
-        existing.setPayloadHash(dedupServiceBean.canonicalHash(100L, 1L, "EVOLVE", ""));
+        existing.setPayloadHash(dedupServiceBean.canonicalHash(100L, 1L, "EVOLVE", 0));
         existing.setResponseJson(PetJsonUtils.toJson(java.util.Map.of("type", "SUCCEEDED", "vo", first)));
         when(dedupMapper.selectOne(any())).thenReturn(existing);
 
-        PetEvolutionVO replay = evolutionService.evolve(100L, 1L, null);
+        PetEvolutionVO replay = evolutionService.evolve(100L, 1L, 0);
 
         assertThat(replay.currentStage()).isEqualTo(1);
         // 重放直接返回存储结果：不再触发扣款与阶段推进
-        org.mockito.Mockito.verify(economyService, org.mockito.Mockito.times(1)).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+        org.mockito.Mockito.verify(economyService, org.mockito.Mockito.times(1)).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
     @Test
@@ -188,11 +187,11 @@ class PetEvolutionServiceImplTest {
         when(petMapper.selectById(1L)).thenReturn(pet);
         when(evolutionConfigMapper.selectList(any())).thenReturn(List.of(evolve1()));
 
-        assertThatThrownBy(() -> evolutionService.evolve(100L, 1L, null))
+        assertThatThrownBy(() -> evolutionService.evolve(100L, 1L, 0))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(PetErrorCodes.PET_LEVEL_REQUIRED);
-        verify(economyService, org.mockito.Mockito.never()).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
+        verify(economyService, org.mockito.Mockito.never()).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
     @Test
@@ -202,10 +201,20 @@ class PetEvolutionServiceImplTest {
         when(petMapper.selectById(1L)).thenReturn(pet);
         when(evolutionConfigMapper.selectList(any())).thenReturn(List.of(evolve1()));
 
-        assertThatThrownBy(() -> evolutionService.evolve(100L, 1L, null))
+        assertThatThrownBy(() -> evolutionService.evolve(100L, 1L, 2))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
                 .isEqualTo(PetErrorCodes.PET_EVOLUTION_MAX);
+    }
+
+    @Test
+    @DisplayName("C17 缺 expectedFromStage：400 PET_VALIDATION_ERROR，不进入扣款/去重")
+    void evolveWithoutExpectedStageRejected() {
+        assertThatThrownBy(() -> evolutionService.evolve(100L, 1L, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo(PetErrorCodes.PET_VALIDATION_ERROR);
+        verify(economyService, org.mockito.Mockito.never()).spend(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
     }
 
     @Test
@@ -243,7 +252,7 @@ class PetEvolutionServiceImplTest {
         config.setStageFrom(0);
         config.setStageTo(1);
         config.setRequiredLevel(8);
-        config.setCostStarlight(600);
+        config.setCostCoins(600);
         config.setBonusMaxHp(25);
         config.setBonusStrength(3);
         config.setBonusIntelligence(3);

@@ -22,7 +22,7 @@ public record PetEventVO(
         Boolean claimable,
         Boolean claimed,
         Boolean expired,
-        Integer rewardStarlight,
+        Integer rewardCoins,
         Integer rewardExp,
         @Schema(description = "额外奖励物品编码（可空）") String rewardItemCode,
         LocalDateTime startsAt,

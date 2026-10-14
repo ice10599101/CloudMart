@@ -227,17 +227,21 @@ class PetRouteContractTest {
     }
 
     @Test
-    @DisplayName("PET-05/T05：任务集单领 POST 可达（setId 匹配当日），PUT 同路径 405")
+    @DisplayName("C14：任务集单领 POST 可达（setId/questId 均为数字实体 ID），PUT 同路径 405")
     void questSetClaimPostMethodContract() throws Exception {
-        when(questService.list(100L)).thenReturn(new com.cloudmart.pet.vo.PetDailyQuestVO(
-                java.time.LocalDate.of(2026, 10, 6), java.util.List.of(), 0, 0, 0, false, false, 0, 0, "99"));
-        // setId 与当日 questDate 匹配 → 通过校验进入领取（返回 200，领取结果由领域测试覆盖）
-        questMockMvc.perform(post("/daily-quest-sets/2026-10-06/quests/9/claim").header("X-User-Id", "100"))
+        when(questService.claimInSet(100L, 99L, 9L)).thenReturn(
+                new com.cloudmart.pet.vo.PetDailyQuestItemVO("9", "daily_feed", "好好吃饭", "喂食 2 次",
+                        "🍖", "FEED", 2, 2, "CLAIMED", "已领取", false, "FEED",
+                        20, 20));
+        questMockMvc.perform(post("/daily-quest-sets/99/quests/9/claim").header("X-User-Id", "100"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+        // C14：日期串/非数字 setId 不再回退当日集 → 400（而不是静默走错语义）
+        questMockMvc.perform(post("/daily-quest-sets/2026-10-06/quests/9/claim").header("X-User-Id", "100"))
+                .andExpect(status().isBadRequest());
         // Web 修复前用 PUT：方法不匹配必须 405
         questMockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .put("/daily-quest-sets/2026-10-06/quests/9/claim").header("X-User-Id", "100"))
+                        .put("/daily-quest-sets/99/quests/9/claim").header("X-User-Id", "100"))
                 .andExpect(status().isMethodNotAllowed());
     }
 

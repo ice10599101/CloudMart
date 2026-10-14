@@ -77,6 +77,16 @@ public class PetEventProducer {
             String bizId,
             String bizType
     ) {
+        /**
+         * C18：提醒类型生产侧字典校验——reminderType 必须是 {@link com.cloudmart.pet.enums.PetReminderType}
+         * 的合法成员（未知/空白/历史裸码如 ANNIVERSARY 一律 IllegalArgumentException，
+         * 不向通知服务投递字典外 biz_type）。
+         */
+        public PetEventMessage {
+            if (!com.cloudmart.pet.enums.PetReminderType.isValid(reminderType)) {
+                throw new IllegalArgumentException("未知宠物提醒类型: " + reminderType);
+            }
+        }
     }
 
     /**

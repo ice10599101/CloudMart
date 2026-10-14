@@ -60,11 +60,11 @@ public class AnniversaryReminderScheduler {
                         new PetEventProducer.PetEventMessage(
                                 eventId,
                                 String.valueOf(pet.getUserId()),
-                                "ANNIVERSARY",
+                                "PET_ANNIVERSARY",
                                 "🎉 " + pet.getName() + " 的" + milestoneName + "纪念",
                                 pet.getName() + " 已经陪伴你 " + days + " 天啦！今天是个值得纪念的日子，去看看它吧～",
                                 String.valueOf(pet.getId()),
-                                "PET"));
+                                "PET_ANNIVERSARY"));
                 sent++;
             } catch (Exception e) {
                 log.warn("纪念日事件发布失败（跳过）: petId={}, err={}", pet.getId(), e.getMessage());

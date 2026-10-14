@@ -8,8 +8,6 @@ public interface InboundOrderService {
 
     InboundOrderDTO createInboundOrder(CreateInboundOrderRequest request);
 
-    InboundOrderDTO receiveItem(Long inboundOrderId, Long itemId, Integer receivedQuantity);
-
     InboundOrderDTO completeInbound(Long inboundOrderId);
 
     InboundOrderDTO getInboundOrder(Long inboundOrderId);

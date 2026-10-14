@@ -40,7 +40,7 @@ public class PetEvolutionConfig {
     private Integer requiredLevel;
 
     /** 消耗星光 */
-    private Integer costStarlight;
+    private Integer costCoins;
 
     private Integer bonusMaxHp;
 

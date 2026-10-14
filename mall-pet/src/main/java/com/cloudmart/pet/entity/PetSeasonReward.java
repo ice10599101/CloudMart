@@ -29,7 +29,7 @@ public class PetSeasonReward {
     /** 名次上界（含） */
     private Integer rankMax;
 
-    private Integer rewardStarlight;
+    private Integer rewardCoins;
 
     private Integer rewardExp;
 

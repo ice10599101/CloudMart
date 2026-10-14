@@ -73,17 +73,8 @@ public class InboundOrderServiceImpl implements InboundOrderService {
         return toDTO(order);
     }
 
-    @Override
-    @Transactional
-    public InboundOrderDTO receiveItem(Long inboundOrderId, Long itemId, Integer receivedQuantity) {
-        // 兼容旧签名：自动生成 receiptId（调用方重试须携带原 receiptId 才幂等）
-        return receiveItem(inboundOrderId, itemId, receivedQuantity,
-                "RCP" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 20),
-                null, InboundReceipt.QUALITY_PASSED, InboundReceipt.SOURCE_PURCHASE);
-    }
-
     /**
-     * T19 收货：receiptId 幂等（重复提交返回原收货）+ 正数校验 + 行级 CAS 防超收/
+     * T19/C19 收货：receiptId 幂等（重复提交返回原收货）+ 正数校验 + 行级 CAS 防超收/
      * 并发丢数 + 收货流水事实 + 库存入账（提交后调用，失败登记补偿）。
      *
      * <p>同一 receiptId 重试不加倍；两个仓管并发不丢数量（单行 CAS 累加）；

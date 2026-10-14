@@ -52,8 +52,8 @@ public class PetBottleSettlementService {
     private static final int EXP_EMPTY = 5;
     private static final int EXP_RARE = 30;
     private static final int EXP_SPECIAL = 20;
-    /** 稀有瓶星光加成 */
-    static final int RARE_STARLIGHT = 50;
+    /** 稀有瓶额外宠物币奖励 */
+    static final int RARE_COINS = 50;
 
     /** 捞瓶区域解锁等级（原文档 §20） */
     private static final String[] AREA_NAMES = {"社区池塘", "城市河流", "神秘海域", "深海区域"};
@@ -278,12 +278,9 @@ public class PetBottleSettlementService {
         }
         if (outcome == PetBottleOutcome.CAUGHT) {
             if (rarity == PetBottleRarity.RARE) {
-                PetEconomyService.WalletSettlement settlement = economyService.earn(
-                        activity.getUserId(), activity.getPetId(),
-                        "BOTTLE_REWARD", activity.getId(), RARE_STARLIGHT, null, activity.getId());
-                if (!settlement.isCompleted()) {
-                    log.info("稀有瓶星光结算中, activityId={}, status={}", activity.getId(), settlement.status());
-                }
+                economyService.earn(
+                activity.getUserId(), activity.getPetId(),
+                "BOTTLE_REWARD", RARE_COINS, null, activity.getId());
             }
             String eventId = "BOTTLE_CAUGHT:" + activity.getId();
             outboxService.record(eventId, RocketMQConfig.PET_TAG_BOTTLE_CAUGHT, activity.getUserId(),

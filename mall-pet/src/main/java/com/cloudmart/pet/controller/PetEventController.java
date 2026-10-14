@@ -42,22 +42,12 @@ public class PetEventController {
     }
 
     @PostMapping("/event-occurrences/{occurrenceId}/claim")
-    @Operation(summary = "按期次领取活动奖励（R33）", description = "唯一领奖事实 uk(petId, occurrenceId)；"
+    @Operation(summary = "按期次领取活动奖励（R33；C15 唯一领奖路径）", description = "唯一领奖事实 uk(petId, occurrenceId)；"
             + "进度按期次窗口统计；超过 claimDeadline 拒绝；本期未完成 409")
     @SentinelResource("PET_EVENT")
     public ApiResponse<PetEventVO> claimByOccurrence(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("occurrenceId") Long occurrenceId) {
         return ApiResponse.ok(eventService.claimByOccurrence(userId, occurrenceId));
-    }
-
-    @PostMapping("/events/{eventCode}/claim")
-    @Operation(summary = "领取活动奖励", description = "未完成 409 PET_EVENT_NOT_FINISHED；已领 409 PET_EVENT_ALREADY_CLAIMED；"
-            + "活动已结束 409 PET_EVENT_ENDED；奖励含经验/星光/物品")
-    @SentinelResource("PET_EVENT")
-    public ApiResponse<PetEventVO> claim(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @PathVariable("eventCode") String eventCode) {
-        return ApiResponse.ok(eventService.claim(userId, eventCode));
     }
 }

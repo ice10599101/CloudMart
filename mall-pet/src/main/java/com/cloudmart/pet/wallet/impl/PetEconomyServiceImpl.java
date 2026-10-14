@@ -17,9 +17,9 @@ import java.util.StringJoiner;
 import java.util.UUID;
 
 /**
- * 宠物经济结算门面实现（W02）：LEGACY→旧链路、PET→独立钱包、PAUSED→维护拒绝。
+ * 宠物经济结算门面实现（W02）：PET→独立钱包同库同事务、PAUSED→维护拒绝。
  *
- * <p>事实键语义两模式对齐（P02 键分离）：EARN 业务事实键 = bizType:parts（不含客户端键）；
+ * <p>事实键语义（P02 键分离）：EARN 业务事实键 = bizType:parts（不含客户端键）；
  * SPEND 购买意图键 = bizType:parts:客户端键（缺键回退每请求服务端键）。PET 模式下
  * 同一事实的重复请求由钱包 uk(user,bizType,bizKey) 收敛返回原结果。</p>
  */
@@ -40,18 +40,18 @@ public class PetEconomyServiceImpl implements PetEconomyService {
     }
 
     @Override
-    public WalletSettlement earn(Long userId, Long petId, String bizType, Long bizRefId,
+    public WalletSettlement earn(Long userId, Long petId, String bizType,
                                  long amount, String rewardSnapshot, Object... keyParts) {
-        return settle(userId, petId, bizType, bizRefId, amount, rewardSnapshot, keyParts, false);
+        return settle(userId, petId, bizType, amount, rewardSnapshot, keyParts, false);
     }
 
     @Override
-    public WalletSettlement spend(Long userId, Long petId, String bizType, Long bizRefId,
+    public WalletSettlement spend(Long userId, Long petId, String bizType,
                                   long amount, String rewardSnapshot, Object... keyParts) {
-        return settle(userId, petId, bizType, bizRefId, amount, rewardSnapshot, keyParts, true);
+        return settle(userId, petId, bizType, amount, rewardSnapshot, keyParts, true);
     }
 
-    private WalletSettlement settle(Long userId, Long petId, String bizType, Long bizRefId,
+    private WalletSettlement settle(Long userId, Long petId, String bizType,
                                     long amount, String rewardSnapshot, Object[] keyParts, boolean spend) {
         Mode mode = mode();
         if (amount <= 0) {
@@ -87,8 +87,7 @@ public class PetEconomyServiceImpl implements PetEconomyService {
         log.info("宠物币收支提交(PET), operationId={}, userId={}, bizType={}, bizKey={}, amount={}, duplicate={}",
                 operationId, userId, bizType, bizKey, amount, result.duplicate());
         // P03：PET 币域 long 贯通，禁止 (int) 强转窄化隐藏高余额溢出
-        return new WalletSettlement("COMPLETED", result.amount(),
-                result.balanceAfter(), result.duplicate(), null);
+        return new WalletSettlement(result.amount(), result.balanceAfter(), result.duplicate());
     }
 
     @Override
@@ -97,12 +96,6 @@ public class PetEconomyServiceImpl implements PetEconomyService {
             case PET -> walletService.getOrCreateAccount(userId).getBalance();
             case PAUSED -> null;
         };
-    }
-
-    @Override
-    public BusinessException settlementPending() {
-        return new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING,
-                "结算处理中，请稍后按原操作查询结果，勿重复下单");
     }
 
     @Override

@@ -104,9 +104,8 @@ class PetActivityServiceImplTest {
         economyService = org.mockito.Mockito.mock(PetEconomyService.class);
                 org.mockito.Mockito.when(economyService.earn(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenReturn(new PetEconomyService.WalletSettlement(0L, 1000L, false));
         activityService = new PetActivityServiceImpl(petService, stateService, activityMapper,
                 jobConfigMapper, studyConfigMapper, petMapper, achievementService,
                 eventProducer, statsService, dailyQuestService, intimacyService, economyService,
@@ -297,7 +296,7 @@ class PetActivityServiceImplTest {
             PetActivityVO vo = activityService.claimWork(100L);
 
             assertThat(vo.status()).isEqualTo(PetActivityStatus.CLAIMED.name());
-            org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("CLAIM_WORK"), org.mockito.ArgumentMatchers.eq(11L), org.mockito.ArgumentMatchers.eq(105L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any(Object[].class));
+            org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq("CLAIM_WORK"), org.mockito.ArgumentMatchers.eq(105L), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.any(Object[].class));
         }
 
         @Test
@@ -330,9 +329,7 @@ class PetActivityServiceImplTest {
                     .grantExp(any(Pet.class), org.mockito.ArgumentMatchers.anyInt());
             org.mockito.Mockito.verify(economyService, org.mockito.Mockito.never()).earn(
                     org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                    org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(),
-                    org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(),
-                    org.mockito.ArgumentMatchers.any(Object[].class));
+                    org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
         }
 
         @Test

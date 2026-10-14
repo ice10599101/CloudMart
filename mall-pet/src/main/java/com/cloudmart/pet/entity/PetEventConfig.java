@@ -41,7 +41,7 @@ public class PetEventConfig {
     /** 目标次数 */
     private Integer targetValue;
 
-    private Integer rewardStarlight;
+    private Integer rewardCoins;
 
     private Integer rewardExp;
 
@@ -49,7 +49,7 @@ public class PetEventConfig {
     private String rewardItemCode;
 
     /** 唯一物品已拥有时的固定替代星光（B16，0=不发；活动创建时快照） */
-    private Integer rewardAltStarlight;
+    private Integer rewardAltCoins;
 
     private LocalDateTime startsAt;
 

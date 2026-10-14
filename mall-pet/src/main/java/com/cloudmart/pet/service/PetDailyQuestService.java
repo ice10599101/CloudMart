@@ -27,13 +27,13 @@ public interface PetDailyQuestService {
      */
     PetDailyQuestVO listForPet(Pet pet);
 
-    // ---------------- PET-09：任务集查询与按集领取（setId 为真实实体 ID） ----------------
+    // ---------------- PET-09：任务集查询与按集领取（C14：setId/questId 均为实体 ID，唯一领奖路径） ----------------
 
     /**
-     * 按集领取：setId 为任务集实体 ID，questIdOrCode 为任务实体 ID（数字）或 code（旧客户端别名）。
+     * 按集领取：setId 为任务集实体 ID，questId 为任务实体 ID（C14：不再接受 code 别名）。
      * 归属/宽限截止/任务行归属同事务校验，领取绑定集的原宠物。
      */
-    PetDailyQuestItemVO claimInSet(Long userId, Long setId, String questIdOrCode);
+    PetDailyQuestItemVO claimInSet(Long userId, Long setId, Long questId);
 
     /** 任务集详情（深链接/刷新/冲突恢复；宽限期内/历史集均可查询） */
     PetDailyQuestVO questSetDetail(Long userId, Long setId);
@@ -41,26 +41,11 @@ public interface PetDailyQuestService {
     /** 本人任务集列表：status=ACTIVE 当前集 / EXPIRED 历史集 / 空 全部 */
     java.util.List<com.cloudmart.pet.entity.PetDailyQuestSet> questSets(Long userId, String status);
 
-    /** 当前主宠当日任务集 ID（旧客户端日期串别名解析用） */
-    Long currentSetId(Long userId);
-
     /** 按集一键领取：逐项独立事务绑定该集（切宠/宽限期不错对象），宝箱独立评估 */
     com.cloudmart.pet.vo.ClaimAllResult claimAllInSet(Long userId, Long setId);
 
     /** 按集领取宝箱：绑定集的宠物与冻结快照，宽限期内可领 */
     PetDailyQuestVO claimChestInSet(Long userId, Long setId);
-
-    /** 领取单个任务奖励（未完成 409 / 重复领取 409；经验本地 + 星光 Feign，失败整体回滚） */
-    PetDailyQuestItemVO claim(Long userId, String questCode);
-
-    /**
-     * B15/R13：一键领奖——逐项独立事务（本方法非事务编排，单项经代理各自成事务），
-     * 返回逐项终态 + 宝箱独立评估；禁止只返回一个 success 提示。
-     */
-    com.cloudmart.pet.vo.ClaimAllResult claimAll(Long userId);
-
-    /** 领取全清宝箱（有未领取任务时 409 PET_QUEST_CHEST_NOT_READY） */
-    PetDailyQuestVO claimChest(Long userId);
 
     /**
      * 业务埋点：按口径累加进度（原子 UPDATE，天然幂等；任务不存在/未启用时静默跳过）。

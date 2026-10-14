@@ -15,7 +15,7 @@ public record PetHomeItemVO(
         @Schema(description = "图标") String icon,
         @Schema(description = "稀有度") String rarity,
         @Schema(description = "舒适度") Integer comfort,
-        @Schema(description = "售价（星光）") Integer priceStarlight,
+        @Schema(description = "售价（星光）") Integer priceCoins,
         @Schema(description = "购买所需等级") Integer requiredLevel,
         @Schema(description = "网格 X（已摆放时有值）") Integer posX,
         @Schema(description = "网格 Y（已摆放时有值）") Integer posY,

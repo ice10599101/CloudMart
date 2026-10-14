@@ -104,7 +104,7 @@ public class DefaultPetPurchaseCatalog implements PetPurchaseCatalog {
             return null;
         }
         return new CatalogEntry(PetItemType.EQUIPMENT.name(), c.getCode(),
-                price(c.getPriceStarlight()), versionOf(c.getUpdatedAt()), c.getName(), c.getCode());
+                price(c.getPriceCoins()), versionOf(c.getUpdatedAt()), c.getName(), c.getCode());
     }
 
     private CatalogEntry loadSkin(String code) {
@@ -114,7 +114,7 @@ public class DefaultPetPurchaseCatalog implements PetPurchaseCatalog {
             return null;
         }
         return new CatalogEntry(PetItemType.SKIN.name(), c.getCode(),
-                price(c.getPriceStarlight()), versionOf(c.getUpdatedAt()), c.getName(), c.getCode());
+                price(c.getPriceCoins()), versionOf(c.getUpdatedAt()), c.getName(), c.getCode());
     }
 
     private CatalogEntry loadSkillBook(String code) {
@@ -124,7 +124,7 @@ public class DefaultPetPurchaseCatalog implements PetPurchaseCatalog {
             return null;
         }
         return new CatalogEntry(PetItemType.SKILL_BOOK.name(), c.getCode(),
-                price(c.getPriceStarlight()), versionOf(c.getUpdatedAt()), c.getName(), c.getCode());
+                price(c.getPriceCoins()), versionOf(c.getUpdatedAt()), c.getName(), c.getCode());
     }
 
     private CatalogEntry loadFurniture(String code) {
@@ -134,7 +134,7 @@ public class DefaultPetPurchaseCatalog implements PetPurchaseCatalog {
             return null;
         }
         return new CatalogEntry(PetItemType.FURNITURE.name(), c.getCode(),
-                price(c.getPriceStarlight()), versionOf(c.getUpdatedAt()), c.getName(), c.getCode());
+                price(c.getPriceCoins()), versionOf(c.getUpdatedAt()), c.getName(), c.getCode());
     }
 
     private CatalogEntry loadFood(String code) {
@@ -144,7 +144,7 @@ public class DefaultPetPurchaseCatalog implements PetPurchaseCatalog {
             return null;
         }
         return new CatalogEntry(PetItemType.FOOD.name(), c.getCode(),
-                price(c.getPriceStarlight()), versionOf(c.getUpdatedAt()), c.getName(), c.getCode());
+                price(c.getPriceCoins()), versionOf(c.getUpdatedAt()), c.getName(), c.getCode());
     }
 
     /**

@@ -1,12 +1,10 @@
 package com.cloudmart.pet.service;
 
-import com.cloudmart.pet.dto.BuyFurnitureRequest;
 import com.cloudmart.pet.dto.PlaceFurnitureRequest;
 import com.cloudmart.pet.dto.UpdateRoomSettingsRequest;
 import com.cloudmart.pet.dto.UpdateRoomThemeRequest;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.vo.PetHomeVO;
-import com.cloudmart.pet.vo.PetInventoryItemVO;
 import com.cloudmart.pet.vo.PetRoomLikeVO;
 import com.cloudmart.pet.vo.PetRoomVisitVO;
 
@@ -14,7 +12,7 @@ import com.cloudmart.pet.vo.PetRoomVisitVO;
  * 宠物房间/家园服务（三期）。
  *
  * <p>房间随宠物懒创建（{@code uk_pet_room} 兜底）；家具走 {@code pet_inventory}
- * （item_type = FURNITURE，先入包再扣星光，与商城同一口径），
+ * （item_type = FURNITURE，C13 起统一在 {@code POST /pet/purchases} 购买入包，币域 PET_COIN），
  * 墙纸/地板是"主题键"（穿在房间上），其余分类占用网格（{@code pet_room_item}，格子唯一）。
  * 舒适度 = 已摆放家具舒适度之和，达阈值后休息有额外心情加成（由互动服务读取）。</p>
  */
@@ -22,9 +20,6 @@ public interface PetHomeService {
 
     /** 我的家园（含回家奖励结算：每日首次进入加心情/经验/亲密度） */
     PetHomeVO home(Long userId);
-
-    /** 购买家具（先入包再扣星光；重复购买 409，等级不够 409） */
-    PetInventoryItemVO buyFurniture(Long userId, BuyFurnitureRequest request);
 
     /** 摆放家具（越界 400 / 格子占用 409 / 未拥有 409） */
     PetHomeVO place(Long userId, PlaceFurnitureRequest request);

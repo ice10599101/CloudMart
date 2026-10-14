@@ -308,15 +308,12 @@ public class PetCareerServiceImpl implements PetCareerService {
         currencyReward += Math.round(currencyReward * intelligenceBonus / 100f);
         intimacyService.gain(pet, PetIntimacySource.WORK);
         int levelups = stateService.grantExp(pet, expReward);
-        // B01：本地奖励已生效；星光结果未知不回滚
-        Long credited = null;
+        // B01/C12：宠物币与本地奖励同库同事务——入账失败直接回滚整个领奖事务
+        Long credited = 0L;
         if (currencyReward > 0) {
-            PetEconomyService.WalletSettlement settlement = economyService.earn(
-                    userId, activity.getPetId(), "CAREER_CLAIM", activity.getId(),
-                    currencyReward, null, activity.getId());
-            if (settlement.isCompleted()) {
-                credited = settlement.credited();
-            }
+            credited = economyService.earn(
+                    userId, activity.getPetId(), "CAREER_CLAIM",
+                    currencyReward, null, activity.getId()).credited();
         }
         // R34：优先按开工快照的任职段累计（原段已结束后领取也计入原段）；
         // 存量无快照字段回退当前开放段
@@ -436,16 +433,9 @@ public class PetCareerServiceImpl implements PetCareerService {
             String promoteSnapshot = PetJsonUtils.toJson(Map.of(
                     "careerTo", target.getCode(),
                     "careerFrom", current.getCode()));
-            PetEconomyService.WalletSettlement settlement = economyService.spend(
-                    userId, pet.getId(), BIZ_TYPE_PROMOTE, pet.getId(), cost, promoteSnapshot,
+            economyService.spend(
+                    userId, pet.getId(), BIZ_TYPE_PROMOTE, cost, promoteSnapshot,
                     pet.getId(), target.getCode());
-            if (settlement.isUnknown()) {
-                throw economyService.settlementPending();
-            }
-            if (!settlement.isCompleted()) {
-                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
-                        "星光扣款未完成: " + settlement.lastError());
-            }
         }
         switchCareer(pet, target.getCode(), "PROMOTED");
         eventProducer.publishViaOutbox(RocketMQConfig.PET_TAG_CAREER, new PetEventProducer.PetEventMessage(

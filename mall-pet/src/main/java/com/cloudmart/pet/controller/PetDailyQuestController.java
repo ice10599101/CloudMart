@@ -21,12 +21,13 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 宠物每日任务接口（三期）。
  *
- * <p>任务按服务端业务日（PetClock：Asia/Shanghai 零点）自然重置：列表入口惰性生成当日任务行，
- * 进度由玩法埋点累加，领奖与全清宝箱都是 CAS 幂等。</p>
+ * <p>任务按用户业务日（R22 用户时区，PetClock 零点）自然重置：列表入口惰性生成当日任务行，
+ * 进度由玩法埋点累加。C14 起领奖唯一路径为任务集实例路由（setId/questId 均为实体 ID），
+ * 旧的按 code/当日隐式解析入口与日期串回退已物理删除。</p>
  */
 @RestController
 @RequestMapping
-@Tag(name = "宠物每日任务", description = "今日任务列表/领奖/全清宝箱")
+@Tag(name = "宠物每日任务", description = "今日任务列表/按任务集领奖/全清宝箱")
 @RequiredArgsConstructor
 public class PetDailyQuestController {
 
@@ -49,84 +50,43 @@ public class PetDailyQuestController {
     }
 
     @GetMapping("/daily-quests")
-    @Operation(summary = "今日任务", description = "任务列表 + 进度 + 全清宝箱状态（首次访问自动生成当日任务）")
+    @Operation(summary = "今日任务", description = "任务列表 + 进度 + 全清宝箱状态（首次访问自动生成当日任务）；"
+            + "返回携带当日任务集 ID，领奖走 /daily-quest-sets/{setId} 实例路由（C14）")
     @SentinelResource("PET_QUERY")
     public ApiResponse<PetDailyQuestVO> dailyQuests(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(dailyQuestService.list(userId));
     }
 
-    @PostMapping("/daily-quests/{code}/claim")
-    @Operation(summary = "领取任务奖励", description = "未完成 409 PET_QUEST_NOT_FINISHED；重复领取 409 PET_QUEST_ALREADY_CLAIMED")
-    @SentinelResource("PET_ACTIVITY_CLAIM")
-    public ApiResponse<PetDailyQuestItemVO> claim(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @PathVariable("code") String code) {
-        return ApiResponse.ok(dailyQuestService.claim(userId, code));
-    }
-
-    @PostMapping("/daily-quests/claim-all")
-    @Operation(summary = "批量领取全部已完成项（B15）", description = "逐项独立 CAS 与幂等，单项失败跳过可重试")
-    @SentinelResource("PET_QUEST_CLAIM")
-    public ApiResponse<com.cloudmart.pet.vo.ClaimAllResult> claimAll(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(dailyQuestService.claimAll(userId));
-    }
-
-    @PostMapping("/daily-quests/chest/claim")
-    @Operation(summary = "领取全清宝箱", description = "有未领取任务时 409 PET_QUEST_CHEST_NOT_READY；已领 409 PET_QUEST_CHEST_CLAIMED")
-    @SentinelResource("PET_ACTIVITY_CLAIM")
-    public ApiResponse<PetDailyQuestVO> claimChest(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
-        return ApiResponse.ok(dailyQuestService.claimChest(userId));
-    }
-
-    // ---------------- 任务集路由（R32 §7.2：与按 code/当日路径委托同一服务） ----------------
-
-    /**
-     * setId 是任务集实体 ID：归属+时间校验后委托同一服务，
-     * 请求键与 setId 绑定由网关/客户端 Idempotency-Key 语义承接；过期集明确拒绝。
-     * 旧客户端传日期串时暂回退当前主宠当日集（兼容别名，随 C14 收敛，不默默维持两套语义）。
-     */
-    private Long resolveSetId(Long userId, String setId) {
-        try {
-            return Long.parseLong(setId.strip());
-        } catch (NumberFormatException legacyDateForm) {
-            return dailyQuestService.currentSetId(userId);
-        }
-    }
+    // ---------------- 任务集路由（R32 §7.2；C14 唯一领奖路径：setId/questId 均为实体 ID） ----------------
 
     @PostMapping("/daily-quest-sets/{setId}/quests/{questId}/claim")
-    @Operation(summary = "按任务集领取单项（R32）", description = "setId=任务集实体 ID；"
-            + "归属+时间校验后与 /daily-quests/{code}/claim 同一服务、同一幂等语义")
+    @Operation(summary = "按任务集领取单项（R32/C14）", description = "setId=任务集实体 ID、questId=任务实体 ID；"
+            + "归属+时间校验后幂等 CAS 领取，非数字 ID 返回 400")
     @SentinelResource("PET_ACTIVITY_CLAIM")
     public ApiResponse<PetDailyQuestItemVO> claimInSet(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @PathVariable("setId") String setId,
-            @PathVariable("questId") String questId) {
-        // PET-09：按集领取——归属校验（本人）、宽限截止与任务行归属（set_id 绑定）同事务；
-        // questId 兼容任务实体 ID 与 code 两种形式
-        return ApiResponse.ok(dailyQuestService.claimInSet(userId, resolveSetId(userId, setId), questId));
+            @PathVariable("setId") Long setId,
+            @PathVariable("questId") Long questId) {
+        return ApiResponse.ok(dailyQuestService.claimInSet(userId, setId, questId));
     }
 
     @PostMapping("/daily-quest-sets/{setId}/claim-all")
-    @Operation(summary = "按任务集一键领取（R32）", description = "与 /daily-quests/claim-all 同一服务；"
+    @Operation(summary = "按任务集一键领取（R32/C14）", description = "逐项独立 CAS 与幂等；"
             + "含最后宝箱独立评估，逐项返回终态")
     @SentinelResource("PET_QUEST_CLAIM")
     public ApiResponse<com.cloudmart.pet.vo.ClaimAllResult> claimAllInSet(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @PathVariable("setId") String setId) {
-        // PET-09：批领绑定任务集（原实现只校验日期）；独立事务逐项领取语义不变
-        return ApiResponse.ok(dailyQuestService.claimAllInSet(userId, resolveSetId(userId, setId)));
+            @PathVariable("setId") Long setId) {
+        return ApiResponse.ok(dailyQuestService.claimAllInSet(userId, setId));
     }
 
     @PostMapping("/daily-quest-sets/{setId}/chest/claim")
-    @Operation(summary = "按任务集领取宝箱（R32）", description = "与 /daily-quests/chest/claim 同一服务、同一 CAS 幂等")
+    @Operation(summary = "按任务集领取宝箱（R32/C14）", description = "绑定任务集与宠物的同一 CAS 幂等语义")
     @SentinelResource("PET_ACTIVITY_CLAIM")
     public ApiResponse<PetDailyQuestVO> claimChestInSet(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @PathVariable("setId") String setId) {
-        // PET-09：宝箱领取绑定任务集（原实现只校验日期）
-        return ApiResponse.ok(dailyQuestService.claimChestInSet(userId, resolveSetId(userId, setId)));
+            @PathVariable("setId") Long setId) {
+        return ApiResponse.ok(dailyQuestService.claimChestInSet(userId, setId));
     }
 }

@@ -335,7 +335,7 @@ public class PetSeasonSettlementService {
                 throw new com.cloudmart.common.exception.BusinessException(
                         com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "奖励梯度区间非法（缺名次）");
             }
-            if (tier.getRewardStarlight() != null && tier.getRewardStarlight() < 0
+            if (tier.getRewardCoins() != null && tier.getRewardCoins() < 0
                     || tier.getRewardExp() != null && tier.getRewardExp() < 0) {
                 throw new com.cloudmart.common.exception.BusinessException(
                         com.cloudmart.pet.constant.PetErrorCodes.PET_VALIDATION_ERROR, "奖励梯度禁止负值");

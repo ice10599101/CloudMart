@@ -19,7 +19,7 @@ public record PetShopItemVO(
         String description,
         String icon,
         @Schema(description = "稀有度: COMMON/RARE/EPIC") String rarity,
-        @Schema(description = "售价（星光）") Integer priceStarlight,
+        @Schema(description = "售价（星光）") Integer priceCoins,
         @Schema(description = "装备部位（装备类）") String slot,
         @Schema(description = "限定种类（皮肤类，null=通用）") String species,
         @Schema(description = "主色（皮肤类）") String color,

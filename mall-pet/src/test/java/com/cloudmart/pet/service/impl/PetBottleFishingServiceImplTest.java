@@ -107,9 +107,8 @@ class PetBottleFishingServiceImplTest {
         economyService = org.mockito.Mockito.mock(PetEconomyService.class);
                 org.mockito.Mockito.when(economyService.earn(org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenReturn(new PetEconomyService.WalletSettlement("COMPLETED", 0L, 1000L, false, null));
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenReturn(new PetEconomyService.WalletSettlement(0L, 1000L, false));
         org.mockito.Mockito.lenient().when(petMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.pet.entity.Pet.class))).thenReturn(1);
         settlementService = new PetBottleSettlementService(activityMapper, bottleRecordMapper, petMapper,
                 wishFeignClient, achievementService, eventProducer, contentProvider, statsService,

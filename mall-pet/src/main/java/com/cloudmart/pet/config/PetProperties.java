@@ -346,7 +346,7 @@ public class PetProperties {
         /** 经验加成上限 */
         private double maxExpBonus = 0.10;
         /** 亲密度升级奖励星光 = base × 新等级序号 */
-        private int levelRewardStarlightBase = 120;
+        private int levelRewardCoinsBase = 120;
     }
 
     /** 技能槽模式（B12：配置关闭的能力——默认关闭保持"已学技能全部生效"既有行为；开启需执行分配迁移） */

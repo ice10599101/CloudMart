@@ -43,7 +43,7 @@ public class PetEquipmentConfig {
     private String rarity;
 
     /** 售价（星光） */
-    private Integer priceStarlight;
+    private Integer priceCoins;
 
     private Integer bonusStrength;
 

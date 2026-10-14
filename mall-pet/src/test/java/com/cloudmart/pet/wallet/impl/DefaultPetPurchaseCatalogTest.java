@@ -132,7 +132,7 @@ class DefaultPetPurchaseCatalogTest {
         skin.setCode("golden_dog");
         skin.setName("金渐层柴");
         skin.setSpecies("ORANGE");
-        skin.setPriceStarlight(260);
+        skin.setPriceCoins(260);
         skin.setRequiredLevel(2);
         skin.setRequiredEvolutionStage(0);
         skin.setEnabled(true);
@@ -192,7 +192,7 @@ class DefaultPetPurchaseCatalogTest {
         config.setSlot("HAT");
         config.setRarity("COMMON");
         config.setIcon("👒");
-        config.setPriceStarlight(price);
+        config.setPriceCoins(price);
         config.setBonusStrength(0);
         config.setBonusIntelligence(0);
         config.setBonusAgility(1);
@@ -208,7 +208,7 @@ class DefaultPetPurchaseCatalogTest {
         PetFoodConfig config = new PetFoodConfig();
         config.setCode(code);
         config.setName(code);
-        config.setPriceStarlight(price);
+        config.setPriceCoins(price);
         config.setEnabled(enabled);
         return config;
     }

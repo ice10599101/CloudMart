@@ -4,11 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.wallet.PetEconomyService;
-import com.cloudmart.pet.config.PetRequestContext;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
-import com.cloudmart.pet.dto.BuyFurnitureRequest;
 import com.cloudmart.pet.dto.PlaceFurnitureRequest;
 import com.cloudmart.pet.dto.UpdateRoomSettingsRequest;
 import com.cloudmart.pet.dto.UpdateRoomThemeRequest;
@@ -36,7 +34,6 @@ import com.cloudmart.pet.service.PetIntimacyService;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.vo.PetHomeItemVO;
 import com.cloudmart.pet.vo.PetHomeVO;
-import com.cloudmart.pet.vo.PetInventoryItemVO;
 import com.cloudmart.pet.vo.PetRoomLikeVO;
 import com.cloudmart.pet.vo.PetRoomVisitVO;
 import lombok.extern.slf4j.Slf4j;
@@ -97,7 +94,6 @@ public class PetHomeServiceImpl implements PetHomeService {
     private final com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService;
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService;
-    private final com.cloudmart.pet.wallet.impl.PetPurchaseApplicationService purchaseApplicationService;
     private final PetEventProducer eventProducer;
     private final PetDailyQuestService dailyQuestService;
     private final PetIntimacyService intimacyService;
@@ -125,8 +121,7 @@ public class PetHomeServiceImpl implements PetHomeService {
                               PetQuotaService quotaService,
                               com.cloudmart.pet.service.PetVisitApplicationService visitApplicationService,
                               com.cloudmart.pet.service.PetUserBlockService userBlockService,
-                              com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService,
-                              com.cloudmart.pet.wallet.impl.PetPurchaseApplicationService purchaseApplicationService) {
+                              com.cloudmart.pet.service.impl.PetCompanionFeatureService companionFeatureService) {
         this.petService = petService;
         this.stateService = stateService;
         this.petMapper = petMapper;
@@ -148,7 +143,6 @@ public class PetHomeServiceImpl implements PetHomeService {
         this.achievementService = achievementService;
         this.properties = properties;
         this.redisTemplate = redisTemplate;
-        this.purchaseApplicationService = purchaseApplicationService;
     }
 
     @Override
@@ -158,30 +152,6 @@ public class PetHomeServiceImpl implements PetHomeService {
         PetRoom room = ensureRoom(pet);
         boolean enterRewarded = grantDailyEnterReward(pet);
         return buildHomeVo(pet, room, enterRewarded);
-    }
-
-    /**
-     * R02 购买主链收口：家具购买委托 {@link PetPurchaseApplicationService} 统一编排
-     * （意图认领→订单→扣款→交付→幂等终态同事务），本类不再直接扣款/入包。
-     * 无请求键 400（PET_REQUEST_KEY_INVALID）；本方法不加事务——购买服务自身是事务边界。
-     */
-    @Override
-    public PetInventoryItemVO buyFurniture(Long userId, BuyFurnitureRequest request) {
-        purchaseApplicationService.purchase(userId, null, PetItemType.FURNITURE.name(),
-                request.furnitureCode(), PetRequestContext.idempotencyKey(), null);
-        Pet pet = petService.requireOwnedPet(userId);
-        PetInventory item = inventoryMapper.selectOne(new LambdaQueryWrapper<PetInventory>()
-                .eq(PetInventory::getPetId, pet.getId())
-                .eq(PetInventory::getItemType, PetItemType.FURNITURE.name())
-                .eq(PetInventory::getItemCode, request.furnitureCode())
-                .last("LIMIT 1"));
-        if (item == null) {
-            // 扣款/交付事实已提交但背包行不可读：不该发生（同事务），显式失败禁止伪装成功
-            throw new BusinessException(PetErrorCodes.PET_SETTLEMENT_PENDING,
-                    "购买已受理，背包同步稍后完成，请稍后刷新查看");
-        }
-        PetFurnitureConfig config = requireFurniture(request.furnitureCode());
-        return toInventoryVo(item, config);
     }
 
     @Override
@@ -662,17 +632,8 @@ public class PetHomeServiceImpl implements PetHomeService {
         return new PetHomeItemVO(config.getCode(), config.getName(), config.getDescription(),
                 config.getCategory(), category.label(), config.getIcon(), config.getRarity(),
                 config.getComfort() != null ? config.getComfort() : 0,
-                config.getPriceStarlight(), config.getRequiredLevel(), posX, posY,
+                config.getPriceCoins(), config.getRequiredLevel(), posX, posY,
                 owned, lockReason == null, lockReason, themeActive);
-    }
-
-    private PetInventoryItemVO toInventoryVo(PetInventory item, PetFurnitureConfig config) {
-        return new PetInventoryItemVO(PetItemType.FURNITURE.name(), config.getCode(), config.getName(),
-                config.getDescription(), config.getIcon(), config.getRarity(), config.getCategory(),
-                null, null, config.getCategory(),
-                java.math.BigDecimal.valueOf(config.getComfort() != null ? config.getComfort() : 0),
-                0, 0, 0, 0, 0,
-                Boolean.TRUE.equals(item.getEquipped()), item.getQuantity(), false, item.getAcquiredAt());
     }
 
     /** 房间懒创建：uk_pet_room 兜底并发（并发时重读） */

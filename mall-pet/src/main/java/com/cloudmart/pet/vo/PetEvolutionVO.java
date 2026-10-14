@@ -16,7 +16,7 @@ public record PetEvolutionVO(
         @Schema(description = "下一阶名称") String nextName,
         @Schema(description = "下一阶描述") String nextDescription,
         @Schema(description = "下一阶所需等级") Integer requiredLevel,
-        @Schema(description = "下一阶星光消耗") Integer costStarlight,
+        @Schema(description = "下一阶星光消耗") Integer costCoins,
         @Schema(description = "下一阶生命上限提升") Integer bonusMaxHp,
         @Schema(description = "下一阶力量提升") Integer bonusStrength,
         @Schema(description = "下一阶智力提升") Integer bonusIntelligence,

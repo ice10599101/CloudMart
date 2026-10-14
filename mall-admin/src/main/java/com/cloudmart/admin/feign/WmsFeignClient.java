@@ -63,10 +63,10 @@ public interface WmsFeignClient {
     @PostMapping("/inbound-orders")
     ApiResponse<Object> createInboundOrder(@RequestBody Map<String, Object> body);
 
+    /** C19：统一收货请求体（receiptId 幂等）；操作者 X-User-Id 由 AdminFeignInterceptor 统一注入 */
     @PutMapping("/inbound-orders/{id}/receive")
     ApiResponse<Object> receiveInboundItem(@PathVariable("id") Long id,
-                                           @RequestParam("itemId") Long itemId,
-                                           @RequestParam("receivedQuantity") Integer receivedQuantity);
+                                           @RequestBody Map<String, Object> body);
 
     @PutMapping("/inbound-orders/{id}/complete")
     ApiResponse<Object> completeInbound(@PathVariable("id") Long id);

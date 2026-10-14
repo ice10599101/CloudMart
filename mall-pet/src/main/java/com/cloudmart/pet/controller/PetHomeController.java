@@ -3,14 +3,12 @@ package com.cloudmart.pet.controller;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
-import com.cloudmart.pet.dto.BuyFurnitureRequest;
 import com.cloudmart.pet.dto.PlaceFurnitureRequest;
 import com.cloudmart.pet.dto.UpdateRoomSettingsRequest;
 import com.cloudmart.pet.dto.UpdateRoomThemeRequest;
 import com.cloudmart.pet.service.PetHomeService;
 import com.cloudmart.pet.service.PetVisitService;
 import com.cloudmart.pet.vo.PetHomeVO;
-import com.cloudmart.pet.vo.PetInventoryItemVO;
 import com.cloudmart.pet.vo.PetRoomLikeVO;
 import com.cloudmart.pet.vo.PetRoomVisitVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -58,15 +56,6 @@ public class PetHomeController {
     public ApiResponse<PetHomeVO> home(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(homeService.home(userId));
-    }
-
-    @PostMapping("/home/furniture/buy")
-    @Operation(summary = "购买家具", description = "先入包再扣星光（失败回滚）；重复购买 409 PET_ITEM_ALREADY_OWNED")
-    @SentinelResource("PET_SHOP")
-    public ApiResponse<PetInventoryItemVO> buyFurniture(
-            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @Valid @RequestBody BuyFurnitureRequest request) {
-        return ApiResponse.ok(homeService.buyFurniture(userId, request));
     }
 
     @PostMapping("/home/furniture/place")

@@ -45,7 +45,7 @@ public class PetFurnitureConfig {
     private String rarity;
 
     /** 售价（星光） */
-    private Integer priceStarlight;
+    private Integer priceCoins;
 
     /** 购买最低等级 */
     private Integer requiredLevel;

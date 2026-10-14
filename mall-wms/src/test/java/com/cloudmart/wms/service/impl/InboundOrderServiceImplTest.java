@@ -155,7 +155,9 @@ class InboundOrderServiceImplTest {
         void shouldThrowWhenOrderNotFound() {
             when(inboundOrderMapper.selectById(anyLong())).thenReturn(null);
 
-            assertThatThrownBy(() -> inboundOrderService.receiveItem(1L, 10L, 5))
+            assertThatThrownBy(() -> inboundOrderService.receiveItem(1L, 10L, 5, "RCP-NF", 9L,
+                    com.cloudmart.wms.entity.InboundReceipt.QUALITY_PASSED,
+                    com.cloudmart.wms.entity.InboundReceipt.SOURCE_PURCHASE))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo("INBOUND_ORDER_NOT_FOUND");
         }
@@ -167,7 +169,9 @@ class InboundOrderServiceImplTest {
             order.setStatus("COMPLETED");
             when(inboundOrderMapper.selectById(anyLong())).thenReturn(order);
 
-            assertThatThrownBy(() -> inboundOrderService.receiveItem(1L, 10L, 5))
+            assertThatThrownBy(() -> inboundOrderService.receiveItem(1L, 10L, 5, "RCP-DONE", 9L,
+                    com.cloudmart.wms.entity.InboundReceipt.QUALITY_PASSED,
+                    com.cloudmart.wms.entity.InboundReceipt.SOURCE_PURCHASE))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo("INBOUND_COMPLETED");
         }
@@ -179,7 +183,9 @@ class InboundOrderServiceImplTest {
             when(inboundOrderMapper.selectById(anyLong())).thenReturn(order);
             when(inboundOrderItemMapper.selectById(anyLong())).thenReturn(null);
 
-            assertThatThrownBy(() -> inboundOrderService.receiveItem(1L, 999L, 5))
+            assertThatThrownBy(() -> inboundOrderService.receiveItem(1L, 999L, 5, "RCP-IT1", 9L,
+                    com.cloudmart.wms.entity.InboundReceipt.QUALITY_PASSED,
+                    com.cloudmart.wms.entity.InboundReceipt.SOURCE_PURCHASE))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo("ITEM_NOT_FOUND");
         }
@@ -194,7 +200,9 @@ class InboundOrderServiceImplTest {
             when(inboundOrderMapper.selectById(anyLong())).thenReturn(order);
             when(inboundOrderItemMapper.selectById(anyLong())).thenReturn(item);
 
-            assertThatThrownBy(() -> inboundOrderService.receiveItem(1L, 10L, 5))
+            assertThatThrownBy(() -> inboundOrderService.receiveItem(1L, 10L, 5, "RCP-IT2", 9L,
+                    com.cloudmart.wms.entity.InboundReceipt.QUALITY_PASSED,
+                    com.cloudmart.wms.entity.InboundReceipt.SOURCE_PURCHASE))
                 .isInstanceOf(BusinessException.class)
                 .extracting("code").isEqualTo("ITEM_NOT_FOUND");
         }
@@ -214,7 +222,9 @@ class InboundOrderServiceImplTest {
             when(inboundOrderItemMapper.receiveIncrement(anyLong(), org.mockito.ArgumentMatchers.anyInt()))
                     .thenReturn(1);
 
-            inboundOrderService.receiveItem(1L, 10L, 5);
+            inboundOrderService.receiveItem(1L, 10L, 5, "RCP-OK", 9L,
+                    com.cloudmart.wms.entity.InboundReceipt.QUALITY_PASSED,
+                    com.cloudmart.wms.entity.InboundReceipt.SOURCE_PURCHASE);
 
             // T19：收货流水落库 + 数量 CAS 累加 + 订单进度更新（不再整字段覆盖明细）
             verify(receiptMapper).insertIfAbsent(any(com.cloudmart.wms.entity.InboundReceipt.class));

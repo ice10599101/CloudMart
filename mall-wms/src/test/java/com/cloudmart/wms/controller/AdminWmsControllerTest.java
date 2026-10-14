@@ -160,21 +160,25 @@ class AdminWmsControllerTest {
     }
 
     @Test
-    @DisplayName("收货入库 - 成功返回信封")
+    @DisplayName("收货入库 - C19 统一请求体 + receiptId 幂等 + 操作者头")
     void receiveItem_ShouldReturnEnvelope() throws Exception {
         InboundOrderDTO dto = new InboundOrderDTO(1L, 1L, "PURCHASE", "PO-001", "RECEIVING",
                 100, 50, null, null, null, FIXED_TIME, List.of());
         InboundOrderVO vo = new InboundOrderVO(1L, "主仓", "供应商A", "RECEIVING", 100, FIXED_TIME);
 
-        given(inboundOrderService.receiveItem(1L, 10L, 50)).willReturn(dto);
+        given(inboundOrderService.receiveItem(1L, 10L, 50, "RCP-1001", 9L, "PASSED", "PURCHASE_INBOUND"))
+                .willReturn(dto);
         given(wmsConverter.fromInboundOrderDTO(dto)).willReturn(vo);
 
         mockMvc.perform(put("/admin/wms/inbound-orders/1/receive")
-                        .param("itemId", "10")
-                        .param("receivedQuantity", "50"))
+                        .header("X-User-Id", "9")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"itemId":10,"receivedQuantity":50,"receiptId":"RCP-1001","qualityResult":"PASSED"}"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("RECEIVING"));
+        verify(inboundOrderService).receiveItem(1L, 10L, 50, "RCP-1001", 9L, "PASSED", "PURCHASE_INBOUND");
     }
 
     @Test

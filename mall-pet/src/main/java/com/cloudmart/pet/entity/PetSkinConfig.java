@@ -46,7 +46,7 @@ public class PetSkinConfig {
     /** 稀有度：COMMON/RARE/EPIC */
     private String rarity;
 
-    private Integer priceStarlight;
+    private Integer priceCoins;
 
     private Integer requiredLevel;
 

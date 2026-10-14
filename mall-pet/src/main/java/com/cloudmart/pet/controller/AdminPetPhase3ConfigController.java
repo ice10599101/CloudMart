@@ -144,7 +144,7 @@ public class AdminPetPhase3ConfigController {
         config.setCategory(request.category());
         config.setIcon(request.icon() != null ? request.icon() : "🧸");
         config.setRarity(request.rarity() != null ? request.rarity() : "COMMON");
-        config.setPriceStarlight(orZero(request.priceStarlight()));
+        config.setPriceCoins(orZero(request.priceCoins()));
         config.setRequiredLevel(orOne(request.requiredLevel()));
         config.setComfort(orZero(request.comfort()));
         config.setEnabled(request.enabled() == null || request.enabled());
@@ -289,7 +289,7 @@ public class AdminPetPhase3ConfigController {
             @NotBlank String category,
             String icon,
             String rarity,
-            @Min(0) Integer priceStarlight,
+            @Min(0) Integer priceCoins,
             @Min(1) Integer requiredLevel,
             @Min(0) Integer comfort,
             Boolean enabled,

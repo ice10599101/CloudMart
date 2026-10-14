@@ -95,11 +95,6 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
         return buildStatus(pet, balanceQuietly(userId));
     }
 
-    @Override
-    public PetEvolutionVO evolve(Long userId) {
-        return evolve(userId, null, null);
-    }
-
     /**
      * R28 意图冻结进化（§5.3 编排：本方法是意图事务边界，调用方不得包更大事务）：
      * <ol>
@@ -118,8 +113,13 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
             throw new BusinessException(PetErrorCodes.PET_REQUEST_KEY_INVALID,
                     "缺少有效幂等键（16..128 ASCII），请重试一次由客户端生成");
         }
+        // C17：expectedFromStage 必填——阶段 CAS 必须由客户端显式确认，禁止隐式按当前阶段进化
+        if (expectedFromStage == null) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                    "缺少期望进化阶段，请刷新后重新确认");
+        }
         String payloadHash = dedupService.canonicalHash(userId, petId == null ? "BIND" : petId,
-                "EVOLVE", expectedFromStage == null ? "" : expectedFromStage);
+                "EVOLVE", expectedFromStage);
         PetRequestDedupService.ClaimResult claim = dedupService.claim(
                 userId, ENDPOINT_EVOLUTION, requestKey, payloadHash);
         switch (claim.outcome()) {
@@ -201,19 +201,12 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
                     "等级达到 Lv." + requiredLevel + " 才能进化哦");
         }
 
-        // 1. 幂等扣款：业务键冻结 fromStage+stageTo（同键重试收敛原单；UNKNOWN 按原请求重试）
-        int cost = orZero(next.getCostStarlight());
+        // 1. 幂等扣款：业务键冻结 fromStage+stageTo（同库同事务——失败直接抛异常回滚，同键重试收敛原单）
+        int cost = orZero(next.getCostCoins());
         if (cost > 0) {
-            PetEconomyService.WalletSettlement settlement = economyService.spend(
-                    userId, pet.getId(), BIZ_TYPE, pet.getId(), cost, snapshot(pet, next, fromStage, cost),
+            economyService.spend(
+                    userId, pet.getId(), BIZ_TYPE, cost, snapshot(pet, next, fromStage, cost),
                     userId, pet.getId(), fromStage, next.getStageTo());
-            if (settlement.isUnknown()) {
-                throw economyService.settlementPending();
-            }
-            if (!settlement.isCompleted()) {
-                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
-                        "星光扣款未完成: " + settlement.lastError());
-            }
         }
 
         // 2. 条件推进阶段（属性一次性提升 + 阶段 CAS + 可选皮肤解锁）
@@ -293,7 +286,7 @@ public class PetEvolutionServiceImpl implements PetEvolutionService {
                     null, null, null, null, null, null, null, false, "已达到最高进化阶段");
         }
         int requiredLevel = next.getRequiredLevel() != null ? next.getRequiredLevel() : 1;
-        int cost = orZero(next.getCostStarlight());
+        int cost = orZero(next.getCostCoins());
         boolean levelOk = pet.getLevel() >= requiredLevel;
         boolean balanceOk = balance == null || balance >= cost;
         boolean canEvolve = levelOk && balanceOk;
