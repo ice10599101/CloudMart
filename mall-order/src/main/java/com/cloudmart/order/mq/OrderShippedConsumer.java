@@ -18,7 +18,8 @@ import java.util.Map;
  * CAS 推进订单 PAID → SHIPPED——订单发货以「真实包裹出库」为唯一事实来源，
  * 替代管理端无包裹记录的直接发货路径。
  *
- * <p>Inbox 幂等 + 形状判定（payload 取 orderId，旧格式顶层兼容），失败重抛给 MQ 重试。</p>
+ * <p>C20：仅接受 v2 信封 + 强类型 {@link OrderShippedPayload}（orderId 在 payload 内）；
+ * 旧顶层 orderId 兼容已删，Inbox 幂等，失败重抛给 MQ 重试/死信。</p>
  */
 @Slf4j
 @Component
@@ -38,25 +39,14 @@ public class OrderShippedConsumer implements RocketMQListener<Map<String, Object
     @Override
     @Transactional
     public void onMessage(Map<String, Object> message) {
-        // LC03/T05：仅消费 v2 信封事件（强制 eventId）——WMS 生产者全经 Outbox 信封投递，
-        // 无 eventId 的旧格式回退分支已删除，非法形状拒绝消费，不绕过去重
-        String eventId = (String) message.get("eventId");
-        if (eventId == null || eventId.isBlank()) {
-            log.warn("[LC03] 发货事件缺少 eventId（旧格式），拒绝消费");
-            return;
+        EventEnvelope envelope = OrderEventMessages.requireEnvelope(message);
+        OrderShippedPayload payload = OrderEventMessages.payload(message, OrderShippedPayload.class);
+        if (payload.orderId() == null) {
+            throw new IllegalArgumentException("[WMS01] ORDER_SHIPPED 载荷缺少 orderId: " + envelope.eventId());
         }
-        EventEnvelope envelope = new EventEnvelope(
-                eventId,
-                (String) message.get("eventType"),
-                message.get("schemaVersion") == null ? 1 : ((Number) message.get("schemaVersion")).intValue(),
-                String.valueOf(message.get("aggregateId")),
-                message.get("aggregateVersion") == null ? 0 : ((Number) message.get("aggregateVersion")).longValue(),
-                message.get("occurredAt") == null ? 0 : ((Number) message.get("occurredAt")).longValue(),
-                (String) message.get("requestId"),
-                null);
-        Long orderId = extractOrderId(message);
+        Long orderId = payload.orderId();
         if (inboxService.beginConsume(CONSUMER, envelope) == InboxService.ConsumeDecision.SKIP) {
-            log.info("[WMS01] 发货事件已消费（幂等跳过） eventId={} orderId={}", eventId, orderId);
+            log.info("[WMS01] 发货事件已消费（幂等跳过） eventId={} orderId={}", envelope.eventId(), orderId);
             return;
         }
         try {
@@ -75,17 +65,5 @@ public class OrderShippedConsumer implements RocketMQListener<Map<String, Object
             // 已 SHIPPED（重放）幂等成功；CANCELLED/REFUNDING 等终态不推进
             log.info("[WMS01] 订单不处于 PAID，跳过发货推进 orderId={}", orderId);
         }
-    }
-
-    /** 形状判定：新格式 orderId 在 payload 内；旧格式在顶层 */
-    static Long extractOrderId(Map<String, Object> message) {
-        Object payload = message.get("payload");
-        if (payload instanceof Map<?, ?> payloadMap && payloadMap.get("orderId") instanceof Number n) {
-            return n.longValue();
-        }
-        if (message.get("orderId") instanceof Number n) {
-            return n.longValue();
-        }
-        throw new IllegalArgumentException("消息缺少 orderId（新旧形状均未命中）: " + message.keySet());
     }
 }

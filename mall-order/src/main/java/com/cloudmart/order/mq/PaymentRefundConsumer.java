@@ -47,7 +47,7 @@ public class PaymentRefundConsumer implements RocketMQListener<Map<String, Objec
             log.warn("[T02] 非法退款事件形状（event={}），拒绝消费", event);
             return;
         }
-        EventEnvelope envelope = PaymentResultConsumer.envelopeOf(message);
+        EventEnvelope envelope = OrderEventMessages.requireEnvelope(message);
         Long orderId = Long.valueOf(envelope.aggregateId());
         if (inboxService.beginConsume(CONSUMER, envelope) == InboxService.ConsumeDecision.SKIP) {
             log.info("[ASYNC01] 退款成功事件已消费（幂等跳过） eventId={} orderId={}", envelope.eventId(), orderId);

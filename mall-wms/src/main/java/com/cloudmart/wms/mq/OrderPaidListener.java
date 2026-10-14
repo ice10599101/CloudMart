@@ -11,6 +11,13 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
+/**
+ * 订单支付事件消费者：ORDER_PAID（order-events:paid）→ 自动生成拣货单。
+ *
+ * <p>C20：仅接受 Outbox v2 信封（eventId/eventType/schemaVersion 必填，orderId 在
+ * payload 内），旧顶层字段形状直接拒绝（MQ 重试→死信）。仓库由 WMS 侧分配：
+ * 载荷显式 warehouseId 时用载荷，否则取第一个可用仓库（业务默认，非消息兼容）。</p>
+ */
 @Component
 @RocketMQMessageListener(
         topic = RocketMQConfig.ORDER_TOPIC,
@@ -31,13 +38,9 @@ public class OrderPaidListener implements RocketMQListener<Map<String, Object>> 
         this.warehouseMapper = warehouseMapper;
     }
 
-    /**
-     * ASYNC-01 断点 3：形状判定——新格式为事件信封（orderId 在 payload 内），
-     * 旧格式 orderId 在顶层。处理失败必须重抛给 MQ 重试：此前 catch 后只记日志，
-     * 消息被 ACK，拣货单丢失且无恢复手段。
-     */
     @Override
     public void onMessage(Map<String, Object> message) {
+        requireEnvelope(message);
         Long orderId = extractOrderId(message);
         Long warehouseId = extractWarehouseIdOrDefault(message);
 
@@ -53,21 +56,32 @@ public class OrderPaidListener implements RocketMQListener<Map<String, Object>> 
         log.info("Pick order created for orderId={}", orderId);
     }
 
-    /** 形状判定：新格式 orderId 在 payload 内；旧格式在顶层 */
-    static Long extractOrderId(Map<String, Object> message) {
-        Object payload = message.get("payload");
-        if (payload instanceof Map<?, ?> payloadMap && payloadMap.get("orderId") instanceof Number n) {
-            return n.longValue();
+    /** C20：信封必填字段校验（缺 eventId/eventType/schemaVersion 即旧形状，拒绝）。 */
+    static void requireEnvelope(Map<String, Object> message) {
+        Object eventId = message.get("eventId");
+        Object eventType = message.get("eventType");
+        Object schemaVersion = message.get("schemaVersion");
+        if (!(eventId instanceof String s) || s.isBlank()
+                || !(eventType instanceof String t) || t.isBlank()
+                || !(schemaVersion instanceof Number)) {
+            throw new IllegalArgumentException(
+                    "ORDER_PAID 事件信封缺少 eventId/eventType/schemaVersion（旧形状拒绝消费）: " + message.keySet());
         }
-        if (message.get("orderId") instanceof Number n) {
-            return n.longValue();
-        }
-        throw new IllegalArgumentException("消息缺少 orderId（新旧形状均未命中）: " + message.keySet());
     }
 
-    /** WMS-01：仓库分配——事件未指定时取第一个可用仓库，不再硬编码 1 */
+    /** orderId 只从 payload 提取（旧顶层分支已删）。 */
+    static Long extractOrderId(Map<String, Object> message) {
+        if (message.get("payload") instanceof Map<?, ?> payload
+                && payload.get("orderId") instanceof Number n) {
+            return n.longValue();
+        }
+        throw new IllegalArgumentException("ORDER_PAID 事件 payload 缺少 orderId（旧形状拒绝消费）: " + message.keySet());
+    }
+
+    /** 仓库分配：载荷未指定时取第一个可用仓库（业务默认），无可用仓库抛错触发重试。 */
     Long extractWarehouseIdOrDefault(Map<String, Object> message) {
-        if (message.get("warehouseId") instanceof Number n) {
+        if (message.get("payload") instanceof Map<?, ?> payload
+                && payload.get("warehouseId") instanceof Number n) {
             return n.longValue();
         }
         var first = warehouseMapper.selectList(

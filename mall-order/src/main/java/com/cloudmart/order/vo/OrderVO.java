@@ -23,9 +23,7 @@ public record OrderVO(
     @Schema(description = "发货时间") LocalDateTime shippedAt,
     @Schema(description = "完成时间") LocalDateTime completedAt,
     @Schema(description = "T05：退款汇总状态（NONE/PARTIAL/FULL）") String refundStatus,
-    @Schema(description = "T05：已退累计金额") java.math.BigDecimal refundedAmount,
-    @Schema(description = "R12：优惠明细快照（满减/券；订单反查命中规则）")
-    List<com.cloudmart.order.dto.DiscountLine> discountLines
+    @Schema(description = "T05：已退累计金额") java.math.BigDecimal refundedAmount
 ) {
     /** 兼容旧 14 参签名 */
     public OrderVO(Long id, String orderNo, String status, BigDecimal totalAmount,
@@ -35,6 +33,6 @@ public record OrderVO(
                    LocalDateTime completedAt) {
         this(id, orderNo, status, totalAmount, payAmount, discountAmount, couponId,
                 receiverName, receiverPhone, receiverAddress, items, createdAt, shippedAt,
-                completedAt, "NONE", java.math.BigDecimal.ZERO, java.util.List.of());
+                completedAt, "NONE", java.math.BigDecimal.ZERO);
     }
 }

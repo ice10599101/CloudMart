@@ -95,22 +95,14 @@ class OrderServiceImplTest {
         compensationTaskService = mock(CompensationTaskService.class);
         wmsShippingFeignClient = mock(com.cloudmart.order.feign.WmsShippingFeignClient.class);
         refundFeignClient = mock(com.cloudmart.order.feign.RefundFeignClient.class);
-        com.cloudmart.order.feign.MarketingFeignClient marketingFeignClient =
-                mock(com.cloudmart.order.feign.MarketingFeignClient.class);
-        // R12：默认无满减命中
-        when(marketingFeignClient.matchTiered(any())).thenReturn(ApiResponse.ok(
-                new com.cloudmart.order.dto.TieredMatchResult(
-                        null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, false)));
         orderService = new OrderServiceImpl(orderMapper, orderItemMapper, orderConverter,
                 inventoryFeignClient, cartFeignClient, couponFeignClient, refundFeignClient,
                 new OrderCouponPolicy(couponFeignClient),
-                new QuoteDiscountCalculator(marketingFeignClient,
-                        new OrderCouponPolicy(couponFeignClient), new ObjectMapper()),
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.ProductFeignClient.class),
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.RiskFeignClient.class),
                 wmsShippingFeignClient,
                 org.mockito.Mockito.mock(com.cloudmart.order.feign.SeckillFeignClient.class),
-                marketingFeignClient,
+                org.mockito.Mockito.mock(com.cloudmart.order.feign.MarketingFeignClient.class),
                 afterSaleCaseService = mock(com.cloudmart.order.service.AfterSaleCaseService.class),
                 redisTemplate, orderEventProducer, outboxService, compensationTaskService,
                 new ObjectMapper(),

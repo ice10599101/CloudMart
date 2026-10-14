@@ -74,8 +74,6 @@ public class OrderServiceImpl implements OrderService {
     private final CouponFeignClient couponFeignClient;
     private final com.cloudmart.order.feign.RefundFeignClient refundFeignClient;
     private final OrderCouponPolicy couponPolicy;
-    /** R12：统一优惠计算器（满减→券），报价/下单同一权威 */
-    private final QuoteDiscountCalculator discountCalculator;
     private final com.cloudmart.order.feign.ProductFeignClient productFeignClient;
     private final com.cloudmart.order.feign.RiskFeignClient riskFeignClient;
     private final com.cloudmart.order.feign.WmsShippingFeignClient wmsShippingFeignClient;
@@ -156,21 +154,17 @@ public class OrderServiceImpl implements OrderService {
             totalAmount = totalAmount.add(item.price().multiply(BigDecimal.valueOf(item.quantity())));
         }
 
-        // R12：统一优惠管线（商品金额→满减→券→应付），与报价同一 QuoteDiscountCalculator；
-        // 报价单在 verifyQuoteFreshness 已复核一致，此处落订单优惠快照
-        QuoteDiscountCalculator.Result discountResult =
-                discountCalculator.calculate(userId, totalAmount, request.couponId());
+        BigDecimal discountAmount = BigDecimal.ZERO;
         UserCouponDTO validatedCoupon = null;
         if (request.couponId() != null) {
-            // 券预占需要券 DTO（calculator 内部已校验一次，这里取同一权威结果）
             validatedCoupon = validateAndGetCoupon(request.couponId(), userId, totalAmount);
+            discountAmount = calculateDiscount(validatedCoupon, totalAmount);
         }
 
         order.setTotalAmount(totalAmount);
-        order.setDiscountAmount(discountResult.totalDiscount());
-        order.setDiscountLines(discountResult.linesJson());
-        // 统一管线已做下限保护，禁止负数订单
-        order.setPayAmount(discountResult.payAmount());
+        order.setDiscountAmount(discountAmount);
+        // COUPON-01：应付金额下限保护，禁止负数订单
+        order.setPayAmount(totalAmount.subtract(discountAmount).max(BigDecimal.ZERO));
         order.setCouponId(request.couponId());
         order.setActivityId(request.activityId());
         // T03：幂等三元组落库（uk(user_id,request_key) 兜底并发；quote_id uk 兜底一报价一单）
@@ -1353,18 +1347,13 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
         Long orderId = order.getId();
-        // R11：先落零元标记（与推进同事务），对账据此识别零元凭证
-        order.setZeroPay(true);
-        orderMapper.update(null, new LambdaUpdateWrapper<Order>()
-                .eq(Order::getId, orderId)
-                .set(Order::getZeroPay, true));
         outboxService.record(new EventEnvelope(
                 "zero-pay-" + orderId, "ORDER_ZERO_PAY", 1, String.valueOf(orderId), 1,
                 System.currentTimeMillis(), null,
                 "{\"orderId\":" + orderId + ",\"payAmount\":\"0.00\",\"currency\":\"CNY\"}"));
         // 内部零元结算无渠道支付单：用确定性内部引用满足支付事实非空契约（R10）
         applyPaymentSucceeded(orderId, "0.00", "CNY", "ZERO-PAY-" + orderId);
-        log.info("[T18/R11] 零元订单已直接结算（ZERO_PAY） orderId={}", orderId);
+        log.info("[T18] 零元订单已直接结算（ZERO_PAY） orderId={}", orderId);
     }
 
     /** T03：报价新鲜度复核——价格/上架状态/优惠券重算；任一变化抛 QUOTE_STALE（409） */
@@ -1396,35 +1385,11 @@ public class OrderServiceImpl implements OrderService {
                         "报价中商品价格已变化: SKU " + item.getSkuId() + "，请重新报价");
             }
         }
-        // R12：统一优惠重算（商品金额→满减→券→应付），与报价展示同一计算器——
-        // 活动过期/下架/规则变化、券状态/折扣变化、优惠总额或应付不一致均 QUOTE_STALE
-        BigDecimal goodsTotal = quoteItems.stream()
-                .map(i -> i.getSubtotal() == null ? BigDecimal.ZERO : i.getSubtotal())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        QuoteDiscountCalculator.Result fresh =
-                discountCalculator.calculate(userId, goodsTotal, quote.getCouponId());
-        if (fresh.totalDiscount().compareTo(
-                quote.getDiscountAmount() == null ? BigDecimal.ZERO : quote.getDiscountAmount()) != 0
-                || fresh.payAmount().compareTo(
-                        quote.getPayAmount() == null ? goodsTotal : quote.getPayAmount()) != 0) {
-            throw new BusinessException("QUOTE_STALE", "优惠活动或优惠券已变化，请重新确认报价");
-        }
-        // 命中的活动/规则/券身份也必须一致（金额恰好相同但换了活动也算变化，要求重新确认）
-        List<com.cloudmart.order.dto.DiscountLine> staleLines =
-                discountCalculator.readLines(quote.getDiscountLines());
-        if (staleLines.size() != fresh.lines().size()) {
-            throw new BusinessException("QUOTE_STALE", "优惠明细已变化，请重新确认报价");
-        }
-        for (int i = 0; i < staleLines.size(); i++) {
-            com.cloudmart.order.dto.DiscountLine old = staleLines.get(i);
-            com.cloudmart.order.dto.DiscountLine now = fresh.lines().get(i);
-            boolean identityChanged = !java.util.Objects.equals(old.type(), now.type())
-                    || !java.util.Objects.equals(old.promotionId(), now.promotionId())
-                    || !java.util.Objects.equals(old.matchedRuleId(), now.matchedRuleId())
-                    || !java.util.Objects.equals(old.couponId(), now.couponId())
-                    || old.amount().compareTo(now.amount()) != 0;
-            if (identityChanged) {
-                throw new BusinessException("QUOTE_STALE", "优惠活动或优惠券已变化，请重新确认报价");
+        if (quote.getCouponId() != null) {
+            UserCouponDTO coupon = couponPolicy.validate(quote.getCouponId(), userId, quote.getTotalAmount());
+            BigDecimal freshDiscount = couponPolicy.calculate(coupon, quote.getTotalAmount());
+            if (freshDiscount.compareTo(quote.getDiscountAmount()) != 0) {
+                throw new BusinessException("QUOTE_STALE", "优惠券可用状态或折扣已变化，请重新报价");
             }
         }
     }
@@ -1465,8 +1430,7 @@ public class OrderServiceImpl implements OrderService {
                         .orderByAsc(Order::getId));
         var records = result.getRecords().stream()
                 .map(o -> new com.cloudmart.order.dto.OrderInternalInfoDTO(
-                        o.getId(), o.getUserId(), o.getStatus(), o.getPayAmount(),
-                        Boolean.TRUE.equals(o.getZeroPay())))
+                        o.getId(), o.getUserId(), o.getStatus(), o.getPayAmount()))
                 .toList();
         return java.util.Map.entry(records, result.getTotal());
     }
@@ -1509,13 +1473,18 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public com.cloudmart.order.dto.ReviewEligibilityItem findReviewEligibility(Long userId, Long orderItemId) {
-        com.cloudmart.order.entity.OrderItem item =
-                orderMapper.findCompletedOrderItemForReview(userId, orderItemId);
+        OrderItem item = orderItemMapper.selectById(orderItemId);
         if (item == null) {
             return null;
         }
+        Order order = orderMapper.selectById(item.getOrderId());
+        // R08：行属主校验 + 订单必须 COMPLETED——防伪造 orderItemId 与跨用户查询
+        if (order == null || !userId.equals(order.getUserId())
+                || !"COMPLETED".equals(order.getStatus())) {
+            return null;
+        }
         return new com.cloudmart.order.dto.ReviewEligibilityItem(
-                item.getId(), item.getOrderId(), item.getProductId(), item.getSkuId(),
+                item.getId(), order.getId(), item.getProductId(), item.getSkuId(),
                 item.getProductName(), item.getSkuAttributes());
     }
 
@@ -1535,8 +1504,7 @@ public class OrderServiceImpl implements OrderService {
         if (order == null) {
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
         }
-        return new com.cloudmart.order.dto.OrderInternalInfoDTO(order.getId(), order.getUserId(),
-                order.getStatus(), order.getPayAmount(), Boolean.TRUE.equals(order.getZeroPay()));
+        return new com.cloudmart.order.dto.OrderInternalInfoDTO(order.getId(), order.getUserId(), order.getStatus(), order.getPayAmount());
     }
 
     /**

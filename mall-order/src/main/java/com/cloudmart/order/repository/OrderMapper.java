@@ -2,7 +2,6 @@ package com.cloudmart.order.repository;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.cloudmart.order.entity.Order;
-import com.cloudmart.order.entity.OrderItem;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -23,17 +22,6 @@ public interface OrderMapper extends BaseMapper<Order> {
             + "ORDER BY o.id DESC LIMIT 50")
     List<Long> findCompletedOrderIdsWithSku(@Param("userId") Long userId,
                                             @Param("skuId") Long skuId);
-
-    /**
-     * R08：订单行级评价资格——行属主=userId 且订单 COMPLETED 时返回行事实（防伪造/交叉错配）。
-     * 订单归属/完成状态/行身份在同一条 SQL 内核验；不存在返回 null（未购买/未完成/非本人）。
-     */
-    @Select("SELECT oi.* FROM order_items oi "
-            + "JOIN orders o ON oi.order_id = o.id "
-            + "WHERE oi.id = #{orderItemId} AND o.user_id = #{userId} AND o.status = 'COMPLETED' "
-            + "LIMIT 1")
-    OrderItem findCompletedOrderItemForReview(@Param("userId") Long userId,
-                                              @Param("orderItemId") Long orderItemId);
 
     /** 心愿关联商品闭环（§6）：校验订单属于该用户、已完成且包含该商品的条目 */
     @Select("SELECT COUNT(1) FROM orders o "

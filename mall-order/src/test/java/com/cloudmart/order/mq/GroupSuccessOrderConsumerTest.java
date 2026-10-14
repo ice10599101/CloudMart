@@ -21,25 +21,30 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * T10 成团订单消费者测试：稳定成员订单键（重复消息幂等）、旧形状消息拒绝、
- * 失败分类处理（业务失败留痕 ACK / 系统异常重抛）。
+ * T10/C20 成团订单消费者测试：稳定成员订单键（重复消息幂等）、v2 信封强制（旧形状拒绝）、
+ * 地址只认参团快照（不回当前默认地址）、失败分类处理（业务失败留痕 / 系统异常重抛）。
  */
 class GroupSuccessOrderConsumerTest {
 
     private OrderService orderService;
     private OutboxService outboxService;
-    private com.cloudmart.order.feign.UserAddressFeignClient userAddressFeignClient;
     private GroupSuccessOrderConsumer consumer;
 
     @BeforeEach
     void setUp() {
         orderService = mock(OrderService.class);
         outboxService = mock(OutboxService.class);
-        userAddressFeignClient = mock(com.cloudmart.order.feign.UserAddressFeignClient.class);
-        when(userAddressFeignClient.getDefaultAddress(any())).thenReturn(
-                com.cloudmart.common.api.ApiResponse.ok(new com.cloudmart.order.dto.UserDefaultAddressDTO(
-                        1L, "张三", "13800138000", "测试省", "测试市", "测试区", "测试路1号", true)));
-        consumer = new GroupSuccessOrderConsumer(orderService, outboxService, userAddressFeignClient);
+        consumer = new GroupSuccessOrderConsumer(orderService, outboxService);
+    }
+
+    private Map<String, Object> member(long userId) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("userId", userId);
+        m.put("receiverName", "张三");
+        m.put("receiverPhone", "13800138000");
+        m.put("receiverAddress", "测试省测试市测试区测试路1号");
+        m.put("orderTaskStatus", null);
+        return m;
     }
 
     private Map<String, Object> message(String eventId) {
@@ -48,16 +53,21 @@ class GroupSuccessOrderConsumerTest {
         payload.put("activityId", 2001L);
         payload.put("productId", 4001L);
         payload.put("skuId", 5001L);
+        payload.put("groupPrice", "9.90");
         payload.put("memberUserIds", List.of(1001L, 1002L, 1003L));
+        payload.put("members", List.of(member(1001L), member(1002L), member(1003L)));
         Map<String, Object> message = new HashMap<>();
-        message.put("eventId", eventId);
-        message.put("eventType", "GROUP_SUCCESS");
+        if (eventId != null) {
+            message.put("eventId", eventId);
+            message.put("eventType", "GROUP_SUCCESS");
+            message.put("schemaVersion", 1);
+        }
         message.put("payload", payload);
         return message;
     }
 
     @Test
-    @DisplayName("T10：requestId = group-{id}-{userId} 稳定成员订单键贯穿建单")
+    @DisplayName("T10：requestId = group-{id}-{userId} 稳定成员订单键贯穿建单；收货人取参团快照")
     void onMessage_success_stableMemberRequestKey() {
         OrderDTO order = mock(OrderDTO.class);
         when(order.id()).thenReturn(900L);
@@ -73,20 +83,57 @@ class GroupSuccessOrderConsumerTest {
         assertThat(sent.get(2).requestId()).isEqualTo("group-3001-1003");
         assertThat(sent.get(0).groupOrderId()).isEqualTo(3001L);
         assertThat(sent.get(0).activityId()).isEqualTo(2001L);
-        // T10：系统单必须携带收货人（默认地址解析）
+        // C20：系统单收货人来自参团地址快照（不再消费时查默认地址）
         assertThat(sent.get(0).receiverName()).isEqualTo("张三");
         assertThat(sent.get(0).receiverAddress()).isEqualTo("测试省测试市测试区测试路1号");
         verify(outboxService, never()).record(any());
     }
 
     @Test
-    @DisplayName("T10：旧形状消息（无 eventId）拒绝消费")
+    @DisplayName("C20：旧形状消息（无 eventId/schemaVersion）抛错拒绝（交 MQ 重试/死信，不再静默 ACK）")
     void onMessage_missingEventId_rejected() {
         Map<String, Object> message = message(null);
 
+        assertThatThrownBy(() -> consumer.onMessage(message))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("旧形状");
+        verify(orderService, never()).createOrder(any(), any(CreateOrderRequest.class));
+    }
+
+    @Test
+    @DisplayName("C20：memberUserIds 有成员但 members 缺该成员快照 → 整条拒绝（不偷偷用默认地址）")
+    void onMessage_missingMemberSnapshot_rejected() {
+        Map<String, Object> message = message("evt-1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) message.get("payload");
+        payload.put("members", List.of(member(1001L), member(1002L)));
+
+        assertThatThrownBy(() -> consumer.onMessage(message))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("成员地址快照");
+    }
+
+    @Test
+    @DisplayName("T11：成员快照标记 ABSENT_ADDRESS → 补充地址失败事件，不建单，继续其余成员")
+    void onMessage_absentAddress_recordsFailedEvent() {
+        OrderDTO order = mock(OrderDTO.class);
+        when(order.id()).thenReturn(900L);
+        Map<String, Object> absent = member(1002L);
+        absent.put("orderTaskStatus", "ABSENT_ADDRESS");
+        absent.put("receiverAddress", null);
+        Map<String, Object> message = message("evt-1");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) message.get("payload");
+        payload.put("members", List.of(member(1001L), absent, member(1003L)));
+        when(orderService.createOrder(eq(1001L), any(CreateOrderRequest.class))).thenReturn(order);
+        when(orderService.createOrder(eq(1003L), any(CreateOrderRequest.class))).thenReturn(order);
+
         consumer.onMessage(message);
 
-        verify(orderService, never()).createOrder(any(), any(CreateOrderRequest.class));
+        verify(orderService, never()).createOrder(eq(1002L), any(CreateOrderRequest.class));
+        verify(orderService, times(2)).createOrder(any(), any(CreateOrderRequest.class));
+        verify(outboxService).record(argThat(e -> "GROUP_ORDER_FAILED".equals(e.eventType())
+                && "group-order-failed-3001-1002".equals(e.eventId())));
     }
 
     @Test
@@ -94,7 +141,6 @@ class GroupSuccessOrderConsumerTest {
     void onMessage_partialBusinessFailure_recordsFailedEvents() {
         OrderDTO order = mock(OrderDTO.class);
         when(order.id()).thenReturn(900L);
-        // 成员 1002 建单业务失败（如库存不足），其余成功
         when(orderService.createOrder(eq(1002L), any(CreateOrderRequest.class)))
                 .thenThrow(new BusinessException("STOCK_INSUFFICIENT", "商品库存不足"));
         when(orderService.createOrder(eq(1001L), any(CreateOrderRequest.class))).thenReturn(order);

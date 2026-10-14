@@ -104,11 +104,6 @@ class OrderServiceTest {
         marketingFeignClient = mock(com.cloudmart.order.feign.MarketingFeignClient.class);
         lenient().when(refundFeignClient.createRefund(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
                 java.util.Map.of("refundNo", "RF100", "status", "SUCCEEDED")));
-        // R12：默认无满减活动命中（个别用例按场景覆盖此桩）
-        lenient().when(marketingFeignClient.matchTiered(any())).thenReturn(
-                com.cloudmart.common.api.ApiResponse.ok(
-                        new com.cloudmart.order.dto.TieredMatchResult(
-                                null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, false)));
 
         orderService = new OrderServiceImpl(
                 orderMapper, orderItemMapper, orderConverter,
@@ -116,8 +111,6 @@ class OrderServiceTest {
                 couponFeignClient,
                 refundFeignClient,
                 new OrderCouponPolicy(couponFeignClient),
-                new QuoteDiscountCalculator(marketingFeignClient,
-                        new OrderCouponPolicy(couponFeignClient), new ObjectMapper()),
                 productFeignClient,
                 riskFeignClient,
                 wmsShippingFeignClient,
