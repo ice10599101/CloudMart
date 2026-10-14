@@ -60,11 +60,11 @@ spring:
       minimum-idle: 2
   flyway:
     enabled: true
-    baseline-on-migrate: true
-    baseline-version: 1
+    baseline-on-migrate: false
     locations: classpath:db/migration
     clean-disabled: true
-    validate-on-migrate: false
+    validate-on-migrate: true
+    ignore-migration-patterns: []
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
@@ -138,7 +138,7 @@ cloudmart:
       - prefix: /admin
         issuers: [mall-admin]
         scope: inventory:admin
-      - prefix: /inventory/init
+      - prefix: /internal/inventory/init
         issuers: [mall-product]
         scope: inventory:admin
       - prefix: /internal

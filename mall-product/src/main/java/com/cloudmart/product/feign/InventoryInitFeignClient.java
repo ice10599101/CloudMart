@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  * 建立库存档案，建档失败则发布失败（防止出现无库存档案的可售商品）。
  * 出站服务令牌按 {@code outbound-scopes[mall-inventory]=inventory:admin} 签名。
  */
-@FeignClient(contextId = "productInventoryFeignClient", name = "mall-inventory", path = "/inventory",
+@FeignClient(contextId = "productInventoryFeignClient", name = "mall-inventory", path = "/internal/inventory",
         fallbackFactory = InventoryInitFeignClientFallbackFactory.class)
 public interface InventoryInitFeignClient {
 

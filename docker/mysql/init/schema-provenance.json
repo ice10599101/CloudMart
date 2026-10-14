@@ -1,0 +1,13 @@
+{
+  "nacos": {
+    "image": "nacos/nacos-server@sha256:d6b3087bc2302c2b49c875e1c5ad8c916fc10696ceb355be56cffd715e178d81",
+    "path": "/home/nacos/conf/mysql-schema.sql",
+    "sourceSha256": "00f3148b049cc6c5cbfbbb8c92ffa608076d3ba1b0bc3ef78d4660d3caf0de5b"
+  },
+  "xxl-job": {
+    "source": "https://raw.githubusercontent.com/xuxueli/xxl-job/3.4.0-release/doc/db/tables_xxl_job.sql",
+    "version": "3.4.0-release",
+    "sourceSha256": "946bb73716e3ae9fd1c2d9b5083e8d28c84c3b9e0f11b44a31b1b82bb52f9cba",
+    "excluded": "upstream sample groups, sample jobs, sample API key, default user; retain schema and CloudMart executor/lock only"
+  }
+}

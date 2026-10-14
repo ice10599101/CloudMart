@@ -64,11 +64,11 @@ spring:
       minimum-idle: 2
   flyway:
     enabled: true
-    baseline-on-migrate: true
-    baseline-version: 1
+    baseline-on-migrate: false
     locations: classpath:db/migration
     clean-disabled: true
-    validate-on-migrate: false
+    validate-on-migrate: true
+    ignore-migration-patterns: []
 
 mybatis-plus:
   global-config:

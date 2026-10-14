@@ -43,22 +43,17 @@ CLOUDMART_SERVICE_TOKEN_SECRET=<≥32 字节随机串>
 CLOUDMART_SECURITY_JWKS_URI=<mall-auth JWKS 地址>
 ```
 
-## Flyway 迁移门禁（T26 第 4 点）
+## Flyway 基线与迁移门禁（C26）
 
-CI `migration-gate` job 对全部 19 个服务的迁移目录按**服务独立库**执行两条路径：
-
-1. **空库全量**：V1 → head 一次 migrate 通过（validate-on-migrate 开启）。
-2. **存量续跑**：先 migrate 到次末版本模拟存量库，再续跑到 head——
-   等价真实发布的滚动升级路径。
-
-本地模拟同一验证（需 Docker）：
+19 个业务库各有独立的 `V1__baseline.sql`，之后从 V2 正常增量。切换、重建、来源证据和保护说明见 [DATABASE_BASELINE.md](DATABASE_BASELINE.md)。
 
 ```bash
-docker run --rm --network host -v "$PWD/mall-wish/src/main/resources/db/migration":/flyway/sql:ro   flyway/flyway:11-alpine   -url="jdbc:mysql://127.0.0.1:3306/gate_mall_wish?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true"   -user=root -password=<pwd> migrate
+python3 scripts/db-baseline/run.py verify
 ```
 
-规则：迁移提交后禁止修改历史文件（checksum 会破坏存量库校验），修复必须新增
-迁移；门禁失败禁止用 `flyway repair` 掩盖。
+该命令在独立的新 MySQL 中执行全部迁移，核对表/索引/约束/种子摘要、菜单和权限种子，并验证第二次启动无迁移且 validate 通过。它还验证 checksum 漂移、文件缺失、自动 clean 与非空无历史库均被拒绝。CI 执行相同命令；出现 V2+ 后同时执行存量续跑路径和代表数据断言。
+
+已启用基线的数据库禁止改写历史 V1；修复须增加迁移。不能在旧库中替换 V1 后 repair，也不能关闭 validate 或忽略 missing/future 以启动。
 
 ## 约定
 

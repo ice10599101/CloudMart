@@ -6,12 +6,12 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wish.constant.WishErrorCodes;
 import com.cloudmart.wish.entity.WishBadge;
-import com.cloudmart.wish.entity.WishPetOperation;
+import com.cloudmart.wish.entity.WishStarlightOperation;
 import com.cloudmart.wish.entity.WishResourceLog;
 import com.cloudmart.wish.entity.WishUserStat;
 import com.cloudmart.wish.enums.ResourceLogSource;
 import com.cloudmart.wish.enums.ResourceLogType;
-import com.cloudmart.wish.repository.WishPetOperationMapper;
+import com.cloudmart.wish.repository.WishStarlightOperationMapper;
 import com.cloudmart.wish.repository.WishResourceLogMapper;
 import com.cloudmart.wish.repository.WishUserStatMapper;
 import com.cloudmart.wish.service.BadgeService;
@@ -89,7 +89,7 @@ public class UserStatServiceImpl implements UserStatService {
 
     private final WishUserStatMapper wishUserStatMapper;
     private final WishResourceLogMapper wishResourceLogMapper;
-    private final WishPetOperationMapper wishPetOperationMapper;
+    private final WishStarlightOperationMapper wishStarlightOperationMapper;
     private final BadgeService badgeService;
 
     @Override
@@ -251,8 +251,8 @@ public class UserStatServiceImpl implements UserStatService {
 
     @Override
     public PetWalletOperationVO findOperation(String operationId) {
-        WishPetOperation operation = wishPetOperationMapper.selectOne(
-                new LambdaQueryWrapper<WishPetOperation>().eq(WishPetOperation::getOperationId, operationId));
+        WishStarlightOperation operation = wishStarlightOperationMapper.selectOne(
+                new LambdaQueryWrapper<WishStarlightOperation>().eq(WishStarlightOperation::getOperationId, operationId));
         return operation != null ? toOperationVo(operation, true) : null;
     }
 
@@ -271,7 +271,7 @@ public class UserStatServiceImpl implements UserStatService {
         }
         String digest = requestDigest(userId, type, amount, source, refId);
 
-        WishPetOperation operation = new WishPetOperation();
+        WishStarlightOperation operation = new WishStarlightOperation();
         operation.setOperationId(operationId);
         operation.setUserId(userId);
         operation.setOperationType(type.name());
@@ -282,9 +282,9 @@ public class UserStatServiceImpl implements UserStatService {
         operation.setRefId(refId);
         operation.setRequestDigest(digest);
         try {
-            wishPetOperationMapper.insert(operation);
+            wishStarlightOperationMapper.insert(operation);
         } catch (DuplicateKeyException duplicate) {
-            WishPetOperation existing = requireOperation(operationId);
+            WishStarlightOperation existing = requireOperation(operationId);
             if (!existing.getRequestDigest().equals(digest)) {
                 throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT,
                         "操作键已存在但请求内容不同，请使用新操作键");
@@ -304,7 +304,7 @@ public class UserStatServiceImpl implements UserStatService {
         }
         operation.setCreditedAmount(credited);
         operation.setBalanceAfter(balanceAfter);
-        wishPetOperationMapper.updateById(operation);
+        wishStarlightOperationMapper.updateById(operation);
         log.debug("宠物星光幂等交易完成, operationId={}, type={}, amount={}, credited={}, duplicate=false",
                 operationId, type, amount, credited);
         return toOperationVo(operation, false);
@@ -320,7 +320,7 @@ public class UserStatServiceImpl implements UserStatService {
         }
         String digest = refundDigest(userId, amount, originalOperationId);
 
-        WishPetOperation operation = new WishPetOperation();
+        WishStarlightOperation operation = new WishStarlightOperation();
         operation.setOperationId(refundOperationId);
         operation.setUserId(userId);
         operation.setOperationType(ResourceLogType.EARN.name());
@@ -332,9 +332,9 @@ public class UserStatServiceImpl implements UserStatService {
         operation.setRequestDigest(digest);
         operation.setRefundOfOperationId(originalOperationId);
         try {
-            wishPetOperationMapper.insert(operation);
+            wishStarlightOperationMapper.insert(operation);
         } catch (DuplicateKeyException duplicate) {
-            WishPetOperation existing = requireOperation(refundOperationId);
+            WishStarlightOperation existing = requireOperation(refundOperationId);
             if (!existing.getRequestDigest().equals(digest)) {
                 throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT,
                         "退款操作键已存在但内容不同");
@@ -346,9 +346,9 @@ public class UserStatServiceImpl implements UserStatService {
 
         // 原单校验（TX-04）：仅限本人已实扣的 SPEND 单全额退款
         // FOR UPDATE 锁原单：并发退款（不同 refundOperationId）在累计校验处串行化，防超退
-        WishPetOperation original = wishPetOperationMapper.selectOne(
-                new LambdaQueryWrapper<WishPetOperation>()
-                        .eq(WishPetOperation::getOperationId, originalOperationId)
+        WishStarlightOperation original = wishStarlightOperationMapper.selectOne(
+                new LambdaQueryWrapper<WishStarlightOperation>()
+                        .eq(WishStarlightOperation::getOperationId, originalOperationId)
                         .last("FOR UPDATE"));
         if (original == null) {
             throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT, "退款原单不存在");
@@ -367,9 +367,9 @@ public class UserStatServiceImpl implements UserStatService {
             throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT,
                     "首版仅支持按原单实扣金额全额退款");
         }
-        int refunded = wishPetOperationMapper.selectList(new LambdaQueryWrapper<WishPetOperation>()
-                        .eq(WishPetOperation::getRefundOfOperationId, originalOperationId)
-                        .eq(WishPetOperation::getUserId, userId))
+        int refunded = wishStarlightOperationMapper.selectList(new LambdaQueryWrapper<WishStarlightOperation>()
+                        .eq(WishStarlightOperation::getRefundOfOperationId, originalOperationId)
+                        .eq(WishStarlightOperation::getUserId, userId))
                 .stream().mapToInt(op -> op.getCreditedAmount() == null ? 0 : op.getCreditedAmount()).sum();
         if (refunded + amount > originalCredited) {
             throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT,
@@ -390,7 +390,7 @@ public class UserStatServiceImpl implements UserStatService {
                         .set(WishUserStat::getLastActiveAt, LocalDateTime.now()));
         operation.setCreditedAmount(amount);
         operation.setBalanceAfter(balanceAfter);
-        wishPetOperationMapper.updateById(operation);
+        wishStarlightOperationMapper.updateById(operation);
         insertResourceLog(userId, amount, ResourceLogType.EARN, ResourceLogSource.PET_REFUND,
                 original.getRefId(), balanceAfter);
         log.info("宠物星光退款完成, refundOperationId={}, originalOperationId={}, userId={}, amount={}",
@@ -410,9 +410,9 @@ public class UserStatServiceImpl implements UserStatService {
         }
     }
 
-    private WishPetOperation requireOperation(String operationId) {
-        WishPetOperation existing = wishPetOperationMapper.selectOne(
-                new LambdaQueryWrapper<WishPetOperation>().eq(WishPetOperation::getOperationId, operationId));
+    private WishStarlightOperation requireOperation(String operationId) {
+        WishStarlightOperation existing = wishStarlightOperationMapper.selectOne(
+                new LambdaQueryWrapper<WishStarlightOperation>().eq(WishStarlightOperation::getOperationId, operationId));
         if (existing == null) {
             // 唯一键冲突但行不可读：并发事务回滚导致，按可重试冲突返回，禁止当作新请求重放
             throw new BusinessException(WishErrorCodes.WISH_OPERATION_CONFLICT,
@@ -432,7 +432,7 @@ public class UserStatServiceImpl implements UserStatService {
         }
     }
 
-    private PetWalletOperationVO toOperationVo(WishPetOperation operation, boolean duplicate) {
+    private PetWalletOperationVO toOperationVo(WishStarlightOperation operation, boolean duplicate) {
         return new PetWalletOperationVO(operation.getOperationId(), operation.getOperationType(),
                 operation.getAmount(), operation.getCreditedAmount(), operation.getBalanceAfter(),
                 operation.getSource(), operation.getRefId(), "COMPLETED", duplicate);

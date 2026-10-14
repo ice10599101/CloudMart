@@ -106,7 +106,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
                 "spring.cloud.nacos.discovery.enabled=false",
                 "spring.cloud.sentinel.enabled=false",
                 "spring.flyway.clean-disabled=true",
-                "spring.flyway.validate-on-migrate=false",
+                "spring.flyway.validate-on-migrate=true",
                 // 并发用例：2 工作线程 + 事务持有连接，连接池需放宽
                 "spring.datasource.hikari.maximum-pool-size=30"
         })

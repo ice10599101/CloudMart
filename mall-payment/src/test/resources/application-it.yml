@@ -16,4 +16,5 @@ spring:
       connection-timeout: 10000
   flyway:
     clean-disabled: true
-    validate-on-migrate: false
+    validate-on-migrate: true
+    ignore-migration-patterns: []

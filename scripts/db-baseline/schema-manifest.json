@@ -1,0 +1,1560 @@
+{
+  "mall-admin": {
+    "admin_config": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "8f6f907d7c92e44ae1bea40d5fdf4088e89c798da80f73dfc9c21fc14b2c4d39"
+    },
+    "admin_dept": {
+      "rows": 1,
+      "seedSha256": "bd87216eb42609781f4a6649c67e21a0e89ccb8c1e9969ef75ab666234a36712",
+      "ddlSha256": "19a61b7e00a018391a541c481667c79758b4bb0f88c252d7ffa741783ba75f7c"
+    },
+    "admin_dict_data": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "bdf0a36b7c57ffc235cf74c7974d4f2a9800b0bfe4bcec16bb394de7368af642"
+    },
+    "admin_dict_type": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "9d5ae70bbf67d70a0b8f1e821f791ddbcb346cd6dd5d9d01edd7ec8f5b3ce455"
+    },
+    "admin_login_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b208edd13a0d98dd00d6feabe98d9b4ce4ad7c01dc9fec0f0390958af1cef24e"
+    },
+    "admin_menu": {
+      "rows": 265,
+      "seedSha256": "1f3fd0d476c67406946be2cbcae6ab6812f0f061bb0250c144483b9b416e87b7",
+      "ddlSha256": "cc81a24f566ccbf8b9a999054499368df50f94d1955788b47136b1da5dc8619c"
+    },
+    "admin_notice": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "96079f2f60f1c3ab5d7458f0bb80fbf4e57b12a1c3ccf18bbb9c1aba1a0f43de"
+    },
+    "admin_notice_read": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "fd40715fd192a2be62770bcbaf0e5c3fe218a0fa28876b472ce0e0408547f36d"
+    },
+    "admin_oper_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "f93015da3c8e78ea579b4e576916ed3b2f9d7ea611143d44c2d81f08c179eb48"
+    },
+    "admin_post": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "d37d552ef1f8f92aa6e29ee4ff220ba1da7d5aa6531921d0c18c6f6eb5cb76ff"
+    },
+    "admin_role": {
+      "rows": 6,
+      "seedSha256": "098dfde1a8079e79803e6c2826fefa2d8b5f8abc89ea08bdfa3b4ab254cb2235",
+      "ddlSha256": "fe6552edc78b410ff3d8aae9154a172b87abfe8fcef89f2358f43817ef1c2a83"
+    },
+    "admin_role_dept": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "7b1193828787ccc092c5046b07bcef4df51751f79931975d63206eead824b9b2"
+    },
+    "admin_role_menu": {
+      "rows": 261,
+      "seedSha256": "a603cd12c67d9da24ad2b69214d425ffb96e8d643d304d59ec28341bf7833d25",
+      "ddlSha256": "d79705205ebab9865e01f708e1dcccb8cc86c70a95e5007040212aed6b1005ee"
+    },
+    "admin_user": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e79cd65e02a523c7955b6cfa8ae94fbae78c0f64a1f2657110fccb059a5f000f"
+    },
+    "admin_user_post": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "feb0f7edc44a9828197164faff0c59cc4516b13e4edb199554d3a6e0dceab173"
+    },
+    "admin_user_role": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0e929b1c1d7ff982f663dbc23ba94a0046e3ae29f6e8fd2ed87a2340d9cdc898"
+    }
+  },
+  "mall-cart": {
+    "cart_items": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "9e92522939361df823760b6484f8efd3a819b3b25095d9f9f97310d4c30d4054"
+    }
+  },
+  "mall-community": {
+    "badges": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "553535c382173a8674157d9d778fe941aac53b5959aaa1c4ddfea1a634e8ec68"
+    },
+    "browse_histories": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "3424867bc37abb0f3ae1099a2c4c57bca929ff65695d91c6da343d3f82928c91"
+    },
+    "community_exp_daily_quota": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "205b778e7cbc2c85bbcc973149f4aa2430f69392f56a80433181a37269bb90a8"
+    },
+    "community_poll_ballots": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "f30362b2d550009f7b134ea608405d2e399b5186b5f5ea734daab07d3c8e7f12"
+    },
+    "community_poll_options": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "505e2badd2e4de6a3ce1b9a12da1ee117ee8f1cd63dda210a503c5c1d0522fb4"
+    },
+    "community_poll_votes": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "edbd0608c84d46c32172a84283edcba08342ed9faecbeb06a2b7c43853a8e28f"
+    },
+    "community_polls": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "8f9a54069c5b83f472cd57d1cf2b316648d7807faf6ae2265d80e42661d46089"
+    },
+    "community_survey_answers": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "9c08878860e3ac1d0bf45999d0f3c63128147dd273e005d0f81b096b5668a064"
+    },
+    "community_survey_questions": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "74599c97380eb48d55eeae528af66382cafd5ef322e294ee5d793e1e84902f9a"
+    },
+    "community_surveys": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "1c8fcd3b779fc310700a88f80efb731c000e2f09859a77e7b27a3c49ca80cafe"
+    },
+    "daily_check_ins": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "66d77937acb23cbdf80fe92da8c7fba15aeca96109993f18b21dfb566e6415c8"
+    },
+    "exp_logs": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "6fb68aba8411a132361727e20ebca5ee0488d60c7ac2de4f43f00b1199fe99f6"
+    },
+    "hot_searches": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "58f037145d22209c86dec1e2e4e952f473d53a6ec815e14d4a1f514621f3d268"
+    },
+    "level_configs": {
+      "rows": 6,
+      "seedSha256": "3a48e317c92a4f5c69ecb617fc7abbe6ebbc71321865ff8912678169e148ff4c",
+      "ddlSha256": "889589ddd9edb265ed158c46dddfa77709802cfdd696384d581ac4396049032c"
+    },
+    "post_collections": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0e177cd0e3d20c963673d34f771ddf5dd2884785812330cbfa59b443900dc223"
+    },
+    "post_comments": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "de2e7947cfdbd3a4fefefc4174421042752d8f98cf28d07b1bb880b102121eb7"
+    },
+    "post_likes": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "45ed51227f52c4dbd8aeddf89d3f6cc0511bc3c629d4cd555102a4b2f65f8dba"
+    },
+    "post_shares": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "7f488c7709531692923bb4a28113c9a183f0a844f1acc349c5029235b5ecb3f4"
+    },
+    "post_tags": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "8b07b7f777eb467c4d6f91df74961ee8b0f0f8a95512f864f182653a423df1d1"
+    },
+    "posts": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b2ab04d3474ca0d87aa58730ca09949587a04d1f8ad486e11d3db72b65b3de22"
+    },
+    "ranking_records": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "704686434ec80a245ab78a11dcd7d9abf1485a88b69d2b77a9315f6492fd968f"
+    },
+    "ranking_seasons": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4c1109f30e9b23e080a943311b497d3c6e631f0066a15d717967e768b53c8b24"
+    },
+    "reports": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2737e6f49826281980493cff5c27cb1ed4e5984354bf33fd7b8e1601da4504ab"
+    },
+    "search_histories": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "c3b438d80300d61f74348b3abb06f758ac709dc9f1e2983f7efdc4dba4e4aea6"
+    },
+    "sensitive_words": {
+      "rows": 7,
+      "seedSha256": "f3cd2ad8f0955e13fa1a7c26be92eab4d692b9c94ad28bef3feb6756604cb66d",
+      "ddlSha256": "6daf6976087494ba3d3478e877df045942e1b120a765c0a831ba9fa51ae30125"
+    },
+    "tag_subscriptions": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "c2e4f9ff1b8f05419abb56b3002ab6451cfda607f67da88d0119645eb5cb38a8"
+    },
+    "tags": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "1f6b587e4613642d6767c847fdf3395dc8d20202d0b206ec65870c6319e0d3d4"
+    },
+    "user_badges": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "5ec8945e32076abac30107a0d3cb6fa92e55aae03fddb1e494ad529ae44ec877"
+    },
+    "user_blocks": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4b230ae2aa46987bc2f4da36aeb945bf5a2cbf2e1d34342a992dc126ce23ed7f"
+    },
+    "user_follows": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "9d44c0ef2408d14b04d36674aa054f882082e7ba099ac3dbb8a34e65e7646bb1"
+    },
+    "user_levels": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "be645b9a0870735736ed3492cff23d53133cf9cf9fd516872d81d820f00dc383"
+    },
+    "user_settings": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "aaba750e385993470e557d7c3c0da7f1621f62627879660b03356fc2b4ed5bd4"
+    }
+  },
+  "mall-coupon": {
+    "coupon_claim_counter": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "60cd6db26bb9d5cfc9be83f402b0c6087faea9b0c93302bb07eef3b9b539e579"
+    },
+    "coupon_templates": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "8f845a57cc8f088841f26cdcb7c4f137701f082881885d554bdb01e72e250652"
+    },
+    "exchange_codes": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0d9c63fe3cf90dfcfb49cca29edd5c5bb3f13493a2bc47649c81c5988e9cadd2"
+    },
+    "undo_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "57384181e19fe39490d9928092524a4a835db1bd6eddd29be04bb4232cb07b34"
+    },
+    "user_coupons": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b7bf3d4d3ab65dd0c597089e61c85f31f944ff2cd79fc97ebca71be1f58371e9"
+    }
+  },
+  "mall-file": {
+    "file_asset": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "67266fd05b702d4958d170602b00e015366cc87a332541334b4a4cf8bc42b674"
+    },
+    "file_reference": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4e5cabb021494071760c90115f6262da0b47ad3bcf36bf6310359acb0524da07"
+    }
+  },
+  "mall-inventory": {
+    "compensation_task": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b45b64ec2c2c60cce1411046ab4c7ff9cbf179ed48f7af0f7085dcbc6753cc7d"
+    },
+    "inbox_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "481f539020c937be683a05ce4fd55ca731d1684a37b86139e2b30c29e354f7fe"
+    },
+    "inventory": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "08a8658f53a52f6717ac2b9ec72875dc94dda3298e6f690ee1a5a2c9a9f5c2ac"
+    },
+    "inventory_logs": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b2660bd16eb69ca74f3cbc2614e200230ac030697f94dad0e9eaf849b89c99da"
+    },
+    "inventory_reservation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "77c646074e1c0ad4f293620e4f831d77497ba940201a46ee9ca1716b32c2f382"
+    },
+    "outbox_event": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "7cdbb95787cb81b370b75bb5047d0a81b65943ff760aec22a5d14b19ba04293d"
+    },
+    "undo_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "57384181e19fe39490d9928092524a4a835db1bd6eddd29be04bb4232cb07b34"
+    }
+  },
+  "mall-job": {
+    "sys_job": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "852325e73d9ab1ac25ff240484fdadc497c9a4592978d3c4c2a16743babadc8f"
+    },
+    "sys_job_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2da0dfdd05b859ac8c6fc29f5acad210105762bdd54bcbe0b760405e7ddba1a1"
+    }
+  },
+  "mall-live": {
+    "live_danmaku": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "511804df37d30451dea7b521bf95d424bba9b1b9b954b812ed937f7bb8e73b35"
+    },
+    "live_rooms": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "04ee0a1ebed435b737fb3ae37d619487c2c4a1849daffab63be0c361bdf01b02"
+    }
+  },
+  "mall-marketing": {
+    "compensation_task": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b45b64ec2c2c60cce1411046ab4c7ff9cbf179ed48f7af0f7085dcbc6753cc7d"
+    },
+    "group_activities": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "304ec1a81f382dfd362569d77abd3fbdabd4204bcbfc48c117fd8b8ee1f80c3e"
+    },
+    "group_members": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e7250c8c11eeeeb940665b902c379f3b0bddab1afd567428b2a9080171e05e4e"
+    },
+    "group_orders": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "bb4a9711029b77e2a8d9d37380d93f5e45250b2f03111905c33b11901375abc1"
+    },
+    "inbox_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "481f539020c937be683a05ce4fd55ca731d1684a37b86139e2b30c29e354f7fe"
+    },
+    "outbox_event": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "7cdbb95787cb81b370b75bb5047d0a81b65943ff760aec22a5d14b19ba04293d"
+    },
+    "tiered_promotion_rules": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b52c214e276f942a3637879bfabb442605ecfd8a3aab04c1c0a073f1a196f60e"
+    },
+    "tiered_promotions": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "92db5ec7e4a70c809da024cce1cb853fe5d8030eb7829fd1d1c9a2aba28e0229"
+    }
+  },
+  "mall-notification": {
+    "conversations": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "22aec6005205f7300468bc2a9776d96a1411b8415dcbc696316b23e9b81bd8fa"
+    },
+    "messages": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "6aceb979b4a38228d1cbf6cd59fb99728493d6bfacf305c0b4645b1dba167cda"
+    },
+    "notifications": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "82052d78754e649b78a93a86458ded9034152ac3608dd34632ca88e273fb30e1"
+    },
+    "subscribe_message_binding": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "14cc07e0161f72f3f822d7deeda824496b65f2f1583ff1dab85192209ab68209"
+    }
+  },
+  "mall-order": {
+    "after_sale_case": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "5b2076dd4554e1e97183f2fa296c62b4307aad68eacb61a8d5d6fe88ae70d553"
+    },
+    "after_sale_case_event": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "6eedb13ec1fb864b06d0b0f566dbc1277bb3d52087f5f01edcb5b606b6455f07"
+    },
+    "compensation_task": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b45b64ec2c2c60cce1411046ab4c7ff9cbf179ed48f7af0f7085dcbc6753cc7d"
+    },
+    "inbox_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "481f539020c937be683a05ce4fd55ca731d1684a37b86139e2b30c29e354f7fe"
+    },
+    "order_items": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ce7a3c709125afab527bcb33f7b89fd739ab632b1b256785d78b3510cd3042e5"
+    },
+    "order_items_0": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "96fa82136acd0f87e9827ef1157c321b1eeef45c117d2bdacd68ed5d9812ed35"
+    },
+    "order_items_1": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "295da31fdb9114c46805c509fd56ae5bb873ee186a2b2938e113b48f14d22818"
+    },
+    "order_items_2": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "08793557a049df2a46fe7979e9944743ff339fba89e66aaa84fb4bffcc791c07"
+    },
+    "order_items_3": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "8f5cde32a526c2a30a719c18067eba15e87813d947e53393a15eeda5d2bae90e"
+    },
+    "order_quote": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2487ae9c583c11700343fae4e2d70063683c93da8a151787d8f53c6d557d7877"
+    },
+    "order_quote_item": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2e5324c3b239366c0934414f071ff86b139c14c83f955b86afc5a35a07d014c0"
+    },
+    "orders": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "52d481d3aab4f17d0a81a1d4a40ba15224a42025f7f9416f6d28ba048f6aceb5"
+    },
+    "orders_0": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "a602ff1e9c1c148821e576828be8d28b8f941352412d60475647fcce53235c60"
+    },
+    "orders_1": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "6501afd553740aaecda4753ef4290130b5e46d7ff680b4ccba2983c14692f021"
+    },
+    "orders_2": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "02e5b749be7e121b4d2a0a10fa6bbd7e3994be2b2dc17dc72a149ad5b2637abf"
+    },
+    "orders_3": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "d8fb36fad5def306bacd1131d9317e6bbc5fef5cb8d82f20ad101e73b734204f"
+    },
+    "outbox_event": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "7cdbb95787cb81b370b75bb5047d0a81b65943ff760aec22a5d14b19ba04293d"
+    },
+    "undo_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "57384181e19fe39490d9928092524a4a835db1bd6eddd29be04bb4232cb07b34"
+    }
+  },
+  "mall-payment": {
+    "compensation_task": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b45b64ec2c2c60cce1411046ab4c7ff9cbf179ed48f7af0f7085dcbc6753cc7d"
+    },
+    "inbox_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "481f539020c937be683a05ce4fd55ca731d1684a37b86139e2b30c29e354f7fe"
+    },
+    "outbox_event": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "7cdbb95787cb81b370b75bb5047d0a81b65943ff760aec22a5d14b19ba04293d"
+    },
+    "payment_attempt": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ebee090a1d53edcd50f093c4635e49b4cd7d51b38c830ac78e135ee9bfc2e3e4"
+    },
+    "payment_notify_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "1d4fcdb9eef8e6a2043dcc25c8a7e19856872acb20a27c2ca4b3465b97467788"
+    },
+    "reconciliation_difference": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2716f6257171f35cdab030269c0ceb518e6dccbf601de0dd6f6fa0283b725034"
+    },
+    "reconciliation_run": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2260869675910da1c4587502c995dd54450f6065380ab0ca14044822b5361928"
+    },
+    "refund_order": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0b7185b6627090706c2aefbc6cc7f4fbacdbdad4f9d0eab58b411ed802fd78e2"
+    },
+    "undo_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "57384181e19fe39490d9928092524a4a835db1bd6eddd29be04bb4232cb07b34"
+    }
+  },
+  "mall-pet": {
+    "pet": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "8671627dac11e2af131283ae12e0a4d830ad9136c361c99f7b8dce5169aec406"
+    },
+    "pet_achievement": {
+      "rows": 27,
+      "seedSha256": "d8a2487473d68b7495be9eb716ee613e70dcf44fd5a6c552d28d5c7c290100a0",
+      "ddlSha256": "75bdd471d714d714c88592936fea8cfbcb70c145a72e60690c0e5041809c05a7"
+    },
+    "pet_achievement_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "66b5c52a1a6111168f18265e3f48ed350dd3fb8b8a3ae3dd809263d6e5d3f058"
+    },
+    "pet_activity": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "49576091925f2712dfa60092d620035b9d17e3752514cfc535e5edaf3848acc0"
+    },
+    "pet_album_asset": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "1658687a8ce46e75912580c2a405fd43ef5b39eb2e194cde6a4d7f4678601184"
+    },
+    "pet_asset_grant": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "afede3b50e5f8bfb07a9bf01a95e65691da5e77a412dcb3571843be073ee268e"
+    },
+    "pet_battle": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "a0cfd6578d500c55517efc9ee43059c59d4c29af64b59d47fc1f9aa29fb49530"
+    },
+    "pet_bottle_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "f3bb5346a53ec342349379726a5e0e8881306994f49e1a584682460ce5d7e576"
+    },
+    "pet_career_config": {
+      "rows": 6,
+      "seedSha256": "4822a58667ef5f6aef0a1e458ff700f37b171bb3c60857de574a98c001407157",
+      "ddlSha256": "62ac7f9096737028913c14ff62bf7918500142b04ce8086b1dac2249d3774fe8"
+    },
+    "pet_career_progress": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "5d5b8a6e687e5eb09d1d9bfbc7e9b9d735fc9a34848b4fab68e928700cdf6b45"
+    },
+    "pet_career_stint": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "165246c430b2e4ce7b2892bcc3a7bd46b32dc912ae642537d8b100ef91155d61"
+    },
+    "pet_chat_message": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "aee9324d755e3c9762a1d0e044f9be3dcad99a03a6685147533031b23d3be4ad"
+    },
+    "pet_chat_session": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4691b50d146866a6c0b369f53586579833e8063806127aefb61db88ab6f9fdbd"
+    },
+    "pet_collection_entry": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4303ea6d667db5abd5d341c091bb7fb5ee064edc7f2b87f655b8b5fea674d0f5"
+    },
+    "pet_collection_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0f70083f89f13fa7173d7388465bde13aa4b3e9c13097e0de411a09b97e6ce23"
+    },
+    "pet_companion_daily": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "29e108f48bf089b3b918d293555d19130c62e8b16055ecd1357575b560eb4418"
+    },
+    "pet_companion_daily_pet": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4ddab04289ec4ef5390e87fe9a70df88bca32f197aa6cff155057858990edaf2"
+    },
+    "pet_companion_session": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "953b4cc8f90e812de4c83c28b22d7a371ffc39371952806d0d75df40fc700385"
+    },
+    "pet_config_version": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "3b62d83e38b379450eff65d86eea39f72b73693bac17b58e4c49096c8f836d53"
+    },
+    "pet_content_sensitive_word": {
+      "rows": 15,
+      "seedSha256": "4183f27fc4b7ab670a6d2fd670eafed9ae7218e9c7105c04d476734d898901d0",
+      "ddlSha256": "3db0e8cdb57b98a12cff0156ca1e3611ea93f42a3a3afc812fa714cd40ed32fe"
+    },
+    "pet_context_counter": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "6e6ba53694c864a503cfe7f3d89d75f78c4f7192ef2b022c171a572a89ab88b6"
+    },
+    "pet_cooperation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "3d11888306cc3db5b48f7d29a3574139d93bd68ffd8b310843671d58033edae3"
+    },
+    "pet_cooperation_contribution": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "bebfe6353c486f8360fdd6d61417b94c8c4e0c5309f7a348f5a2ae2d1cd5e2f9"
+    },
+    "pet_cooperation_member": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "3f5a064bbeb1690ac12772c3abdeabffdea7961dd787b179d32e543ec4cf1c50"
+    },
+    "pet_custody_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4a239523dcb5fab2c1e6f18a3bd50680fe1fae1a6b2f599a14025094959c6f6c"
+    },
+    "pet_daily_quest": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "41f7656e74bfd82c1d849e1544de31d2ad50a2d5a4c7f42acd139b3477a69bfc"
+    },
+    "pet_daily_quest_config": {
+      "rows": 10,
+      "seedSha256": "ba41cffb99b4a5660ca2c557826c9def7e9253b93a06e1b4778c561714870d8d",
+      "ddlSha256": "dd1483270832f94b288f19d92e1858c9e584d9597251ed765efb5cef5af4b8be"
+    },
+    "pet_daily_quest_set": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "c926187fec00779e34531c81aa6ec2c5e49ab588cd93ba11ca11333e62195727"
+    },
+    "pet_daily_quota": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e3f160e07bb7c37927652f1211f84b324bc14e5ab165db1701b2ac288b1bf85a"
+    },
+    "pet_dashboard_daily_snapshot": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "af148bb4e7afac51ecbbb6487d65eb44fa3aedcca0ad90aca56ff283dc789c34"
+    },
+    "pet_diary_entry": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "9f4efb901499a308f6f0a6bc01b1ec31555ee7c337cff3aa3ff152dd4ae81e6b"
+    },
+    "pet_equipment_config": {
+      "rows": 8,
+      "seedSha256": "6cb185c6b50eb700da906b8c8ace9540a4b4b39ee18efbf1d2ede5b82810aca5",
+      "ddlSha256": "5b5dbd6be8f3ba21355b46f049115f6fdafd240e0fa893ae7bb6aaa043b45a7b"
+    },
+    "pet_event_config": {
+      "rows": 4,
+      "seedSha256": "d804e7ff46b2768e4e4977e3e43ece386a69df8a051f1b00fa19af2895e1fe78",
+      "ddlSha256": "290eef489827c906b1f0906b05f09e8d629b50079e87b4347cde6a63498835fd"
+    },
+    "pet_event_occurrence": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "89d6cb7964f14333f71b9294243eb2a3d4c625a695880720654ee42cdd2a44ac"
+    },
+    "pet_event_occurrence_claim": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "81e10bba0424b2caed3748cb8ed0eb257d3a9b621b0b3ef5a0fe7cb71a43795c"
+    },
+    "pet_event_progress": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "01c867d4c5054f1db9e5c4b3e130e8bda6a396548fed5e494b4f850f386b4d35"
+    },
+    "pet_evolution_config": {
+      "rows": 2,
+      "seedSha256": "15578ca261ce2f83e8a6eb7f2ae3aa8b8a47d2071b3f0852aa279067c457d2dd",
+      "ddlSha256": "babc5266276b066b322d9be93786cad0b99571fa665602152a89078dd0e53c26"
+    },
+    "pet_feed_entitlement": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "698e49490ef5130719ff9119403ac4b49f6d1e57a81f9b82bfc55957617da1aa"
+    },
+    "pet_feed_operation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "f4a190632f153044899e51011cbc058342fc880be752f3a32c92c9b8ab50d5b8"
+    },
+    "pet_food_config": {
+      "rows": 4,
+      "seedSha256": "894f5f04603937a69d46397ad32707b743f048c368cb6be92bbe632efb930602",
+      "ddlSha256": "cfcf6e69ec8e78bfa0b6b28acb7491d24b7efb422251da297d69716657561d4d"
+    },
+    "pet_friend": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "81d54d463ccf4d7f0ab0da2f43c90fd89fd3774ad9600d95bbc09a427901d841"
+    },
+    "pet_friend_feed": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "414de9dc9e089100176611fde6d631575b6c97a8b219cbb5184f540a496dbf84"
+    },
+    "pet_friend_feed_cursor": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "f5d43b7a8359c3b55d10e1997d8213a0adf6fc8b2e7f8885330892b93a834217"
+    },
+    "pet_furniture_config": {
+      "rows": 14,
+      "seedSha256": "e64c7dbc9fbf937b77751745280c4be482c5fff60fb29491676c38c343c51d19",
+      "ddlSha256": "e03ed222aa20135dfaa0023ec5ec45aec0bd08bbf1f91fe18b2c6e0dbb2e360a"
+    },
+    "pet_inventory": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "976a4f0f4be813dcc3d53f2615e80f24d55ac85892ca6e8202c95c26a70bba06"
+    },
+    "pet_job_config": {
+      "rows": 5,
+      "seedSha256": "2e30f05211ef62405929fb06ba5e9599c914a9b554f82e6e5d44627718e09ca9",
+      "ddlSha256": "a092f763236adc0b8dbafb4123b6de3c96a8f2e8600abed1c6205bb1ea4a43fc"
+    },
+    "pet_linked_product_operation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "5dac685773049f5d75fb3e9fa3bbcf9306b9f930356414997e9f6ae0e6898b23"
+    },
+    "pet_memory": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "6680f176d1d61263a98a1a5cc02f8ab56ebb2fdb983bd9eafcec09c9b18be0b8"
+    },
+    "pet_minigame_operation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "85f5fa0c7f723c0f24a5e89cb61b91a33594095e28f337dbd9c9cbec80f9d9cf"
+    },
+    "pet_minigame_round": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "6369824c2e9d79012df1b544df12b0296e43cfd671c36656f457cee89283a397"
+    },
+    "pet_notify_pref": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "1407ff8e266cb5186fbaebd7208913adf40a7791f6f7bb0715b66be98b6b2246"
+    },
+    "pet_offline_cursor": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b0a940082e78b513b024195fdae7e63b96aaa18412cc4a994b46e1d34d3a7852"
+    },
+    "pet_onboarding_progress": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "c185087e57f6b50fa559a11a924fb2729c917a9c66c18ac078feb4f73aaa27c9"
+    },
+    "pet_outbox_event": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e570bdcd44c73cf52f9280c6a5b9ceb0376cba589ff2c5810af14d7f292f3aca"
+    },
+    "pet_persona_phrase": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "251cf8eaeadd85e8b81bbe6e245c9cb9c748b8e9a79fcfaad25ca8775b7e45c3"
+    },
+    "pet_purchase_order": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e66cd88a1029dd4d264559563df96abe2840a8ea899a96189fd20fd5272bd45d"
+    },
+    "pet_pve_participant": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e3bd925af4da4d66c32088a3a25ca1341b4f5149648b0389f0f2be9dd848f5e4"
+    },
+    "pet_pve_round_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "fb5e6d668ca9085b848e8883607780d07e67a0794f112d77e0ff9edbde6e9f3c"
+    },
+    "pet_pve_run": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2307c3a7c5f6b285890bbd5430ec29329a82e74df439b8695f8539ccf969193a"
+    },
+    "pet_quest_event_receipt": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4dce8eac69eac4162cb085ca43332555f8f68b281ffa8e2c5b54bd2e1d30b66b"
+    },
+    "pet_relation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e0f0460a57336354ae4a575116c171f55fe5cdc0d21654f042ee6f76ef27f886"
+    },
+    "pet_report": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4d69bca9b6cdd2211510034c112046d71428cf6802b696d458a701567b30cd39"
+    },
+    "pet_request_dedup": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "26bc7c022566bbe1344d5b78828fb8485aceba4f977190faca5e84645e47202f"
+    },
+    "pet_reward_claim": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "a16831248b722192efdc206d28b93d9f14eef4d66e482c6b7daef79fe02cd62a"
+    },
+    "pet_room": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "bcf0a9e49d4e63a47596f758577268e592dcf9f8e1f8842483dcc31271e74375"
+    },
+    "pet_room_item": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "be8fcb2f85a121bf92743f014fee20508e90b71256674fb6a3285e2299ba5770"
+    },
+    "pet_room_like": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "a8f98d1a28957a5874ac55bce6755e1b178873a67da66bbfcb9d1752c50806c7"
+    },
+    "pet_season": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "a0c532f1237c6451398918408143bc6e2777c642b10567b4c786967889934713"
+    },
+    "pet_season_guard": {
+      "rows": 1,
+      "seedSha256": "90c95a4c0b7f9167b539cb450befe7b4478ba4c5729282f7cd38d5c2b06b773f",
+      "ddlSha256": "c14e39f6fddec9c773e712f331f43698c8006cf9ade78774f7f1c9c4b8e2595c"
+    },
+    "pet_season_pass": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "c1edee12da5fffa330d8f914d8c0c269ee00173698d87cce12fbf6a8d688851f"
+    },
+    "pet_season_pass_claim": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "bade4c00166898086a2f4edfe3bf612e70f91c9dd5c22c837c0058afe755c24b"
+    },
+    "pet_season_pass_exp_fact": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2b101ed5a0bc08d1ad6fff9f266c67e36eebce89404857c7c3f2a91919b6fa23"
+    },
+    "pet_season_ranking": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e704d8d468c39b33cebdbd1ec08c4fdc33d4bb23ffb2f846be11d7a163c7397a"
+    },
+    "pet_season_reward": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "8aca0d961e195e06981fd0d9641c08140f25b0c305f0a4ab5ac9bb513efb9578"
+    },
+    "pet_season_settlement_job": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ebaa1184851db9eb238d7820c15feb120c2963bc8ba66ed48569374c6998c74d"
+    },
+    "pet_skill": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "887bdb4d2535071db1c6c09ddc6e0f431740229cb9b70a2bab34679c0ce5685d"
+    },
+    "pet_skill_config": {
+      "rows": 6,
+      "seedSha256": "170f5425cafbb8500f611d14e4cb802be1a3886fdca54e97eb045b9f851bb2a1",
+      "ddlSha256": "bc1b9d5dc69bd87d02ed45849167233f54d4aff5556b38dbac113cea5add0edb"
+    },
+    "pet_skin_config": {
+      "rows": 1,
+      "seedSha256": "5d835ab90b9cd09e1c1e10f562e5079858a8e677bf6044ce83deff8601c86c8c",
+      "ddlSha256": "0bd7648f17bd5e4773a285f2affbeb8c44992f6646ae643a97c9d5612e5500db"
+    },
+    "pet_study_config": {
+      "rows": 8,
+      "seedSha256": "2715fcd21431e944251b91abfd9b66e7da4effd22721ed5bd09610da495f7225",
+      "ddlSha256": "b59ce9e481f068578cc2d79c3c08e36381e3435f53297a47aa52c6169add8997"
+    },
+    "pet_user_block": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "9fb7ebe6f8fc1db81e841c70326a23f2e028c54b6faf80d1a6ef29cdd5c2f733"
+    },
+    "pet_user_guard": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ad22bac443a053012d939590b875c8c9fa11b8cbe10abf56c8cf138609971f30"
+    },
+    "pet_user_sanction": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "fc3853f4bea5a778fa3afdb32d55721b8b06da83b8c462a2d46232b891cff022"
+    },
+    "pet_visit_fact": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "cae487266eeaf964e9bfb80c9b81f15a41609716691cc78e545ab702d42bce4c"
+    },
+    "pet_wall_like": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "084cd9284d7f8b2ffc2d0cfca0662b11250211bc265163e2d5aaaa6968da2693"
+    },
+    "pet_wall_message": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ae82815d0c1578958c8dfda3b1a2afbac9bd5bda33018a1addc046903c385ad9"
+    },
+    "pet_wallet_account": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "43abd6536fe4b8402c7cf7b297ae3ae6465ba4eee305371bd6f3e66e6b393c29"
+    },
+    "pet_wallet_adjustment": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "506852f697d918052a64a6ebc8415f142aca070315a02977dc2e2736f751b6f0"
+    },
+    "pet_wallet_ledger": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "acf368e3b559f3429b3ee773b748cfaba0f242439b54ff57f4b00a47e531f049"
+    },
+    "pet_wallet_ledger_archive": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "810569bbf92d67ba07a13e41b3ba335a7e58cbff826438f8f1b37a6ead534029"
+    },
+    "pet_wallet_reconcile_item": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "fb638b5e37a7954887e87ed83132c57653f47d1319f8df7e280e48fec79a8c78"
+    },
+    "pet_wallet_reconcile_run": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "1830117b117023b69e63333b9a3c1fef829b1b9fe9015b235baa8054d285b3f8"
+    },
+    "pet_wallet_transaction": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "80541cddecc3739374b84f86515b964cbcf573844a6e801309ed4a59df1ed1bb"
+    }
+  },
+  "mall-product": {
+    "brands": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "62944eef8f94a9f16d4b7c1cbe1570081db2c627f089be22c61a0c444e468f30"
+    },
+    "categories": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "f5257066804a42fc8b5d44da5d41c971044f8cb07ac2515cb58f775d3f94e08b"
+    },
+    "product_question": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "d7a53d3208746c93f895fb1ba042ef6d8f05c7cd8302bd95533951e217fad96d"
+    },
+    "product_reviews": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b7c61e0d5cddf738a9f6178b29794bee208ae045b9dbf32c890411ecd07ba901"
+    },
+    "product_reward_obligation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0c30201a4dfecb26d864cfb5524748a40deeb5b19d574ea94a3e1e7d66368d3f"
+    },
+    "product_skus": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "7aba5151ba5c384ddb9b559c6e59a52fec7821bd19ea9779045c9c95ee3344c0"
+    },
+    "products": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ee10b8d2531965cc8d20def49e87530667fccd1d524a8f21e909f3e90d335fe1"
+    },
+    "wishlists": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b6a1466950be8bcc887fd733a3051fbb3e06b2bfe647b8df62f48ffe3a22347c"
+    }
+  },
+  "mall-risk": {
+    "blacklist_entries": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ac3362578678f3399a71ff4cdf28bbf8c9a27524561ef20ea11316f4450bbf4a"
+    },
+    "risk_records": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "a985803b09c259acddfcfc40aaa5efc3a8e8345bdecd2321071e3a4a4b3196ba"
+    },
+    "risk_rules": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "bcfdc5a2252f9b571e7caba74a99adfb86583aef93c88b131eeefc1df8c5dd35"
+    }
+  },
+  "mall-seckill": {
+    "compensation_task": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b45b64ec2c2c60cce1411046ab4c7ff9cbf179ed48f7af0f7085dcbc6753cc7d"
+    },
+    "inbox_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "481f539020c937be683a05ce4fd55ca731d1684a37b86139e2b30c29e354f7fe"
+    },
+    "outbox_event": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "7cdbb95787cb81b370b75bb5047d0a81b65943ff760aec22a5d14b19ba04293d"
+    },
+    "seckill_activities": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "f8e8bf9288382d934cc7007393430df8fc80091f383cc0f2550ede1e2dac2fb9"
+    },
+    "seckill_products": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "381b26cc77f5d4f202b57b2f7a1e5e766befeb7553f5276621f33309f272ab33"
+    },
+    "seckill_request": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2eca56c6a79fd327b1c36e727206a2afdde9a00c4d78622e6639a76b46fbf9d4"
+    }
+  },
+  "mall-user": {
+    "shipping_addresses": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "5c260db46f5a4951135c4f3d05287269efdc73435185eb5e157ef7748ff9d7f6"
+    },
+    "user_account_deletion_step": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "8f07b938ff3f7e99eb60e43e5eddfd7740833b92f9ff6e8e08918f5e36c06b24"
+    },
+    "user_account_deletion_task": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "81b175e50fab4885e967e5e355764ac6d2280f3721b0c93479b8950f6df70855"
+    },
+    "user_invite_code": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "17a80a891285ad9fec5ded3d6abee939d0450c33dd3f02cb063391829e1a6a71"
+    },
+    "user_invite_relation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4cb98461066a72519565128548c45644869cc6334f9205ee8967b07be0acfa35"
+    },
+    "user_reward_obligation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "958216b2150f44a93d4a63ab6e8245643e492106b29d9bc2119d54b218c5a306"
+    },
+    "users": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "79fd3aaf18f6d89e08a9c9368178551c31118c9a248b6b33db19f9b56394a158"
+    }
+  },
+  "mall-wish": {
+    "starlight_daily_out_quota": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b5dbfec7abb9aba948856e7a1b7a131bdfecf1c2c44b730743ec11072512c4c5"
+    },
+    "starlight_transfer": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2019c45fa760f9660ad5c71a6f70585dbb223020e8c5baec0cf5966e28fdfb74"
+    },
+    "time_capsule": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "986078130ae0840b462d71650a827d78c4f4df07a496e2ddc0d594b7aadc0d1b"
+    },
+    "wish": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "6a6e4b1b49196cf9b1099161344181b4d330bc6eac82a9f12e359482ab3c822f"
+    },
+    "wish_activity": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e49939b2d72253ce128fb675608f6858346db6ba8614e95d91a07052b60b6567"
+    },
+    "wish_activity_participant": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b5abb908b8cb85d2b705536918dffc925317f2f9527e934cf78f3c73a87fe045"
+    },
+    "wish_activity_reward_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0464e0af052aec30eb58588b119b1e1f0b06703e087664b999042643087355a6"
+    },
+    "wish_ai_config": {
+      "rows": 5,
+      "seedSha256": "3e304cc9120d68753c122d4fc88f9ce63cf19512c96264bb7baa4d4d46929ef1",
+      "ddlSha256": "53dc5931bbef52fdd0d3b83c59a66963450bcbfc7109b7d668757bc49b4d415f"
+    },
+    "wish_ai_conversation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "f6131beba7807594f0fbadcfccdd60e1aa55bd4035199f78d854043691ccca06"
+    },
+    "wish_ai_goal": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "5974020144e6532a89cdb586b24c2bcb5d7daba85ae9c58093eafbd62434cf66"
+    },
+    "wish_ai_prompt": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "1c5c458eb35a4e3a92007b873a9aa43f4233ae4ebaeeb9a241fa2c75cb3c9d94"
+    },
+    "wish_ai_review": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "819dc67f9b3ab067673e31a47266b592584d88b0fc8e8c1f9972a6a006ff0de9"
+    },
+    "wish_appeal": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "3ecb7764289473a4f19c15f98ad4cd7d71798da45ae368a8e85e191ee40a94da"
+    },
+    "wish_badge": {
+      "rows": 4,
+      "seedSha256": "ca9c688f3e8db2d2fd1f6dec9ab508bd0944af045a4959625dd35f6b7f92bf66",
+      "ddlSha256": "c394bbebc14fc5dd42682e0e7ce8b5ae2c5eb1f654aef116c7c05e721a2e4b1e"
+    },
+    "wish_bgm_song": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "1e7e8e76fd11f4d43a99efbc8ca50c2508e400a6a2d4df02f14d6cb668cb0733"
+    },
+    "wish_brand": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0130d4278ea7bf4e8b69540cbdd14d4a68105e3b634cc210e9bdf575b9b93cf6"
+    },
+    "wish_brand_pool": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "87a34520ce56bb02485c59496728fe3b295b67b7eec9ecf5a253337e46c153bf"
+    },
+    "wish_brand_pool_member": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "002a3aafb1344acf02802dfd8fd4434b6422be8a810c1c8cc2cc0079cc842ccd"
+    },
+    "wish_brand_reward_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "03891556b89e2d4386d8998aa00c8438b02af8d91378735e79e28cd9542f8dab"
+    },
+    "wish_category": {
+      "rows": 6,
+      "seedSha256": "f672125b0fa8b500565c5534894298a14884af967cf92c53073fad07b2d61fea",
+      "ddlSha256": "5063875a35315875a2dd6067f076117d4bb3bba4154b4fa5c1fdd39ffca57697"
+    },
+    "wish_checkin": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "363271eaa48df701a14535fc93a87724e4557ca688b54cccbaa2733b2abc6c1e"
+    },
+    "wish_collection": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "00444dbc408331fc6d4742ff41a91b771d417751931433076c48d47d276bbd6c"
+    },
+    "wish_comment": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "7524f58d53d29ae7174b8ad6f7e4a9cb37e5d740f16be38c6b2835a9b3b8415b"
+    },
+    "wish_consent": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "9cb041ebff5041ccef37f97029c30fe4979c91d8395201157c401d9edbd11598"
+    },
+    "wish_content_flow_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ae6a541bc075dae7f688f838fb2af9e40e483b209ca073d4159258f511222a0c"
+    },
+    "wish_daily_signin": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "281d1165586f3a976edeb0977a415d656a36d48c6db5da5af23c140ffd089196"
+    },
+    "wish_data_export": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "2f6ee841109b66c0b659f4e34b44c26ba977560b97ee47b497688c8d942ab31a"
+    },
+    "wish_draft": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "adefc4ef54b972c88239a560660659f5dcb7575913c582fe3a34556f478e136c"
+    },
+    "wish_drift_bottle": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "9bae522b91add195b25e4e6657d52d7075b832a8736e26febfc527bf4332ea2d"
+    },
+    "wish_drift_bottle_comment": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "c37abf5412800f2f8899d87596225f74433588693f35ac11e1c419aad5724e9e"
+    },
+    "wish_drift_bottle_fish_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "d19de72673463111aa5ec8ef6b0f9bd9e5083c3aa4e5b6ec9f004fd4b91ca387"
+    },
+    "wish_drift_bottle_interaction": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e08258b0652a1ff6163c6a18455fc668007d2a3fc5ec114cd519e870a3644a21"
+    },
+    "wish_encounter_letter": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b24a53ea06312cbc034682477249643a97d655fbb5f4836c5128acb1ad5d2bb0"
+    },
+    "wish_encounter_letter_interaction": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "dfed4eadb38077858591405de7b08dc1bcd4de6e0378daf299180aaa73f48344"
+    },
+    "wish_env_config": {
+      "rows": 16,
+      "seedSha256": "ef85eb4c9a75202fddb7e82ffcb8631881149caa532f39e24f5c8c6b65af87ef",
+      "ddlSha256": "0bcca4b61e3056bb4d7fb6b82d3bd3841c90f626286285e59463fdcf32c66531"
+    },
+    "wish_event_inbox": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0a061d9882da883dbaeccaa777cb02f42a920f1acf5eec6d0a085f25553228ef"
+    },
+    "wish_expected_at_action": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "446c3dc161d720cb136ace200d827ccbef4e25f4c4cb607a97ff80ded90147ab"
+    },
+    "wish_fence": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "04376b064c9433dd141971794e7ca59bd7b08a07833bfa0792d25dd18b0a91bb"
+    },
+    "wish_fence_arrival": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "edf0f91c47befa0abb971fa92d70e1810b3a74c5efc060ee17e196f36ce19345"
+    },
+    "wish_fulfillment": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e822bfb1960e35c14cd39ed8d290008bf1c7e7bbc710d6822ee45d88bcb77fc5"
+    },
+    "wish_fulfillment_inherit": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "83504c52f2ee7ea7d6e9fc2f15f4710b403405bfbed5119bd29d528c79abc33e"
+    },
+    "wish_gift": {
+      "rows": 6,
+      "seedSha256": "ff24bf3c3dacacb1a544299fe1f446c09643f8dfad4142f0e71058e3c3c583a5",
+      "ddlSha256": "aa73cf82fbf50f5f8dc5a528c5768117ab2c4dbe074f17734b65cea85f537077"
+    },
+    "wish_gift_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "b26791c89253945bbb584dbfc296808b4ae4b370b34b0e9f90ba0207e0f9ee6c"
+    },
+    "wish_grayscale_config": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0dcac0df428def6edce6a50b670425a48262262074f66119f55293bbe9763c85"
+    },
+    "wish_growth_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ba8930e5f52483383573eef1dc2536d24cc23b2447ff74df0ae731fd4ba852e8"
+    },
+    "wish_interaction": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4c9301a18372c41b985635b0e5ca0a8b33841b0874110d20038ef75b16c31d20"
+    },
+    "wish_lbs_freeze": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "08d8ca52f0d5c5fb43352fb2133480ccf735d92d0724003c52bb56e847b02254"
+    },
+    "wish_lbs_suspicious": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "9654218903923578a39685e8973229e822e4be31a65388c92e6f989fbce3ce80"
+    },
+    "wish_leaderboard_config": {
+      "rows": 4,
+      "seedSha256": "3935140c92539bef651089e30a51cbdcd5779fa14a4fdd21061e9882a06ac222",
+      "ddlSha256": "c4832105489563b055f1edd8fd534f32f1907d63a3a87b77c213df266bf96809"
+    },
+    "wish_live_widget_config": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "536cd90384c8406f950c400eb9e405a60808d77cfbc55ddd0c32f8300155d9a8"
+    },
+    "wish_match_config": {
+      "rows": 7,
+      "seedSha256": "aa15d9a08fe3f57c3f17c5cdbb9cc3bc36efbeea19148a4e2e94489761228fec",
+      "ddlSha256": "7a4856b7bb80d04de93e803d8067a593b52979312ee7eb765f291df7f4a3a815"
+    },
+    "wish_match_group": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "750b076996e11967017460bb83fdd0c10dd1cd58a2d68a02ae175f5dc7a47192"
+    },
+    "wish_match_member": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e937a21122b6d54e569bfe7fb3f7ac25ab06db36d9191bc81cb974c51b668de7"
+    },
+    "wish_moderation_case": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "699dd94dc36ba1cab25a1735a53f21ea9ea42215cbaed0bfbd7ed9e8f9dd2f89"
+    },
+    "wish_moderation_decision": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "73c3b138931cc5d4de92199d7b5fb6fa31dc508a10c40776c3ad13429ed912c7"
+    },
+    "wish_notification_preference": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "d604be749861f3ef2d5a9c649c53aad269e2795890c8b764d2f9060468528e9c"
+    },
+    "wish_operation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "6c594f3a1b8483e131a3126dd1f66487ca7c19ae765d531b4ab7710a541eb994"
+    },
+    "wish_outbox": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "7512007794da25f6ea9fdf55d8f502f7b8b45a44093521ab5201cb47845b0ce7"
+    },
+    "wish_progress": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "f790dc1f2d558322171ddc5b2178801f0b808d5c710fea69075cb2c4904b32ab"
+    },
+    "wish_report": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "91a2fef36762c89728bdb75c8b070539ec9dd67b3fd95a5f6c7cd7285fdd9bc7"
+    },
+    "wish_resource_log": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "590bf2f7356b2fe1479b71671fde3a0d16d56abd79fee66c9dcaa921ac96a83f"
+    },
+    "wish_reward_obligation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "3a8da55b89064452a8a34e3fde2a3244453837c5bfbdcb3bc18d2feb616efa32"
+    },
+    "wish_signin_milestone_claim": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "fd1a86230b0b91b510e1a7fbd1936b038bb93849a7dafdae33787442e4851a47"
+    },
+    "wish_special_event": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "673a97a36a1f23172e20e5c8b8285c274d8c8adef854ef14af7f3803e1da0ba0"
+    },
+    "wish_starlight_operation": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "8c9bab3332b143eca7cc45e1e62622e9dd776775f032e6656a1f181e1f6e9538"
+    },
+    "wish_user_asset": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0b4fba7f632b1b18f1f763e17857abfd6f1bbe2019ecd4379c25fe49a5c7d086"
+    },
+    "wish_user_badge": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "4dd5d2ef28360e7f1e4eb1c73e4b4719d88b996e7b244047deb876adb4210474"
+    },
+    "wish_user_stat": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e1b871cec29c66c36bb3c872ea8414a464ec68794f5a9512f1fb4bbd58e675b5"
+    },
+    "wish_virtual_asset": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "3f69b3783cc632a43911e73d9b1051e0d146f496c7794078af0c27fea78b472e"
+    },
+    "wish_warm_event": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "bc58f0ab35c9ed4ca1421e79431ba7c17956ed3a352834cf625058dc9c80d521"
+    },
+    "wish_world_tree_state": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "c8fc1cc9db13e1ff8b93641e11f171e29c2dffdadc35df66ea767b323c968b03"
+    }
+  },
+  "mall-wms": {
+    "compensation_task": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "9972347691567e32b4b2b52b5a393fcc222cbcba28b9e9836509b4c593891fab"
+    },
+    "inbound_order_items": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ee0848d43ee8030ebab63d902397b2674c170de8a208f733844fa39af752e9df"
+    },
+    "inbound_orders": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "02dd3c6276e35b48598d94394ca5906d43365c208122e523cebe8fbe064fc5a2"
+    },
+    "inbound_receipt": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "eea7a46b6b3973a4b19c386bcf1b6bb50325fe4374d4cfd149f734fcf1f3be43"
+    },
+    "inbox_record": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "cf292670abdef9bc792620bfa915620c31caac83bd408726b33383e72fd4a39c"
+    },
+    "outbox_event": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "efb90f491315f564cce7b912d7283a25bcb7ce934a94474739f95079134efd5d"
+    },
+    "pick_order_items": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "e150210714a55140665bdf4a54d46fbd09023686fc3f6e6a0531804c09caeb95"
+    },
+    "pick_orders": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "d5bf57c7274d0fbb0661e54362e1c934d4422008e68db2001e2104a463747710"
+    },
+    "shipping_orders": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "a0747859935f165f6af9a26ec68c4c6e7997e5a68003f48eba073222469fda0d"
+    },
+    "shipping_trackings": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "0e7a9cb45afd374a82587ab15bd5e210d243e125151f35b18060b3dce60ae7e8"
+    },
+    "warehouses": {
+      "rows": 0,
+      "seedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddlSha256": "ed402e13c2df50ff3448108bf2958b9a9a0e48b4462551369e67a4fc05709cb4"
+    }
+  }
+}

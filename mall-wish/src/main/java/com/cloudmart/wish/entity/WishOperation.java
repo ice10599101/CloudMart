@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
  * 去重行与领域写操作同事务提交——"操作已生效"与"余额/库存已变化"原子成立。
  * 仅 COMPLETED 结果落库：失败事务整体回滚，行不存在即结果未知，调用方可按原键重试。
  * 同键同摘要重放已提交结果；同键异摘要 409 IDEMPOTENCY_KEY_REUSED。
- * 旧路径 {@link WishPetOperation} 保留兼容，禁止清表后重放旧请求。</p>
+ * 星光交易使用 {@link WishStarlightOperation} 保留金额与退款原单等领域字段；本表承载其他通用写操作。</p>
  */
 @Getter
 @Setter

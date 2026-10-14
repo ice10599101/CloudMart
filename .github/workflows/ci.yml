@@ -106,7 +106,7 @@ jobs:
       # docker pull 幂等，预拉后 Testcontainers 复用本地层）
       - name: 预拉取 IT 镜像
         run: |
-          for img in mysql:9.4.0 mysql:9.0 redis:7.4-alpine docker.elastic.co/elasticsearch/elasticsearch:9.4.0; do
+          for img in mysql:9.7.0 mysql:9.0 redis:7.4-alpine docker.elastic.co/elasticsearch/elasticsearch:9.4.0; do
             docker pull "$img" || echo "::warning::预拉取失败（继续，Testcontainers 会自行重试）: $img"
           done
       # E01/T26：*IntegrationTest 由 failsafe 执行，报告落 target/failsafe-reports；
@@ -156,46 +156,9 @@ jobs:
           if [ "$pet_total" -eq 0 ]; then
             echo "::error::mall-pet 专属集成测试未执行（宠物发布门禁要求非零）"; exit 1
           fi
-      # R26：迁移干净建库验证——每模块独立数据库（同一库会混入不同模块的同版本号
-      # V1/V2，flyway history 污染导致假绿/假红），并校验 history 非空
-      - name: 迁移干净建库验证（每模块独立库，V1..Vn 从零执行）
-        run: |
-          docker run -d --name clean-db -e MYSQL_ROOT_PASSWORD=root             -p 33061:3306 mysql:9.4.0
-          # mysqladmin ping 在初始化阶段（root 密码未就绪）也返回存活——必须用
-          # 真实认证探测就绪，否则首个 DROP DATABASE 即 1045，全部模块迁移假失败
-          ready=0
-          for i in $(seq 1 60); do
-            # -h127.0.0.1 强制 TCP：初始化期临时服务器 skip-networking，socket 探测
-            # 会在临时期假通过（随后 DROP DATABASE 撞切换间隙 socket 错误）
-            if docker exec clean-db mysql -h127.0.0.1 -uroot -proot -e "SELECT 1" >/dev/null 2>&1; then
-              ready=1; break
-            fi
-            sleep 2
-          done
-          if [ "$ready" -ne 1 ]; then
-            echo "::error::clean-db 120s 内未就绪（真实认证探测失败）"; exit 1
-          fi
-          failed=0
-          # flyway-maven-plugin 直接 CLI 调用的类路径无 flyway-mysql 数据库插件
-          # （No Flyway database plugin found）——改用官方 Flyway Docker CLI（内置 MySQL 支持）
-          for dir in mall-*/src/main/resources/db/migration; do
-            module=$(echo "$dir" | cut -d/ -f1)
-            db="clean_${module}"
-            docker exec clean-db mysql -uroot -proot             -e "DROP DATABASE IF EXISTS \`${db}\`; CREATE DATABASE \`${db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
-            echo "::group::Flyway migrate: $module → $db"
-            if docker run --rm --network host                 -v "$PWD/$dir:/flyway/sql:ro"                 flyway/flyway:11                 -url="jdbc:mysql://127.0.0.1:33061/${db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"                 -user=root -password=root                 -locations=filesystem:/flyway/sql migrate; then
-              rows=$(docker exec clean-db mysql -uroot -proot -N              -e "SELECT COUNT(*) FROM \`${db}\`.flyway_schema_history WHERE success=1;")
-              echo "OK: $module (history rows=$rows)"
-              if [ "$rows" -eq 0 ]; then
-                echo "::error::$module 迁移后 history 为空（可能整个 locations 未被加载）"; failed=1
-              fi
-            else
-              echo "::error::迁移失败: $module"; failed=1
-            fi
-            echo "::endgroup::"
-          done
-          docker rm -f clean-db >/dev/null 2>&1 || true
-          exit $failed
+      # C26：每次创建独立 MySQL，核对全部表/索引/约束/种子，验证二次启动和拒绝漂移。
+      - name: 全新数据库基线与 Flyway 保护验证
+        run: python3 scripts/db-baseline/run.py verify --mysql-image mysql:9.7.0
       # T26 第 4 点 / R28：存量库续跑路径——migrate 到次末版本（作为"上个已发布版本"
       # 的代理；仓库尚无 release tag），灌入该版本 schema 下的代表存量数据后再续跑
       # head（等价真实发布滚动升级；空库路径由上一步覆盖）。只做空结构升级无法发现
@@ -203,7 +166,7 @@ jobs:
       # src/test/resources/migration/representative-data.sql 与 -check.sql
       - name: 存量库续跑验证（上个版本+代表数据 → head，R28）
         run: |
-          docker run -d --name upgrade-db -e MYSQL_ROOT_PASSWORD=root -p 33061:3306 mysql:9.4.0
+          docker run -d --name upgrade-db -e MYSQL_ROOT_PASSWORD=root -p 33061:3306 mysql:9.7.0
           ready=0
           for i in $(seq 1 60); do
             if docker exec upgrade-db mysql -h127.0.0.1 -uroot -proot -e "SELECT 1" >/dev/null 2>&1; then
@@ -220,13 +183,14 @@ jobs:
             db="upgrade_${module}"
             last=$(ls "$dir" | grep -oE '^V[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1)
             prev=$(ls "$dir" | grep -oE '^V[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -2 | head -1)
-            if [ -z "$prev" ]; then
-              echo "SKIP: $module 仅 1 个版本"; continue
+            count=$(ls "$dir" | grep -cE '^V[0-9]+__.*[.]sql$')
+            if [ "$count" -lt 2 ]; then
+              echo "BASELINE ONLY: $module 已由全新库+二次 validate 门禁覆盖"; continue
             fi
             echo "::group::存量续跑: $module (V${prev} → V${last})"
             docker exec upgrade-db mysql -uroot -proot -e "DROP DATABASE IF EXISTS \`${db}\`; CREATE DATABASE \`${db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
             fly() {
-              docker run --rm --network host                 -v "$PWD/$dir:/flyway/sql:ro"                 flyway/flyway:11                 -url="jdbc:mysql://127.0.0.1:33061/${db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"                 -user=root -password=root -locations=filesystem:/flyway/sql "$@"
+              docker run --rm --network host                 -v "$PWD/$dir:/flyway/sql:ro"                 flyway/flyway:11                 -url="jdbc:mysql://127.0.0.1:33061/${db}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai"                 -user=root -password=root -locations=filesystem:/flyway/sql -validateOnMigrate=true -baselineOnMigrate=false -cleanDisabled=true -ignoreMigrationPatterns= "$@"
             }
             if ! fly -target="$prev" migrate; then
               echo "::error::$module 迁移到上个版本 V${prev} 失败"; failed=1; echo "::endgroup::"; continue

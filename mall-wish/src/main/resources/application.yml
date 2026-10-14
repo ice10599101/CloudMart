@@ -60,12 +60,12 @@ spring:
       minimum-idle: 2
   flyway:
     enabled: true
-    baseline-on-migrate: true
-    baseline-version: 1
-    locations: classpath:db/migration,classpath:com/cloudmart/wish/db/migration
+    baseline-on-migrate: false
+    locations: classpath:db/migration
     clean-disabled: true
     # B23：正式环境先 validate 再 migrate（历史 checksum 差异在发布前修正，不靠 repair 掩盖）
     validate-on-migrate: true
+    ignore-migration-patterns: []
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}

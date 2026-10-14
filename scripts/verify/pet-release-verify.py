@@ -13,7 +13,7 @@
   4. R05 处罚：GET /admin/pet/sanctions 可用（管理员）
   5. R11 断线恢复：GET /minigames/current
   6. R22 聊天：带键发消息 → 同键重放返回同一回复（真实唯一键下验证占键链路）
-  7. V53 后置：-flyway history 由运维另行核对（脚本不含 DB 直连）
+  7. Flyway 基线后置：history 由运维另行核对（脚本不含 DB 直连）
 """
 import json
 import os

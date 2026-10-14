@@ -23,4 +23,5 @@ spring:
       timeout: 5s
   flyway:
     clean-disabled: true
-    validate-on-migrate: false
+    validate-on-migrate: true
+    ignore-migration-patterns: []

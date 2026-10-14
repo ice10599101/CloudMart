@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""PET-09/10/11/12/13/21/24 部署验证（V68–V71 + mall-admin V18 重启后执行）。
+"""PET-09/10/11/12/13/21/24 部署验证（C26 基线或其后增量重启后执行）。
 
 只读或构造性失败（不产生任何业务状态变更）：
   用户域（pet-verify-test 测试账号）：
-    1.  V68 任务集：GET /daily-quests 返回 setId；GET /daily-quest-sets 列表非空；
+    1.  任务集：GET /daily-quests 返回 setId；GET /daily-quest-sets 列表非空；
         GET /daily-quest-sets/{setId} 详情可达
     2.  PET-12：GET /purchase-requests/{uuid} → 200 UNKNOWN；GET /purchase-orders 200
-    3.  PET-13：GET /pets/{petId}/album 200（V71 列存在即迁移成功佐证）；
+    3.  PET-13：GET /pets/{petId}/album 200（任务集/相册列存在即迁移成功佐证）；
         POST /pets/{petId}/album/{bogus}/retry-binding → 业务拒绝信封（路由存在）
     4.  PET-11：GET /events?status=CLAIMABLE 200
     5.  PET-06：GET /activity-center 含 accountBusyActivity.minigame
@@ -58,11 +58,11 @@ def main():
     if not token:
         sys.exit(1)
 
-    # ---- PET-09/V68：任务集实体化 ----
+    # ---- PET-09 任务集：任务集实体化 ----
     s, b = call("GET", "/api/pet/daily-quests", token=token)
     panel = b.get("data") or {}
     set_id = panel.get("setId")
-    check("GET /daily-quests 200 且含 setId（V68 集生成）",
+    check("GET /daily-quests 200 且含 setId（任务集生成）",
           s == 200 and bool(set_id), f"status={s} setId={set_id}")
 
     s, b = call("GET", "/api/pet/daily-quest-sets", token=token)
@@ -89,7 +89,7 @@ def main():
     s, b = call("GET", "/api/pet/purchase-orders", token=token)
     check("GET /purchase-orders 200", s == 200, f"status={s}")
 
-    # ---- PET-13/V71：相册列表 + 重试绑定路由 ----
+    # ---- PET-13 相册：相册列表 + 重试绑定路由 ----
     s, b = call("GET", "/api/pet/me", token=token)
     pet_id = ((b.get("data") or {}).get("pets") or [{}])[0].get("petId") if isinstance(b.get("data"), dict) else None
     if not pet_id and isinstance(b.get("data"), dict):
@@ -98,7 +98,7 @@ def main():
 
     if pet_id:
         s, b = call("GET", f"/api/pet/pets/{pet_id}/album", token=token)
-        check("GET /pets/{petId}/album 200（V71 列存在 = 迁移成功）", s == 200, f"status={s}")
+        check("GET /pets/{petId}/album 200（任务集/相册列存在 = 迁移成功）", s == 200, f"status={s}")
 
         s, b = call("POST", f"/api/pet/pets/{pet_id}/album/999999999999/retry-binding", token=token)
         envelope_ok = s in (200, 400, 403, 404) and bool(b.get("error") or b.get("success") is not None)

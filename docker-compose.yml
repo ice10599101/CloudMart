@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: mysql:latest
+    image: mysql:9.7.0
     container_name: cloudmart-mysql
     restart: unless-stopped
     ports:
@@ -43,7 +43,7 @@ services:
 
   # 集成测试专用 MySQL（Sprint 1.4）：无数据卷，可随时销毁重建，与业务实例完全隔离
   mysql-it:
-    image: mysql:latest
+    image: mysql:9.7.0
     container_name: cloudmart-mysql-it
     restart: unless-stopped
     ports:
@@ -81,7 +81,7 @@ services:
       - cloudmart-network
 
   nacos:
-    image: nacos/nacos-server:latest
+    image: nacos/nacos-server@sha256:d6b3087bc2302c2b49c875e1c5ad8c916fc10696ceb355be56cffd715e178d81
     container_name: cloudmart-nacos
     restart: unless-stopped
     ports:

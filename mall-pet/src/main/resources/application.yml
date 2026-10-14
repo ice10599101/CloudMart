@@ -66,18 +66,11 @@ spring:
       connection-timeout: 3000
   flyway:
     enabled: true
-    baseline-on-migrate: true
-    baseline-version: 1
+    baseline-on-migrate: false
     locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
     clean-disabled: true
-    # R01：开启校验——历史迁移 checksum 被改/失败历史行必须走受控修复单，启动即失败而非自动 repair 掩盖
     validate-on-migrate: true
-    # PET-01：开发重置脚本 V29 已迁出自动迁移生命周期（db/devops/ 人工执行）。此处豁免
-    # "已应用迁移本地缺失"——防止曾执行过 V29 的环境因文件迁出而校验失败。
-    # Flyway 11 的 pattern 语法为 {type}:{state}，不支持按版本号过滤（裸数字会报
-    # Invalid migration type）；versioned:missing 只放宽"历史有记录但文件已不存在"的
-    # versioned 迁移，checksum 漂移/失败行仍全量校验。
-    ignore-migration-patterns: "versioned:missing"
+    ignore-migration-patterns: []
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}

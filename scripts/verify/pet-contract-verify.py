@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""批次 A–C2 契约验证（V61–V64 部署后执行）。
+"""批次 A–C2 契约验证（C26 基线或其后增量部署后执行）。
 
 覆盖：
   A. R05 举报：description 校验 / 同目标未结案幂等 / GET /reports/mine / 管理员驳回

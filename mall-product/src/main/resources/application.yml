@@ -60,11 +60,11 @@ spring:
       minimum-idle: 2
   flyway:
     enabled: true
-    baseline-on-migrate: true
-    baseline-version: 1
+    baseline-on-migrate: false
     locations: classpath:db/migration
     clean-disabled: true
-    validate-on-migrate: false
+    validate-on-migrate: true
+    ignore-migration-patterns: []
   elasticsearch:
     uris: ${ELASTICSEARCH_URIS:http://127.0.0.1:9200}
   data:
@@ -129,7 +129,7 @@ cloudmart:
       mall-order: order:internal
       # R07/N-2：评价返星光交付（/internal/starlight/earn，义务台账补发）
       mall-wish: wish:starlight
-      # CAT-01：商品发布时库存建档（/inventory/init）
+      # CAT-01：商品发布时库存建档（/internal/inventory/init）
       mall-inventory: inventory:admin
     service-token-paths:
       - prefix: /products/es

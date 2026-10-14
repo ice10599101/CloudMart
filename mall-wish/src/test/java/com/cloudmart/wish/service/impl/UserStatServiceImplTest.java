@@ -52,7 +52,7 @@ class UserStatServiceImplTest {
     @Mock
     private BadgeService badgeService;
     @Mock
-    private com.cloudmart.wish.repository.WishPetOperationMapper wishPetOperationMapper;
+    private com.cloudmart.wish.repository.WishStarlightOperationMapper wishStarlightOperationMapper;
 
     private UserStatServiceImpl userStatService;
 
@@ -65,13 +65,13 @@ class UserStatServiceImplTest {
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""), WishUserStat.class);
         TableInfoHelper.initTableInfo(
                 new MapperBuilderAssistant(new MybatisConfiguration(), ""),
-                com.cloudmart.wish.entity.WishPetOperation.class);
+                com.cloudmart.wish.entity.WishStarlightOperation.class);
     }
 
     @BeforeEach
     void setUp() {
         userStatService = new UserStatServiceImpl(wishUserStatMapper, wishResourceLogMapper,
-                wishPetOperationMapper, badgeService);
+                wishStarlightOperationMapper, badgeService);
         // initUserStat 的存在性检查默认无记录（允许 insert）
         when(wishUserStatMapper.selectById(USER_ID)).thenReturn(null);
     }
@@ -345,8 +345,8 @@ class UserStatServiceImplTest {
     @DisplayName("refundStarlightIdempotent - 宠物旧单退款（P02/TX-04）")
     class RefundTests {
 
-        private com.cloudmart.wish.entity.WishPetOperation originalSpend(int credited) {
-            com.cloudmart.wish.entity.WishPetOperation original = new com.cloudmart.wish.entity.WishPetOperation();
+        private com.cloudmart.wish.entity.WishStarlightOperation originalSpend(int credited) {
+            com.cloudmart.wish.entity.WishStarlightOperation original = new com.cloudmart.wish.entity.WishStarlightOperation();
             original.setOperationId("orig-1");
             original.setUserId(USER_ID);
             original.setOperationType(ResourceLogType.SPEND.name());
@@ -359,9 +359,9 @@ class UserStatServiceImplTest {
         @Test
         @DisplayName("正常退款：等于实扣金额全额入账，不受余额上限截断，PET_REFUND 流水")
         void refund_success_bypassesCap() {
-            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class))).thenReturn(1);
-            when(wishPetOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
-            when(wishPetOperationMapper.selectList(any())).thenReturn(java.util.List.of());
+            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class))).thenReturn(1);
+            when(wishStarlightOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
+            when(wishStarlightOperationMapper.selectList(any())).thenReturn(java.util.List.of());
             when(wishUserStatMapper.update(any(), any())).thenReturn(1);
             // 余额已在 4990（接近 5000 上限）：退款仍须全额 20 入账
             when(wishUserStatMapper.selectOne(any())).thenReturn(buildStat(4990));
@@ -375,9 +375,9 @@ class UserStatServiceImplTest {
             verify(wishResourceLogMapper).insert(captor.capture());
             assertThat(captor.getValue().getDelta()).isEqualTo(20);
             assertThat(captor.getValue().getSource()).isEqualTo(ResourceLogSource.PET_REFUND.name());
-            ArgumentCaptor<com.cloudmart.wish.entity.WishPetOperation> opCaptor =
-                    ArgumentCaptor.forClass(com.cloudmart.wish.entity.WishPetOperation.class);
-            verify(wishPetOperationMapper).updateById(opCaptor.capture());
+            ArgumentCaptor<com.cloudmart.wish.entity.WishStarlightOperation> opCaptor =
+                    ArgumentCaptor.forClass(com.cloudmart.wish.entity.WishStarlightOperation.class);
+            verify(wishStarlightOperationMapper).updateById(opCaptor.capture());
             assertThat(opCaptor.getValue().getRefundOfOperationId()).isEqualTo("orig-1");
             assertThat(opCaptor.getValue().getCreditedAmount()).isEqualTo(20);
         }
@@ -385,8 +385,8 @@ class UserStatServiceImplTest {
         @Test
         @DisplayName("原单不存在：409 冲突，不写流水")
         void refund_originalMissing_conflict() {
-            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class))).thenReturn(1);
-            when(wishPetOperationMapper.selectOne(any())).thenReturn(null);
+            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class))).thenReturn(1);
+            when(wishStarlightOperationMapper.selectOne(any())).thenReturn(null);
 
             assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
                     USER_ID, 20, "orig-missing", "refund-1"))
@@ -398,10 +398,10 @@ class UserStatServiceImplTest {
         @Test
         @DisplayName("原单不属于该用户：409 冲突（越权退款拒绝）")
         void refund_notOwner_conflict() {
-            com.cloudmart.wish.entity.WishPetOperation other = originalSpend(20);
+            com.cloudmart.wish.entity.WishStarlightOperation other = originalSpend(20);
             other.setUserId(9999L);
-            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class))).thenReturn(1);
-            when(wishPetOperationMapper.selectOne(any())).thenReturn(other);
+            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class))).thenReturn(1);
+            when(wishStarlightOperationMapper.selectOne(any())).thenReturn(other);
 
             assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
                     USER_ID, 20, "orig-1", "refund-1"))
@@ -412,8 +412,8 @@ class UserStatServiceImplTest {
         @Test
         @DisplayName("非全额退款（首版不支持部分退）：409 冲突")
         void refund_partialAmount_conflict() {
-            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class))).thenReturn(1);
-            when(wishPetOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
+            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class))).thenReturn(1);
+            when(wishStarlightOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
 
             assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
                     USER_ID, 10, "orig-1", "refund-1"))
@@ -424,11 +424,11 @@ class UserStatServiceImplTest {
         @Test
         @DisplayName("累计退款超过原单实扣：409 冲突")
         void refund_cumulativeExceeded_conflict() {
-            com.cloudmart.wish.entity.WishPetOperation prior = new com.cloudmart.wish.entity.WishPetOperation();
+            com.cloudmart.wish.entity.WishStarlightOperation prior = new com.cloudmart.wish.entity.WishStarlightOperation();
             prior.setCreditedAmount(20);
-            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class))).thenReturn(1);
-            when(wishPetOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
-            when(wishPetOperationMapper.selectList(any())).thenReturn(java.util.List.of(prior));
+            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class))).thenReturn(1);
+            when(wishStarlightOperationMapper.selectOne(any())).thenReturn(originalSpend(20));
+            when(wishStarlightOperationMapper.selectList(any())).thenReturn(java.util.List.of(prior));
 
             assertThatThrownBy(() -> userStatService.refundStarlightIdempotent(
                     USER_ID, 20, "orig-1", "refund-2"))
@@ -441,14 +441,14 @@ class UserStatServiceImplTest {
         void refund_duplicateKey_returnsOriginal() {
             java.util.concurrent.atomic.AtomicReference<String> digestRef =
                     new java.util.concurrent.atomic.AtomicReference<>();
-            when(wishPetOperationMapper.insert(any(com.cloudmart.wish.entity.WishPetOperation.class)))
+            when(wishStarlightOperationMapper.insert(any(com.cloudmart.wish.entity.WishStarlightOperation.class)))
                     .thenAnswer(inv -> {
-                        digestRef.set(((com.cloudmart.wish.entity.WishPetOperation) inv.getArgument(0))
+                        digestRef.set(((com.cloudmart.wish.entity.WishStarlightOperation) inv.getArgument(0))
                                 .getRequestDigest());
                         throw new org.springframework.dao.DuplicateKeyException("dup");
                     });
-            when(wishPetOperationMapper.selectOne(any())).thenAnswer(inv -> {
-                com.cloudmart.wish.entity.WishPetOperation existing = new com.cloudmart.wish.entity.WishPetOperation();
+            when(wishStarlightOperationMapper.selectOne(any())).thenAnswer(inv -> {
+                com.cloudmart.wish.entity.WishStarlightOperation existing = new com.cloudmart.wish.entity.WishStarlightOperation();
                 existing.setOperationId("refund-1");
                 existing.setRequestDigest(digestRef.get());
                 existing.setAmount(20);

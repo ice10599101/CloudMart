@@ -12,7 +12,8 @@ spring:
   flyway:
     # 集成测试库每次全量迁移校验，验证 Flyway 契约
     clean-disabled: true
-    validate-on-migrate: false
+    validate-on-migrate: true
+    ignore-migration-patterns: []
   data:
     redis:
       host: ${WISH_IT_REDIS_HOST:}
