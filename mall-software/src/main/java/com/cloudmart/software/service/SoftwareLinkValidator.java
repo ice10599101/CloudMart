@@ -58,10 +58,10 @@ public class SoftwareLinkValidator {
     public ValidatedLink validate(SoftwareSourceType sourceType, String provider,
                                   String url, String extractionCode, String archivePassword) {
         if (url == null || url.isBlank()) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "来源链接不能为空");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "来源链接不能为空");
         }
         if (CONTROL_CHARS.matcher(url).find()) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "来源链接包含控制字符");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "来源链接包含控制字符");
         }
         return switch (sourceType) {
             case NETDISK -> validateNetdisk(provider, url.trim(), extractionCode, archivePassword);
@@ -92,14 +92,14 @@ public class SoftwareLinkValidator {
                 .findFirst()
                 .orElse(null);
         if (mapped == null) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID",
+            throw new BusinessException("SOFTWARE_LINK_INVALID",
                     "暂不支持该网盘域名，可使用受支持网盘或经管理员审核后启用");
         }
         if (providerRaw != null && !providerRaw.isBlank()) {
             SoftwareProvider claimed = SoftwareProvider.valueOf(providerRaw.toUpperCase(Locale.ROOT));
             if (claimed != mapped) {
                 // provider 由服务端域名映射裁定，不信任客户端标签（5.1）
-                throw new BusinessException("SOFTWARE_SOURCE_INVALID", "来源服务商与链接域名不符");
+                throw new BusinessException("SOFTWARE_LINK_INVALID", "来源服务商与链接域名不符");
             }
         }
         return mapped;
@@ -107,10 +107,10 @@ public class SoftwareLinkValidator {
 
     private ValidatedLink validateMagnet(String url, String extractionCode, String archivePassword) {
         if (url.length() > MAX_MAGNET_LENGTH) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "磁力链接过长（≤8192）");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "磁力链接过长（≤8192）");
         }
         if (!url.toLowerCase(Locale.ROOT).startsWith("magnet:?")) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "磁力链接格式非法");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "磁力链接格式非法");
         }
         String query = url.substring("magnet:?".length());
         int xtCount = 0;
@@ -120,7 +120,7 @@ public class SoftwareLinkValidator {
             }
             String key = pair.contains("=") ? pair.substring(0, pair.indexOf('=')) : pair;
             if (!ALLOWED_MAGNET_PARAMS.contains(key.toLowerCase(Locale.ROOT))) {
-                throw new BusinessException("SOFTWARE_SOURCE_INVALID", "磁力链接包含不支持的参数: " + key);
+                throw new BusinessException("SOFTWARE_LINK_INVALID", "磁力链接包含不支持的参数: " + key);
             }
             if ("xt".equalsIgnoreCase(key)) {
                 xtCount++;
@@ -128,13 +128,13 @@ public class SoftwareLinkValidator {
                 String value = pair.substring(pair.indexOf('=') + 1);
                 if (!BTIH_HEX.matcher(value).matches()
                         && !BTIH_BASE32.matcher(value).matches()) {
-                    throw new BusinessException("SOFTWARE_SOURCE_INVALID",
+                    throw new BusinessException("SOFTWARE_LINK_INVALID",
                             "磁力 xt 仅接受 40 位十六进制或 32 位 Base32 BTIH");
                 }
             }
         }
         if (xtCount != 1) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "磁力链接须恰好包含一个有效 xt/BTIH");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "磁力链接须恰好包含一个有效 xt/BTIH");
         }
         // 磁力为稳定语义标识，规范化仅统一协议头大小写
         String normalized = "magnet:?" + query;
@@ -156,27 +156,27 @@ public class SoftwareLinkValidator {
     /** HTTPS 统一解析：拒绝 userinfo/空 host/localhost/IP 字面量，标准化默认端口（5.1） */
     private URI parseHttps(String url, int maxLength) {
         if (url.length() > maxLength) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "链接过长（≤" + maxLength + "）");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "链接过长（≤" + maxLength + "）");
         }
         URI uri;
         try {
             uri = new URI(url);
         } catch (URISyntaxException e) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "链接格式非法");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "链接格式非法");
         }
         if (!"https".equalsIgnoreCase(uri.getScheme())) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "外链仅接受 https");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "外链仅接受 https");
         }
         if (uri.getUserInfo() != null) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "链接不允许携带 userinfo");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "链接不允许携带 userinfo");
         }
         String host = uri.getHost();
         if (host == null || host.isBlank()) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "链接缺少主机名");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "链接缺少主机名");
         }
         String lowerHost = host.toLowerCase(Locale.ROOT);
         if (IP_LITERAL.matcher(lowerHost).matches() || LOCAL_HOST.matcher(lowerHost).matches()) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "不允许指向内网或本机地址");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "不允许指向内网或本机地址");
         }
         return uri;
     }

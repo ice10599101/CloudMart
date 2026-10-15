@@ -200,7 +200,7 @@ class SoftwarePublishServiceImplTest {
 
         assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, 1, "submit-key-1"))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "SOFTWARE_REVIEW_REJECTED");
+                .hasFieldOrPropertyWithValue("code", "CONTENT_REJECTED");
         verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
     }
 

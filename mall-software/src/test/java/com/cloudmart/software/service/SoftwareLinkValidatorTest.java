@@ -42,12 +42,12 @@ class SoftwareLinkValidatorTest {
         assertThatThrownBy(() -> validator.validate(SoftwareSourceType.NETDISK, null,
                 "https://evilbaidu.com/s/1", null, null))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "SOFTWARE_SOURCE_INVALID");
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_LINK_INVALID");
 
         assertThatThrownBy(() -> validator.validate(SoftwareSourceType.NETDISK, "QUARK",
                 "https://pan.baidu.com/s/1", null, null))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "SOFTWARE_SOURCE_INVALID");
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_LINK_INVALID");
     }
 
     @Test

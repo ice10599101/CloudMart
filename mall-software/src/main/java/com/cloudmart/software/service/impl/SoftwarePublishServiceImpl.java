@@ -341,7 +341,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                         Math.toIntExact(mediaCount))).data();
         if (outcome == null || !outcome.approved()) {
             // 审核失败不得发布（9.6）：拒绝级违规词直接拒绝提交
-            throw new BusinessException("SOFTWARE_REVIEW_REJECTED",
+            throw new BusinessException("CONTENT_REJECTED",
                     outcome == null ? "内容审核不可用" : outcome.reason());
         }
         requireAccountAvailable(userId);

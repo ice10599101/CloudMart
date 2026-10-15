@@ -115,12 +115,12 @@ public class SoftwareLinkAccessPolicy {
                                      Integer currentLevel, Integer requiredLevel,
                                      LocalDateTime grantExpiresAt) {
 
-        static LinkAccessDecision allowed(Integer currentLevel, Integer requiredLevel,
+        public static LinkAccessDecision allowed(Integer currentLevel, Integer requiredLevel,
                                           LocalDateTime grantExpiresAt) {
             return new LinkAccessDecision(true, null, currentLevel, requiredLevel, grantExpiresAt);
         }
 
-        static LinkAccessDecision denied(String reasonCode, Integer currentLevel,
+        public static LinkAccessDecision denied(String reasonCode, Integer currentLevel,
                                          Integer requiredLevel, LocalDateTime grantExpiresAt) {
             return new LinkAccessDecision(false, reasonCode, currentLevel, requiredLevel, grantExpiresAt);
         }

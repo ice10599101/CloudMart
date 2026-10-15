@@ -299,7 +299,7 @@ public class SoftwareSnapshotAssembler {
             UUID.fromString(releaseKey.trim());
             return false;
         } catch (IllegalArgumentException e) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID",
+            throw new BusinessException("SOFTWARE_LINK_INVALID",
                     "releaseKey 必须为服务端签发的 UUID 或留空");
         }
     }
@@ -393,20 +393,20 @@ public class SoftwareSnapshotAssembler {
 
     private void validateOptionalFields(SoftwareSnapshotInput.SourceInput sourceInput) {
         if (sourceInput.getExtractionCode() != null && sourceInput.getExtractionCode().trim().length() > 32) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "提取码最长 32 字符");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "提取码最长 32 字符");
         }
         if (sourceInput.getArchivePassword() != null && sourceInput.getArchivePassword().trim().length() > 64) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "解压密码最长 64 字符");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "解压密码最长 64 字符");
         }
         if (sourceInput.getSizeLabel() != null && sourceInput.getSizeLabel().length() > 40) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "大小描述最长 40 字");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "大小描述最长 40 字");
         }
         if (sourceInput.getClaimedSha256() != null && !sourceInput.getClaimedSha256().isBlank()
                 && !sourceInput.getClaimedSha256().matches("[0-9a-fA-F]{64}")) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "SHA-256 须为 64 位十六进制");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "SHA-256 须为 64 位十六进制");
         }
         if (sourceInput.getNote() != null && sourceInput.getNote().length() > 200) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID", "来源说明最长 200 字");
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "来源说明最长 200 字");
         }
     }
 
@@ -416,7 +416,7 @@ public class SoftwareSnapshotAssembler {
         try {
             UUID.fromString(trimmed);
         } catch (IllegalArgumentException e) {
-            throw new BusinessException("SOFTWARE_SOURCE_INVALID",
+            throw new BusinessException("SOFTWARE_LINK_INVALID",
                     "sourceKey 必须为服务端签发的 UUID 或留空");
         }
         return trimmed;
@@ -430,26 +430,26 @@ public class SoftwareSnapshotAssembler {
     public void validateForSubmit(SoftwareRevision revision) {
         if (revision.getName() == null || revision.getName().length() < 2
                 || revision.getName().length() > 80) {
-            throw new BusinessException("SOFTWARE_SNAPSHOT_INCOMPLETE", "软件名须为 2~80 字");
+            throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "软件名须为 2~80 字");
         }
         if (revision.getSummary() == null || revision.getSummary().length() < 10
                 || revision.getSummary().length() > 160) {
-            throw new BusinessException("SOFTWARE_SNAPSHOT_INCOMPLETE", "简介须为 10~160 字");
+            throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "简介须为 10~160 字");
         }
         if (revision.getCategoryId() == null) {
-            throw new BusinessException("SOFTWARE_SNAPSHOT_INCOMPLETE", "必须选择分类");
+            throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "必须选择分类");
         }
         if (revision.getLicenseType() == null) {
-            throw new BusinessException("SOFTWARE_SNAPSHOT_INCOMPLETE", "必须选择授权类型");
+            throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "必须选择授权类型");
         }
         if (revision.getAttributionType() == null) {
-            throw new BusinessException("SOFTWARE_SNAPSHOT_INCOMPLETE", "必须选择来源声明");
+            throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "必须选择来源声明");
         }
         List<SoftwareRelease> releases = releaseMapper.selectList(
                 new LambdaQueryWrapper<SoftwareRelease>()
                         .eq(SoftwareRelease::getRevisionId, revision.getId()));
         if (releases.isEmpty()) {
-            throw new BusinessException("SOFTWARE_SNAPSHOT_INCOMPLETE", "至少需要一个版本及其下载来源");
+            throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "至少需要一个版本及其下载来源");
         }
         // 每版本至少一个来源已由保存时强制；推荐版本约束保存时校验，此处复核
         enforceSingleRecommended(revision.getId());
@@ -461,7 +461,7 @@ public class SoftwareSnapshotAssembler {
         switch (revision.getAccessMode()) {
             case COMMUNITY_LEVEL -> {
                 if (revision.getMinCommunityLevel() == null || revision.getMinCommunityLevel() <= 0) {
-                    throw new BusinessException("SOFTWARE_SNAPSHOT_INCOMPLETE",
+                    throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE",
                             "等级模式必须选择最低社区等级");
                 }
                 // 须为现有启用等级（6.3）：实时读等级配置
@@ -470,19 +470,19 @@ public class SoftwareSnapshotAssembler {
                         .map(option -> option.level())
                         .toList();
                 if (!enabledLevels.contains(revision.getMinCommunityLevel())) {
-                    throw new BusinessException("SOFTWARE_SNAPSHOT_INCOMPLETE",
+                    throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE",
                             "最低社区等级须为现有启用等级");
                 }
             }
             case ADMIN_PAID -> {
                 if (revision.getAccessContactId() == null) {
-                    throw new BusinessException("SOFTWARE_SNAPSHOT_INCOMPLETE",
+                    throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE",
                             "付款模式必须选择管理员联系入口");
                 }
                 SoftwareAccessContact contact =
                         accessContactMapper.selectById(revision.getAccessContactId());
                 if (contact == null || !Boolean.TRUE.equals(contact.getEnabled())) {
-                    throw new BusinessException("SOFTWARE_SNAPSHOT_INCOMPLETE",
+                    throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE",
                             "联系入口不存在或已停用（A43：停用后新提交付款模式失败）");
                 }
             }

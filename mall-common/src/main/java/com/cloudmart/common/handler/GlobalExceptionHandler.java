@@ -135,7 +135,11 @@ public class GlobalExceptionHandler {
                  "WISH_KICKED_COOLDOWN", "WISH_GROUP_LEADER_REQUIRED",
                  "PET_NOT_OWNER", "PET_NOT_PUBLIC", "PET_FORBIDDEN",
                  // 三期：家园未公开 / 无权操作留言
-                 "PET_ROOM_PRIVATE", "PET_WALL_FORBIDDEN" -> HttpStatus.FORBIDDEN;
+                 "PET_ROOM_PRIVATE", "PET_WALL_FORBIDDEN",
+                 // 小答软件（7.6）：资格/查看条件/处置类 403
+                 "SOFTWARE_FORBIDDEN", "SOFTWARE_BANNED", "SOFTWARE_PUBLISH_NOT_ENABLED",
+                 "SOFTWARE_PUBLISH_DISABLED", "SOFTWARE_LEVEL_REQUIRED",
+                 "SOFTWARE_PAYMENT_ACCESS_REQUIRED" -> HttpStatus.FORBIDDEN;
             case "USER_NOT_FOUND", "ROLE_NOT_FOUND", "MENU_NOT_FOUND",
                  "ACTIVITY_NOT_FOUND", "PRODUCT_NOT_FOUND", "TABLE_NOT_FOUND",
                  "ORDER_NOT_FOUND", "COUPON_NOT_FOUND", "TAG_NOT_FOUND",
@@ -173,7 +177,9 @@ public class GlobalExceptionHandler {
                  // 三期：职业/关系/好友/家园/家具/留言/每日任务
                  "PET_CAREER_NOT_FOUND", "PET_RELATION_NOT_FOUND", "PET_FRIEND_NOT_FOUND",
                  "PET_ROOM_NOT_FOUND", "PET_FURNITURE_NOT_FOUND", "PET_WALL_MESSAGE_NOT_FOUND",
-                 "PET_QUEST_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+                 "PET_QUEST_NOT_FOUND",
+                 // 小答软件（7.6 错误契约）：通用不可见提示，不泄露封禁/草稿详情
+                 "SOFTWARE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "WISH_STARLIGHT_INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
             case "WISH_CAPSULE_NOT_AVAILABLE", "WISH_STATUS_CONFLICT",
                  "WISH_ALREADY_INTERACTED", "WISH_ALREADY_CHECKIN_TODAY",
@@ -213,7 +219,11 @@ public class GlobalExceptionHandler {
                  "PET_QUEST_CHEST_NOT_READY", "PET_QUEST_CHEST_CLAIMED",
                  "PET_STATE_WEAK",
                  "PET_STATE_CONFLICT", "PET_OPERATION_CONFLICT", "PET_USER_BUSY",
-                 "PET_FURNITURE_ALREADY_PLACED" -> HttpStatus.CONFLICT;
+                 "PET_FURNITURE_ALREADY_PLACED",
+                 // 小答软件（7.6）：并发/过期/来源不可用 409
+                 "SOFTWARE_VERSION_CONFLICT", "SOFTWARE_STATE_CONFLICT", "SOFTWARE_SUBMIT_STALE",
+                 "SOFTWARE_OPERATION_CONFLICT", "SOFTWARE_SOURCE_STALE",
+                 "SOFTWARE_SOURCE_UNAVAILABLE", "SOFTWARE_ACCESS_CONTACT_UNAVAILABLE" -> HttpStatus.CONFLICT;
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED", "UPLOAD_DAILY_LIMIT_EXCEEDED",
                  "PET_AI_RATE_LIMITED", "PET_INTERACTION_RATE_LIMITED", "PET_WALL_RATE_LIMITED",
                  "PET_QUOTA_EXHAUSTED",

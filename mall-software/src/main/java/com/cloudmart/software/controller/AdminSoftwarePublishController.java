@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminSoftwarePublishController {
 
     private final SoftwarePublishService softwarePublishService;
+    private final com.cloudmart.software.service.AdminSoftwareSourceService adminSoftwareSourceService;
 
     @PostMapping("/revisions/{revisionId}/decision")
     @Operation(summary = "审核决策",
@@ -44,5 +45,18 @@ public class AdminSoftwarePublishController {
                 request.getSubmitSeq(), request.getExpectedVersion(),
                 Boolean.TRUE.equals(request.getApprove()),
                 request.getReason(), request.getRequestId()));
+    }
+
+    @PostMapping("/{softwareId}/sources/state")
+    @Operation(summary = "来源状态处置",
+            description = "核实（AVAILABLE/INVALID/SUSPECTED 按当前指纹应用）/禁用 DISABLED（无条件）/解除；"
+                    + "平台禁用优先于反馈，作者改链不能自行恢复（4.3）")
+    public ApiResponse<Boolean> sourceState(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
+            @org.springframework.web.bind.annotation.PathVariable("softwareId") Long softwareId,
+            @RequestBody com.cloudmart.software.dto.software.SoftwareSourceStateRequest request) {
+        return ApiResponse.ok(adminSoftwareSourceService.applyState(
+                adminUserId, softwareId, request.getSourceKey(),
+                request.getAvailability(), request.getReason()));
     }
 }
