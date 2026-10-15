@@ -50,9 +50,11 @@ nacos_get() {
     | jq_get "print(d['data']['content'])"
 }
 nacos_set() {
-  printf '%s' "$1" | curl -s -m 8 -X POST "$NACOS/nacos/v3/admin/cs/config?accessToken=$NTOK" \
-    --data-urlencode "dataId=$DATA_ID" --data-urlencode "groupName=$GROUP" \
-    --data-urlencode "type=yaml" --data-urlencode "content@-" > /dev/null
+  # content 经 python urlencode 后内联提交（Git Bash curl 的 content@- 读 stdin 不可靠）
+  local enc
+  enc=$(printf '%s' "$1" | python -c "import sys,urllib.parse;print(urllib.parse.quote(sys.stdin.read(), safe=''))")
+  curl -s -m 8 -X POST "$NACOS/nacos/v3/admin/cs/config?accessToken=$NTOK" \
+    -d "dataId=$DATA_ID&groupName=$GROUP&type=yaml&content=$enc" > /dev/null
 }
 ORIGINAL=$(nacos_get)
 [ -n "$ORIGINAL" ] || { echo "读取原配置失败，终止"; exit 1; }
