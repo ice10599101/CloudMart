@@ -45,4 +45,11 @@ public class MyBatisPlusConfig {
             }
         };
     }
+
+    /** 短事务模板（9.7：submit 远程阶段在事务外，锁定复核阶段经模板进入事务） */
+    @Bean
+    public org.springframework.transaction.support.TransactionTemplate transactionTemplate(
+            org.springframework.transaction.PlatformTransactionManager transactionManager) {
+        return new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+    }
 }

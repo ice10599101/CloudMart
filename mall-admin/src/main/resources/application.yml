@@ -137,6 +137,8 @@ cloudmart:
       mall-ai: ai:admin
       mall-job: job:admin
       mall-gen: gen:admin
+      # S04：软件域审核代理出站签名（缺失时 mall-software /admin 路径 401）
+      mall-software: software:admin
     user-jwt-verification-enabled: false
     register-admin-permission-interceptor: false
 

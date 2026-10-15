@@ -1,0 +1,149 @@
+package com.cloudmart.software.controller;
+
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.software.dto.software.SoftwareSnapshotInput;
+import com.cloudmart.software.policy.SoftwarePublisherPolicy;
+import com.cloudmart.software.service.SoftwarePublishService;
+import com.cloudmart.software.vo.software.SoftwareCreatedVO;
+import com.cloudmart.software.vo.software.SoftwareEditorVO;
+import com.cloudmart.software.vo.software.SoftwareMineItemVO;
+import com.cloudmart.software.vo.software.SoftwareSubmittedVO;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * 小答软件作者端点（方案 7.3）：登录必达（X-User-Id 为已验签主体）；
+ * 固定路径（publisher-status/mine 等）在 SecurityConfig 先于 /{id} 声明。
+ * 受限写入的发布资格矩阵在 Service 层强制应用（幂等重试同样检查）。
+ */
+@RestController
+@RequestMapping("/software")
+@RequiredArgsConstructor
+@Tag(name = "小答软件-作者", description = "创建/编辑/提交/撤回/上下架/删除/我的软件")
+public class SoftwarePublishController {
+
+    private final SoftwarePublishService softwarePublishService;
+    private final SoftwarePublisherPolicy publisherPolicy;
+
+    @GetMapping("/publisher-status")
+    @Operation(summary = "发布资格状态", description = "仅 UI 提示；写接口仍实时重查（4.0）")
+    public ApiResponse<SoftwarePublisherPolicy.UiHint> publisherStatus(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(publisherPolicy.uiHint(userId));
+    }
+
+    @PostMapping
+    @Operation(summary = "创建软件", description = "Idempotency-Key 幂等；返回 softwareId/workingRevisionId/lockVersion")
+    public ApiResponse<SoftwareCreatedVO> create(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return ApiResponse.ok(softwarePublishService.create(userId, idempotencyKey));
+    }
+
+    @PostMapping("/{id}/working-revision")
+    @Operation(summary = "克隆工作快照", description = "已有工作副本直接返回；否则克隆 published（仅本人）")
+    public ApiResponse<SoftwareEditorVO> workingRevision(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return ApiResponse.ok(softwarePublishService.workingRevision(userId, id, idempotencyKey));
+    }
+
+    @GetMapping("/{id}/editor")
+    @Operation(summary = "编辑器完整工作数据",
+            description = "本人专享（含链接/提取码/审核原因）；独立鉴权，与公开 DTO 隔离")
+    public ApiResponse<SoftwareEditorVO> editor(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id) {
+        return ApiResponse.ok(softwarePublishService.editor(userId, id));
+    }
+
+    @PutMapping("/{id}/revisions/{revisionId}")
+    @Operation(summary = "保存草稿",
+            description = "仅 DRAFT/REJECTED；expectedVersion CAS（A08）；全量替换子项；白名单字段")
+    public ApiResponse<SoftwareEditorVO> saveDraft(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @PathVariable("revisionId") Long revisionId,
+            @RequestBody SoftwareSnapshotInput input,
+            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
+        return ApiResponse.ok(softwarePublishService.saveDraft(
+                userId, id, revisionId, expectedVersion, input));
+    }
+
+    @PostMapping("/{id}/revisions/{revisionId}/submit")
+    @Operation(summary = "提交审核",
+            description = "资格+开关+完整性+社区审核绑定结果；冻结 PENDING 返回 submitSeq")
+    public ApiResponse<SoftwareSubmittedVO> submit(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @PathVariable("revisionId") Long revisionId,
+            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return ApiResponse.ok(softwarePublishService.submit(
+                userId, id, revisionId, expectedVersion, idempotencyKey));
+    }
+
+    @PostMapping("/{id}/revisions/{revisionId}/withdraw")
+    @Operation(summary = "撤回待审", description = "PENDING→DRAFT（不要求资格，保留整理既有内容能力）")
+    public ApiResponse<SoftwareEditorVO> withdraw(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @PathVariable("revisionId") Long revisionId,
+            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
+        return ApiResponse.ok(softwarePublishService.withdraw(userId, id, revisionId, expectedVersion));
+    }
+
+    @PostMapping("/{id}/unlist")
+    @Operation(summary = "下架", description = "ACTIVE→UNLISTED（不要求资格）")
+    public ApiResponse<SoftwareEditorVO> unlist(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
+        return ApiResponse.ok(softwarePublishService.unlist(userId, id, expectedVersion));
+    }
+
+    @PostMapping("/{id}/relist")
+    @Operation(summary = "重新上架",
+            description = "UNLISTED→ACTIVE，须有合格已审快照；要求发布资格；BANNED 拒绝")
+    public ApiResponse<SoftwareEditorVO> relist(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
+        return ApiResponse.ok(softwarePublishService.relist(userId, id, expectedVersion));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "删除软件", description = "软删除（审计保留）；幂等")
+    public ApiResponse<Void> delete(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
+        softwarePublishService.delete(userId, id, expectedVersion);
+        return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/mine")
+    @Operation(summary = "我的软件",
+            description = "tab=published/draft/pending/rejected/favorites（subscriptions 为 P1）；只查本人")
+    public ApiResponse<Page<SoftwareMineItemVO>> mine(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @RequestParam(value = "tab", defaultValue = "published") String tab,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(softwarePublishService.mine(userId, tab, page, size));
+    }
+}

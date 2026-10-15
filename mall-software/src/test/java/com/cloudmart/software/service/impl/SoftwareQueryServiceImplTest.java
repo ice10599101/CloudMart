@@ -29,6 +29,7 @@ import com.cloudmart.software.repository.SoftwareRevisionTagMapper;
 import com.cloudmart.software.repository.SoftwareSourceMapper;
 import com.cloudmart.software.repository.SoftwareSourceStateMapper;
 import com.cloudmart.software.repository.SoftwareTagMapper;
+import com.cloudmart.software.vo.software.SoftwareCardVO;
 import com.cloudmart.software.vo.software.SoftwareDetailVO;
 import com.cloudmart.software.vo.software.SoftwareReleaseVO;
 import org.junit.jupiter.api.DisplayName;
