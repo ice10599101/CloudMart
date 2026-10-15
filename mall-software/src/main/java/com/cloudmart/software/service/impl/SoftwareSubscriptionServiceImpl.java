@@ -2,6 +2,7 @@ package com.cloudmart.software.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.software.config.SoftwareProperties;
 import com.cloudmart.software.entity.SoftwareSubscription;
 import com.cloudmart.software.entity.SoftwareUserPreference;
 import com.cloudmart.software.policy.SoftwareAccessPolicy;
@@ -31,6 +32,7 @@ import java.util.Map;
 public class SoftwareSubscriptionServiceImpl implements SoftwareSubscriptionService {
 
     private final SoftwareAccessPolicy accessPolicy;
+    private final SoftwareProperties softwareProperties;
     private final SoftwareSubscriptionMapper subscriptionMapper;
     private final SoftwareUserPreferenceMapper preferenceMapper;
     private final Clock clock;
@@ -38,6 +40,10 @@ public class SoftwareSubscriptionServiceImpl implements SoftwareSubscriptionServ
     @Override
     @Transactional
     public void subscribe(Long userId, Long softwareId) {
+        // 11.2：P1 订阅独立开关，服务端生效（取消订阅保留，便于用户清理订阅关系）
+        if (!softwareProperties.isSubscriptionEnabled()) {
+            throw new BusinessException("SOFTWARE_SUBSCRIPTION_DISABLED", "订阅功能暂未开放");
+        }
         if (accessPolicy.visiblePublishedRevision(softwareId) == null) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
         }

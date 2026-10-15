@@ -2,6 +2,7 @@ package com.cloudmart.software.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.software.config.SoftwareProperties;
 import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareLinkAccessDaily;
 import com.cloudmart.software.entity.SoftwareRelease;
@@ -84,6 +85,8 @@ class SoftwareSourceAccessServiceImplTest {
     @Mock
     private SoftwareRateLimiter rateLimiter;
     @Mock
+    private SoftwareProperties softwareProperties;
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private SoftwareSourceAccessServiceImpl service;
@@ -94,9 +97,11 @@ class SoftwareSourceAccessServiceImplTest {
         when(transactionTemplate.execute(any())).thenAnswer(invocation ->
                 ((TransactionCallback<?>) invocation.getArgument(0)).doInTransaction(null));
         lenient().when(rateLimiter.allowResolve(any())).thenReturn(true);
+        lenient().when(softwareProperties.isResolveEnabled()).thenReturn(true);
         service = new SoftwareSourceAccessServiceImpl(accessPolicy, linkAccessPolicy,
                 softwareMapper, releaseMapper, sourceMapper, sourceStateMapper,
-                linkAccessDailyMapper, accessContactMapper, rateLimiter, transactionTemplate);
+                linkAccessDailyMapper, accessContactMapper, rateLimiter, softwareProperties,
+                transactionTemplate);
     }
 
     private void stubVisibleChain() {
@@ -240,6 +245,18 @@ class SoftwareSourceAccessServiceImplTest {
 
         verify(linkAccessDailyMapper, never()).insert(any(SoftwareLinkAccessDaily.class));
         verify(softwareMapper, never()).incrementLinkAccessCount(any());
+    }
+
+    @Test
+    @DisplayName("11.2：获取链接开关关闭时服务端拒绝（A30，深链直达也拿不到）")
+    void resolve_disabledBySwitch() {
+        when(softwareProperties.isResolveEnabled()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.resolve(USER_ID, SOFTWARE_ID, SOURCE_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_RESOLVE_DISABLED");
+        // 开关先于任何查看条件/计数执行，不得触碰链路
+        verify(linkAccessDailyMapper, never()).insert(any(SoftwareLinkAccessDaily.class));
     }
 
     private SoftwareRevision publishedRevision() {

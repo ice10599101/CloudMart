@@ -2,6 +2,7 @@ package com.cloudmart.software.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.software.config.SoftwareProperties;
 import com.cloudmart.software.entity.SoftwareRevision;
 import com.cloudmart.software.entity.SoftwareSubscription;
 import com.cloudmart.software.entity.SoftwareUserPreference;
@@ -43,6 +44,8 @@ class SoftwareSubscriptionServiceImplTest {
     @Mock
     private SoftwareAccessPolicy accessPolicy;
     @Mock
+    private SoftwareProperties softwareProperties;
+    @Mock
     private SoftwareSubscriptionMapper subscriptionMapper;
     @Mock
     private SoftwareUserPreferenceMapper preferenceMapper;
@@ -51,8 +54,9 @@ class SoftwareSubscriptionServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new SoftwareSubscriptionServiceImpl(accessPolicy, subscriptionMapper,
-                preferenceMapper,
+        when(softwareProperties.isSubscriptionEnabled()).thenReturn(true);
+        service = new SoftwareSubscriptionServiceImpl(accessPolicy, softwareProperties,
+                subscriptionMapper, preferenceMapper,
                 Clock.fixed(Instant.parse("2026-10-16T02:00:00Z"), ZoneId.systemDefault()));
     }
 
@@ -116,6 +120,21 @@ class SoftwareSubscriptionServiceImplTest {
         var updated = service.updatePreferences(USER_ID, false, 2);
         assertThat(updated).containsEntry("updateNotifications", false);
         verify(preferenceMapper).updateById(existing);
+    }
+
+    @Test
+    @DisplayName("11.2：P1 订阅开关关闭时新增订阅被拒（取消订阅保留可用）")
+    void subscribe_disabledBySwitch() {
+        when(softwareProperties.isSubscriptionEnabled()).thenReturn(false);
+
+        assertThatThrownBy(() -> service.subscribe(USER_ID, SOFTWARE_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_SUBSCRIPTION_DISABLED");
+        verify(subscriptionMapper, never()).insert(any(SoftwareSubscription.class));
+
+        // 取消订阅不依赖开关：清理订阅关系始终可用（软件下架同样幂等成功）
+        service.unsubscribe(USER_ID, SOFTWARE_ID);
+        verify(subscriptionMapper).delete(any(Wrapper.class));
     }
 
     @Test

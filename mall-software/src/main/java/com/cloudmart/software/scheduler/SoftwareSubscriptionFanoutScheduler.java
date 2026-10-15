@@ -21,7 +21,8 @@ public class SoftwareSubscriptionFanoutScheduler {
 
     @Scheduled(fixedDelay = 30_000)
     public void run() {
-        if (!softwareProperties.isEnabled()) {
+        // 总开关关闭（模块不可用）或 P1 订阅开关关闭时不产生任何通知副作用
+        if (!softwareProperties.isEnabled() || !softwareProperties.isSubscriptionEnabled()) {
             return;
         }
         fanoutService.runOnce();

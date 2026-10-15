@@ -1,6 +1,8 @@
 package com.cloudmart.software.service.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.software.config.SoftwareProperties;
 import com.cloudmart.software.repository.SoftwareRankingMapper;
 import com.cloudmart.software.service.SoftwareQueryService;
 import com.cloudmart.software.service.SoftwareRankingService;
@@ -30,6 +32,8 @@ import java.util.stream.Collectors;
  * <p>性能：聚合结果（前 100 个 ID）缓存到 Redis（TTL 10 分钟）——不得每请求扫描
  * 全量日事实；展示前对缓存 ID 重新执行实时公开可见谓词（下架即时消失，A26）。
  * Redis 不可用时降级为直接聚合（fail-open，仅放大库压力）。</p>
+ *
+ * <p>开关：P1 榜单独立开关（手册 11.2/15.2「P1 订阅和榜单单独开关」）。</p>
  */
 @Slf4j
 @Service
@@ -43,6 +47,7 @@ public class SoftwareRankingServiceImpl implements SoftwareRankingService {
     private static final String CACHE_KEY_PREFIX = "software:rank:";
 
     private final SoftwareRankingMapper rankingMapper;
+    private final SoftwareProperties softwareProperties;
     private final SoftwareQueryService queryService;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -50,6 +55,10 @@ public class SoftwareRankingServiceImpl implements SoftwareRankingService {
 
     @Override
     public Page<SoftwareCardVO> rankings(String type, int page, int size) {
+        // 11.2：P1 榜单独立开关，服务端生效（不能仅隐藏前端入口）
+        if (!softwareProperties.isRankingsEnabled()) {
+            throw new BusinessException("SOFTWARE_RANKINGS_DISABLED", "排行榜暂未开放");
+        }
         String normalized = switch (type == null ? "" : type) {
             case "favorite", "rating" -> type;
             default -> "access";
@@ -87,19 +96,16 @@ public class SoftwareRankingServiceImpl implements SoftwareRankingService {
 
     private List<Long> aggregate(String type) {
         return switch (type) {
-            case "favorite" -> rankingMapper.topByFavorite7d(
-                            LocalDateTime.now(clock).minusDays(7), CANDIDATE_LIMIT).stream()
-                    .map(SoftwareRankingMapper.RankingRow::softwareId).toList();
+            case "favorite" -> rankingMapper.topIdsByFavorite7d(
+                    LocalDateTime.now(clock).minusDays(7), CANDIDATE_LIMIT);
             case "rating" -> {
                 Double overall = rankingMapper.overallRatingMean();
-                yield rankingMapper.topByRating(overall == null ? 3.5 : overall,
-                                CANDIDATE_LIMIT).stream()
-                        .map(SoftwareRankingMapper.RankingRow::softwareId).toList();
+                yield rankingMapper.topIdsByRating(overall == null ? 3.5 : overall,
+                        CANDIDATE_LIMIT);
             }
-            default -> rankingMapper.topByAccess7d(
-                            LocalDate.now(clock.withZone(java.time.ZoneId.of("Asia/Shanghai")))
-                                    .minusDays(6), CANDIDATE_LIMIT).stream()
-                    .map(SoftwareRankingMapper.RankingRow::softwareId).toList();
+            default -> rankingMapper.topIdsByAccess7d(
+                    LocalDate.now(clock.withZone(java.time.ZoneId.of("Asia/Shanghai")))
+                            .minusDays(6), CANDIDATE_LIMIT);
         };
     }
 

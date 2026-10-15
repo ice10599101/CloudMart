@@ -24,6 +24,12 @@ public class SoftwareProperties {
     /** 获取链接开关：控制 resolve；关闭后旧前端也无法获取（服务端生效，不依赖前端隐藏按钮） */
     private boolean resolveEnabled = false;
 
+    /** P1 订阅开关：控制订阅更新与广播调度（手册 15.2「P1 订阅和榜单单独开关」） */
+    private boolean subscriptionEnabled = false;
+
+    /** P1 榜单开关：控制排行榜接口（同「P1 订阅和榜单单独开关」） */
+    private boolean rankingsEnabled = false;
+
     /** resolve 是否强制登录：三种查看模式的共同前提，不得关闭以绕过等级/付款授权 */
     private final boolean resolveLoginRequired = true;
 
@@ -79,6 +85,22 @@ public class SoftwareProperties {
 
     public void setResolveEnabled(boolean resolveEnabled) {
         this.resolveEnabled = resolveEnabled;
+    }
+
+    public boolean isSubscriptionEnabled() {
+        return subscriptionEnabled;
+    }
+
+    public void setSubscriptionEnabled(boolean subscriptionEnabled) {
+        this.subscriptionEnabled = subscriptionEnabled;
+    }
+
+    public boolean isRankingsEnabled() {
+        return rankingsEnabled;
+    }
+
+    public void setRankingsEnabled(boolean rankingsEnabled) {
+        this.rankingsEnabled = rankingsEnabled;
     }
 
     public boolean isResolveLoginRequired() {

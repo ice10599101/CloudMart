@@ -167,6 +167,9 @@ software:
   enabled: false
   publish-enabled: false
   resolve-enabled: false
+  # P1 订阅与榜单独立开关（手册 15.2「P1 订阅和榜单单独开关」）
+  subscription-enabled: false
+  rankings-enabled: false
   publish-submissions-per-user-day: 10
   comment-per-user-minute: 5
   resolve-per-user-minute: 30

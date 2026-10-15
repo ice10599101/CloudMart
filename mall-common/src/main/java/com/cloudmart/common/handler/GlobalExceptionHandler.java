@@ -139,7 +139,10 @@ public class GlobalExceptionHandler {
                  // 小答软件（7.6）：资格/查看条件/处置类 403
                  "SOFTWARE_FORBIDDEN", "SOFTWARE_BANNED", "SOFTWARE_PUBLISH_NOT_ENABLED",
                  "SOFTWARE_PUBLISH_DISABLED", "SOFTWARE_LEVEL_REQUIRED",
-                 "SOFTWARE_PAYMENT_ACCESS_REQUIRED" -> HttpStatus.FORBIDDEN;
+                 "SOFTWARE_PAYMENT_ACCESS_REQUIRED",
+                 // 小答软件（11.2）：功能开关关闭（总开关/获取链接/P1 订阅/榜单）
+                 "SOFTWARE_DISABLED", "SOFTWARE_RESOLVE_DISABLED",
+                 "SOFTWARE_SUBSCRIPTION_DISABLED", "SOFTWARE_RANKINGS_DISABLED" -> HttpStatus.FORBIDDEN;
             case "USER_NOT_FOUND", "ROLE_NOT_FOUND", "MENU_NOT_FOUND",
                  "ACTIVITY_NOT_FOUND", "PRODUCT_NOT_FOUND", "TABLE_NOT_FOUND",
                  "ORDER_NOT_FOUND", "COUPON_NOT_FOUND", "TAG_NOT_FOUND",
