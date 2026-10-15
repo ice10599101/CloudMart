@@ -1,0 +1,98 @@
+package com.cloudmart.software.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.cloudmart.software.enums.SoftwareAccessMode;
+import com.cloudmart.software.enums.SoftwareLicenseType;
+import com.cloudmart.software.enums.SoftwareReviewStatus;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.time.LocalDateTime;
+
+/**
+ * 内容快照（方案 6.3）：名称/正文/查看条件整体克隆、冻结、审核、切换；
+ * 已审快照不可原地编辑；复制快照创建新 revisionId。
+ */
+@Getter
+@Setter
+@TableName("software_revision")
+public class SoftwareRevision {
+
+    @TableId(type = IdType.AUTO)
+    private Long id;
+
+    private Long softwareId;
+
+    /** 编辑人（前台会员 ID） */
+    private Long editorId;
+
+    /** 软件内递增快照号 */
+    private Integer revisionNo;
+
+    private SoftwareReviewStatus reviewStatus;
+
+    /** 同一工作快照第几次提交（审核请求须携带防旧批次覆盖） */
+    private Integer submitSeq;
+
+    private Integer lockVersion;
+
+    /** 软件名（草稿可空，提交时 2~80 字） */
+    private String name;
+
+    /** 一句话简介（提交时 10~160 字） */
+    private String summary;
+
+    private Long categoryId;
+
+    /** 图标素材（mall-file 资产 ID） */
+    private Long iconAssetId;
+
+    /** 服务端消毒后的富文本介绍 */
+    private String descriptionHtml;
+
+    /** 消毒后 HTML 提取的纯文本（搜索/审核用） */
+    private String descriptionText;
+
+    /** 软件开发者名称（区别于本站分享者） */
+    private String developerName;
+
+    private String officialUrl;
+
+    private SoftwareLicenseType licenseType;
+
+    /** 来源声明：ORIGINAL/AUTHORIZED/OFFICIAL_PUBLIC */
+    private String attributionType;
+
+    private String attributionNote;
+
+    private String systemRequirements;
+
+    /** 语言代码 JSON 数组 */
+    private String languages;
+
+    private SoftwareAccessMode accessMode;
+
+    /** 等级模式最低社区等级（须为现有启用等级；仅 COMMUNITY_LEVEL 非空） */
+    private Integer minCommunityLevel;
+
+    /** 付款模式管理员联系入口（仅 ADMIN_PAID 非空） */
+    private Long accessContactId;
+
+    /** 查看条件说明（不存源链接/密码/支付凭证） */
+    private String accessNote;
+
+    private LocalDateTime submittedAt;
+
+    private LocalDateTime reviewedAt;
+
+    /** 审核管理员 ID（mall-admin 管理员） */
+    private Long reviewerId;
+
+    private String reviewReason;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+}
