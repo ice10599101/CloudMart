@@ -1,72 +1,82 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Card, Empty, Input, Pagination, Select, Space, Spin, Tag, Typography } from 'antd'
-import { SearchOutlined } from '@ant-design/icons'
-import { history } from 'umi'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Card,
+  Empty,
+  Input,
+  Pagination,
+  Select,
+  Space,
+  Spin,
+  Tag,
+  Typography,
+} from "antd";
+import { SearchOutlined } from "@ant-design/icons";
+import { history } from "umi";
 import {
   listSoftware,
   listSoftwareCategories,
   type SoftwareCard,
   type SoftwareCategory,
   type SoftwareListQuery,
-} from '@/api/software'
-import styles from './SoftwareHome.module.css'
+} from "@/api/software";
+import styles from "./SoftwareHome.module.css";
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 20;
 
 const SORT_OPTIONS = [
-  { value: 'latest', label: '最近更新' },
-  { value: 'hot', label: '热门' },
-  { value: 'rating', label: '好评' },
-]
+  { value: "latest", label: "最近更新" },
+  { value: "hot", label: "热门" },
+  { value: "rating", label: "好评" },
+];
 
 const LICENSE_LABEL: Record<string, string> = {
-  FREE: '免费',
-  OPEN_SOURCE: '开源',
-  TRIAL: '试用',
-  COMMERCIAL: '商业',
-}
+  FREE: "免费",
+  OPEN_SOURCE: "开源",
+  TRIAL: "试用",
+  COMMERCIAL: "商业",
+};
 
 /**
  * 图标走网关静态路由 /files（与 WishBGM 的 /files/music/... 同源约定）；
  * 素材缺失或服务未配置时回退到统一占位图，不留破图。
  */
 function iconUrl(assetId: string | null): string | undefined {
-  return assetId ? `/files/${assetId}` : undefined
+  return assetId ? `/files/${assetId}` : undefined;
 }
 
 /** 卡片不呈现"下载量"：获取链接次数不等于实际下载成功（方案 §3.2） */
 function formatUpdatedAt(value: string | null): string {
-  if (!value) return '暂无版本'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '暂无版本'
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+  if (!value) return "暂无版本";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "暂无版本";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
     date.getDate(),
-  ).padStart(2, '0')}`
+  ).padStart(2, "0")}`;
 }
 
 export default function SoftwareHome() {
-  const [loading, setLoading] = useState(true)
-  const [cards, setCards] = useState<SoftwareCard[]>([])
-  const [categories, setCategories] = useState<SoftwareCategory[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [keyword, setKeyword] = useState('')
-  const [searchText, setSearchText] = useState('')
-  const [categoryId, setCategoryId] = useState<string | undefined>(undefined)
-  const [sort, setSort] = useState<SoftwareListQuery['sort']>('latest')
+  const [loading, setLoading] = useState(true);
+  const [cards, setCards] = useState<SoftwareCard[]>([]);
+  const [categories, setCategories] = useState<SoftwareCategory[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [keyword, setKeyword] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
+  const [sort, setSort] = useState<SoftwareListQuery["sort"]>("latest");
 
   useEffect(() => {
     listSoftwareCategories()
       .then((res) => {
-        if (res.data.success) setCategories(res.data.data ?? [])
+        if (res.data.success) setCategories(res.data.data ?? []);
       })
       .catch(() => {
         // 分类加载失败不阻塞主列表：广场本身仍可浏览
-      })
-  }, [])
+      });
+  }, []);
 
   const fetchList = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       const res = await listSoftware({
         keyword: searchText || undefined,
@@ -74,41 +84,41 @@ export default function SoftwareHome() {
         sort,
         page,
         size: PAGE_SIZE,
-      })
-      if (!res.data.success) return
-      setCards(res.data.data?.records ?? [])
-      setTotal(res.data.data?.total ?? 0)
+      });
+      if (!res.data.success) return;
+      setCards(res.data.data?.records ?? []);
+      setTotal(res.data.data?.total ?? 0);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [categoryId, page, searchText, sort])
+  }, [categoryId, page, searchText, sort]);
 
   useEffect(() => {
-    void fetchList()
-  }, [fetchList])
+    void fetchList();
+  }, [fetchList]);
 
   const categoryTags = useMemo(
     () => (
       <Space size={[8, 8]} wrap>
         <Tag
-          color={categoryId === undefined ? 'blue' : undefined}
+          color={categoryId === undefined ? "blue" : undefined}
           onClick={() => {
-            setCategoryId(undefined)
-            setPage(1)
+            setCategoryId(undefined);
+            setPage(1);
           }}
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: "pointer" }}
         >
           全部
         </Tag>
         {categories.map((item) => (
           <Tag
             key={item.id}
-            color={categoryId === item.id ? 'blue' : undefined}
+            color={categoryId === item.id ? "blue" : undefined}
             onClick={() => {
-              setCategoryId(item.id)
-              setPage(1)
+              setCategoryId(item.id);
+              setPage(1);
             }}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: "pointer" }}
           >
             {item.name}
           </Tag>
@@ -116,12 +126,14 @@ export default function SoftwareHome() {
       </Space>
     ),
     [categories, categoryId],
-  )
+  );
 
   const emptyState =
     !loading && cards.length === 0 ? (
-      <Empty description={searchText ? '没有匹配的软件' : '还没有已发布的软件'} />
-    ) : null
+      <Empty
+        description={searchText ? "没有匹配的软件" : "还没有已发布的软件"}
+      />
+    ) : null;
 
   return (
     <div className={styles.page}>
@@ -142,8 +154,8 @@ export default function SoftwareHome() {
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             onPressEnter={() => {
-              setSearchText(keyword.trim())
-              setPage(1)
+              setSearchText(keyword.trim());
+              setPage(1);
             }}
           />
           <Select
@@ -152,8 +164,8 @@ export default function SoftwareHome() {
             value={sort}
             options={SORT_OPTIONS}
             onChange={(value) => {
-              setSort(value)
-              setPage(1)
+              setSort(value);
+              setPage(1);
             }}
           />
         </div>
@@ -173,10 +185,10 @@ export default function SoftwareHome() {
               <div className={styles.cardHead}>
                 <img
                   className={styles.icon}
-                  src={iconUrl(item.iconAssetId) ?? '/default-avatar.png'}
-                  alt={item.iconAssetId ? `${item.name} 图标` : ''}
+                  src={iconUrl(item.iconAssetId) ?? "/default-avatar.png"}
+                  alt={item.iconAssetId ? `${item.name} 图标` : ""}
                   onError={(event) => {
-                    event.currentTarget.src = '/default-avatar.png'
+                    event.currentTarget.src = "/default-avatar.png";
                   }}
                 />
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -185,7 +197,11 @@ export default function SoftwareHome() {
                   </p>
                   <div className={styles.meta}>
                     {item.categoryName ? <Tag>{item.categoryName}</Tag> : null}
-                    {item.licenseType ? <Tag>{LICENSE_LABEL[item.licenseType] ?? item.licenseType}</Tag> : null}
+                    {item.licenseType ? (
+                      <Tag>
+                        {LICENSE_LABEL[item.licenseType] ?? item.licenseType}
+                      </Tag>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -210,5 +226,5 @@ export default function SoftwareHome() {
         />
       </div>
     </div>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import request from '@/utils/request'
-import type { ApiResponse } from '@/types/api'
+import request from "@/utils/request";
+import type { ApiResponse } from "@/types/api";
 
 /**
  * 小答软件 Web 端 API（方案 §7.3/§7.4）。
@@ -14,333 +14,338 @@ import type { ApiResponse } from '@/types/api'
 // ========== 枚举与公共类型 ==========
 
 /** 查看条件：注册用户 / 社区等级 / 联系管理员付款查看 */
-export type SoftwareAccessMode = 'REGISTERED' | 'COMMUNITY_LEVEL' | 'ADMIN_PAID'
+export type SoftwareAccessMode =
+  "REGISTERED" | "COMMUNITY_LEVEL" | "ADMIN_PAID";
 /** 授权标签 */
-export type SoftwareLicenseType = 'FREE' | 'OPEN_SOURCE' | 'TRIAL' | 'COMMERCIAL'
+export type SoftwareLicenseType =
+  "FREE" | "OPEN_SOURCE" | "TRIAL" | "COMMERCIAL";
 /** 来源类型 */
-export type SoftwareSourceType = 'NETDISK' | 'MAGNET' | 'TORRENT_URL'
+export type SoftwareSourceType = "NETDISK" | "MAGNET" | "TORRENT_URL";
 /** 软件生命周期 */
-export type SoftwareLifecycle = 'ACTIVE' | 'BANNED' | 'UNLISTED'
+export type SoftwareLifecycle = "ACTIVE" | "BANNED" | "UNLISTED";
 /** 快照审核状态 */
-export type SoftwareReviewStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'
+export type SoftwareReviewStatus =
+  "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
 
 export interface PageResult<T> {
-  current: number
-  pages: number
-  size: number
-  total: number
-  records: T[]
+  current: number;
+  pages: number;
+  size: number;
+  total: number;
+  records: T[];
 }
 
 // ========== 卡片 / 列表 ==========
 
 export interface SoftwareCard {
-  id: string
-  name: string
-  summary: string
-  iconAssetId: string | null
-  categoryId: string | null
-  categoryName: string | null
-  licenseType: SoftwareLicenseType | null
-  platforms: string[]
-  lastReleaseAt: string | null
-  favoriteCount: number
-  commentCount: number
-  ratingCount: number
-  ratingAvg: number | null
+  id: string;
+  name: string;
+  summary: string;
+  iconAssetId: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  licenseType: SoftwareLicenseType | null;
+  platforms: string[];
+  lastReleaseAt: string | null;
+  favoriteCount: number;
+  commentCount: number;
+  ratingCount: number;
+  ratingAvg: number | null;
 }
 
 export interface SoftwareCategory {
-  id: string
-  name: string
-  slug: string
-  icon: string | null
-  sortOrder: number
-  enabled: boolean
+  id: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+  sortOrder: number;
+  enabled: boolean;
 }
 
 export interface SoftwareTag {
-  id: string
-  name: string
+  id: string;
+  name: string;
 }
 
 export interface SoftwareListQuery {
-  keyword?: string
-  categoryId?: string
-  platform?: string
-  licenseType?: string
-  tagId?: string
-  sort?: 'latest' | 'hot' | 'rating'
-  page?: number
-  size?: number
+  keyword?: string;
+  categoryId?: string;
+  platform?: string;
+  licenseType?: string;
+  tagId?: string;
+  sort?: "latest" | "hot" | "rating";
+  page?: number;
+  size?: number;
 }
 
 // ========== 详情 ==========
 
 export interface SoftwareScreenshot {
-  assetId: string
-  displayOrder: number
-  altText: string | null
+  assetId: string;
+  displayOrder: number;
+  altText: string | null;
 }
 
 export interface SoftwareDetail {
-  id: string
-  name: string
-  summary: string
-  descriptionHtml: string
-  iconAssetId: string | null
-  categoryId: string | null
-  categoryName: string | null
-  tags: SoftwareTag[]
-  screenshots: SoftwareScreenshot[]
-  developerName: string | null
-  officialUrl: string | null
-  licenseType: SoftwareLicenseType | null
-  attributionType: string | null
-  attributionNote: string | null
-  systemRequirements: string | null
-  languages: string[]
-  publishedAt: string | null
-  lastReleaseAt: string | null
-  commentCount: number
-  favoriteCount: number
-  ratingCount: number
-  ratingAvg: number | null
-  ownerNickname: string | null
-  ownerAvatar: string | null
-  isFavorited: boolean
+  id: string;
+  name: string;
+  summary: string;
+  descriptionHtml: string;
+  iconAssetId: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  tags: SoftwareTag[];
+  screenshots: SoftwareScreenshot[];
+  developerName: string | null;
+  officialUrl: string | null;
+  licenseType: SoftwareLicenseType | null;
+  attributionType: string | null;
+  attributionNote: string | null;
+  systemRequirements: string | null;
+  languages: string[];
+  publishedAt: string | null;
+  lastReleaseAt: string | null;
+  commentCount: number;
+  favoriteCount: number;
+  ratingCount: number;
+  ratingAvg: number | null;
+  ownerNickname: string | null;
+  ownerAvatar: string | null;
+  isFavorited: boolean;
 }
 
 export interface SoftwareSourceSummary {
-  sourceId: string
-  sourceKey: string
-  sourceType: SoftwareSourceType
-  provider: string | null
-  platform: string | null
-  arch: string | null
-  label: string | null
-  sizeLabel: string | null
-  claimedSha256: string | null
-  note: string | null
-  availability: string
+  sourceId: string;
+  sourceKey: string;
+  sourceType: SoftwareSourceType;
+  provider: string | null;
+  platform: string | null;
+  arch: string | null;
+  label: string | null;
+  sizeLabel: string | null;
+  claimedSha256: string | null;
+  note: string | null;
+  availability: string;
 }
 
 export interface SoftwareRelease {
-  releaseId: string
-  releaseKey: string
-  versionName: string
-  channel: string | null
-  releaseDate: string | null
-  changelog: string | null
-  recommended: boolean
-  sources: SoftwareSourceSummary[]
+  releaseId: string;
+  releaseKey: string;
+  versionName: string;
+  channel: string | null;
+  releaseDate: string | null;
+  changelog: string | null;
+  recommended: boolean;
+  sources: SoftwareSourceSummary[];
 }
 
 // ========== 查看条件与获取链接 ==========
 
 export interface SoftwareContact {
-  id: string
-  name: string
-  contactType: string
-  contactValue: string
+  id: string;
+  name: string;
+  contactType: string;
+  contactValue: string;
 }
 
 export interface SoftwareAccessPolicy {
-  softwareId: string
-  accessMode: SoftwareAccessMode
-  requiredLevel: number | null
-  accessNote: string | null
-  contacts: SoftwareContact[]
+  softwareId: string;
+  accessMode: SoftwareAccessMode;
+  requiredLevel: number | null;
+  accessNote: string | null;
+  contacts: SoftwareContact[];
 }
 
 export interface SoftwareAccessState {
-  softwareId: string
-  accessMode: SoftwareAccessMode
-  allowed: boolean
-  reasonCode: string | null
-  currentLevel: number | null
-  requiredLevel: number | null
-  grantExpiresAt: string | null
-  contacts: SoftwareContact[]
+  softwareId: string;
+  accessMode: SoftwareAccessMode;
+  allowed: boolean;
+  reasonCode: string | null;
+  currentLevel: number | null;
+  requiredLevel: number | null;
+  grantExpiresAt: string | null;
+  contacts: SoftwareContact[];
 }
 
 /** 仅允许出现在满足查看条件后的面板里，不得预渲染进公开页面 */
 export interface SoftwareResolveResult {
-  sourceId: string
-  sourceKey: string
-  sourceType: SoftwareSourceType
-  provider: string | null
-  platform: string | null
-  arch: string | null
-  label: string | null
-  url: string
-  extractionCode: string | null
-  archivePassword: string | null
-  sizeLabel: string | null
-  availability: string
-  availabilityTip: string | null
+  sourceId: string;
+  sourceKey: string;
+  sourceType: SoftwareSourceType;
+  provider: string | null;
+  platform: string | null;
+  arch: string | null;
+  label: string | null;
+  url: string;
+  extractionCode: string | null;
+  archivePassword: string | null;
+  sizeLabel: string | null;
+  availability: string;
+  availabilityTip: string | null;
 }
 
 // ========== 评论 ==========
 
 export interface SoftwareComment {
-  id: string
-  parentId: string | null
-  userId: string
-  nickname: string
-  avatar: string | null
-  content: string
-  status: 'VISIBLE' | 'PENDING' | 'HIDDEN' | 'DELETED'
-  likeCount: number
-  likedByMe: boolean
-  createdAt: string
-  replies: SoftwareComment[]
-  replyHasMore: boolean
+  id: string;
+  parentId: string | null;
+  userId: string;
+  nickname: string;
+  avatar: string | null;
+  content: string;
+  status: "VISIBLE" | "PENDING" | "HIDDEN" | "DELETED";
+  likeCount: number;
+  likedByMe: boolean;
+  createdAt: string;
+  replies: SoftwareComment[];
+  replyHasMore: boolean;
 }
 
 export interface SoftwareCommentCreatePayload {
-  content: string
-  parentId?: string
-  replyToCommentId?: string
+  content: string;
+  parentId?: string;
+  replyToCommentId?: string;
 }
 
 // ========== 发布者（草稿/编辑/发布） ==========
 
 export interface SoftwarePublisherStatus {
-  canPublish: boolean
-  reason: string | null
+  canPublish: boolean;
+  reason: string | null;
 }
 
 export interface SoftwareMineItem {
-  softwareId: string
-  name: string
-  summary: string
-  status: string
-  revisionId: string | null
-  lockVersion: number
-  favoriteCount: number
-  updatedAt: string
-  unavailable: boolean
+  softwareId: string;
+  name: string;
+  summary: string;
+  status: string;
+  revisionId: string | null;
+  lockVersion: number;
+  favoriteCount: number;
+  updatedAt: string;
+  unavailable: boolean;
 }
 
 export interface SoftwareCreated {
-  softwareId: string
-  workingRevisionId: string
-  lockVersion: number
+  softwareId: string;
+  workingRevisionId: string;
+  lockVersion: number;
 }
 
 export interface SoftwareSourceInput {
-  sourceType: SoftwareSourceType
-  provider?: string
-  platform?: string
-  arch?: string
-  label?: string
-  sizeLabel?: string
-  url?: string
-  magnetUri?: string
-  torrentUrl?: string
-  extractionCode?: string
-  archivePassword?: string
-  claimedSha256?: string
-  note?: string
+  sourceType: SoftwareSourceType;
+  provider?: string;
+  platform?: string;
+  arch?: string;
+  label?: string;
+  sizeLabel?: string;
+  url?: string;
+  magnetUri?: string;
+  torrentUrl?: string;
+  extractionCode?: string;
+  archivePassword?: string;
+  claimedSha256?: string;
+  note?: string;
 }
 
 export interface SoftwareReleaseInput {
-  releaseKey?: string
-  versionName: string
-  channel?: string
-  releaseDate?: string
-  changelog?: string
-  recommended?: boolean
-  displayOrder?: number
-  sources: SoftwareSourceInput[]
+  releaseKey?: string;
+  versionName: string;
+  channel?: string;
+  releaseDate?: string;
+  changelog?: string;
+  recommended?: boolean;
+  displayOrder?: number;
+  sources: SoftwareSourceInput[];
 }
 
 /** 编辑器快照入参（方案 §4.1：草稿宽松、提交严格） */
 export interface SoftwareSnapshotInput {
-  name?: string
-  summary?: string
-  categoryId?: string
-  iconAssetId?: string
-  descriptionHtml?: string
-  licenseType?: SoftwareLicenseType
-  developerName?: string
-  officialUrl?: string
-  attributionType?: string
-  attributionNote?: string
-  systemRequirements?: string
-  languages?: string[]
-  accessMode?: SoftwareAccessMode
-  minCommunityLevel?: number
-  accessContactId?: string
-  accessNote?: string
-  tagIds?: string[]
-  screenshots?: { assetId: string; altText?: string; displayOrder?: number }[]
-  releases?: SoftwareReleaseInput[]
+  name?: string;
+  summary?: string;
+  categoryId?: string;
+  iconAssetId?: string;
+  descriptionHtml?: string;
+  licenseType?: SoftwareLicenseType;
+  developerName?: string;
+  officialUrl?: string;
+  attributionType?: string;
+  attributionNote?: string;
+  systemRequirements?: string;
+  languages?: string[];
+  accessMode?: SoftwareAccessMode;
+  minCommunityLevel?: number;
+  accessContactId?: string;
+  accessNote?: string;
+  tagIds?: string[];
+  screenshots?: { assetId: string; altText?: string; displayOrder?: number }[];
+  releases?: SoftwareReleaseInput[];
 }
 
 export interface SoftwareEditorData {
-  softwareId: string
-  revisionId: string
-  revisionNo: number
-  reviewStatus: SoftwareReviewStatus
-  submitSeq: number | null
-  lockVersion: number
-  name: string
-  summary: string
-  categoryId: string | null
-  iconAssetId: string | null
-  descriptionHtml: string | null
-  licenseType: SoftwareLicenseType | null
-  developerName: string | null
-  officialUrl: string | null
-  attributionType: string | null
-  attributionNote: string | null
-  systemRequirements: string | null
-  languages: string[]
-  accessMode: SoftwareAccessMode
-  minCommunityLevel: number | null
-  accessContactId: string | null
-  accessNote: string | null
-  tagIds: string[]
-  screenshots: SoftwareScreenshot[]
-  releases: SoftwareRelease[]
-  submittedAt: string | null
-  reviewedAt: string | null
-  reviewerId: string | null
-  reviewReason: string | null
-  lifecycle: SoftwareLifecycle
-  softwareLockVersion: number
-  publishedRevisionId: string | null
-  workingRevisionId: string | null
+  softwareId: string;
+  revisionId: string;
+  revisionNo: number;
+  reviewStatus: SoftwareReviewStatus;
+  submitSeq: number | null;
+  lockVersion: number;
+  name: string;
+  summary: string;
+  categoryId: string | null;
+  iconAssetId: string | null;
+  descriptionHtml: string | null;
+  licenseType: SoftwareLicenseType | null;
+  developerName: string | null;
+  officialUrl: string | null;
+  attributionType: string | null;
+  attributionNote: string | null;
+  systemRequirements: string | null;
+  languages: string[];
+  accessMode: SoftwareAccessMode;
+  minCommunityLevel: number | null;
+  accessContactId: string | null;
+  accessNote: string | null;
+  tagIds: string[];
+  screenshots: SoftwareScreenshot[];
+  releases: SoftwareRelease[];
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewerId: string | null;
+  reviewReason: string | null;
+  lifecycle: SoftwareLifecycle;
+  softwareLockVersion: number;
+  publishedRevisionId: string | null;
+  workingRevisionId: string | null;
 }
 
-const BASE = '/software'
+const BASE = "/software";
 
 // ========== 浏览（游客可见） ==========
 
 export function listSoftware(params?: SoftwareListQuery) {
-  return request.get<ApiResponse<PageResult<SoftwareCard>>>(BASE, { params })
+  return request.get<ApiResponse<PageResult<SoftwareCard>>>(BASE, { params });
 }
 
 export function listSoftwareCategories() {
-  return request.get<ApiResponse<SoftwareCategory[]>>(`${BASE}/categories`)
+  return request.get<ApiResponse<SoftwareCategory[]>>(`${BASE}/categories`);
 }
 
 export function listSoftwareTags() {
-  return request.get<ApiResponse<SoftwareTag[]>>(`${BASE}/tags`)
+  return request.get<ApiResponse<SoftwareTag[]>>(`${BASE}/tags`);
 }
 
 export function getSoftwareDetail(id: string) {
-  return request.get<ApiResponse<SoftwareDetail>>(`${BASE}/${id}`)
+  return request.get<ApiResponse<SoftwareDetail>>(`${BASE}/${id}`);
 }
 
 export function getSoftwareAccessPolicy(id: string) {
-  return request.get<ApiResponse<SoftwareAccessPolicy>>(`${BASE}/${id}/access-policy`)
+  return request.get<ApiResponse<SoftwareAccessPolicy>>(
+    `${BASE}/${id}/access-policy`,
+  );
 }
 
 export function listSoftwareReleases(id: string) {
-  return request.get<ApiResponse<SoftwareRelease[]>>(`${BASE}/${id}/releases`)
+  return request.get<ApiResponse<SoftwareRelease[]>>(`${BASE}/${id}/releases`);
 }
 
 // ========== 查看条件与获取链接 ==========
@@ -350,19 +355,29 @@ export function listSoftwareReleases(id: string) {
  * 得到 allowed=false 时页面只展示门槛与联系入口，不得渲染真实链接。
  */
 export function getSoftwareAccessState(id: string) {
-  return request.get<ApiResponse<SoftwareAccessState>>(`${BASE}/${id}/access-state`)
+  return request.get<ApiResponse<SoftwareAccessState>>(
+    `${BASE}/${id}/access-state`,
+  );
 }
 
 /**
  * 获取下载来源。响应 no-store 且只在满足条件时返回真实链接/提取码，
  * 结果必须保留在本次会话状态里，不得写入 localStorage 或 URL。
  */
-export function resolveSoftwareSource(id: string, sourceId: string, idempotencyKey?: string) {
+export function resolveSoftwareSource(
+  id: string,
+  sourceId: string,
+  idempotencyKey?: string,
+) {
   return request.post<ApiResponse<SoftwareResolveResult>>(
     `${BASE}/${id}/sources/${sourceId}/resolve`,
     null,
-    { headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined },
-  )
+    {
+      headers: idempotencyKey
+        ? { "Idempotency-Key": idempotencyKey }
+        : undefined,
+    },
+  );
 }
 
 // ========== 评论 ==========
@@ -372,13 +387,25 @@ export function createSoftwareComment(
   payload: SoftwareCommentCreatePayload,
   idempotencyKey?: string,
 ) {
-  return request.post<ApiResponse<SoftwareComment>>(`${BASE}/${id}/comments`, payload, {
-    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
-  })
+  return request.post<ApiResponse<SoftwareComment>>(
+    `${BASE}/${id}/comments`,
+    payload,
+    {
+      headers: idempotencyKey
+        ? { "Idempotency-Key": idempotencyKey }
+        : undefined,
+    },
+  );
 }
 
-export function listSoftwareComments(id: string, params?: { page?: number; size?: number }) {
-  return request.get<ApiResponse<PageResult<SoftwareComment>>>(`${BASE}/${id}/comments`, { params })
+export function listSoftwareComments(
+  id: string,
+  params?: { page?: number; size?: number },
+) {
+  return request.get<ApiResponse<PageResult<SoftwareComment>>>(
+    `${BASE}/${id}/comments`,
+    { params },
+  );
 }
 
 export function listSoftwareReplies(
@@ -389,45 +416,56 @@ export function listSoftwareReplies(
   return request.get<ApiResponse<PageResult<SoftwareComment>>>(
     `${BASE}/${id}/comments/${rootId}/replies`,
     { params },
-  )
+  );
 }
 
 export function deleteSoftwareComment(id: string, commentId: string) {
-  return request.delete<ApiResponse<boolean>>(`${BASE}/${id}/comments/${commentId}`)
+  return request.delete<ApiResponse<boolean>>(
+    `${BASE}/${id}/comments/${commentId}`,
+  );
 }
 
 export function likeSoftwareComment(id: string, commentId: string) {
-  return request.put<ApiResponse<boolean>>(`${BASE}/${id}/comments/${commentId}/like`)
+  return request.put<ApiResponse<boolean>>(
+    `${BASE}/${id}/comments/${commentId}/like`,
+  );
 }
 
 export function unlikeSoftwareComment(id: string, commentId: string) {
-  return request.delete<ApiResponse<boolean>>(`${BASE}/${id}/comments/${commentId}/like`)
+  return request.delete<ApiResponse<boolean>>(
+    `${BASE}/${id}/comments/${commentId}/like`,
+  );
 }
 
 // ========== 收藏 ==========
 
 export function favoriteSoftware(id: string) {
-  return request.put<ApiResponse<boolean>>(`${BASE}/${id}/favorite`)
+  return request.put<ApiResponse<boolean>>(`${BASE}/${id}/favorite`);
 }
 
 export function unfavoriteSoftware(id: string) {
-  return request.delete<ApiResponse<boolean>>(`${BASE}/${id}/favorite`)
+  return request.delete<ApiResponse<boolean>>(`${BASE}/${id}/favorite`);
 }
 
 // ========== 发布者侧 ==========
 
 export function getPublisherStatus() {
-  return request.get<ApiResponse<SoftwarePublisherStatus>>(`${BASE}/publisher-status`)
+  return request.get<ApiResponse<SoftwarePublisherStatus>>(
+    `${BASE}/publisher-status`,
+  );
 }
 
-export function createSoftware(payload?: SoftwareSnapshotInput, idempotencyKey?: string) {
+export function createSoftware(
+  payload?: SoftwareSnapshotInput,
+  idempotencyKey?: string,
+) {
   return request.post<ApiResponse<SoftwareCreated>>(BASE, payload, {
-    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
-  })
+    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+  });
 }
 
 export function getSoftwareEditor(id: string) {
-  return request.get<ApiResponse<SoftwareEditorData>>(`${BASE}/${id}/editor`)
+  return request.get<ApiResponse<SoftwareEditorData>>(`${BASE}/${id}/editor`);
 }
 
 /** 保存工作副本（期望乐观锁版本用于拦截两标签页并发） */
@@ -439,7 +477,7 @@ export function saveSoftwareDraft(
   return request.put<ApiResponse<{ lockVersion: number }>>(
     `${BASE}/${id}/revisions/${revisionId}`,
     payload,
-  )
+  );
 }
 
 export function submitSoftwareForReview(
@@ -451,16 +489,33 @@ export function submitSoftwareForReview(
   return request.post<ApiResponse<{ submitSeq: number }>>(
     `${BASE}/${id}/revisions/${revisionId}/submit`,
     payload,
-    { headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined },
-  )
+    {
+      headers: idempotencyKey
+        ? { "Idempotency-Key": idempotencyKey }
+        : undefined,
+    },
+  );
 }
 
-export function listMySoftware(params?: { tab?: string; page?: number; size?: number }) {
-  return request.get<ApiResponse<PageResult<SoftwareMineItem>>>(`${BASE}/mine`, { params })
+export function listMySoftware(params?: {
+  tab?: string;
+  page?: number;
+  size?: number;
+}) {
+  return request.get<ApiResponse<PageResult<SoftwareMineItem>>>(
+    `${BASE}/mine`,
+    { params },
+  );
 }
 
 export function createWorkingRevision(id: string, idempotencyKey?: string) {
-  return request.post<ApiResponse<SoftwareEditorData>>(`${BASE}/${id}/working-revision`, null, {
-    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
-  })
+  return request.post<ApiResponse<SoftwareEditorData>>(
+    `${BASE}/${id}/working-revision`,
+    null,
+    {
+      headers: idempotencyKey
+        ? { "Idempotency-Key": idempotencyKey }
+        : undefined,
+    },
+  );
 }
