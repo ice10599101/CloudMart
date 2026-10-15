@@ -53,6 +53,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -419,10 +420,13 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         }
         requireAccountAvailable(userId);
 
-        String operationHash = operationService.requestHash(Map.of(
-                "softwareId", softwareId, "revisionId", revisionId,
-                "expectedVersion", expectedVersion, "contentHash", contentHash,
-                "checkedAt", String.valueOf(outcome.checkedAt())));
+        Map<String, Object> submitHashPayload = new HashMap<>();
+        submitHashPayload.put("softwareId", softwareId);
+        submitHashPayload.put("revisionId", revisionId);
+        submitHashPayload.put("expectedVersion", expectedVersion);
+        submitHashPayload.put("contentHash", contentHash);
+        submitHashPayload.put("checkedAt", String.valueOf(outcome.checkedAt()));
+        String operationHash = operationService.requestHash(submitHashPayload);
         // 短本地事务（9.7：本地事务绝不跨远程调用）——远程审核已完成，
         // 此处锁资格行→软件→快照复核并冻结；operation 结果记录同事务提交
         return transactionTemplate.execute(status -> operationService.execute("USER", userId,
@@ -610,10 +614,15 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         if (reason == null || reason.isBlank() || reason.length() > 1000) {
             throw new BusinessException("SOFTWARE_REVIEW_INVALID", "审核说明须为 1~1000 字");
         }
+        Map<String, Object> reviewHashPayload = new HashMap<>();
+        reviewHashPayload.put("softwareId", softwareId);
+        reviewHashPayload.put("revisionId", revisionId);
+        reviewHashPayload.put("submitSeq", submitSeq);
+        reviewHashPayload.put("expectedVersion", expectedVersion);
+        reviewHashPayload.put("approve", approve);
+        reviewHashPayload.put("reason", reason);
         return operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_REVIEW_DECISION,
-                idempotencyKey, Map.of("softwareId", softwareId, "revisionId", revisionId,
-                        "submitSeq", submitSeq, "expectedVersion", expectedVersion,
-                        "approve", approve, "reason", reason),
+                idempotencyKey, reviewHashPayload,
                 softwareId,
                 () -> doReview(adminId, softwareId, revisionId, submitSeq, expectedVersion,
                         approve, reason, requestId),
