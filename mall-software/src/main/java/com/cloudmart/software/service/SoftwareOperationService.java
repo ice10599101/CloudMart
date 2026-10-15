@@ -38,6 +38,13 @@ public class SoftwareOperationService {
     public static final String OP_REVIEW_DECISION = "REVIEW_DECISION";
     public static final String OP_CREATE_COMMENT = "CREATE_COMMENT";
     public static final String OP_CREATE_REPORT = "CREATE_REPORT";
+    public static final String OP_PERMISSION_TOGGLE = "PUBLISHER_PERMISSION_TOGGLE";
+    public static final String OP_ACCESS_GRANT = "ACCESS_GRANT";
+    public static final String OP_ACCESS_REVOKE = "ACCESS_GRANT_REVOKE";
+    public static final String OP_CONTACT_SAVE = "ACCESS_CONTACT_SAVE";
+    public static final String OP_REPORT_HANDLE = "REPORT_HANDLE";
+    public static final String OP_FEEDBACK_MARK = "LINK_FEEDBACK_MARK";
+    public static final String OP_COMMENT_MODERATE = "COMMENT_MODERATE";
 
     private final SoftwareOperationMapper operationMapper;
     private final ObjectMapper objectMapper;

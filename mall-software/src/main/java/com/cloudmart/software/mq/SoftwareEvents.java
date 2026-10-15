@@ -14,6 +14,8 @@ public final class SoftwareEvents {
 
     public static final String TAG_REVIEW_APPROVED = "SOFTWARE_REVIEW_APPROVED";
     public static final String TAG_REVIEW_REJECTED = "SOFTWARE_REVIEW_REJECTED";
+    /** 举报处置：软件封禁（S10 通知分享者） */
+    public static final String TAG_SOFTWARE_BANNED = "SOFTWARE_BANNED";
     public static final String TAG_COMMENT_VISIBLE = "SOFTWARE_COMMENT_VISIBLE";
     public static final String TAG_REPLY_VISIBLE = "SOFTWARE_REPLY_VISIBLE";
     public static final String TAG_SOURCE_REPORTED = "SOFTWARE_SOURCE_REPORTED";

@@ -20,4 +20,9 @@ public interface SoftwareLockMapper {
 
     @Select("SELECT * FROM software_revision WHERE id = #{id} FOR UPDATE")
     SoftwareRevision lockRevision(@Param("id") Long revisionId);
+
+    @Select("SELECT * FROM software_access_grant WHERE software_id = #{softwareId} "
+            + "AND user_id = #{userId} FOR UPDATE")
+    com.cloudmart.software.entity.SoftwareAccessGrant lockAccessGrant(
+            @Param("softwareId") Long softwareId, @Param("userId") Long userId);
 }
