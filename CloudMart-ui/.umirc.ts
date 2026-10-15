@@ -78,6 +78,7 @@ export default defineConfig({
         { path: '/gift/my', component: '@/pages/MyGifts' },
         // 小答软件（S07）：固定路径必须先于 /software/:id 声明（手册 §3.1）
         { path: '/software', component: '@/pages/SoftwareHome' },
+        { path: '/software/explore', component: '@/pages/SoftwareExplore' },
         { path: '/software/publish', component: '@/pages/SoftwarePublish' },
         { path: '/software/mine', component: '@/pages/SoftwareMine' },
         { path: '/software/:id', component: '@/pages/SoftwareDetail' },

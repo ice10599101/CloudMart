@@ -19,7 +19,7 @@ import {
   getPublisherStatus,
   listSoftwareAccessContacts,
   listSoftwareCategories,
-  listSoftwareTags,
+  listAllSoftwareTags,
   saveSoftwareDraft,
   submitSoftwareForReview,
   type SoftwareAccessMode,
@@ -124,10 +124,8 @@ export default function SoftwarePublish() {
         if (res.data.success) setCategories(res.data.data ?? []);
       })
       .catch(() => undefined);
-    listSoftwareTags()
-      .then((res) => {
-        if (res.data.success) setTags(res.data.data ?? []);
-      })
+    listAllSoftwareTags()
+      .then(setTags)
       .catch(() => undefined);
     listSoftwareAccessContacts()
       .then((res) => {

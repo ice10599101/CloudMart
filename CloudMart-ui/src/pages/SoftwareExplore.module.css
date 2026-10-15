@@ -1,0 +1,46 @@
+.page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px 48px;
+}
+
+.title {
+  margin: 32px 0 16px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.keyword {
+  max-width: 420px;
+  margin-bottom: 12px;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.activeFilters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 0 16px 40px;
+  }
+  .keyword {
+    max-width: none;
+  }
+}

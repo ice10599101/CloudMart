@@ -19,6 +19,7 @@ import {
   SettingOutlined,
   StarOutlined,
   MenuOutlined,
+  CloudDownloadOutlined,
 } from '@ant-design/icons'
 import { Outlet, history, useLocation } from 'umi'
 import { useAuthStore } from '@/stores/auth'
@@ -35,6 +36,7 @@ import pageStyles from './UserLayout.module.css'
 const NAV_ITEMS = [
   { key: '/', label: '首页', icon: <CompassOutlined /> },
   { key: '/products', label: '商城', icon: <AppstoreOutlined /> },
+  { key: '/software', label: '小答软件', icon: <CloudDownloadOutlined /> },
   { key: '/wish', label: '心愿宇宙', icon: <StarOutlined /> },
   { key: '/live', label: '直播', icon: <VideoCameraOutlined /> },
   { key: '/messages', label: '消息', icon: <MessageOutlined /> },
@@ -168,6 +170,8 @@ function buildStyles(t: ThemeTokens) {
     },
     searchWrapper: {
       flex: 1,
+      // 导航项增至 8 项后，1024px 左右视口需要中间区先收缩，否则头部横向溢出
+      minWidth: 0,
       display: 'flex',
       justifyContent: 'center',
       padding: '0 24px',
@@ -414,6 +418,12 @@ export default function UserLayout() {
       icon: <UnorderedListOutlined />,
       label: '我的订单',
       onClick: () => history.push('/orders'),
+    },
+    {
+      key: 'software',
+      icon: <CloudDownloadOutlined />,
+      label: '我的软件',
+      onClick: () => history.push('/software/mine'),
     },
     {
       type: 'divider' as const,

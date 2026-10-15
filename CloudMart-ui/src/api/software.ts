@@ -67,13 +67,20 @@ export interface SoftwareTag {
   name: string;
 }
 
+/**
+ * 广场列表查询参数（方案 7.2）。
+ * 参数名与后端 SoftwareListQuery 逐字段一致：授权筛选是 `license`（不是 licenseType），
+ * sort 白名单 recommend/latest/popular，非法值服务端回落 recommend。
+ */
 export interface SoftwareListQuery {
   keyword?: string;
   categoryId?: string;
   platform?: string;
-  licenseType?: string;
+  /** 对应 license_type 列，取值 SoftwareLicenseType */
+  license?: string;
   tagId?: string;
-  sort?: "latest" | "hot" | "rating";
+  /** recommend=推荐位优先、latest=最近更新、popular=获取链接与收藏热度 */
+  sort?: "recommend" | "latest" | "popular";
   page?: number;
   size?: number;
 }
@@ -360,8 +367,37 @@ export function listSoftwareCategories() {
   return request.get<ApiResponse<SoftwareCategory[]>>(`${BASE}/categories`);
 }
 
-export function listSoftwareTags() {
-  return request.get<ApiResponse<SoftwareTag[]>>(`${BASE}/tags`);
+/** 标签检索：服务端返回分页（size 上限 50），keyword 匹配标签名 */
+export function listSoftwareTags(params?: {
+  keyword?: string;
+  page?: number;
+  size?: number;
+}) {
+  return request.get<ApiResponse<PageResult<SoftwareTag>>>(`${BASE}/tags`, {
+    params,
+  });
+}
+
+/**
+ * 全量启用标签（编辑器标签选择器用）。后端单页上限 50，按 pages 逐页合并，
+ * 避免标签数超过一页时静默丢失后段选项。
+ */
+export async function listAllSoftwareTags(): Promise<SoftwareTag[]> {
+  const pageSize = 50;
+  const first = await listSoftwareTags({ page: 1, size: pageSize });
+  const records = first.data.data?.records ?? [];
+  const pages = first.data.data?.pages ?? 1;
+  if (!first.data.success || pages <= 1) return records;
+  const rest = await Promise.all(
+    Array.from({ length: pages - 1 }, (_, index) =>
+      listSoftwareTags({ page: index + 2, size: pageSize }),
+    ),
+  );
+  return rest.reduce<SoftwareTag[]>(
+    (all, res) =>
+      all.concat(res.data.success ? (res.data.data?.records ?? []) : []),
+    records,
+  );
 }
 
 export function getSoftwareDetail(id: string) {
