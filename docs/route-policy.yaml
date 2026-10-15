@@ -26,7 +26,7 @@
 
 meta:
   version: 1
-  updated: "2026-09-27"
+  updated: "2026-10-15"
   scope: "全部 P0 写路由 + 关键内部端点；GET 公开浏览清单见各模块 SecurityConfig"
 
 # -----------------------------------------------------------------------------
@@ -193,6 +193,52 @@ mall-risk:
   - { method: "*",    path: /records/**,         subjectType: SERVICE, serviceCaller: mall-admin, permission: risk:admin }
   - { method: "*",    path: /rules/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: risk:admin }
   - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: "mall-auth,mall-order,mall-payment,mall-seckill,mall-user,mall-job", permission: risk:internal, note: "RISK-01：业务接入" }
+
+# -----------------------------------------------------------------------------
+# mall-software（小答软件；7.1 路由 StripPrefix=1：外部 /api/software/** → 服务内 /software/**）
+# -----------------------------------------------------------------------------
+mall-software:
+  # 公开只读（7.2）：广场/分类/标签/详情/查看条件摘要/版本来源摘要/评论——JSON 不含真实链接/提取码
+  - { method: GET,    path: /software,                          subjectType: ANON, note: "仅已发布可见；游客无个性化字段" }
+  - { method: GET,    path: /software/categories,               subjectType: ANON }
+  - { method: GET,    path: /software/tags,                     subjectType: ANON }
+  - { method: GET,    path: "/software/{id}",                   subjectType: ANON, note: "无源 URL/密码；个性化字段游客为空" }
+  - { method: GET,    path: "/software/{id}/access-policy",     subjectType: ANON, note: "仅展示条件，无授权状态/付款备注" }
+  - { method: GET,    path: "/software/{id}/releases",          subjectType: ANON, note: "来源摘要无 URL" }
+  - { method: GET,    path: "/software/{id}/comments",          subjectType: ANON, note: "宿主可见性过滤" }
+  - { method: GET,    path: "/software/{id}/comments/{rootId}/replies", subjectType: ANON }
+  # 登录端点（7.3）——固定路径不得落入 /software/{id} 匿名通配
+  - { method: GET,    path: /software/publisher-status,         subjectType: USER, note: "SELF：仅 UI 提示，写接口仍重查" }
+  - { method: GET,    path: /software/mine,                     subjectType: USER, note: "SELF" }
+  - { method: GET,    path: /software/preferences,              subjectType: USER, note: "P1" }
+  - { method: GET,    path: "/software/{id}/access-state",      subjectType: USER, note: "no-store，不返回真实来源" }
+  - { method: GET,    path: "/software/{id}/editor",            subjectType: USER, note: "SELF：本人完整工作数据" }
+  - { method: GET,    path: /software/access-contacts,          subjectType: USER, note: "另要求发布资格（业务层校验）" }
+  - { method: GET,    path: /software/level-options,            subjectType: USER, note: "代理社区等级配置，要求发布资格" }
+  # 登录写操作（ownerCheck=SELF；发布/提交/relist 另受 4.0 发布资格矩阵约束）
+  - { method: POST,   path: /software,                          subjectType: USER, ownerCheck: true, note: "创建软件（Idempotency-Key 幂等）" }
+  - { method: POST,   path: "/software/{id}/working-revision",  subjectType: USER, ownerCheck: true }
+  - { method: PUT,    path: "/software/{id}/revisions/{revisionId}", subjectType: USER, ownerCheck: true, note: "仅 DRAFT/REJECTED；expectedVersion" }
+  - { method: POST,   path: "/software/{id}/revisions/{revisionId}/submit", subjectType: USER, ownerCheck: true, note: "发布资格强校验" }
+  - { method: POST,   path: "/software/{id}/revisions/{revisionId}/withdraw", subjectType: USER, ownerCheck: true }
+  - { method: POST,   path: "/software/{id}/unlist",            subjectType: USER, ownerCheck: true }
+  - { method: POST,   path: "/software/{id}/relist",            subjectType: USER, ownerCheck: true, note: "发布资格强校验；BANNED 拒绝" }
+  - { method: DELETE, path: "/software/{id}",                   subjectType: USER, ownerCheck: true }
+  - { method: POST,   path: "/software/{id}/sources/{sourceId}/resolve", subjectType: USER, ownerCheck: true, note: "统一 SoftwareLinkAccessPolicy：登录/快照/来源/等级/付款授权；no-store" }
+  - { method: POST,   path: "/software/{id}/sources/{sourceId}/feedback", subjectType: USER, ownerCheck: true }
+  - { method: POST,   path: "/software/{id}/comments",          subjectType: USER, ownerCheck: true }
+  - { method: DELETE, path: "/software/{id}/comments/{commentId}", subjectType: USER, ownerCheck: true }
+  - { method: "*",    path: "/software/{id}/comments/{commentId}/like", subjectType: USER, ownerCheck: true, note: "幂等点赞/取消" }
+  - { method: "*",    path: "/software/{id}/favorite",          subjectType: USER, ownerCheck: true, note: "幂等收藏/取消" }
+  - { method: "*",    path: "/software/{id}/rating",            subjectType: USER, ownerCheck: true, note: "P1" }
+  - { method: "*",    path: "/software/{id}/subscription",      subjectType: USER, ownerCheck: true, note: "P1" }
+  - { method: "*",    path: "/software/{id}/comments/{commentId}/pin", subjectType: USER, ownerCheck: true, note: "P1：分享者置顶" }
+  - { method: PUT,    path: /software/preferences,              subjectType: USER, note: "P1" }
+  - { method: POST,   path: "/software/{id}/reports",           subjectType: USER, ownerCheck: true, note: "软件举报，落 software_report" }
+  # 服务域（网关显式拦截外部直达，见 ServiceInternalRouteBlockFilter）
+  - { method: "*",    path: /admin/**,                          subjectType: SERVICE, serviceCaller: mall-admin, permission: software:admin, note: "mall-admin 代理：发布资格/审核/授权/举报/分类等" }
+  - { method: POST,   path: /internal/account-erasure,          subjectType: SERVICE, serviceCaller: mall-user, permission: software:erasure, note: "注销编排 SOFTWARE/ERASE；幂等可续跑" }
+
 
 # -----------------------------------------------------------------------------
 # mall-auth / mall-admin / mall-job / mall-gen / mall-file

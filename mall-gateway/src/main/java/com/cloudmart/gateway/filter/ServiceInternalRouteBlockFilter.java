@@ -63,7 +63,8 @@ public class ServiceInternalRouteBlockFilter implements GlobalFilter, Ordered {
             "/api/job/admin", "/api/job/internal",
             "/api/gen/admin", "/api/gen/internal",
             "/api/wish/admin", "/api/wish/internal",
-            "/api/pet/admin", "/api/pet/internal");
+            "/api/pet/admin", "/api/pet/internal",
+            "/api/software/admin", "/api/software/internal");
 
     private static final String BLOCK_RESPONSE_JSON =
             "{\"success\":false,\"data\":null,\"error\":{\"code\":\"NOT_FOUND\","

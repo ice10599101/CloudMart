@@ -30,6 +30,7 @@ resources:
   - base/mall-pet.yaml
   - base/mall-wish.yaml
   - base/mall-community.yaml
+  - base/mall-software.yaml
 
 commonLabels:
   app.kubernetes.io/part-of: cloudmart

@@ -8,7 +8,7 @@ on:
 
 jobs:
   backend:
-    name: 后端全模块编译与单测（24 模块）
+    name: 后端全模块编译与单测（25 模块）
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -19,7 +19,7 @@ jobs:
           cache: maven
       - name: 工具链版本（E01 可复现基线）
         run: chmod +x mvnw && ./mvnw -version
-      # ubuntu-latest 免费 runner 磁盘 ~14GB；24 模块 + maven 缓存易触顶（表现为
+      # ubuntu-latest 免费 runner 磁盘 ~14GB；25 模块 + maven 缓存易触顶（表现为
       # 编译期静默失败/进程 137）。PET-24：预装 SDK（Android/dotnet/ghc 等 ~25GB）
       # 与本项目无关，回收后 df 应有 ~40GB 余量——10-04 起 backend job 连红且
       # 本地全 reactor 全绿，资源触顶为最大嫌疑
@@ -29,7 +29,7 @@ jobs:
           df -h / | tail -1 && free -m | head -2
       # E01：从根 POM 构建全部模块，禁止再维护模块子集清单
       - name: 全模块单元测试
-        # MAVEN_OPTS 固定堆（runner 3.5GB ubuntu-latest，24 模块 fork 测试 JVM 易 OOM）；
+        # MAVEN_OPTS 固定堆（runner 3.5GB ubuntu-latest，25 模块 fork 测试 JVM 易 OOM）；
         # -fa（fail-at-end）单模块失败后其余模块照跑；日志落盘供失败摘要步分析
         run: MAVEN_OPTS="-Xmx1536m" ./mvnw -B -ntp --fail-at-end test 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
       - name: 失败定位（reactor 摘要 + OOM 特征 + 失败用例）

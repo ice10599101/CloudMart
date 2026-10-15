@@ -67,9 +67,21 @@ class ServiceInternalRouteBlockFilterTest {
             "http://gw/api/pet/%61dmin/pet/dashboard",
             "http://gw/api/pet/admin;x=1/pet/reports",
             "http://gw/api/pet/./admin/pet/reports",
-            "http://gw/api/pet/admin/../internal/jobs"
+            "http://gw/api/pet/admin/../internal/jobs",
+            "http://gw/api/software/admin/software/reviews",
+            "http://gw/api/software/admin",
+            "http://gw/api/software/admin/",
+            "http://gw/api/software/ADMIN/software/reviews",
+            "http://gw/api/software//admin//items",
+            "http://gw/api/software/internal/account-erasure",
+            "http://gw/api/software/INTERNAL/account-erasure",
+            "http://gw/api/software/admin%2Fsoftware/reviews",
+            "http://gw/api/software/%61dmin/software/items",
+            "http://gw/api/software/admin;x=1/software/reviews",
+            "http://gw/api/software/./admin/software/reviews",
+            "http://gw/api/software/admin/../internal/account-erasure"
     })
-    @DisplayName("wish/pet 管理端/内部端点全形态外部访问一律 404")
+    @DisplayName("wish/pet/software 管理端/内部端点全形态外部访问一律 404")
     void blockedPaths_return404(String uri) {
         MockServerWebExchange exchange = exchange(uri);
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -86,6 +98,9 @@ class ServiceInternalRouteBlockFilterTest {
             "http://gw/api/pet/pets",
             "http://gw/api/pet/shop/items",
             "http://gw/api/pet/public/123",
+            "http://gw/api/software",
+            "http://gw/api/software/123",
+            "http://gw/api/software/categories",
             "http://gw/api/admin/wishes",
             "http://gw/api/community/posts"
     })

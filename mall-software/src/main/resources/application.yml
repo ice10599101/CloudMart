@@ -1,0 +1,175 @@
+server:
+  port: 9026
+
+spring:
+  application:
+    name: mall-software
+  autoconfigure:
+    exclude: org.springframework.boot.security.oauth2.server.resource.autoconfigure.servlet.OAuth2ResourceServerAutoConfiguration
+  config:
+    import:
+      - nacos:shared-runtime.yml?group=DEFAULT_GROUP&refreshEnabled=true
+      - optional:nacos:mall-software.yml?refreshEnabled=true
+      - optional:nacos:shared-logging.yml?group=DEFAULT_GROUP&refresh=true
+  cloud:
+    inetutils:
+      preferred-networks:
+        - 192.168.1.
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        server-addr: ${spring.cloud.nacos.server-addr}
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: DEFAULT_GROUP
+        file-extension: yml
+        refresh-enabled: true
+    sentinel:
+      transport:
+        dashboard: 127.0.0.1:8088
+        port: 8746
+      eager: true
+      datasource:
+        flow:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            username: ${NACOS_USERNAME:nacos}
+            password: ${NACOS_PASSWORD:nacos}
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: SENTINEL_GROUP
+            data-id: ${spring.application.name}-flow-rules
+            rule-type: flow
+        degrade:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            username: ${NACOS_USERNAME:nacos}
+            password: ${NACOS_PASSWORD:nacos}
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: SENTINEL_GROUP
+            data-id: ${spring.application.name}-degrade-rules
+            rule-type: degrade
+  datasource:
+    # 独立 mall_software schema：软件业务表、权限、授权、举报与异步事实的唯一归属；
+    # 运行账号只需本库 DML 权限（迁移账号另行授权），禁止跨库 JOIN/外键
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:8306}/mall_software?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    # 独立数据库账号（方案 9.5：SOFTWARE_DB_USERNAME/PASSWORD），缺省回退开发默认
+    username: ${SOFTWARE_DB_USERNAME:${MYSQL_USERNAME:root}}
+    password: ${SOFTWARE_DB_PASSWORD:${MYSQL_PASSWORD:123456}}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+  flyway:
+    enabled: true
+    # 新空库不 baseline：V1 起步，全量迁移路径被 CI 门禁覆盖；禁止 repair 掩盖差异
+    baseline-on-migrate: false
+    locations: classpath:db/migration
+    clean-disabled: true
+    validate-on-migrate: true
+    ignore-migration-patterns: []
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:8379}
+      # 与 mall-wish 一致：3s 快速失败，缓存/限流按 Fail-Open 或可重试错误处理，
+      # Redis 只做缓存与限流，不做唯一事实库
+      timeout: 3s
+      connect-timeout: 2s
+
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
+  producer:
+    group: ${spring.application.name}-producer-group
+    send-message-timeout: 3000
+
+mybatis-plus:
+  global-config:
+    db-config:
+      id-type: auto
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    com.cloudmart.software: INFO
+    org.springframework.cloud.openfeign: INFO
+    org.springframework.cloud.loadbalancer: INFO
+    com.alibaba.nacos.client: INFO
+    com.alibaba.csp.sentinel: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+    # 生产注入 SPRINGDOC_SWAGGER_UI_ENABLED=false 关闭（网关另屏蔽文档端点外泄）
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+  api-docs:
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+    path: /v3/api-docs
+  default-flat-param-object: true
+
+# 通用异步可靠性（Outbox/Inbox/补偿）：outbox_event/inbox_record/compensation_task
+# 建在 mall_software（V4 迁移），经 com.cloudmart.common.async.mapper 扫描装配；
+# 投递目的地 software-events（SoftwareOutboxDelivery）
+cloudmart:
+  async:
+    enabled: true
+  security:
+    # SEC-01 身份边界：用户身份由可验证 JWT 建立（网关透传 Authorization，本服务自行验签，
+    # X-User-Id 头以验证 subject 为准）；服务身份由 X-Service-Token（HS256 短期令牌）建立。
+    # 共享密钥由部署环境注入，禁止写入仓库；缺失时管理端点全部拒绝（fail-closed）。
+    service-id: mall-software
+    service-token-secret: ${SOFTWARE_SERVICE_TOKEN_SECRET:${CLOUDMART_SERVICE_TOKEN_SECRET:}}
+    # mall-auth JWKS（RS256 公钥），与网关一致
+    jwks-uri: ${CLOUDMART_JWKS_URI:http://127.0.0.1:9001/oauth2/jwks}
+    clock-skew-seconds: 30
+    # 入站服务令牌路径强映射（最长前缀优先）：/admin 仅接受 mall-admin 管理代理，
+    # /internal/account-erasure 仅接受 mall-user 注销编排；网关同时显式拦截外部直达
+    service-token-paths:
+      - prefix: /admin
+        issuers: [mall-admin]
+        scope: software:admin
+      - prefix: /internal/account-erasure
+        issuers: [mall-user]
+        scope: software:erasure
+    # 出站服务令牌：社区/用户/文件按 9.6 最小能力域签名；
+    # 社区/用户侧需同步新增对应 issuer+scope 白名单，文件服务在允许 issuer 中显式加入 mall-software
+    outbound-scopes:
+      mall-community: community:software-support
+      mall-user: user:software-support
+      mall-file: file:internal
+
+# 小答软件业务开关与限流（方案 11.2；支持 Nacos mall-software.yml 热更新）
+software:
+  # 上线前全部关闭，按灰度逐步打开
+  enabled: false
+  publish-enabled: false
+  resolve-enabled: false
+  publish-submissions-per-user-day: 10
+  comment-per-user-minute: 5
+  resolve-per-user-minute: 30
+  feedback-per-user-day: 20
+  revisions-max-releases: 50
+  release-max-sources: 10
+  screenshot-max-count: 8
+  suspected-distinct-reporters: 3

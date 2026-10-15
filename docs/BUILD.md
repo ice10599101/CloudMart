@@ -47,7 +47,7 @@ CLOUDMART_SECURITY_JWKS_URI: <mall-auth JWKS 地址>
 
 ## Flyway 基线与迁移门禁（C26）
 
-19 个业务库各有独立的 `V1__baseline.sql`，之后从 V2 正常增量。切换、重建、来源证据和保护说明见 [DATABASE_BASELINE.md](DATABASE_BASELINE.md)。
+20 个业务库各有独立的迁移目录（mall-software 从 V1 起步，其余为 `V1__baseline.sql` + V2 增量）。切换、重建、来源证据和保护说明见 [DATABASE_BASELINE.md](DATABASE_BASELINE.md)。
 
 ```bash
 python3 scripts/db-baseline/run.py verify

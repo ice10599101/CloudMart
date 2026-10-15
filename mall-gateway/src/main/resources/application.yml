@@ -228,6 +228,14 @@ spring:
                 - Path=/api/pet/**
               filters:
                 - StripPrefix=2
+            # 小答软件（7.1）：本路由 StripPrefix=1 仅去掉 /api——外部 /api/software/100
+            # 对应服务内 /software/100；区别于其他服务的 StripPrefix=2，不全局修改
+            - id: mall-software
+              uri: lb://mall-software
+              predicates:
+                - Path=/api/software,/api/software/**
+              filters:
+                - StripPrefix=1
           default-filters:
             - name: Retry
               args:

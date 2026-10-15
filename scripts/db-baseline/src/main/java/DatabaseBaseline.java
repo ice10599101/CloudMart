@@ -21,7 +21,8 @@ public class DatabaseBaseline {
         "mall-admin", Set.of("admin_menu", "admin_role", "admin_role_menu", "admin_config", "admin_dict_type", "admin_dict_data", "admin_dept", "admin_post"),
         "mall-community", Set.of("sensitive_words", "exp_rules", "level_configs", "ranking_configs", "avatar_frames"),
         "mall-wish", Set.of("wish_category", "wish_badge", "wish_env_config", "wish_ai_config", "wish_leaderboard_config", "wish_match_config", "wish_gift"),
-        "mall-pet", Set.of("pet_job_config", "pet_study_config", "pet_achievement", "pet_equipment_config", "pet_skin_config", "pet_skill_config", "pet_evolution_config", "pet_event_config", "pet_career_config", "pet_furniture_config", "pet_daily_quest_config", "pet_content_sensitive_word", "pet_food_config", "pet_config", "pet_persona_phrase", "pet_season_guard")
+        "mall-pet", Set.of("pet_job_config", "pet_study_config", "pet_achievement", "pet_equipment_config", "pet_skin_config", "pet_skill_config", "pet_evolution_config", "pet_event_config", "pet_career_config", "pet_furniture_config", "pet_daily_quest_config", "pet_content_sensitive_word", "pet_food_config", "pet_config", "pet_persona_phrase", "pet_season_guard"),
+        "mall-software", Set.of("software_category")
     );
     static String url(String schema) { return "jdbc:mysql://" + HOST + ":" + PORT + "/" + schema + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8"; }
     static String q(String name) { if (!name.matches("[a-zA-Z0-9_]+")) throw new IllegalArgumentException(name); return "`" + name + "`"; }

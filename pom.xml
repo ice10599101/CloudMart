@@ -329,6 +329,7 @@
         <module>mall-community</module>
         <module>mall-wish</module>
         <module>mall-pet</module>
+        <module>mall-software</module>
     </modules>
 
   <profiles>
