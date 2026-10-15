@@ -81,6 +81,7 @@ export default defineConfig({
         { path: '/software/publish', component: '@/pages/SoftwarePublish' },
         { path: '/software/mine', component: '@/pages/SoftwareMine' },
         { path: '/software/:id', component: '@/pages/SoftwareDetail' },
+        { path: '/software/:id/edit', component: '@/pages/SoftwareEdit' },
         { path: '/wish', component: '@/pages/WishHome' },
         { path: '/wish/list', component: '@/pages/WishSquare' },
         { path: '/wish/create', component: '@/pages/WishCreate' },

@@ -282,6 +282,36 @@ export interface SoftwareSnapshotInput {
   releases?: SoftwareReleaseInput[];
 }
 
+/** 编辑器快照里的来源：含真实 url/提取码/解压密码，仅发布者本人可见 */
+export interface SoftwareEditorSource {
+  sourceId: string | null;
+  sourceKey: string | null;
+  sourceType: SoftwareSourceType;
+  provider: string | null;
+  platform: string | null;
+  arch: string | null;
+  label: string | null;
+  url: string | null;
+  extractionCode: string | null;
+  archivePassword: string | null;
+  sizeLabel: string | null;
+  claimedSha256: string | null;
+  note: string | null;
+  displayOrder: number | null;
+}
+
+export interface SoftwareEditorRelease {
+  releaseId: string | null;
+  releaseKey: string;
+  versionName: string;
+  channel: string | null;
+  releaseDate: string | null;
+  changelog: string | null;
+  recommended: boolean;
+  displayOrder: number | null;
+  sources: SoftwareEditorSource[];
+}
+
 export interface SoftwareEditorData {
   softwareId: string;
   revisionId: string;
@@ -307,7 +337,7 @@ export interface SoftwareEditorData {
   accessNote: string | null;
   tagIds: string[];
   screenshots: SoftwareScreenshot[];
-  releases: SoftwareRelease[];
+  releases: SoftwareEditorRelease[];
   submittedAt: string | null;
   reviewedAt: string | null;
   reviewerId: string | null;
