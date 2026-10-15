@@ -102,6 +102,23 @@ public class NotificationServiceImpl implements NotificationService {
         sessionManager.sendMessageToUser(userId, dto);
     }
 
+    /** 方案 9.4：软件域事件通知（eventId + recipientId 唯一去重，重复投递静默跳过） */
+    @Override
+    @Transactional
+    public void sendSoftwareEventNotification(Long userId, String eventId, String type, String title,
+                                              String content, Long bizId, String bizType, Long actorId) {
+        Notification entity = buildNotification(userId, type, title, content, bizId, bizType);
+        entity.setEventId(eventId + ":" + userId);
+        try {
+            notificationMapper.insert(entity);
+        } catch (org.springframework.dao.DuplicateKeyException duplicate) {
+            log.info("软件域事件通知已存在（幂等跳过） eventId={} userId={}", eventId, userId);
+            return;
+        }
+        NotificationDTO dto = notificationConverter.toDTO(entity);
+        sessionManager.sendMessageToUser(userId, dto);
+    }
+
     /** N01：订单事件通知（eventId 唯一去重——MQ 重复投递不产生重复通知） */
     @Override
     @Transactional

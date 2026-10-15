@@ -58,6 +58,7 @@ public class SoftwareOutboxDelivery implements OutboxDelivery {
             case "SOFTWARE_COMMENT_VISIBLE" -> SoftwareEvents.TAG_COMMENT_VISIBLE;
             case "SOFTWARE_REPLY_VISIBLE" -> SoftwareEvents.TAG_REPLY_VISIBLE;
             case "SOFTWARE_SOURCE_REPORTED" -> SoftwareEvents.TAG_SOURCE_REPORTED;
+            case "SOFTWARE_BANNED" -> SoftwareEvents.TAG_SOFTWARE_BANNED;
             case "SOFTWARE_RELEASE_PUBLISHED" -> SoftwareEvents.TAG_RELEASE_PUBLISHED;
             default -> throw new IllegalArgumentException("未知的软件事件类型: " + eventType);
         };

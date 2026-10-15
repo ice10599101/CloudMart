@@ -30,6 +30,13 @@ public interface NotificationService {
     void sendOrderEventNotification(Long userId, String eventId, String title, String content,
                                     Long orderId);
 
+    /**
+     * 小答软件域事件通知（方案 9.4）：eventId + recipientId 唯一去重——
+     * MQ at-least-once 重投/并发双消费不产生重复站内信；重复事件静默跳过。
+     */
+    void sendSoftwareEventNotification(Long userId, String eventId, String type, String title,
+                                       String content, Long bizId, String bizType, Long actorId);
+
     /** W05：心愿域事件通知（eventId 唯一去重；重复投递静默跳过） */
     void sendWishEventNotification(Long userId, String eventId, String type, String title,
                                    String content, Long bizId, String bizType);

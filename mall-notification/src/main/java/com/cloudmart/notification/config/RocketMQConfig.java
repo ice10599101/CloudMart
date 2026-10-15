@@ -17,6 +17,11 @@ public final class RocketMQConfig {
     public static final String ORDER_TOPIC = "order-events";
     public static final String COMMUNITY_TOPIC = "community-events";
     public static final String WISH_TOPIC = "wish-events";
+
+    /** 小答软件域事件 topic（S02 独立 topic，方案 9.4） */
+    public static final String SOFTWARE_TOPIC = "software-events";
+    public static final String SOFTWARE_TAG_ALL = "*";
+    public static final String CG_NOTIFICATION_SOFTWARE_EVENT = "notification-software-event-cg";
     /** 宠物事件 topic（mall-pet 生产：打工/读书/捞瓶/对战/升级/主动消息） */
     public static final String PET_TOPIC = "pet-events";
 
