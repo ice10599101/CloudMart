@@ -44,6 +44,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -94,6 +95,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     private final SoftwareSnapshotAssembler assembler;
     private final SoftwareOperationService operationService;
     private final SoftwareAuditService auditService;
+    private final com.cloudmart.software.service.SoftwareAssetBindingService assetBindingService;
     private final OutboxService outboxService;
     private final com.cloudmart.software.feign.CommunitySupportFeignClient communitySupportFeignClient;
     private final com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
@@ -165,12 +167,32 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             // 无线上内容可克隆：首次创建走 POST /software
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在或无可克隆内容");
         }
-        CloneResult cloneResult = operationService.execute("USER", userId,
-                SoftwareOperationService.OP_CLONE_WORKING,
+        CloneResult cloneResult = transactionTemplate.execute(status -> operationService.execute(
+                "USER", userId, SoftwareOperationService.OP_CLONE_WORKING,
                 idempotencyKey, Map.of("softwareId", softwareId), softwareId,
                 () -> doCloneWorking(userId, softwareId),
-                json -> objectMapper.readValue(json, CloneResult.class));
+                json -> objectMapper.readValue(json, CloneResult.class)));
+        // 8.2：克隆后为新 revisionId 幂等绑定同一批素材；失败登记重绑补偿（自愈）
+        bindSnapshotAssetsQuietly(userId, cloneResult.revisionId());
         return buildEditor(softwareMapper.selectById(softwareId), cloneResult.revisionId());
+    }
+
+    /** 克隆/保存后素材绑定：事务外幂等执行；失败登记 software-ref-bind 补偿 */
+    private void bindSnapshotAssetsQuietly(Long ownerUserId, Long revisionId) {
+        try {
+            List<Long> assetIds = revisionMediaMapper.selectList(
+                            new LambdaQueryWrapper<SoftwareRevisionMedia>()
+                                    .eq(SoftwareRevisionMedia::getRevisionId, revisionId))
+                    .stream().map(SoftwareRevisionMedia::getAssetId).distinct().toList();
+            assetBindingService.bindRevisionAssets(revisionId, ownerUserId, assetIds);
+        } catch (Exception e) {
+            log.warn("克隆后素材绑定失败，登记重绑补偿 revisionId={}: {}", revisionId, e.getMessage());
+            List<Long> assetIds = revisionMediaMapper.selectList(
+                            new LambdaQueryWrapper<SoftwareRevisionMedia>()
+                                    .eq(SoftwareRevisionMedia::getRevisionId, revisionId))
+                    .stream().map(SoftwareRevisionMedia::getAssetId).distinct().toList();
+            assetBindingService.registerBindCompensation(revisionId, ownerUserId, assetIds);
+        }
     }
 
     /** 克隆操作结果（只存 ID/版本号，6.10） */
@@ -296,22 +318,70 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     // ------------------------------------------------------------------
 
     @Override
-    @Transactional
     public SoftwareEditorVO saveDraft(Long userId, Long softwareId, Long revisionId,
                                       Integer expectedVersion, SoftwareSnapshotInput input) {
         publisherPolicy.requireForRestrictedWrite(userId);
         Software software = ownedSoftware(userId, softwareId);
-        SoftwareRevision revision = lockRevisionOfSoftware(software, revisionId);
-        requireEditableStatus(revision);
-        requireVersion(revision, expectedVersion);
+        SoftwareRevision precheck = revisionOfSoftware(software, revisionId);
+        requireEditableStatus(precheck);
+        // 8.2：绑定在软件库事务外幂等执行（含 icon）；失败保留草稿重试（A21），
+        // 绝不在绑定未成功时写 media 行
+        List<Long> assets = collectInputAssets(input);
+        assetBindingService.bindRevisionAssets(revisionId, userId, assets);
 
-        assembler.applyInput(revision, input);
-        revision.setLockVersion(revision.getLockVersion() + 1);
-        revisionMapper.updateById(revision);
-        auditService.record(softwareId, revisionId, revision.getSubmitSeq(), userId, "USER",
-                "SAVE_DRAFT", revision.getReviewStatus().name(), revision.getReviewStatus().name(),
-                "保存草稿", null);
+        SoftwareEditorVO editor = transactionTemplate.execute(status -> {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCompletion(int code) {
+                            if (code == org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK) {
+                                // 本地回滚：预绑定引用经补偿任务幂等解绑（8.2.4）
+                                assetBindingService.registerUnbindCompensation(revisionId, assets);
+                            }
+                        }
+                    });
+            SoftwareRevision revision = lockMapper.lockRevision(revisionId);
+            if (revision == null || !softwareId.equals(revision.getSoftwareId())) {
+                throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
+            }
+            requireEditableStatus(revision);
+            requireVersion(revision, expectedVersion);
+            assembler.applyInput(revision, input);
+            revision.setLockVersion(revision.getLockVersion() + 1);
+            revisionMapper.updateById(revision);
+            auditService.record(softwareId, revisionId, revision.getSubmitSeq(), userId, "USER",
+                    "SAVE_DRAFT", revision.getReviewStatus().name(), revision.getReviewStatus().name(),
+                    "保存草稿", null);
+            return null;
+        });
         return buildEditor(software, revisionId);
+    }
+
+    /** 快照当前绑定资产清单：icon + 截图/正文媒体（submit 自愈重绑用） */
+    private List<Long> collectSnapshotAssets(SoftwareRevision snapshot) {
+        List<Long> assetIds = new ArrayList<>();
+        if (snapshot.getIconAssetId() != null) {
+            assetIds.add(snapshot.getIconAssetId());
+        }
+        revisionMediaMapper.selectList(new LambdaQueryWrapper<SoftwareRevisionMedia>()
+                        .eq(SoftwareRevisionMedia::getRevisionId, snapshot.getId()))
+                .forEach(media -> assetIds.add(media.getAssetId()));
+        return assetIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+    }
+
+    /** 输入中的绑定资产清单：icon + 截图（正文媒体同通道） */
+    private List<Long> collectInputAssets(SoftwareSnapshotInput input) {
+        List<Long> assetIds = new ArrayList<>();
+        if (input.getIconAssetId() != null) {
+            assetIds.add(input.getIconAssetId());
+        }
+        if (input.getScreenshots() != null) {
+            input.getScreenshots().stream()
+                    .map(SoftwareSnapshotInput.MediaInput::getAssetId)
+                    .filter(java.util.Objects::nonNull)
+                    .forEach(assetIds::add);
+        }
+        return assetIds;
     }
 
     // ------------------------------------------------------------------
@@ -329,6 +399,9 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         Software software = ownedSoftware(userId, softwareId);
         SoftwareRevision snapshot = revisionOfSoftware(software, revisionId);
         requireEditableStatus(snapshot);
+
+        // 8.2.3：所有引用绑定成功才允许 submit——幂等自愈重绑（覆盖补偿缺口）
+        assetBindingService.bindRevisionAssets(revisionId, userId, collectSnapshotAssets(snapshot));
 
         // 远程阶段（事务外，9.7）：文本审核绑定 contentHash/checkedAt + 账号可用性
         List<String> texts = collectReviewTexts(snapshot);

@@ -109,11 +109,41 @@ class SoftwarePublishServiceImplTest {
     @BeforeEach
     void setUp() {
         // TransactionTemplate 直接执行回调（mock 事务管理器语义）
-        when(transactionTemplate.execute(any())).thenAnswer(invocation ->
-                ((TransactionCallback<?>) invocation.getArgument(0)).doInTransaction(null));
+        // 迷你事务模拟：激活同步器，回调异常时触发 afterCompletion(ROLLED_BACK)
+        when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .setActualTransactionActive(true);
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .initSynchronization();
+            try {
+                return ((TransactionCallback<?>) invocation.getArgument(0)).doInTransaction(null);
+            } catch (RuntimeException e) {
+                for (org.springframework.transaction.support.TransactionSynchronization synchronization
+                        : org.springframework.transaction.support.TransactionSynchronizationManager
+                        .getSynchronizations()) {
+                    synchronization.afterCompletion(
+                            org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK);
+                }
+                org.springframework.transaction.support.TransactionSynchronizationManager
+                        .clearSynchronization();
+                org.springframework.transaction.support.TransactionSynchronizationManager
+                        .setActualTransactionActive(false);
+                throw e;
+            } finally {
+                if (org.springframework.transaction.support.TransactionSynchronizationManager
+                        .isSynchronizationActive()) {
+                    org.springframework.transaction.support.TransactionSynchronizationManager
+                            .clearSynchronization();
+                    org.springframework.transaction.support.TransactionSynchronizationManager
+                            .setActualTransactionActive(false);
+                }
+            }
+        });
         service = new SoftwarePublishServiceImpl(softwareMapper, revisionMapper, releaseMapper,
                 sourceMapper, revisionTagMapper, revisionMediaMapper, favoriteMapper, lockMapper,
-                publisherPolicy, assembler, operationService, auditService, outboxService,
+                publisherPolicy, assembler, operationService, auditService,
+                org.mockito.Mockito.mock(com.cloudmart.software.service.SoftwareAssetBindingService.class),
+                outboxService,
                 communitySupportFeignClient, userSupportFeignClient, softwareProperties,
                 new ObjectMapper(), Clock.fixed(NOW, ZoneId.systemDefault()), transactionTemplate);
         // operationService 透传业务动作（真实执行状态机逻辑）
@@ -332,6 +362,7 @@ class SoftwarePublishServiceImplTest {
         when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
                 software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
         SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 5);
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
         when(lockMapper.lockRevision(REVISION_ID)).thenReturn(draft);
 
         assertThatThrownBy(() -> service.saveDraft(USER_ID, SOFTWARE_ID, REVISION_ID, 4,

@@ -24,6 +24,13 @@ public record SoftwareAssetBindRequest(
                 ownerUserId, List.of("image/png", "image/jpeg", "image/webp"), 2L * 1024 * 1024, null);
     }
 
+    /** 快照引用通用绑定（图标+截图+正文媒体统一；MIME 由文件服务按真实类型与白名单裁决） */
+    public static SoftwareAssetBindRequest revision(Long revisionId, Long ownerUserId) {
+        return new SoftwareAssetBindRequest("SOFTWARE_REVISION", String.valueOf(revisionId),
+                ownerUserId, List.of("image/png", "image/jpeg", "image/webp", "image/gif"),
+                5L * 1024 * 1024, null);
+    }
+
     /** 截图约束：≤5MB */
     public static SoftwareAssetBindRequest screenshot(Long revisionId, Long ownerUserId) {
         return new SoftwareAssetBindRequest("SOFTWARE_REVISION", String.valueOf(revisionId),
