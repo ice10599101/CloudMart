@@ -19,11 +19,13 @@ public interface AdminSoftwareModerationService {
      * 举报处置：RESOLVED+action（NONE/BAN_SOFTWARE/HIDE_COMMENT）或 REJECTED；
      * BAN_SOFTWARE→软件 BANNED（审计）；HIDE_COMMENT→评论 HIDDEN（计数-1）。
      */
-    boolean handleReport(Long adminId, Long reportId, AdminReportHandleRequest request);
+    boolean handleReport(Long adminId, Long reportId, String idempotencyKey,
+                           AdminReportHandleRequest request);
 
     /** 失效反馈列表 */
     Page<Map<String, Object>> feedbackPage(String status, int page, int size);
 
     /** 反馈标记：VERIFYING/RESOLVED（必须携带修复 revisionId，保留 original 指纹）/REJECTED */
-    boolean markFeedback(Long adminId, Long feedbackId, AdminFeedbackMarkRequest request);
+    boolean markFeedback(Long adminId, Long feedbackId, String idempotencyKey,
+                            AdminFeedbackMarkRequest request);
 }

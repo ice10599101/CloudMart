@@ -1,5 +1,6 @@
 package com.cloudmart.admin.feign;
 
+import com.cloudmart.admin.config.SoftwareFeignConfiguration;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,7 +19,8 @@ import java.util.Map;
  * 操作管理员 X-User-Id 由 AdminFeignInterceptor 注入。
  */
 @FeignClient(contextId = "softwareFeignClient", name = "mall-software",
-        path = "/admin/software", fallbackFactory = SoftwareFeignClientFallbackFactory.class)
+        path = "/admin/software", fallbackFactory = SoftwareFeignClientFallbackFactory.class,
+        configuration = SoftwareFeignConfiguration.class)
 public interface SoftwareFeignClient {
 
     /** 审核决策（S04）：携带 revisionId+submitSeq+expectedVersion 防旧批次覆盖 */

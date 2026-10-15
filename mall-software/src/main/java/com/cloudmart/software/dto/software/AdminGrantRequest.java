@@ -10,8 +10,6 @@ import java.time.LocalDateTime;
 @Setter
 public class AdminGrantRequest {
 
-    private String idempotencyKey;
-
     private Long userId;
 
     /** 到期时间（可空=长期有效；恰好到期即无效） */

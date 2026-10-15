@@ -3,11 +3,13 @@ package com.cloudmart.software.service.impl;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.software.dto.software.AdminContactSaveRequest;
 import com.cloudmart.software.dto.software.AdminPermissionToggleRequest;
 import com.cloudmart.software.dto.software.AdminReportHandleRequest;
 import com.cloudmart.software.dto.software.AdminGrantRequest;
 import com.cloudmart.software.dto.software.SoftwareProfileVO;
 import com.cloudmart.software.entity.Software;
+import com.cloudmart.software.entity.SoftwareAccessContact;
 import com.cloudmart.software.entity.SoftwareAccessGrant;
 import com.cloudmart.software.entity.SoftwareComment;
 import com.cloudmart.software.entity.SoftwarePermissionAudit;
@@ -40,6 +42,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
@@ -131,7 +135,6 @@ class AdminSoftwareServicesTest {
 
     private AdminPermissionToggleRequest toggle(boolean enable, String reason) {
         AdminPermissionToggleRequest request = new AdminPermissionToggleRequest();
-        request.setIdempotencyKey("perm-key-1");
         request.setEnable(enable);
         request.setReason(reason);
         return request;
@@ -143,7 +146,7 @@ class AdminSoftwareServicesTest {
         when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(null);
         when(publisherPermissionMapper.selectOne(any(Wrapper.class))).thenReturn(null);
 
-        permissionService.togglePermission(ADMIN_ID, USER_ID, toggle(true, "优质分享者"));
+        permissionService.togglePermission(ADMIN_ID, USER_ID, "perm-key-1", toggle(true, "优质分享者"));
 
         ArgumentCaptor<SoftwarePublisherPermission> captor =
                 ArgumentCaptor.forClass(SoftwarePublisherPermission.class);
@@ -166,14 +169,30 @@ class AdminSoftwareServicesTest {
         when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(existing);
         when(publisherPermissionMapper.selectOne(any(Wrapper.class))).thenReturn(existing);
 
-        permissionService.togglePermission(ADMIN_ID, USER_ID, toggle(false, "违规发布"));
+        permissionService.togglePermission(ADMIN_ID, USER_ID, "perm-key-2", toggle(false, "违规发布"));
 
         ArgumentCaptor<SoftwarePermissionAudit> auditCaptor =
                 ArgumentCaptor.forClass(SoftwarePermissionAudit.class);
         verify(permissionAuditMapper).insert((SoftwarePermissionAudit) auditCaptor.capture());
         assertThat(auditCaptor.getValue().getAction()).isEqualTo("PUBLISH_DISABLE");
-        assertThat(auditCaptor.getValue().getBeforeJson()).isEqualTo("true");
-        assertThat(auditCaptor.getValue().getAfterJson()).isEqualTo("false");
+        JsonNode before = assertValidJson(auditCaptor.getValue().getBeforeJson());
+        JsonNode after = assertValidJson(auditCaptor.getValue().getAfterJson());
+        assertThat(before.get("canPublish").asBoolean()).isTrue();
+        assertThat(after.get("canPublish").asBoolean()).isFalse();
+    }
+
+    /**
+     * 回归防线：before_json / after_json 是 MySQL json 列，非法 JSON 文本会触发
+     * Data truncation 使整个管理端写操作 500。Mock mapper 吞不掉该错误，因此断言
+     * 快照必须是可解析 JSON（早期实现用 "ACTIVE;expiresAt=..." 字符串拼接即在此失败）。
+     */
+    private JsonNode assertValidJson(String snapshot) {
+        assertThat(snapshot).isNotNull();
+        try {
+            return new ObjectMapper().readTree(snapshot);
+        } catch (JacksonException e) {
+            throw new AssertionError("审计快照不是合法 JSON: " + snapshot, e);
+        }
     }
 
     @Test
@@ -183,7 +202,7 @@ class AdminSoftwareServicesTest {
                 List.of(new SoftwareProfileVO(USER_ID, "昵称", null, false))));
 
         assertThatThrownBy(() -> permissionService.togglePermission(
-                ADMIN_ID, USER_ID, toggle(true, "r")))
+                ADMIN_ID, USER_ID, "perm-key-3", toggle(true, "r")))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "ACCOUNT_UNAVAILABLE");
         verify(publisherPermissionMapper, never()).insert(any(SoftwarePublisherPermission.class));
@@ -206,10 +225,9 @@ class AdminSoftwareServicesTest {
         when(lockMapper.lockAccessGrant(SOFTWARE_ID, USER_ID)).thenReturn(existing);
 
         AdminGrantRequest request = new AdminGrantRequest();
-        request.setIdempotencyKey("grant-key-1");
         request.setUserId(USER_ID);
         request.setReason("线下确认付款");
-        permissionService.grant(ADMIN_ID, SOFTWARE_ID, request);
+        permissionService.grant(ADMIN_ID, SOFTWARE_ID, "grant-key-1", request);
 
         assertThat(existing.getStatus()).isEqualTo("ACTIVE");
         verify(accessGrantMapper).updateById(existing);
@@ -218,6 +236,33 @@ class AdminSoftwareServicesTest {
                 ArgumentCaptor.forClass(SoftwarePermissionAudit.class);
         verify(permissionAuditMapper).insert((SoftwarePermissionAudit) auditCaptor.capture());
         assertThat(auditCaptor.getValue().getAction()).isEqualTo("ACCESS_EXTEND");
+        JsonNode after = assertValidJson(auditCaptor.getValue().getAfterJson());
+        assertThat(after.get("status").asString()).isEqualTo("ACTIVE");
+        assertThat(after.get("expiresAt").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("6.14：联系入口新增 → CONTACT_UPDATE 审计快照为合法 JSON（MySQL json 列回归防线）")
+    void saveContact_auditSnapshotIsValidJson() {
+        AdminContactSaveRequest request = new AdminContactSaveRequest();
+        request.setName("客服QQ");
+        request.setContactType("HTTPS_URL");
+        request.setContactValue("https://example.com/support");
+        request.setEnabled(true);
+        request.setReason("新增入口");
+
+        permissionService.saveContact(ADMIN_ID, "contact-key-1", request);
+
+        ArgumentCaptor<SoftwareAccessContact> contactCaptor =
+                ArgumentCaptor.forClass(SoftwareAccessContact.class);
+        verify(accessContactMapper).insert((SoftwareAccessContact) contactCaptor.capture());
+        ArgumentCaptor<SoftwarePermissionAudit> auditCaptor =
+                ArgumentCaptor.forClass(SoftwarePermissionAudit.class);
+        verify(permissionAuditMapper).insert((SoftwarePermissionAudit) auditCaptor.capture());
+        assertThat(auditCaptor.getValue().getAction()).isEqualTo("CONTACT_UPDATE");
+        JsonNode after = assertValidJson(auditCaptor.getValue().getAfterJson());
+        assertThat(after.get("contactType").asString()).isEqualTo("HTTPS_URL");
+        assertThat(after.get("enabled").asBoolean()).isTrue();
     }
 
     @Test
@@ -237,11 +282,10 @@ class AdminSoftwareServicesTest {
         when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
 
         AdminReportHandleRequest request = new AdminReportHandleRequest();
-        request.setIdempotencyKey("report-key-1");
         request.setStatus("RESOLVED");
         request.setAction("BAN_SOFTWARE");
         request.setNote("恶意软件");
-        moderationService.handleReport(ADMIN_ID, 1L, request);
+        moderationService.handleReport(ADMIN_ID, 1L, "report-key-1", request);
 
         assertThat(software.getLifecycle()).isEqualTo(SoftwareLifecycle.BANNED);
         verify(outboxService).record(any());
@@ -254,11 +298,10 @@ class AdminSoftwareServicesTest {
         report2.setLockVersion(0);
         when(reportMapper.selectById(2L)).thenReturn(report2);
         AdminReportHandleRequest none = new AdminReportHandleRequest();
-        none.setIdempotencyKey("report-key-2");
         none.setStatus("RESOLVED");
         none.setAction("NONE");
         none.setNote("标记成立");
-        moderationService.handleReport(ADMIN_ID, 2L, none);
+        moderationService.handleReport(ADMIN_ID, 2L, "report-key-2", none);
         assertThat(software.getLifecycle()).isEqualTo(SoftwareLifecycle.BANNED); // 未再变化
     }
 

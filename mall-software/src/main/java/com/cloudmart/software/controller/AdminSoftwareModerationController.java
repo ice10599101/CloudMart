@@ -50,9 +50,10 @@ public class AdminSoftwareModerationController {
     public ApiResponse<Boolean> handleReport(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @PathVariable("reportId") Long reportId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody AdminReportHandleRequest request) {
         return ApiResponse.ok(adminSoftwareModerationService.handleReport(
-                adminUserId, reportId, request));
+                adminUserId, reportId, idempotencyKey, request));
     }
 
     @GetMapping("/link-feedbacks")
@@ -70,8 +71,9 @@ public class AdminSoftwareModerationController {
     public ApiResponse<Boolean> markFeedback(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @PathVariable("feedbackId") Long feedbackId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody AdminFeedbackMarkRequest request) {
         return ApiResponse.ok(adminSoftwareModerationService.markFeedback(
-                adminUserId, feedbackId, request));
+                adminUserId, feedbackId, idempotencyKey, request));
     }
 }

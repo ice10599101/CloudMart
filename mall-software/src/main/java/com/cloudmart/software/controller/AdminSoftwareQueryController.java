@@ -67,9 +67,10 @@ public class AdminSoftwareQueryController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @PathVariable("softwareId") Long softwareId,
             @PathVariable("commentId") Long commentId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody AdminCommentModerateRequest request) {
         return ApiResponse.ok(adminSoftwareQueryService.moderateComment(
-                adminUserId, softwareId, commentId, request.getIdempotencyKey(),
+                adminUserId, softwareId, commentId, idempotencyKey,
                 request.getAction(), request.getReason()));
     }
 }

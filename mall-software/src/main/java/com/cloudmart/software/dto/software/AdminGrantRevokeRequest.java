@@ -8,7 +8,5 @@ import lombok.Setter;
 @Setter
 public class AdminGrantRevokeRequest {
 
-    private String idempotencyKey;
-
     private String reason;
 }

@@ -8,8 +8,6 @@ import lombok.Setter;
 @Setter
 public class AdminCommentModerateRequest {
 
-    private String idempotencyKey;
-
     /** APPROVE（PENDING→VISIBLE）/HIDE（VISIBLE→HIDDEN）/RESTORE（HIDDEN→VISIBLE）/REJECT（PENDING→HIDDEN） */
     private String action;
 

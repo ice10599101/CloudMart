@@ -23,20 +23,22 @@ public interface AdminSoftwarePermissionService {
     List<Map<String, Object>> permissionsOf(List<Long> userIds);
 
     /** 开通/关闭发布资格（唯一键首开幂等；数据库为最终事实；开通前核对会员可用） */
-    boolean togglePermission(Long adminId, Long userId, AdminPermissionToggleRequest request);
+    boolean togglePermission(Long adminId, Long userId, String idempotencyKey,
+                            AdminPermissionToggleRequest request);
 
     /** 某软件的付款授权列表 */
     List<Map<String, Object>> grantsOf(Long softwareId);
 
     /** 开通/延期授权（重开更新同一行并追加审计） */
-    boolean grant(Long adminId, Long softwareId, AdminGrantRequest request);
+    boolean grant(Long adminId, Long softwareId, String idempotencyKey, AdminGrantRequest request);
 
     /** 撤销授权 */
-    boolean revoke(Long adminId, Long softwareId, Long userId, AdminGrantRevokeRequest request);
+    boolean revoke(Long adminId, Long softwareId, Long userId, String idempotencyKey,
+                        AdminGrantRevokeRequest request);
 
     /** 联系入口列表（启用+停用） */
     List<Map<String, Object>> contacts();
 
     /** 新增/更新联系入口（引用中仅停用，不物理删除） */
-    Long saveContact(Long adminId, AdminContactSaveRequest request);
+    Long saveContact(Long adminId, String idempotencyKey, AdminContactSaveRequest request);
 }

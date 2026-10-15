@@ -11,8 +11,6 @@ import lombok.Setter;
 @Setter
 public class SoftwareReviewDecisionRequest {
 
-    private String idempotencyKey;
-
     private Long softwareId;
 
     /** 提交批次（A07：防旧批次覆盖） */

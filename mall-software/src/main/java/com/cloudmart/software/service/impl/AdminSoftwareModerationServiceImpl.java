@@ -95,7 +95,8 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
 
     @Override
     @Transactional
-    public boolean handleReport(Long adminId, Long reportId, AdminReportHandleRequest request) {
+    public boolean handleReport(Long adminId, Long reportId, String idempotencyKey,
+                                  AdminReportHandleRequest request) {
         if (request.getStatus() == null || !REPORT_STATUSES.contains(request.getStatus())) {
             throw new BusinessException("SOFTWARE_REPORT_INVALID", "status 须为 RESOLVED/REJECTED");
         }
@@ -112,7 +113,7 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
             throw new BusinessException("SOFTWARE_REPORT_INVALID", "处理说明须为 1~500 字");
         }
         operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_REPORT_HANDLE,
-                request.getIdempotencyKey(),
+                idempotencyKey,
                 Map.of("reportId", reportId, "status", request.getStatus(),
                         "action", action, "note", request.getNote()),
                 null,
@@ -221,7 +222,8 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
 
     @Override
     @Transactional
-    public boolean markFeedback(Long adminId, Long feedbackId, AdminFeedbackMarkRequest request) {
+    public boolean markFeedback(Long adminId, Long feedbackId, String idempotencyKey,
+                                   AdminFeedbackMarkRequest request) {
         if (request.getStatus() == null || !FEEDBACK_STATUSES.contains(request.getStatus())) {
             throw new BusinessException("SOFTWARE_FEEDBACK_INVALID",
                     "status 须为 VERIFYING/RESOLVED/REJECTED");
@@ -231,7 +233,7 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
                     "RESOLVED 必须携带修复上线快照 ID（保留 original 指纹）");
         }
         operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_FEEDBACK_MARK,
-                request.getIdempotencyKey(),
+                idempotencyKey,
                 Map.of("feedbackId", feedbackId, "status", request.getStatus(),
                         "resolvedRevisionId", String.valueOf(request.getResolvedRevisionId())),
                 null,

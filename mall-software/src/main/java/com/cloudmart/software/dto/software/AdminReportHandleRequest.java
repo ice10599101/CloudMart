@@ -8,8 +8,6 @@ import lombok.Setter;
 @Setter
 public class AdminReportHandleRequest {
 
-    private String idempotencyKey;
-
     /** RESOLVED（成立）/REJECTED（驳回） */
     private String status;
 

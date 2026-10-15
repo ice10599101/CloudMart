@@ -39,9 +39,10 @@ public class AdminSoftwarePublishController {
     public ApiResponse<SoftwareReviewDecisionVO> decision(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @org.springframework.web.bind.annotation.PathVariable("revisionId") Long revisionId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody SoftwareReviewDecisionRequest request) {
         return ApiResponse.ok(softwarePublishService.reviewDecision(
-                adminUserId, request.getIdempotencyKey(), request.getSoftwareId(), revisionId,
+                adminUserId, idempotencyKey, request.getSoftwareId(), revisionId,
                 request.getSubmitSeq(), request.getExpectedVersion(),
                 Boolean.TRUE.equals(request.getApprove()),
                 request.getReason(), request.getRequestId()));

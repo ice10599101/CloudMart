@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Clock;
@@ -106,7 +107,8 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
 
     @Override
     @Transactional
-    public boolean togglePermission(Long adminId, Long userId, AdminPermissionToggleRequest request) {
+    public boolean togglePermission(Long adminId, Long userId, String idempotencyKey,
+                                     AdminPermissionToggleRequest request) {
         if (request.getEnable() == null) {
             throw new BusinessException("SOFTWARE_PERMISSION_INVALID", "enable 不能为空");
         }
@@ -136,11 +138,11 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
             }
             before = null;
         } else {
-            before = String.valueOf(permission.getCanPublish());
+            before = toSnapshotJson(snapshotMap("canPublish", permission.getCanPublish()));
         }
         String beforeSnapshot = before;
         operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_PERMISSION_TOGGLE,
-                request.getIdempotencyKey(),
+                idempotencyKey,
                 Map.of("userId", userId, "enable", enabling, "reason", request.getReason()),
                 null,
                 (Supplier<Void>) () -> {
@@ -155,7 +157,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         SoftwarePublisherPermission permission = publisherPermissionMapper.selectOne(
                 new LambdaQueryWrapper<SoftwarePublisherPermission>()
                         .eq(SoftwarePublisherPermission::getUserId, userId));
-        String after = String.valueOf(enable);
+        String after = toSnapshotJson(snapshotMap("canPublish", enable));
         if (permission == null) {
             // 唯一键首开（4.0）；并发首开冲突按冲突拒绝（客户端重试命中幂等结果）
             permission = new SoftwarePublisherPermission();
@@ -199,6 +201,34 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         permissionAuditMapper.insert(audit);
     }
 
+    /**
+     * 构建允许 null 值的快照容器（Map.of 遇 null 抛 NPE，故显式 HashMap）。
+     * 入参按 key/value 成对给出。
+     */
+    private Map<String, Object> snapshotMap(Object... keyValues) {
+        Map<String, Object> payload = new HashMap<>();
+        for (int i = 0; i + 1 < keyValues.length; i += 2) {
+            payload.put(String.valueOf(keyValues[i]), keyValues[i + 1]);
+        }
+        return payload;
+    }
+
+    /**
+     * 权限审计快照序列化（4.0/6.14）：before_json / after_json 为 MySQL json 列，
+     * 必须是合法 JSON 文本——早期实现用字符串拼接（"ACTIVE;expiresAt=..."）在
+     * MySQL 严格模式下触发 Data truncation: Invalid JSON text，导致整个管理端
+     * 写操作 500。此处统一按项目既有约定走 ObjectMapper。
+     *
+     * <p>用 HashMap 而非 Map.of：快照值允许 null（如生效前状态），Map.of 遇 null 抛 NPE。
+     */
+    private String toSnapshotJson(Map<String, Object> payload) {
+        try {
+            return objectMapper.writeValueAsString(payload);
+        } catch (JacksonException e) {
+            throw new IllegalStateException("权限审计快照序列化失败", e);
+        }
+    }
+
     // ------------------------------------------------------------------
     // 付款查看授权（5.4/6.14）
     // ------------------------------------------------------------------
@@ -229,7 +259,8 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
 
     @Override
     @Transactional
-    public boolean grant(Long adminId, Long softwareId, AdminGrantRequest request) {
+    public boolean grant(Long adminId, Long softwareId, String idempotencyKey,
+                          AdminGrantRequest request) {
         if (request.getUserId() == null || request.getUserId() <= 0) {
             throw new BusinessException("SOFTWARE_ACCESS_INVALID", "userId 非法");
         }
@@ -250,7 +281,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
         }
         operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_ACCESS_GRANT,
-                request.getIdempotencyKey(),
+                idempotencyKey,
                 Map.of("softwareId", softwareId, "userId", request.getUserId(),
                         "expiresAt", String.valueOf(request.getExpiresAt()),
                         "reason", request.getReason()),
@@ -298,18 +329,21 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         }
         writePermissionAudit(request.getUserId(), softwareId, null, adminId,
                 isNew ? "ACCESS_GRANT" : "ACCESS_EXTEND", null,
-                "ACTIVE;expiresAt=" + request.getExpiresAt(), request.getReason(), null);
+                toSnapshotJson(snapshotMap("status", "ACTIVE",
+                        "expiresAt", request.getExpiresAt())),
+                request.getReason(), null);
     }
 
     @Override
     @Transactional
-    public boolean revoke(Long adminId, Long softwareId, Long userId, AdminGrantRevokeRequest request) {
+    public boolean revoke(Long adminId, Long softwareId, Long userId, String idempotencyKey,
+                           AdminGrantRevokeRequest request) {
         if (request.getReason() == null || request.getReason().isBlank()
                 || request.getReason().length() > 500) {
             throw new BusinessException("SOFTWARE_ACCESS_INVALID", "原因须为 1~500 字");
         }
         operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_ACCESS_REVOKE,
-                request.getIdempotencyKey(),
+                idempotencyKey,
                 Map.of("softwareId", softwareId, "userId", userId, "reason", request.getReason()),
                 softwareId,
                 (Supplier<Void>) () -> {
@@ -331,7 +365,8 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         grant.setLockVersion(grant.getLockVersion() + 1);
         accessGrantMapper.updateById(grant);
         writePermissionAudit(userId, softwareId, null, adminId, "ACCESS_REVOKE",
-                "ACTIVE", "REVOKED", reason, null);
+                toSnapshotJson(snapshotMap("status", "ACTIVE")),
+                toSnapshotJson(snapshotMap("status", "REVOKED")), reason, null);
     }
 
     // ------------------------------------------------------------------
@@ -359,7 +394,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
 
     @Override
     @Transactional
-    public Long saveContact(Long adminId, AdminContactSaveRequest request) {
+    public Long saveContact(Long adminId, String idempotencyKey, AdminContactSaveRequest request) {
         if (request.getContactType() == null
                 || !CONTACT_TYPES.contains(request.getContactType())) {
             throw new BusinessException("SOFTWARE_CONTACT_INVALID",
@@ -379,7 +414,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
             throw new BusinessException("SOFTWARE_CONTACT_INVALID", "HTTPS_URL 类型须以 https:// 开头");
         }
         operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_CONTACT_SAVE,
-                request.getIdempotencyKey(),
+                idempotencyKey,
                 Map.of("id", String.valueOf(request.getId()), "name", request.getName(),
                         "contactType", request.getContactType(),
                         "contactValue", request.getContactValue(),
@@ -427,8 +462,9 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
             accessContactMapper.updateById(contact);
         }
         writePermissionAudit(null, null, contact.getId(), adminId, "CONTACT_UPDATE",
-                null, contact.getContactType() + ":" + contact.getContactValue()
-                        + ";enabled=" + contact.getEnabled(),
+                null, toSnapshotJson(snapshotMap("contactType", contact.getContactType(),
+                        "contactValue", contact.getContactValue(),
+                        "enabled", contact.getEnabled())),
                 request.getReason(), null);
     }
 }

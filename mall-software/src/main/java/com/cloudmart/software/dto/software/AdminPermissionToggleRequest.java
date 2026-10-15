@@ -8,8 +8,6 @@ import lombok.Setter;
 @Setter
 public class AdminPermissionToggleRequest {
 
-    private String idempotencyKey;
-
     /** true=开通 false=关闭 */
     private Boolean enable;
 

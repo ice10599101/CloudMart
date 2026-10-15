@@ -58,9 +58,10 @@ public class AdminSoftwarePermissionController {
     public ApiResponse<Boolean> togglePermission(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @PathVariable("userId") Long userId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody AdminPermissionToggleRequest request) {
         return ApiResponse.ok(adminSoftwarePermissionService.togglePermission(
-                adminUserId, userId, request));
+                adminUserId, userId, idempotencyKey, request));
     }
 
     @GetMapping("/{softwareId}/access-grants")
@@ -76,8 +77,10 @@ public class AdminSoftwarePermissionController {
     public ApiResponse<Boolean> grant(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @PathVariable("softwareId") Long softwareId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody AdminGrantRequest request) {
-        return ApiResponse.ok(adminSoftwarePermissionService.grant(adminUserId, softwareId, request));
+        return ApiResponse.ok(adminSoftwarePermissionService.grant(
+                adminUserId, softwareId, idempotencyKey, request));
     }
 
     @PostMapping("/{softwareId}/access-grants/{userId}/revoke")
@@ -86,9 +89,10 @@ public class AdminSoftwarePermissionController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @PathVariable("softwareId") Long softwareId,
             @PathVariable("userId") Long userId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody AdminGrantRevokeRequest request) {
         return ApiResponse.ok(adminSoftwarePermissionService.revoke(
-                adminUserId, softwareId, userId, request));
+                adminUserId, softwareId, userId, idempotencyKey, request));
     }
 
     @GetMapping("/access-contacts")
@@ -102,7 +106,9 @@ public class AdminSoftwarePermissionController {
             description = "引用中仅停用不删除；HTTPS_URL 校验；CONTACT_UPDATE 审计")
     public ApiResponse<Long> saveContact(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestBody AdminContactSaveRequest request) {
-        return ApiResponse.ok(adminSoftwarePermissionService.saveContact(adminUserId, request));
+        return ApiResponse.ok(adminSoftwarePermissionService.saveContact(
+                adminUserId, idempotencyKey, request));
     }
 }

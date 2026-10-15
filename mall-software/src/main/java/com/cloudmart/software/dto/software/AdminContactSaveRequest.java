@@ -8,8 +8,6 @@ import lombok.Setter;
 @Setter
 public class AdminContactSaveRequest {
 
-    private String idempotencyKey;
-
     /** null=新增；携带=更新（引用中仅停用，不物理删除） */
     private Long id;
 

@@ -8,8 +8,6 @@ import lombok.Setter;
 @Setter
 public class AdminFeedbackMarkRequest {
 
-    private String idempotencyKey;
-
     /** VERIFYING/RESOLVED/REJECTED */
     private String status;
 
