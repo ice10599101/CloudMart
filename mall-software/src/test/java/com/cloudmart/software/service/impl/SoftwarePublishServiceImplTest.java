@@ -21,6 +21,7 @@ import com.cloudmart.software.repository.SoftwareRevisionTagMapper;
 import com.cloudmart.software.repository.SoftwareSourceMapper;
 import com.cloudmart.software.service.SoftwareAuditService;
 import com.cloudmart.software.service.SoftwareOperationService;
+import com.cloudmart.software.service.SoftwareRateLimiter;
 import com.cloudmart.software.service.SoftwareSnapshotAssembler;
 import com.cloudmart.software.vo.software.SoftwareCreatedVO;
 import com.cloudmart.software.vo.software.SoftwareReviewDecisionVO;
@@ -102,6 +103,8 @@ class SoftwarePublishServiceImplTest {
     @Mock
     private SoftwareProperties softwareProperties;
     @Mock
+    private SoftwareRateLimiter rateLimiter;
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private SoftwarePublishServiceImpl service;
@@ -145,12 +148,14 @@ class SoftwarePublishServiceImplTest {
                 org.mockito.Mockito.mock(com.cloudmart.software.service.SoftwareAssetBindingService.class),
                 outboxService,
                 communitySupportFeignClient, userSupportFeignClient, softwareProperties,
-                new ObjectMapper(), Clock.fixed(NOW, ZoneId.systemDefault()), transactionTemplate);
+                rateLimiter, new ObjectMapper(), Clock.fixed(NOW, ZoneId.systemDefault()),
+                transactionTemplate);
         // operationService 透传业务动作（真实执行状态机逻辑）
         lenient().when(operationService.execute(anyString(), any(), anyString(), anyString(),
                 any(), any(), any(Supplier.class), any())).thenAnswer(invocation ->
                 ((Supplier<?>) invocation.getArgument(6)).get());
         lenient().when(softwareProperties.isPublishEnabled()).thenReturn(true);
+        lenient().when(rateLimiter.allowSubmit(any())).thenReturn(true);
         doNothing().when(publisherPolicy).requireForRestrictedWrite(any());
         doNothing().when(assembler).validateForSubmit(any());
     }

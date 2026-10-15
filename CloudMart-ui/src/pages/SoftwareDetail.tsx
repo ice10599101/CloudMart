@@ -23,6 +23,7 @@ import {
   likeSoftwareComment,
   listSoftwareComments,
   listSoftwareReleases,
+  reportSoftware,
   resolveSoftwareSource,
   unfavoriteSoftware,
   type SoftwareAccessState,
@@ -31,6 +32,7 @@ import {
   type SoftwareRelease,
   type SoftwareSourceSummary,
 } from "@/api/software";
+import ReportModal from "@/components/ReportModal";
 import RichText from "@/components/RichText";
 import { useAuthStore } from "@/stores/auth";
 import styles from "./SoftwareDetail.module.css";
@@ -67,6 +69,11 @@ export default function SoftwareDetail() {
   const [resolved, setResolved] = useState<{
     url: string;
     code: string | null;
+  } | null>(null);
+  /** 举报目标（复用社区举报弹窗，注入软件举报提交；与社区接口相互独立） */
+  const [reportTarget, setReportTarget] = useState<{
+    type: "SOFTWARE" | "SOFTWARE_COMMENT";
+    id: string;
   } | null>(null);
 
   useEffect(() => {
@@ -395,6 +402,18 @@ export default function SoftwareDetail() {
                             >
                               赞 {item.likeCount}
                             </Button>
+                            <Button
+                              type="link"
+                              size="small"
+                              onClick={() =>
+                                setReportTarget({
+                                  type: "SOFTWARE_COMMENT",
+                                  id: item.id,
+                                })
+                              }
+                            >
+                              举报
+                            </Button>
                           </Space>
                           {item.replies.map((reply) => (
                             <div key={reply.id} className={styles.replyItem}>
@@ -508,9 +527,38 @@ export default function SoftwareDetail() {
             >
               {detail.isFavorited ? "已收藏" : "收藏"}
             </Button>
+            <Button
+              block
+              type="text"
+              danger
+              style={{ marginTop: 4 }}
+              onClick={() => setReportTarget({ type: "SOFTWARE", id })}
+            >
+              举报该软件
+            </Button>
           </div>
         </Card>
       </div>
+
+      {reportTarget ? (
+        <ReportModal
+          visible
+          onClose={() => setReportTarget(null)}
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          onSubmit={async (payload) => {
+            await reportSoftware(id, {
+              targetType: reportTarget.type,
+              targetId:
+                reportTarget.type === "SOFTWARE_COMMENT"
+                  ? reportTarget.id
+                  : undefined,
+              reason: payload.reason,
+              description: payload.description,
+            });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

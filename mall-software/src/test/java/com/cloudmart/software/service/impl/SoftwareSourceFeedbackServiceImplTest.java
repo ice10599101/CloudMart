@@ -15,6 +15,7 @@ import com.cloudmart.software.enums.SoftwareReviewStatus;
 import com.cloudmart.software.enums.SourceAvailability;
 import com.cloudmart.software.policy.SoftwareAccessPolicy;
 import com.cloudmart.software.repository.SoftwareLinkFeedbackMapper;
+import com.cloudmart.software.service.SoftwareRateLimiter;
 import com.cloudmart.software.repository.SoftwareMapper;
 import com.cloudmart.software.repository.SoftwareReleaseMapper;
 import com.cloudmart.software.repository.SoftwareSourceMapper;
@@ -40,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -74,15 +76,18 @@ class SoftwareSourceFeedbackServiceImplTest {
     @Mock
     private SoftwareProperties softwareProperties;
     @Mock
+    private SoftwareRateLimiter rateLimiter;
+    @Mock
     private OutboxService outboxService;
 
     private SoftwareSourceFeedbackServiceImpl service;
 
     @BeforeEach
     void setUp() {
+        lenient().when(rateLimiter.allowFeedback(any())).thenReturn(true);
         service = new SoftwareSourceFeedbackServiceImpl(accessPolicy, softwareMapper,
                 releaseMapper, sourceMapper, sourceStateMapper, feedbackMapper,
-                softwareProperties, outboxService, new ObjectMapper(),
+                softwareProperties, rateLimiter, outboxService, new ObjectMapper(),
                 Clock.fixed(Instant.parse("2026-10-15T12:00:00Z"), ZoneId.systemDefault()));
         when(softwareProperties.getSuspectedDistinctReporters()).thenReturn(3);
         stubVisibleChain();

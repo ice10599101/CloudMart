@@ -17,6 +17,7 @@ import com.cloudmart.software.enums.SourceAvailability;
 import com.cloudmart.software.policy.SoftwareAccessPolicy;
 import com.cloudmart.software.policy.SoftwareLinkAccessPolicy;
 import com.cloudmart.software.repository.SoftwareAccessContactMapper;
+import com.cloudmart.software.service.SoftwareRateLimiter;
 import com.cloudmart.software.repository.SoftwareLinkAccessDailyMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
 import com.cloudmart.software.repository.SoftwareReleaseMapper;
@@ -43,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -80,6 +82,8 @@ class SoftwareSourceAccessServiceImplTest {
     @Mock
     private SoftwareAccessContactMapper accessContactMapper;
     @Mock
+    private SoftwareRateLimiter rateLimiter;
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private SoftwareSourceAccessServiceImpl service;
@@ -89,9 +93,10 @@ class SoftwareSourceAccessServiceImplTest {
         // TransactionTemplate 直通执行回调
         when(transactionTemplate.execute(any())).thenAnswer(invocation ->
                 ((TransactionCallback<?>) invocation.getArgument(0)).doInTransaction(null));
+        lenient().when(rateLimiter.allowResolve(any())).thenReturn(true);
         service = new SoftwareSourceAccessServiceImpl(accessPolicy, linkAccessPolicy,
                 softwareMapper, releaseMapper, sourceMapper, sourceStateMapper,
-                linkAccessDailyMapper, accessContactMapper, transactionTemplate);
+                linkAccessDailyMapper, accessContactMapper, rateLimiter, transactionTemplate);
     }
 
     private void stubVisibleChain() {

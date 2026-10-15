@@ -19,6 +19,7 @@ import com.cloudmart.software.repository.SoftwareReleaseMapper;
 import com.cloudmart.software.repository.SoftwareSourceMapper;
 import com.cloudmart.software.repository.SoftwareSourceStateMapper;
 import com.cloudmart.software.config.SoftwareProperties;
+import com.cloudmart.software.service.SoftwareRateLimiter;
 import com.cloudmart.software.service.SoftwareSourceFeedbackService;
 import com.cloudmart.software.vo.software.SoftwareFeedbackVO;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +59,7 @@ public class SoftwareSourceFeedbackServiceImpl implements SoftwareSourceFeedback
     private final SoftwareSourceStateMapper sourceStateMapper;
     private final SoftwareLinkFeedbackMapper feedbackMapper;
     private final SoftwareProperties softwareProperties;
+    private final SoftwareRateLimiter rateLimiter;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -72,6 +74,10 @@ public class SoftwareSourceFeedbackServiceImpl implements SoftwareSourceFeedback
         }
         if (description != null && description.length() > 500) {
             throw new BusinessException("SOFTWARE_FEEDBACK_INVALID", "补充说明最长 500 字");
+        }
+        // 11.2 限频：单用户每日失效反馈上限（重复提交同指纹去重另有兜底）
+        if (!rateLimiter.allowFeedback(userId)) {
+            throw new BusinessException("SOFTWARE_RATE_LIMITED", "反馈过于频繁，请稍后再试");
         }
         // 宿主可见性（评论/反馈同谓词）
         SoftwareRevision published = accessPolicy.visiblePublishedRevision(softwareId);

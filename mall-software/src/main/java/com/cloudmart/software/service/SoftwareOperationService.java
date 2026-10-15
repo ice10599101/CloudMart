@@ -45,6 +45,13 @@ public class SoftwareOperationService {
     public static final String OP_REPORT_HANDLE = "REPORT_HANDLE";
     public static final String OP_FEEDBACK_MARK = "LINK_FEEDBACK_MARK";
     public static final String OP_COMMENT_MODERATE = "COMMENT_MODERATE";
+    public static final String OP_ITEM_BAN = "SOFTWARE_BAN";
+    public static final String OP_ITEM_UNBAN = "SOFTWARE_UNBAN";
+    public static final String OP_ITEM_FEATURE = "SOFTWARE_FEATURE";
+    public static final String OP_CATEGORY_SAVE = "CATEGORY_SAVE";
+    public static final String OP_CATEGORY_DISABLE = "CATEGORY_DISABLE";
+    public static final String OP_TAG_SAVE = "TAG_SAVE";
+    public static final String OP_TAG_DISABLE = "TAG_DISABLE";
 
     private final SoftwareOperationMapper operationMapper;
     private final ObjectMapper objectMapper;

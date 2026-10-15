@@ -50,6 +50,12 @@ public interface SoftwarePublishService {
                                             Long revisionId, Integer submitSeq, Integer expectedVersion,
                                             boolean approve, String reason, String requestId);
 
+    /**
+     * 管理端任意快照完整内容（含链接/提取码等秘密字段，仅审核域可读）：
+     * 审核中心并列展示线上版与待审版的数据源；快照必须属于该软件。
+     */
+    SoftwareEditorVO revisionSnapshot(Long softwareId, Long revisionId);
+
     /** 我的软件（tab=published/draft/pending/rejected/favorites；subscriptions 为 P1） */
     Page<SoftwareMineItemVO> mine(Long userId, String tab, int page, int size);
 }

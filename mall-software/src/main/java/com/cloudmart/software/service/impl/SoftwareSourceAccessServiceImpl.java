@@ -19,6 +19,7 @@ import com.cloudmart.software.repository.SoftwareMapper;
 import com.cloudmart.software.repository.SoftwareReleaseMapper;
 import com.cloudmart.software.repository.SoftwareSourceMapper;
 import com.cloudmart.software.repository.SoftwareSourceStateMapper;
+import com.cloudmart.software.service.SoftwareRateLimiter;
 import com.cloudmart.software.service.SoftwareSourceAccessService;
 import com.cloudmart.software.vo.software.SoftwareAccessPolicyVO;
 import com.cloudmart.software.vo.software.SoftwareAccessStateVO;
@@ -58,6 +59,7 @@ public class SoftwareSourceAccessServiceImpl implements SoftwareSourceAccessServ
     private final SoftwareSourceStateMapper sourceStateMapper;
     private final SoftwareLinkAccessDailyMapper linkAccessDailyMapper;
     private final SoftwareAccessContactMapper accessContactMapper;
+    private final SoftwareRateLimiter rateLimiter;
     private final TransactionTemplate transactionTemplate;
 
     @Override
@@ -66,6 +68,10 @@ public class SoftwareSourceAccessServiceImpl implements SoftwareSourceAccessServ
         SoftwareRevision published = accessPolicy.visiblePublishedRevision(softwareId);
         if (published == null) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
+        }
+        // 11.2 限频：单用户每分钟获取链接上限（Redis 降级放行，不参与查看条件裁决）
+        if (!rateLimiter.allowResolve(userId)) {
+            throw new BusinessException("SOFTWARE_RATE_LIMITED", "获取链接过于频繁，请稍后再试");
         }
         SourceRelease sourceRelease = loadSourceInPublishedSnapshot(published, sourceId);
 

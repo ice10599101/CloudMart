@@ -7,8 +7,11 @@ import {
   ProFormTextArea,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Popconfirm, Switch } from 'antd'
+import { Button, Input, Modal, Popconfirm, Radio, Space, Switch, Tag, Typography } from 'antd'
 import { getMembers, getMember, updateMember, updateMemberStatus, resetMemberPassword } from '@/api/admin/business'
+import { batchPublisherPermissions, togglePublisherPermission } from '@/api/admin/software'
+import type { AdminPublisherPermission } from '@/api/admin/software'
+import { useAdminAuthStore } from '@/stores/adminAuth'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
@@ -60,6 +63,61 @@ export default function Members() {
   const [editingLoading, setEditingLoading] = useState(false)
   const [resetTarget, setResetTarget] = useState<MemberRecord | null>(null)
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
+  // 小答软件发布资格（方案 10.8）：默认未开通；按钮仅对有权限管理员可见
+  const canManagePublisher = useAdminAuthStore(
+    (state) =>
+      state.permissions.includes('*:*:*') ||
+      state.permissions.includes('software:publisher:manage'),
+  )
+  const [permMap, setPermMap] = useState<Record<string, AdminPublisherPermission>>({})
+  const [permTarget, setPermTarget] = useState<MemberRecord | null>(null)
+  const [permEnable, setPermEnable] = useState(true)
+  const [permReason, setPermReason] = useState('')
+  const [permSubmitting, setPermSubmitting] = useState(false)
+
+  const loadPublisherPermissions = (ids: number[]) => {
+    if (ids.length === 0) {
+      setPermMap({})
+      return
+    }
+    batchPublisherPermissions(ids)
+      .then((res) => {
+        const map: Record<string, AdminPublisherPermission> = {}
+        for (const item of res.data.data ?? []) {
+          map[item.userId] = item
+        }
+        setPermMap(map)
+      })
+      .catch(() => setPermMap({}))
+  }
+
+  const submitPublisherPermission = async () => {
+    if (!permTarget) return
+    if (!permReason.trim()) {
+      message.warning('请填写原因（写入权限审计）')
+      return
+    }
+    setPermSubmitting(true)
+    try {
+      await togglePublisherPermission(String(permTarget.id), {
+        enable: permEnable,
+        reason: permReason.trim(),
+      })
+      message.success(permEnable ? '已开通发布资格' : '已关闭发布资格')
+      setPermTarget(null)
+      loadPublisherPermissions(
+        Object.keys(permMap).length
+          ? Object.values(permMap)
+              .map((item) => Number(item.userId))
+              .concat(permTarget.id)
+          : [permTarget.id],
+      )
+    } catch {
+      // 会员不可用等业务错误已由全局拦截器提示
+    } finally {
+      setPermSubmitting(false)
+    }
+  }
 
   const handleStatusChange = async (record: MemberRecord, newStatus: number) => {
     try {
@@ -149,6 +207,22 @@ export default function Members() {
       ),
     },
     { title: '注册时间', dataIndex: 'createdAt', width: 180, valueType: 'dateTime', search: false },
+    ...(canManagePublisher
+      ? ([
+          {
+            title: '发布资格',
+            dataIndex: 'publisherPermission',
+            width: 110,
+            search: false,
+            render: (_: unknown, record: MemberRecord) =>
+              permMap[record.id]?.canPublish ? (
+                <Tag color="success">已开通</Tag>
+              ) : (
+                <Tag>未开通</Tag>
+              ),
+          },
+        ] as ProColumns<MemberRecord>[])
+      : []),
     {
       title: '操作',
       valueType: 'option',
@@ -172,6 +246,20 @@ export default function Members() {
         >
           重置密码
         </Button>,
+        canManagePublisher ? (
+          <Button
+            key="publisher"
+            type="link"
+            size="small"
+            onClick={() => {
+              setPermTarget(record)
+              setPermEnable(!(permMap[record.id]?.canPublish ?? false))
+              setPermReason('')
+            }}
+          >
+            发布资格
+          </Button>
+        ) : null,
       ],
     },
   ]
@@ -184,7 +272,7 @@ export default function Members() {
         rowKey="id"
         scroll={{ x: 1000 }}
         request={async (params) => {
-          return safeProTableRequest<MemberRecord>(() =>
+          const result = await safeProTableRequest<MemberRecord>(() =>
             getMembers({
               page: params.current,
               pageSize: params.pageSize,
@@ -193,6 +281,10 @@ export default function Members() {
               status: params.status,
             })
           )
+          if (canManagePublisher) {
+            loadPublisherPermissions(result.data.map((member) => member.id))
+          }
+          return result
         }}
         columns={columns}
         pagination={{ defaultPageSize: 10, showSizeChanger: true }}
@@ -252,6 +344,39 @@ export default function Members() {
           ]}
         />
       </ModalForm>
+
+      {/* 小答软件发布资格（方案 10.8）：开通/关闭同一端点，原因必填并写入权限审计 */}
+      <Modal
+        title={permEnable ? '开通发布资格' : '关闭发布资格'}
+        open={permTarget !== null}
+        onCancel={() => setPermTarget(null)}
+        onOk={submitPublisherPermission}
+        confirmLoading={permSubmitting}
+        okText="确认"
+        okButtonProps={{ danger: !permEnable }}
+        destroyOnHidden
+      >
+        <Typography.Paragraph type="secondary">
+          会员：{permTarget?.nickname}（{permTarget?.username} / ID {permTarget?.id}）。
+          {permEnable
+            ? '开通后可创建软件并提交审核；服务端会先核对会员可用。'
+            : '关闭后已发布内容保留，但不能再提交或重新上架。'}
+        </Typography.Paragraph>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Radio.Group value={permEnable} onChange={(e) => setPermEnable(e.target.value)}>
+            <Radio.Button value={true}>开通</Radio.Button>
+            <Radio.Button value={false}>关闭</Radio.Button>
+          </Radio.Group>
+          <Input.TextArea
+            rows={3}
+            maxLength={500}
+            showCount
+            placeholder="原因（1~500 字，必填，写入权限审计）"
+            value={permReason}
+            onChange={(e) => setPermReason(e.target.value)}
+          />
+        </Space>
+      </Modal>
     </>
   )
 }

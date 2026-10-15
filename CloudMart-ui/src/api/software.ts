@@ -1,5 +1,6 @@
 import request from "@/utils/request";
 import type { ApiResponse } from "@/types/api";
+import { softwareWriteConfig } from "@/utils/softwareIntent";
 
 /**
  * 小答软件 Web 端 API（方案 §7.3/§7.4）。
@@ -440,14 +441,11 @@ export function resolveSoftwareSource(
   sourceId: string,
   idempotencyKey?: string,
 ) {
+  // 可选键（手册 7.3：获取去重主要依赖服务端日统计唯一键，不依赖浏览器 UUID）
   return request.post<ApiResponse<SoftwareResolveResult>>(
     `${BASE}/${id}/sources/${sourceId}/resolve`,
     null,
-    {
-      headers: idempotencyKey
-        ? { "Idempotency-Key": idempotencyKey }
-        : undefined,
-    },
+    idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : undefined,
   );
 }
 
@@ -458,14 +456,11 @@ export function createSoftwareComment(
   payload: SoftwareCommentCreatePayload,
   idempotencyKey?: string,
 ) {
+  const url = `${BASE}/${id}/comments`;
   return request.post<ApiResponse<SoftwareComment>>(
-    `${BASE}/${id}/comments`,
+    url,
     payload,
-    {
-      headers: idempotencyKey
-        ? { "Idempotency-Key": idempotencyKey }
-        : undefined,
-    },
+    softwareWriteConfig("POST", url, payload, idempotencyKey),
   );
 }
 
@@ -518,6 +513,33 @@ export function unfavoriteSoftware(id: string) {
   return request.delete<ApiResponse<boolean>>(`${BASE}/${id}/favorite`);
 }
 
+// ========== 举报 ==========
+
+/** 举报目标类型（软件库 software_report；与社区举报接口相互独立） */
+export type SoftwareReportTargetType = "SOFTWARE" | "SOFTWARE_COMMENT";
+
+export interface SoftwareReportCreatePayload {
+  targetType: SoftwareReportTargetType;
+  /** 评论举报必填（该软件下的可见评论）；软件举报不需要 */
+  targetId?: string;
+  reason: string;
+  description?: string;
+}
+
+/** 举报软件或评论（幂等：重复提交收敛为同一举报；处置由管理员显式选择） */
+export function reportSoftware(
+  id: string,
+  payload: SoftwareReportCreatePayload,
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/${id}/reports`;
+  return request.post<ApiResponse<{ reportId: string; status: string }>>(
+    url,
+    payload,
+    softwareWriteConfig("POST", url, payload, idempotencyKey),
+  );
+}
+
 // ========== 发布者侧 ==========
 
 export function getPublisherStatus() {
@@ -530,9 +552,11 @@ export function createSoftware(
   payload?: SoftwareSnapshotInput,
   idempotencyKey?: string,
 ) {
-  return request.post<ApiResponse<SoftwareCreated>>(BASE, payload, {
-    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
-  });
+  return request.post<ApiResponse<SoftwareCreated>>(
+    BASE,
+    payload,
+    softwareWriteConfig("POST", BASE, payload, idempotencyKey),
+  );
 }
 
 export function getSoftwareEditor(id: string) {
@@ -557,14 +581,11 @@ export function submitSoftwareForReview(
   payload: { expectedVersion?: number },
   idempotencyKey?: string,
 ) {
+  const url = `${BASE}/${id}/revisions/${revisionId}/submit`;
   return request.post<ApiResponse<{ submitSeq: number }>>(
-    `${BASE}/${id}/revisions/${revisionId}/submit`,
+    url,
     payload,
-    {
-      headers: idempotencyKey
-        ? { "Idempotency-Key": idempotencyKey }
-        : undefined,
-    },
+    softwareWriteConfig("POST", url, payload, idempotencyKey),
   );
 }
 
@@ -580,13 +601,10 @@ export function listMySoftware(params?: {
 }
 
 export function createWorkingRevision(id: string, idempotencyKey?: string) {
+  const url = `${BASE}/${id}/working-revision`;
   return request.post<ApiResponse<SoftwareEditorData>>(
-    `${BASE}/${id}/working-revision`,
+    url,
     null,
-    {
-      headers: idempotencyKey
-        ? { "Idempotency-Key": idempotencyKey }
-        : undefined,
-    },
+    softwareWriteConfig("POST", url, null, idempotencyKey),
   );
 }

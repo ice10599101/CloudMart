@@ -41,6 +41,15 @@ public class AdminSoftwareQueryController {
         return ApiResponse.ok(adminSoftwareQueryService.pendingPage(page, size));
     }
 
+    @GetMapping("/revisions/{revisionId}")
+    @Operation(summary = "审核快照对比",
+            description = "目标快照完整内容（含链接/提取码，仅审核域）+ 当前线上快照（可空=首次发布）；"
+                    + "前端标出链接域名、提取码、来源声明、正文与截图变化")
+    public ApiResponse<Map<String, Object>> reviewDetail(
+            @PathVariable("revisionId") Long revisionId) {
+        return ApiResponse.ok(adminSoftwareQueryService.reviewDetail(revisionId));
+    }
+
     @GetMapping("/{softwareId}/admin-detail")
     @Operation(summary = "后台完整详情",
             description = "全快照+状态+最近审核历史（独立鉴权可读秘密字段）")

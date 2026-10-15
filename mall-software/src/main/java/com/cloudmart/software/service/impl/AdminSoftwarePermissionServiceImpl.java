@@ -258,6 +258,79 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
     }
 
     @Override
+    public Page<Map<String, Object>> grantPage(Long softwareId, Long userId, int page, int size) {
+        Page<SoftwareAccessGrant> grantRows = accessGrantMapper.selectPage(
+                Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 100)),
+                new LambdaQueryWrapper<SoftwareAccessGrant>()
+                        .eq(softwareId != null, SoftwareAccessGrant::getSoftwareId, softwareId)
+                        .eq(userId != null, SoftwareAccessGrant::getUserId, userId)
+                        .orderByDesc(SoftwareAccessGrant::getGrantedAt)
+                        .orderByDesc(SoftwareAccessGrant::getId));
+        LocalDateTime now = LocalDateTime.now(clock);
+        Page<Map<String, Object>> result = new Page<>(grantRows.getCurrent(), grantRows.getSize(),
+                grantRows.getTotal());
+        result.setRecords(grantRows.getRecords().stream().map(grant -> {
+            Map<String, Object> row = new HashMap<>();
+            row.put("softwareId", String.valueOf(grant.getSoftwareId()));
+            row.put("userId", String.valueOf(grant.getUserId()));
+            // 展示口径：撤销优先，其次按当前时间实时判定到期（与授权裁决一致）
+            row.put("status", effectiveGrantStatus(grant, now));
+            row.put("grantedBy", grant.getGrantedBy() == null ? null
+                    : String.valueOf(grant.getGrantedBy()));
+            row.put("grantedAt", String.valueOf(grant.getGrantedAt()));
+            row.put("expiresAt", grant.getExpiresAt() == null ? null
+                    : String.valueOf(grant.getExpiresAt()));
+            row.put("confirmationNote", grant.getConfirmationNote());
+            row.put("externalReference", grant.getExternalReference());
+            row.put("lockVersion", grant.getLockVersion());
+            return row;
+        }).toList());
+        return result;
+    }
+
+    private String effectiveGrantStatus(SoftwareAccessGrant grant, LocalDateTime now) {
+        if ("REVOKED".equals(grant.getStatus())) {
+            return "REVOKED";
+        }
+        if (grant.getExpiresAt() != null && !grant.getExpiresAt().isAfter(now)) {
+            return "EXPIRED";
+        }
+        return "ACTIVE";
+    }
+
+    @Override
+    public Page<Map<String, Object>> auditPage(Long userId, Long softwareId, int page, int size) {
+        Page<SoftwarePermissionAudit> auditRows = permissionAuditMapper.selectPage(
+                Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 100)),
+                new LambdaQueryWrapper<SoftwarePermissionAudit>()
+                        .eq(userId != null, SoftwarePermissionAudit::getTargetUserId, userId)
+                        .eq(softwareId != null, SoftwarePermissionAudit::getSoftwareId, softwareId)
+                        .orderByDesc(SoftwarePermissionAudit::getId));
+        Page<Map<String, Object>> result = new Page<>(auditRows.getCurrent(), auditRows.getSize(),
+                auditRows.getTotal());
+        result.setRecords(auditRows.getRecords().stream().map(audit -> {
+            Map<String, Object> row = new HashMap<>();
+            row.put("auditId", String.valueOf(audit.getId()));
+            row.put("targetUserId", audit.getTargetUserId() == null ? null
+                    : String.valueOf(audit.getTargetUserId()));
+            row.put("softwareId", audit.getSoftwareId() == null ? null
+                    : String.valueOf(audit.getSoftwareId()));
+            row.put("contactId", audit.getContactId() == null ? null
+                    : String.valueOf(audit.getContactId()));
+            row.put("actorAdminId", audit.getActorAdminId() == null ? null
+                    : String.valueOf(audit.getActorAdminId()));
+            row.put("action", audit.getAction());
+            row.put("beforeJson", audit.getBeforeJson());
+            row.put("afterJson", audit.getAfterJson());
+            row.put("reason", audit.getReason());
+            row.put("requestId", audit.getRequestId());
+            row.put("createdAt", String.valueOf(audit.getCreatedAt()));
+            return row;
+        }).toList());
+        return result;
+    }
+
+    @Override
     @Transactional
     public boolean grant(Long adminId, Long softwareId, String idempotencyKey,
                           AdminGrantRequest request) {

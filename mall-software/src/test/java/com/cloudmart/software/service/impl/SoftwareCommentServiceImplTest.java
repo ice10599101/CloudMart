@@ -20,6 +20,7 @@ import com.cloudmart.software.repository.SoftwareCommentLikeMapper;
 import com.cloudmart.software.repository.SoftwareCommentMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
 import com.cloudmart.software.service.SoftwareOperationService;
+import com.cloudmart.software.service.SoftwareRateLimiter;
 import com.cloudmart.common.async.outbox.OutboxService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +47,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -78,6 +80,8 @@ class SoftwareCommentServiceImplTest {
     @Mock
     private SoftwareOperationService operationService;
     @Mock
+    private SoftwareRateLimiter rateLimiter;
+    @Mock
     private OutboxService outboxService;
     @Mock
     private TransactionTemplate transactionTemplate;
@@ -92,9 +96,10 @@ class SoftwareCommentServiceImplTest {
         doAnswer(inv -> ((Supplier<?>) inv.getArgument(6)).get())
                 .when(operationService).execute(anyString(), any(), anyString(), anyString(),
                         any(), any(), any(Supplier.class), any());
+        lenient().when(rateLimiter.allowComment(any())).thenReturn(true);
         service = new SoftwareCommentServiceImpl(accessPolicy, softwareMapper, commentMapper,
                 commentLikeMapper, communitySupportFeignClient, userSupportFeignClient,
-                operationService, outboxService, new ObjectMapper(),
+                operationService, rateLimiter, outboxService, new ObjectMapper(),
                 Clock.fixed(Instant.parse("2026-10-15T12:00:00Z"), ZoneId.systemDefault()),
                 transactionTemplate);
 

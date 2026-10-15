@@ -18,6 +18,7 @@ import com.cloudmart.software.repository.SoftwareMapper;
 import com.cloudmart.software.repository.SoftwareRevisionMapper;
 import com.cloudmart.software.service.AdminSoftwareQueryService;
 import com.cloudmart.software.service.SoftwareOperationService;
+import com.cloudmart.software.service.SoftwarePublishService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,7 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
     private final SoftwareCommentMapper commentMapper;
     private final SoftwareAuditLogMapper auditLogMapper;
     private final SoftwareOperationService operationService;
+    private final SoftwarePublishService softwarePublishService;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -99,6 +101,28 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
         detail.put("workingRevisionId", software.getWorkingRevisionId() == null ? null
                 : String.valueOf(software.getWorkingRevisionId()));
         detail.put("publicationSeq", software.getPublicationSeq());
+        detail.put("ownerId", String.valueOf(software.getOwnerId()));
+        detail.put("featuredRank", software.getFeaturedRank());
+        detail.put("commentCount", software.getCommentCount());
+        detail.put("favoriteCount", software.getFavoriteCount());
+        detail.put("linkAccessCount", software.getLinkAccessCount());
+        detail.put("ratingCount", software.getRatingCount());
+        detail.put("ratingSum", software.getRatingSum());
+        detail.put("publishedAt",
+                software.getPublishedAt() == null ? null : String.valueOf(software.getPublishedAt()));
+        detail.put("lastReleaseAt",
+                software.getLastReleaseAt() == null ? null
+                        : String.valueOf(software.getLastReleaseAt()));
+        detail.put("createdAt",
+                software.getCreatedAt() == null ? null : String.valueOf(software.getCreatedAt()));
+        detail.put("updatedAt",
+                software.getUpdatedAt() == null ? null : String.valueOf(software.getUpdatedAt()));
+        SoftwareRevision pending = revisionMapper.selectOne(new LambdaQueryWrapper<SoftwareRevision>()
+                .eq(SoftwareRevision::getSoftwareId, softwareId)
+                .eq(SoftwareRevision::getReviewStatus, SoftwareReviewStatus.PENDING)
+                .orderByDesc(SoftwareRevision::getId)
+                .last("LIMIT 1"));
+        detail.put("pendingRevisionId", pending == null ? null : String.valueOf(pending.getId()));
         detail.put("revisionId", revisionId == null ? null : String.valueOf(revisionId));
         if (revisionId != null) {
             SoftwareRevision revision = revisionMapper.selectById(revisionId);
@@ -130,6 +154,38 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                         "reason", logEntry.getReason() == null ? "" : logEntry.getReason(),
                         "createdAt", String.valueOf(logEntry.getCreatedAt())))
                 .toList());
+        return detail;
+    }
+
+    @Override
+    public Map<String, Object> reviewDetail(Long revisionId) {
+        SoftwareRevision revision = revisionMapper.selectById(revisionId);
+        if (revision == null) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "快照不存在");
+        }
+        Software software = softwareMapper.selectById(revision.getSoftwareId());
+        if (software == null) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
+        }
+        Map<String, Object> detail = new HashMap<>();
+        detail.put("softwareId", String.valueOf(software.getId()));
+        detail.put("revisionId", String.valueOf(revisionId));
+        detail.put("revisionNo", revision.getRevisionNo());
+        detail.put("reviewStatus", revision.getReviewStatus().name());
+        detail.put("submitSeq", revision.getSubmitSeq());
+        detail.put("lockVersion", revision.getLockVersion());
+        detail.put("editorId", String.valueOf(revision.getEditorId()));
+        detail.put("lifecycle", software.getLifecycle().name());
+        // 审核决策的 expectedVersion 语义是软件主体 lockVersion（requireVersion(software)）
+        detail.put("softwareLockVersion", software.getLockVersion());
+        detail.put("publishedRevisionId", software.getPublishedRevisionId() == null ? null
+                : String.valueOf(software.getPublishedRevisionId()));
+        // 目标快照（待审/已审）完整内容 + 当前线上快照；线上不存在=首次发布，前端不做对比
+        detail.put("target", softwarePublishService.revisionSnapshot(
+                software.getId(), revisionId));
+        Long publishedId = software.getPublishedRevisionId();
+        detail.put("published", publishedId == null ? null
+                : softwarePublishService.revisionSnapshot(software.getId(), publishedId));
         return detail;
     }
 

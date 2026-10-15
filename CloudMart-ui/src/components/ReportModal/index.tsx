@@ -4,11 +4,21 @@ import { message } from '@/utils/appMessage'
 import { WarningOutlined } from '@ant-design/icons'
 import { createReport } from '@/api/community'
 
+export interface ReportSubmitPayload {
+  reason: string
+  description?: string
+}
+
 interface ReportModalProps {
   visible: boolean
   onClose: () => void
-  targetType: 'POST' | 'COMMENT'
-  targetId: number
+  targetType: 'POST' | 'COMMENT' | 'SOFTWARE' | 'SOFTWARE_COMMENT'
+  targetId: number | string | null
+  /**
+   * 自定义提交（软件模块注入，"复用举报弹窗并注入软件提交函数，不调用社区举报接口"）；
+   * 缺省走社区 createReport。抛错视为提交失败。
+   */
+  onSubmit?: (payload: ReportSubmitPayload) => Promise<unknown>
 }
 
 const REPORT_REASONS = [
@@ -24,9 +34,17 @@ const REPORT_REASONS = [
 const TARGET_TYPE_LABEL: Record<string, string> = {
   POST: '帖子',
   COMMENT: '评论',
+  SOFTWARE: '软件',
+  SOFTWARE_COMMENT: '评论',
 }
 
-export default function ReportModal({ visible, onClose, targetType, targetId }: ReportModalProps) {
+export default function ReportModal({
+  visible,
+  onClose,
+  targetType,
+  targetId,
+  onSubmit,
+}: ReportModalProps) {
   const [reason, setReason] = useState<string | undefined>(undefined)
   const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -45,12 +63,19 @@ export default function ReportModal({ visible, onClose, targetType, targetId }: 
     }
     setSubmitting(true)
     try {
-      await createReport({
-        targetType,
-        targetId,
+      const payload: ReportSubmitPayload = {
         reason,
         description: description.trim() || undefined,
-      })
+      }
+      if (onSubmit) {
+        await onSubmit(payload)
+      } else {
+        await createReport({
+          targetType: targetType as 'POST' | 'COMMENT',
+          targetId: targetId as number,
+          ...payload,
+        })
+      }
       message.success('举报已提交，我们会尽快处理')
       handleClose()
     } catch {

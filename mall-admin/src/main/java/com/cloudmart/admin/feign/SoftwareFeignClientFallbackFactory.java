@@ -113,6 +113,83 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
                 throw unavailable(cause);
             }
 
+            @Override
+            public ApiResponse<Object> reviewDetail(Long revisionId) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> items(String keyword, Long ownerId, Long categoryId,
+                                             String license, String status, int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> ban(Long softwareId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> unban(Long softwareId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> featured(Long softwareId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> categories() {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> createCategory(Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> updateCategory(Long categoryId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> disableCategory(Long categoryId) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> tags(String keyword, int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> createTag(Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> updateTag(Long tagId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> disableTag(Long tagId) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> grantPage(Long softwareId, Long userId, int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> permissionAudits(Long userId, Long softwareId,
+                                                        int page, int size) {
+                throw unavailable(cause);
+            }
+
             private BusinessException unavailable(Throwable root) {
                 return new BusinessException("SOFTWARE_SERVICE_UNAVAILABLE",
                         "软件服务暂不可用，请稍后重试", root);

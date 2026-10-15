@@ -3,9 +3,11 @@ package com.cloudmart.admin.feign;
 import com.cloudmart.admin.config.SoftwareFeignConfiguration;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -36,8 +38,63 @@ public interface SoftwareFeignClient {
     @GetMapping("/revisions/pending")
     ApiResponse<Object> pending(@RequestParam("page") int page, @RequestParam("size") int size);
 
+    /** 审核快照对比（目标快照 + 当前线上快照） */
+    @GetMapping("/revisions/{revisionId}")
+    ApiResponse<Object> reviewDetail(@PathVariable("revisionId") Long revisionId);
+
     @GetMapping("/{softwareId}/admin-detail")
     ApiResponse<Object> adminDetail(@PathVariable("softwareId") Long softwareId);
+
+    // ---------------- 目录与处置（software:list/moderate/feature） ----------------
+
+    @GetMapping("/items")
+    ApiResponse<Object> items(@RequestParam(value = "keyword", required = false) String keyword,
+                              @RequestParam(value = "ownerId", required = false) Long ownerId,
+                              @RequestParam(value = "categoryId", required = false) Long categoryId,
+                              @RequestParam(value = "license", required = false) String license,
+                              @RequestParam(value = "status", required = false) String status,
+                              @RequestParam("page") int page, @RequestParam("size") int size);
+
+    @PostMapping("/items/{softwareId}/ban")
+    ApiResponse<Object> ban(@PathVariable("softwareId") Long softwareId,
+                            @RequestBody Map<String, Object> body);
+
+    @PostMapping("/items/{softwareId}/unban")
+    ApiResponse<Object> unban(@PathVariable("softwareId") Long softwareId,
+                              @RequestBody Map<String, Object> body);
+
+    @PutMapping("/items/{softwareId}/featured")
+    ApiResponse<Object> featured(@PathVariable("softwareId") Long softwareId,
+                                 @RequestBody Map<String, Object> body);
+
+    // ---------------- 分类与标签（software:category） ----------------
+
+    @GetMapping("/categories")
+    ApiResponse<Object> categories();
+
+    @PostMapping("/categories")
+    ApiResponse<Object> createCategory(@RequestBody Map<String, Object> body);
+
+    @PutMapping("/categories/{categoryId}")
+    ApiResponse<Object> updateCategory(@PathVariable("categoryId") Long categoryId,
+                                       @RequestBody Map<String, Object> body);
+
+    @DeleteMapping("/categories/{categoryId}")
+    ApiResponse<Object> disableCategory(@PathVariable("categoryId") Long categoryId);
+
+    @GetMapping("/tags")
+    ApiResponse<Object> tags(@RequestParam(value = "keyword", required = false) String keyword,
+                             @RequestParam("page") int page, @RequestParam("size") int size);
+
+    @PostMapping("/tags")
+    ApiResponse<Object> createTag(@RequestBody Map<String, Object> body);
+
+    @PutMapping("/tags/{tagId}")
+    ApiResponse<Object> updateTag(@PathVariable("tagId") Long tagId,
+                                  @RequestBody Map<String, Object> body);
+
+    @DeleteMapping("/tags/{tagId}")
+    ApiResponse<Object> disableTag(@PathVariable("tagId") Long tagId);
 
     @GetMapping("/{softwareId}/comments")
     ApiResponse<Object> comments(@PathVariable("softwareId") Long softwareId,
@@ -93,4 +150,17 @@ public interface SoftwareFeignClient {
     @PostMapping("/link-feedbacks/{feedbackId}/mark")
     ApiResponse<Object> markFeedback(@PathVariable("feedbackId") Long feedbackId,
                                      @RequestBody Map<String, Object> body);
+
+    // ---------------- 授权查询与审计（software:access:list / permission:audit） ----------------
+
+    @GetMapping("/access-grants")
+    ApiResponse<Object> grantPage(@RequestParam(value = "softwareId", required = false) Long softwareId,
+                                  @RequestParam(value = "userId", required = false) Long userId,
+                                  @RequestParam("page") int page, @RequestParam("size") int size);
+
+    @GetMapping("/permission-audits")
+    ApiResponse<Object> permissionAudits(
+            @RequestParam(value = "userId", required = false) Long userId,
+            @RequestParam(value = "softwareId", required = false) Long softwareId,
+            @RequestParam("page") int page, @RequestParam("size") int size);
 }

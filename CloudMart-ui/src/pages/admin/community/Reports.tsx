@@ -12,6 +12,8 @@ import {
   handleReport,
 } from '@/api/admin/community'
 import type { AdminReportRecord } from '@/api/admin/community'
+import { history } from 'umi'
+import { useAdminAuthStore } from '@/stores/adminAuth'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
@@ -36,6 +38,11 @@ export default function Reports() {
   const [currentReport, setCurrentReport] = useState<AdminReportRecord | null>(null)
   const [detailRecord, setDetailRecord] = useState<AdminReportRecord | null>(null)
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
+  // 软件举报独立成页（software:report 权限）：此处提供快捷入口，不做跨库拼表
+  const canViewSoftwareReports = useAdminAuthStore(
+    (state) =>
+      state.permissions.includes('*:*:*') || state.permissions.includes('software:report'),
+  )
 
   const handleHandleReport = async (values: Record<string, any>) => {
     if (!currentReport) return false
@@ -140,6 +147,18 @@ export default function Reports() {
         }}
         columns={columns}
         pagination={{ defaultPageSize: 10, showSizeChanger: true }}
+        toolBarRender={() =>
+          canViewSoftwareReports
+            ? [
+                <Button
+                  key="softwareReports"
+                  onClick={() => history.push('/admin/software/reports')}
+                >
+                  软件举报
+                </Button>,
+              ]
+            : []
+        }
       />
 
       <ModalForm

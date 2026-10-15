@@ -160,7 +160,7 @@ describe('software API', () => {
     )
   })
 
-  it('resolveSoftwareSource() 无幂等键时不带该头', async () => {
+  it('resolveSoftwareSource() 无显式幂等键时不传配置（服务端按日统计唯一键去重）', async () => {
     vi.mocked(request.post).mockResolvedValue(ok)
 
     await resolveSoftwareSource('100', '9')
@@ -168,8 +168,28 @@ describe('software API', () => {
     expect(request.post).toHaveBeenCalledWith(
       '/software/100/sources/9/resolve',
       null,
-      { headers: undefined }
+      undefined
     )
+  })
+
+  it('createSoftware() 未显式传键时自动生成 Idempotency-Key 意图键（双击/重试收敛）', async () => {
+    vi.mocked(request.post).mockResolvedValue(ok)
+
+    await createSoftware({ name: '示例' })
+    await createSoftware({ name: '示例' })
+
+    const first = vi.mocked(request.post).mock.calls[0][2] as {
+      headers: Record<string, string>
+      _intentStoreKey: string
+    }
+    const second = vi.mocked(request.post).mock.calls[1][2] as {
+      headers: Record<string, string>
+      _intentStoreKey: string
+    }
+    expect(first.headers['Idempotency-Key']).toBeTruthy()
+    // 同一载荷复用同一意图键；服务端 software_operation 按键收敛
+    expect(second.headers['Idempotency-Key']).toBe(first.headers['Idempotency-Key'])
+    expect(first._intentStoreKey).toContain('idem:software:')
   })
 
   it('createSoftwareComment() 提交内容并携带幂等键', async () => {

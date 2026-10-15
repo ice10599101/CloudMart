@@ -22,6 +22,7 @@ import com.cloudmart.software.repository.SoftwareCommentMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
 import com.cloudmart.software.service.SoftwareCommentService;
 import com.cloudmart.software.service.SoftwareOperationService;
+import com.cloudmart.software.service.SoftwareRateLimiter;
 import com.cloudmart.software.vo.software.SoftwareCommentVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -70,6 +71,7 @@ public class SoftwareCommentServiceImpl implements SoftwareCommentService {
     private final CommunitySupportFeignClient communitySupportFeignClient;
     private final UserSupportFeignClient userSupportFeignClient;
     private final SoftwareOperationService operationService;
+    private final SoftwareRateLimiter rateLimiter;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -91,6 +93,10 @@ public class SoftwareCommentServiceImpl implements SoftwareCommentService {
         }
         if (replyToCommentId != null && parentId == null) {
             throw new BusinessException("SOFTWARE_COMMENT_INVALID", "楼中楼回复必须携带根评论 ID");
+        }
+        // 11.2 限频：单用户每分钟评论上限（Redis 降级放行，正确性由 operation 幂等兜底）
+        if (!rateLimiter.allowComment(userId)) {
+            throw new BusinessException("SOFTWARE_RATE_LIMITED", "评论过于频繁，请稍后再试");
         }
 
         // 远程阶段（事务外，9.7）：账号可用 + 双向拉黑 + 机审绑定结果

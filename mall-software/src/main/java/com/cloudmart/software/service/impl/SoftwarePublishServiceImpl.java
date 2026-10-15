@@ -33,6 +33,7 @@ import com.cloudmart.software.repository.SoftwareRevisionTagMapper;
 import com.cloudmart.software.repository.SoftwareSourceMapper;
 import com.cloudmart.software.service.SoftwareAuditService;
 import com.cloudmart.software.service.SoftwareOperationService;
+import com.cloudmart.software.service.SoftwareRateLimiter;
 import com.cloudmart.software.service.SoftwarePublishService;
 import com.cloudmart.software.service.SoftwareSnapshotAssembler;
 import com.cloudmart.software.vo.software.SoftwareCreatedVO;
@@ -101,6 +102,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     private final com.cloudmart.software.feign.CommunitySupportFeignClient communitySupportFeignClient;
     private final com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
     private final SoftwareProperties softwareProperties;
+    private final SoftwareRateLimiter rateLimiter;
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
@@ -244,6 +246,15 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         Long revisionId = software.getWorkingRevisionId() != null
                 ? software.getWorkingRevisionId() : software.getPublishedRevisionId();
         if (revisionId == null) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
+        }
+        return buildEditor(software, revisionId);
+    }
+
+    @Override
+    public SoftwareEditorVO revisionSnapshot(Long softwareId, Long revisionId) {
+        Software software = softwareMapper.selectById(softwareId);
+        if (software == null) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
         }
         return buildEditor(software, revisionId);
@@ -396,6 +407,10 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         publisherPolicy.requireForRestrictedWrite(userId);
         if (!softwareProperties.isPublishEnabled()) {
             throw new BusinessException("SOFTWARE_PUBLISH_DISABLED", "软件投稿功能暂未开放");
+        }
+        // 11.2 限频：单用户每日提交审核上限（在资格/开关校验之后，不改变错误优先级）
+        if (!rateLimiter.allowSubmit(userId)) {
+            throw new BusinessException("SOFTWARE_RATE_LIMITED", "今日提交次数已达上限，请明天再试");
         }
         Software software = ownedSoftware(userId, softwareId);
         SoftwareRevision snapshot = revisionOfSoftware(software, revisionId);

@@ -203,6 +203,16 @@ export default defineConfig({
         { path: '/admin/community/chat', component: '@/pages/admin/community/Chat' },
         // T23/P0-4：排行榜赛季（当期榜单+赛季归档启停，community:ranking:read/manage）
         { path: '/admin/community/rankings', component: '@/pages/admin/community/Rankings' },
+        // 小答软件（V2__software_admin_menu.sql 菜单种子 5200~5215；权限点一一对应）
+        { path: '/admin/software/items', component: '@/pages/admin/software/Items' },
+        { path: '/admin/software/reviews', component: '@/pages/admin/software/Reviews' },
+        { path: '/admin/software/categories', component: '@/pages/admin/software/Categories' },
+        { path: '/admin/software/comments', component: '@/pages/admin/software/Comments' },
+        { path: '/admin/software/reports', component: '@/pages/admin/software/Reports' },
+        { path: '/admin/software/link-feedback', component: '@/pages/admin/software/LinkFeedback' },
+        { path: '/admin/software/publishers', component: '@/pages/admin/software/Publishers' },
+        { path: '/admin/software/access-grants', component: '@/pages/admin/software/AccessGrants' },
+        { path: '/admin/software/access-contacts', component: '@/pages/admin/software/AccessContacts' },
         { path: '/admin/monitor/operations', component: '@/pages/admin/monitor/Operations' },
         { path: '/admin/monitor/job', component: '@/pages/admin/monitor/Job' },
         { path: '/admin/monitor/server', component: '@/pages/admin/monitor/Server' },

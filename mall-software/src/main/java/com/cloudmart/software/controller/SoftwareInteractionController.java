@@ -4,9 +4,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.software.dto.software.SoftwareCommentCreateRequest;
+import com.cloudmart.software.dto.software.SoftwareReportCreateRequest;
 import com.cloudmart.software.service.SoftwareCommentService;
 import com.cloudmart.software.service.SoftwareFavoriteService;
+import com.cloudmart.software.service.SoftwareReportService;
 import com.cloudmart.software.vo.software.SoftwareCommentVO;
+import com.cloudmart.software.vo.software.SoftwareReportCreatedVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -33,6 +36,7 @@ public class SoftwareInteractionController {
 
     private final SoftwareCommentService commentService;
     private final SoftwareFavoriteService favoriteService;
+    private final SoftwareReportService reportService;
 
     @PostMapping("/{id}/comments")
     @Operation(summary = "发表评论",
@@ -114,5 +118,17 @@ public class SoftwareInteractionController {
             @PathVariable("id") Long id) {
         favoriteService.unfavorite(userId, id);
         return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/{id}/reports")
+    @Operation(summary = "举报软件或评论",
+            description = "targetType=SOFTWARE/SOFTWARE_COMMENT；仅可举报可见目标；"
+                    + "Idempotency-Key 幂等（software_operation）；处置由管理员显式选择")
+    public ApiResponse<SoftwareReportCreatedVO> report(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody SoftwareReportCreateRequest request) {
+        return ApiResponse.ok(reportService.create(userId, id, idempotencyKey, request));
     }
 }

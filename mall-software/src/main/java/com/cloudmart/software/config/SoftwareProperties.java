@@ -42,6 +42,9 @@ public class SoftwareProperties {
     /** 单用户每日失效反馈上限 */
     private int feedbackPerUserDay = 20;
 
+    /** 单用户每日举报上限 */
+    private int reportPerUserDay = 20;
+
     /** 单个快照最大版本数 */
     private int revisionsMaxReleases = 50;
 
@@ -116,6 +119,14 @@ public class SoftwareProperties {
 
     public void setFeedbackPerUserDay(int feedbackPerUserDay) {
         this.feedbackPerUserDay = feedbackPerUserDay;
+    }
+
+    public int getReportPerUserDay() {
+        return reportPerUserDay;
+    }
+
+    public void setReportPerUserDay(int reportPerUserDay) {
+        this.reportPerUserDay = reportPerUserDay;
     }
 
     public int getRevisionsMaxReleases() {

@@ -14,6 +14,7 @@ import {
   ShareAltOutlined,
   ClockCircleOutlined,
   RobotOutlined,
+  WarningOutlined,
 } from '@ant-design/icons'
 import { history } from 'umi'
 import RichText from '@/components/RichText'
@@ -103,6 +104,13 @@ const NOTIFICATION_TYPE_MAP: Record<string, { category: NotificationCategory; av
   CHECKIN_REMINDER: { category: 'system', avatarClass: styles.avatarSystem, icon: <ClockCircleOutlined /> },
   AI_REMINDER: { category: 'system', avatarClass: styles.avatarSystem, icon: <RobotOutlined /> },
   CHECK_IN: { category: 'system', avatarClass: styles.avatarSystem, icon: <BellOutlined /> },
+  // 小答软件域通知（S10）：审核结果/封禁为系统类，评论/回复为互动类
+  SOFTWARE_REVIEW_APPROVED: { category: 'system', avatarClass: styles.avatarBadge, icon: <TrophyOutlined /> },
+  SOFTWARE_REVIEW_REJECTED: { category: 'system', avatarClass: styles.avatarSystem, icon: <NotificationOutlined /> },
+  SOFTWARE_BANNED: { category: 'system', avatarClass: styles.avatarAccount, icon: <SafetyCertificateOutlined /> },
+  SOFTWARE_COMMENT_VISIBLE: { category: 'interaction', avatarClass: styles.avatarComment, icon: <MessageOutlined /> },
+  SOFTWARE_REPLY_VISIBLE: { category: 'interaction', avatarClass: styles.avatarComment, icon: <MessageOutlined /> },
+  SOFTWARE_SOURCE_REPORTED: { category: 'system', avatarClass: styles.avatarSystem, icon: <WarningOutlined /> },
 }
 
 function enrichNotification(item: NotificationItem): EnrichedNotification {
@@ -160,6 +168,15 @@ function navigateToBiz(item: EnrichedNotification) {
     history.push('/invite')
   } else if (item.bizType === 'ENCOUNTER_LETTER' || item.type === 'ENCOUNTER_LETTER') {
     history.push('/encounter-letters')
+  } else if (item.bizType === 'SOFTWARE' && item.bizId) {
+    // 审核结果/封禁：作者去「我的软件」查看状态与继续维护
+    history.push('/software/mine')
+  } else if (item.bizType === 'SOFTWARE_COMMENT' && item.bizId) {
+    // 评论/回复：跳到对应软件详情（评论区）
+    history.push(`/software/${item.bizId}`)
+  } else if (item.bizType === 'SOFTWARE_SOURCE' && item.bizId) {
+    // 来源疑似失效：作者去详情页「下载来源」核对
+    history.push(`/software/${item.bizId}`)
   }
 }
 

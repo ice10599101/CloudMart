@@ -71,6 +71,30 @@ public class AdminSoftwarePermissionController {
         return ApiResponse.ok(adminSoftwarePermissionService.grantsOf(softwareId));
     }
 
+    @GetMapping("/access-grants")
+    @Operation(summary = "付款授权分页",
+            description = "按软件/会员搜索；状态为展示口径：ACTIVE/EXPIRED（实时判定）/REVOKED")
+    public ApiResponse<Page<Map<String, Object>>> grantPage(
+            @RequestParam(value = "softwareId", required = false) Long softwareId,
+            @RequestParam(value = "userId", required = false) Long userId,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(adminSoftwarePermissionService.grantPage(
+                softwareId, userId, page, size));
+    }
+
+    @GetMapping("/permission-audits")
+    @Operation(summary = "权限变更审计",
+            description = "发布资格/付款授权/联系入口操作历史；按会员或软件过滤")
+    public ApiResponse<Page<Map<String, Object>>> permissionAudits(
+            @RequestParam(value = "userId", required = false) Long userId,
+            @RequestParam(value = "softwareId", required = false) Long softwareId,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(adminSoftwarePermissionService.auditPage(
+                userId, softwareId, page, size));
+    }
+
     @PostMapping("/{softwareId}/access-grants")
     @Operation(summary = "开通/延期授权",
             description = "重开更新同一行并追加审计；恰好到期即无效；会员可用性核对")

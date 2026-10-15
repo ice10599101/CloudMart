@@ -14,6 +14,13 @@ public interface AdminSoftwareQueryService {
     /** 待审列表（PENDING 快照 + 软件信息） */
     Page<Map<String, Object>> pendingPage(int page, int size);
 
+    /**
+     * 审核快照对比（方案 10.2）：目标快照完整内容 + 当前线上快照（可为 null=首次发布），
+     * 前端据此标出链接域名、提取码、来源声明、正文与截图变化；快照快照含秘密字段，
+     * 仅审核域可读，通用 OperLog 排除请求响应体。
+     */
+    Map<String, Object> reviewDetail(Long revisionId);
+
     /** 后台完整详情（独立鉴权可读秘密字段 + 最近审核历史） */
     Map<String, Object> adminDetail(Long softwareId);
 

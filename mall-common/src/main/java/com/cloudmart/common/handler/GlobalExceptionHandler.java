@@ -227,6 +227,8 @@ public class GlobalExceptionHandler {
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED", "UPLOAD_DAILY_LIMIT_EXCEEDED",
                  "PET_AI_RATE_LIMITED", "PET_INTERACTION_RATE_LIMITED", "PET_WALL_RATE_LIMITED",
                  "PET_QUOTA_EXHAUSTED",
+                 // 小答软件（11.2）：评论/获取链接/反馈/举报/提交 限频
+                 "SOFTWARE_RATE_LIMITED",
                  // 注册发码频控（每邮箱冷却/每小时上限）
                  "USER_REGISTER_CODE_FREQUENT" -> HttpStatus.TOO_MANY_REQUESTS;
             case "AI_SERVICE_UNAVAILABLE",

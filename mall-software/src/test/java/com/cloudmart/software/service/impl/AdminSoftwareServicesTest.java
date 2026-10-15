@@ -126,7 +126,8 @@ class AdminSoftwareServicesTest {
                 commentMapper, feedbackMapper, auditLogMapper, operationService, outboxService,
                 new ObjectMapper(), fixedClock());
         queryService = new AdminSoftwareQueryServiceImpl(softwareMapper, null, commentMapper,
-                auditLogMapper, operationService, outboxService, new ObjectMapper(), fixedClock());
+                auditLogMapper, operationService, null, outboxService, new ObjectMapper(),
+                fixedClock());
     }
 
     private Clock fixedClock() {

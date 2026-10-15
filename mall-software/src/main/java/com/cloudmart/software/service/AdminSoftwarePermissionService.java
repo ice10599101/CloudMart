@@ -29,6 +29,12 @@ public interface AdminSoftwarePermissionService {
     /** 某软件的付款授权列表 */
     List<Map<String, Object>> grantsOf(Long softwareId);
 
+    /** 付款授权分页（方案 10.9）：按软件/会员搜索，含长期/到期/撤销状态 */
+    Page<Map<String, Object>> grantPage(Long softwareId, Long userId, int page, int size);
+
+    /** 权限变更审计分页（发布资格/授权/联系入口操作历史） */
+    Page<Map<String, Object>> auditPage(Long userId, Long softwareId, int page, int size);
+
     /** 开通/延期授权（重开更新同一行并追加审计） */
     boolean grant(Long adminId, Long softwareId, String idempotencyKey, AdminGrantRequest request);
 
