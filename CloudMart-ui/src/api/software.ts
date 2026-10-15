@@ -354,6 +354,11 @@ export function listSoftwareReleases(id: string) {
  * 查看条件判定（需登录）。按软件整体判定而非按单个来源，且响应 no-store。
  * 得到 allowed=false 时页面只展示门槛与联系入口，不得渲染真实链接。
  */
+/** 发布者可选的管理员联系入口（付款查看模式绑定）；仅启用项 */
+export function listSoftwareAccessContacts() {
+  return request.get<ApiResponse<SoftwareContact[]>>(`${BASE}/access-contacts`);
+}
+
 export function getSoftwareAccessState(id: string) {
   return request.get<ApiResponse<SoftwareAccessState>>(
     `${BASE}/${id}/access-state`,
