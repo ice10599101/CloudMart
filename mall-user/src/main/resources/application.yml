@@ -136,6 +136,10 @@ cloudmart:
       - prefix: /internal/users
         issuers: [mall-auth, mall-order, mall-marketing]
         scope: user:internal
+      # 小答软件只读适配（9.6）：批量最小资料窄接口，独立最小能力域
+      - prefix: /internal/software-support
+        issuers: [mall-software]
+        scope: user:software-support
       - prefix: /users/account-deletion/status
         issuers: [mall-wish]
         scope: user:internal
@@ -149,6 +153,8 @@ cloudmart:
       mall-community: community:internal
       mall-notification: notification:internal
       mall-file: file:internal
+      # 11.3：软件域注销（/internal/account-erasure，SOFTWARE/ERASE 编排步骤）
+      mall-software: software:erasure
 
 # 注册发码：echo-code 仅供无邮件通道的开发/测试环境回显验证码，生产必须关闭
 user:

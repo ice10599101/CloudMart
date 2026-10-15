@@ -53,6 +53,7 @@ class AccountDeletionOrchestrationTest {
     private com.cloudmart.user.feign.CommunityErasureFeignClient communityErasureFeignClient;
     private com.cloudmart.user.feign.NotificationErasureFeignClient notificationErasureFeignClient;
     private com.cloudmart.user.feign.FileErasureFeignClient fileErasureFeignClient;
+    private com.cloudmart.user.feign.SoftwareErasureFeignClient softwareErasureFeignClient;
     private AuthStateFeignClient authStateFeignClient;
     private OrderBlockFeignClient orderBlockFeignClient;
 
@@ -79,12 +80,13 @@ class AccountDeletionOrchestrationTest {
         communityErasureFeignClient = mock(com.cloudmart.user.feign.CommunityErasureFeignClient.class);
         notificationErasureFeignClient = mock(com.cloudmart.user.feign.NotificationErasureFeignClient.class);
         fileErasureFeignClient = mock(com.cloudmart.user.feign.FileErasureFeignClient.class);
+        softwareErasureFeignClient = mock(com.cloudmart.user.feign.SoftwareErasureFeignClient.class);
         authStateFeignClient = mock(AuthStateFeignClient.class);
         orderBlockFeignClient = mock(OrderBlockFeignClient.class);
         service = new AccountDeletionOrchestrationService(taskMapper, stepMapper, userMapper,
                 erasureFeignClient, orderErasureFeignClient,
                 communityErasureFeignClient, notificationErasureFeignClient, fileErasureFeignClient,
-                authStateFeignClient, orderBlockFeignClient,
+                authStateFeignClient, orderBlockFeignClient, softwareErasureFeignClient,
                 "test-secret-0123456789abcdef-0123456789abcdef", "test-instance");
     }
 
@@ -122,6 +124,7 @@ class AccountDeletionOrchestrationTest {
                 step("USER", "ANONYMIZE"),
                 step("COMMUNITY", "ERASE"),
                 step("NOTIFICATION", "ERASE"),
+                step("SOFTWARE", "ERASE"),
                 step("FILE", "ERASE"));
         when(stepMapper.claim(anyLong(), anyString(), any())).thenReturn(1);
         when(stepMapper.markSuccess(anyLong(), anyString())).thenReturn(1);
@@ -130,7 +133,8 @@ class AccountDeletionOrchestrationTest {
                 step("ORDER", "OPEN_ORDER_CHECK"),
                 step("WISH", "ERASE"), step("ORDER", "ANONYMIZE"),
                 step("USER", "ANONYMIZE"), step("COMMUNITY", "ERASE"),
-                step("NOTIFICATION", "ERASE"), step("FILE", "ERASE")));
+                step("NOTIFICATION", "ERASE"), step("SOFTWARE", "ERASE"),
+                step("FILE", "ERASE")));
     }
 
     @Test
@@ -155,9 +159,9 @@ class AccountDeletionOrchestrationTest {
         assertThat(result).isSameAs(revived);
         verify(taskMapper).update(any(), any());
         verify(taskMapper, never()).insert(any(AccountDeletionTask.class));
-        // T06：台账重建（delete + 8 域 insert）
+        // T06：台账重建（delete + 9 域 insert——11.3 新增 SOFTWARE/ERASE）
         verify(stepMapper).delete(any());
-        verify(stepMapper, Mockito.times(8)).insert(any(AccountDeletionStep.class));
+        verify(stepMapper, Mockito.times(9)).insert(any(AccountDeletionStep.class));
     }
 
     @Test
@@ -242,12 +246,14 @@ class AccountDeletionOrchestrationTest {
         when(orderErasureFeignClient.anonymizeReceiver(anyLong())).thenReturn(ApiResponse.ok(3));
         when(communityErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
         when(notificationErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
+        when(softwareErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
         when(fileErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
 
         service.executeTask(task("PENDING"));
 
         verify(communityErasureFeignClient).erase(USER_ID);
         verify(notificationErasureFeignClient).erase(USER_ID);
+        verify(softwareErasureFeignClient).erase(USER_ID);
         verify(fileErasureFeignClient).erase(USER_ID);
         ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<AccountDeletionTask>> captor =
                 ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
@@ -268,6 +274,7 @@ class AccountDeletionOrchestrationTest {
         when(orderErasureFeignClient.anonymizeReceiver(anyLong())).thenReturn(ApiResponse.ok(3));
         when(communityErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.fail("COMMUNITY_ERASE_FAILED", "boom"));
         when(notificationErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
+        when(softwareErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
         when(fileErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
 
         service.executeTask(task("PENDING"));
@@ -277,6 +284,30 @@ class AccountDeletionOrchestrationTest {
                 ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
         verify(taskMapper, Mockito.atLeastOnce())
                 .update(org.mockito.ArgumentMatchers.isNull(), captor.capture());
+    }
+
+    @Test
+    @DisplayName("11.3 软件域擦除失败：同轮 FILE/ERASE 被把门跳过，绝不推进文件擦除")
+    void execution_softwareEraseFailed_fileErasureNotAdvanced() {
+        when(taskMapper.update(any(), any())).thenReturn(1);
+        when(orderBlockFeignClient.hasOpenOrders(eq(USER_ID), anyString()))
+                .thenReturn(ApiResponse.ok(false));
+        stubClaimableSteps();
+        when(authStateFeignClient.invalidateState(any())).thenReturn(ApiResponse.ok(null));
+        when(erasureFeignClient.eraseWishData(anyLong(), anyString()))
+                .thenReturn(ApiResponse.ok(true));
+        when(orderErasureFeignClient.anonymizeReceiver(anyLong())).thenReturn(ApiResponse.ok(3));
+        when(communityErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
+        when(notificationErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
+        when(softwareErasureFeignClient.erase(anyLong()))
+                .thenReturn(ApiResponse.fail("SOFTWARE_ERASE_FAILED", "boom"));
+        when(fileErasureFeignClient.erase(anyLong())).thenReturn(ApiResponse.ok(true));
+
+        service.executeTask(task("PENDING"));
+
+        verify(softwareErasureFeignClient).erase(USER_ID);
+        // FILE/ERASE 被软件域把门拦下：文件擦除客户端一次都不许被调用
+        verify(fileErasureFeignClient, never()).erase(anyLong());
     }
 
     @Test

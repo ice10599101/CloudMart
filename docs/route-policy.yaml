@@ -64,6 +64,8 @@ mall-product:
 mall-user:
   - { method: PUT,    path: "/admin/users/{id}/status", subjectType: SERVICE, serviceCaller: mall-admin, permission: user:admin }
   - { method: "*",    path: /admin/**,               subjectType: SERVICE, serviceCaller: "mall-admin,mall-notification", permission: user:admin, note: "/admin/users 读路径允许 mall-notification" }
+  # 9.6 小答软件只读适配：批量最小资料（nickname/avatar/accountAvailable）
+  - { method: POST,   path: /internal/software-support/profiles, subjectType: SERVICE, serviceCaller: mall-software, permission: user:software-support, note: "上限 100；缺失 ID 逐个识别；禁借 admin 完整资料接口" }
   - { method: GET,    path: /users/batch,            subjectType: ANON }
   - { method: GET,    path: /users/search,           subjectType: ANON }
   # N-3 邀请裂变：邀请信息/绑定（登录；绑定限本人一次性）
@@ -154,7 +156,9 @@ mall-wms:
   - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: wms:admin, note: "WMS-01：补订单归属校验" }
 
 mall-community:
-  - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: "mall-user,mall-notification", permission: community:internal, note: "P2-24：私信拉黑校验经 /internal/blocks/status" }
+  - { method: "*",    path: /internal/**,        subjectType: SERVICE, serviceCaller: "mall-user,mall-notification,mall-job,mall-wish", permission: community:internal, note: "P2-24：私信拉黑校验经 /internal/blocks/status" }
+  # 9.6 小答软件只读适配（最长前缀优先于 /internal/**）：等级/审核/互动资格窄接口
+  - { method: "*",    path: /internal/software-support/**, subjectType: SERVICE, serviceCaller: mall-software, permission: community:software-support, note: "只读：level/level-configs/review/interaction-context；不提供经验发放" }
   - { method: "*",    path: /admin/**,           subjectType: SERVICE, serviceCaller: mall-admin, permission: community:admin }
 
 mall-notification:
@@ -267,3 +271,6 @@ mall-file:
   - { method: DELETE, path: "/assets/{id}",      subjectType: "USER,ADMIN", ownerCheck: true, note: "S01：按 fileId 归属授权删除（引用检查+DELETING CAS）" }
   - { method: GET,    path: "/assets/{id}/download-url", subjectType: "USER,ADMIN", ownerCheck: true, note: "S01：私有附件短期签名授权" }
   - { method: GET,    path: "/assets/{id}/download",     subjectType: ANON, note: "S01：凭短期 HMAC token 下载（本身即授权凭证）" }
+  # 8.2/9.6 软件素材引用：issuer=mall-software（bizType=SOFTWARE_REVISION/SOFTWARE_REPORT）
+  - { method: POST,   path: "/internal/assets/{id}/references", subjectType: SERVICE, serviceCaller: "mall-user,mall-job,mall-community,mall-pet,mall-software", permission: file:internal, note: "软件图标/截图/正文媒体/举报证据绑定（幂等）" }
+  - { method: DELETE, path: "/internal/assets/{id}/references/{bizType}/{bizId}", subjectType: SERVICE, serviceCaller: "mall-user,mall-job,mall-community,mall-pet,mall-software", permission: file:internal, note: "幂等解绑" }

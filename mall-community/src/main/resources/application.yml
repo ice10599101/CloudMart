@@ -132,6 +132,11 @@ cloudmart:
       - prefix: /internal
         issuers: [mall-user, mall-job, mall-wish, mall-notification]
         scope: community:internal
+      # 小答软件只读适配（9.6）：等级/审核/互动资格窄接口，独立最小能力域；
+      # 最长前缀优先于上方 /internal 通配
+      - prefix: /internal/software-support
+        issuers: [mall-software]
+        scope: community:software-support
     # R22：查询用户业务时区（mall-wish wish_user_stat 权威时区）
     outbound-scopes:
       mall-wish: wish:profile

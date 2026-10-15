@@ -55,7 +55,9 @@ public class AccountDeletionOrchestrationService {
     static final String BLOCK_OPEN_ORDERS = "OPEN_ORDERS";
     static final String BLOCK_DOMAIN_NOT_WIRED = "ERASURE_DOMAIN_NOT_WIRED";
 
-    /** 执行域清单（顺序即执行序）：会话撤销最先，主体去标识化最后（登录阻断收口） */
+    /** 执行域清单（顺序即执行序）：会话撤销最先，主体去标识化最后（登录阻断收口）。
+     * 11.3：SOFTWARE/ERASE 必须排在 FILE/ERASE 之前——先幂等解绑软件引用再完成文件清理，
+     * 软件域未完成时编排不得推进到文件擦除。 */
     private static final List<StepSpec> STEP_SPECS = List.of(
             new StepSpec("AUTH", "SESSION_REVOKE"),
             new StepSpec("ORDER", "OPEN_ORDER_CHECK"),
@@ -64,6 +66,7 @@ public class AccountDeletionOrchestrationService {
             new StepSpec("USER", "ANONYMIZE"),
             new StepSpec("COMMUNITY", "ERASE"),
             new StepSpec("NOTIFICATION", "ERASE"),
+            new StepSpec("SOFTWARE", "ERASE"),
             new StepSpec("FILE", "ERASE")
     );
 
@@ -80,6 +83,7 @@ public class AccountDeletionOrchestrationService {
     private final com.cloudmart.user.feign.FileErasureFeignClient fileErasureFeignClient;
     private final AuthStateFeignClient authStateFeignClient;
     private final com.cloudmart.user.feign.OrderBlockFeignClient orderQueryFeignClient;
+    private final com.cloudmart.user.feign.SoftwareErasureFeignClient softwareErasureFeignClient;
     private final String instanceId;
     private final String secret;
     private volatile ServiceTokenSigner cachedSigner;
@@ -95,6 +99,7 @@ public class AccountDeletionOrchestrationService {
             com.cloudmart.user.feign.FileErasureFeignClient fileErasureFeignClient,
             AuthStateFeignClient authStateFeignClient,
             com.cloudmart.user.feign.OrderBlockFeignClient orderQueryFeignClient,
+            com.cloudmart.user.feign.SoftwareErasureFeignClient softwareErasureFeignClient,
             @Value("${wish.service-token.secret:${CLOUDMART_SERVICE_TOKEN_SECRET:}}") String secret,
             @Value("${account-deletion.instance-id:${HOSTNAME:deletion-default}}") String instanceId) {
         this.taskMapper = taskMapper;
@@ -107,6 +112,7 @@ public class AccountDeletionOrchestrationService {
         this.fileErasureFeignClient = fileErasureFeignClient;
         this.authStateFeignClient = authStateFeignClient;
         this.orderQueryFeignClient = orderQueryFeignClient;
+        this.softwareErasureFeignClient = softwareErasureFeignClient;
         this.secret = secret;
         this.instanceId = instanceId;
     }
@@ -365,7 +371,21 @@ public class AccountDeletionOrchestrationService {
         }
         boolean allSuccess = true;
         String blockReason = null;
+        // 11.3：SOFTWARE/ERASE 未完成时 FILE/ERASE 不得推进（先解绑软件引用再清文件）。
+        // 软件域完成标志 = 本轮刚执行成功，或本轮台账加载时已是 SUCCESS（历史轮次完成）
+        boolean softwareEraseCompletedThisRound = false;
         for (AccountDeletionStep step : steps) {
+            if ("FILE".equals(step.getDomain()) && "ERASE".equals(step.getStep())) {
+                boolean softwareDone = softwareEraseCompletedThisRound
+                        || steps.stream().anyMatch(s -> "SOFTWARE".equals(s.getDomain())
+                                && "ERASE".equals(s.getStep())
+                                && AccountDeletionStep.STATUS_SUCCESS.equals(s.getStatus()));
+                if (!softwareDone) {
+                    allSuccess = false;
+                    blockReason = "SOFTWARE_ERASE_NOT_COMPLETED";
+                    continue;
+                }
+            }
             if (AccountDeletionStep.STATUS_SUCCESS.equals(step.getStatus())) {
                 continue;
             }
@@ -385,6 +405,9 @@ public class AccountDeletionOrchestrationService {
             String error = runStep(task, claimed);
             if (error == null) {
                 stepMapper.markSuccess(claimed.getId(), instanceId);
+                if ("SOFTWARE".equals(claimed.getDomain()) && "ERASE".equals(claimed.getStep())) {
+                    softwareEraseCompletedThisRound = true;
+                }
                 log.info("[T06] 步骤完成 {}.{} userId={}", claimed.getDomain(), claimed.getStep(),
                         task.getUserId());
             } else {
@@ -451,6 +474,12 @@ public class AccountDeletionOrchestrationService {
                 case "NOTIFICATION/ERASE" -> {
                     var resp = notificationErasureFeignClient.erase(task.getUserId());
                     return resp != null && resp.success() ? null : "NOTIFICATION_ERASE_FAILED";
+                }
+                case "SOFTWARE/ERASE" -> {
+                    // 11.3：软件域未完成时不得推进 FILE/ERASE；远程失败由本步骤重试续跑
+                    var resp = softwareErasureFeignClient.erase(task.getUserId());
+                    return resp != null && resp.success() && Boolean.TRUE.equals(resp.data())
+                            ? null : "SOFTWARE_ERASE_FAILED";
                 }
                 case "FILE/ERASE" -> {
                     var resp = fileErasureFeignClient.erase(task.getUserId());
