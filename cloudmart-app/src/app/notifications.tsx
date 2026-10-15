@@ -319,6 +319,21 @@ export default function NotificationsScreen() {
       }
 
       // R19：星光转赠 / 邀请奖励通知按 bizType 深链
+      // 小答软件域（S10/S12）：更新订阅直达详情；评论/来源进详情；审核/封禁进广场
+      if (item.type === 'SOFTWARE_RELEASE_PUBLISHED' && item.bizId) {
+        router.push(`/software-detail?id=${item.bizId}`)
+        return
+      }
+      if (item.bizType === 'SOFTWARE_COMMENT' || item.bizType === 'SOFTWARE_SOURCE') {
+        if (item.bizId) {
+          router.push(`/software-detail?id=${item.bizId}`)
+        }
+        return
+      }
+      if (item.bizType === 'SOFTWARE') {
+        router.push('/software')
+        return
+      }
       if (item.bizType === 'STARLIGHT_TRANSFER') {
         router.push('/starlight-transfer')
         return

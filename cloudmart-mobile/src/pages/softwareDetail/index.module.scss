@@ -1,0 +1,311 @@
+.page {
+  min-height: 100vh;
+  background: #f5f6f8;
+  box-sizing: border-box;
+}
+
+.loadingText {
+  display: block;
+  text-align: center;
+  color: #a6a6a6;
+  font-size: 26px;
+  padding: 60px 0;
+}
+
+.hero {
+  display: flex;
+  gap: 20px;
+  padding: 24px;
+  background: #ffffff;
+}
+
+.heroIcon {
+  width: 120px;
+  height: 120px;
+  border-radius: 24px;
+  background: #eef1f5;
+  flex-shrink: 0;
+}
+
+.heroBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.heroTitle {
+  font-size: 34px;
+  font-weight: 700;
+  color: #1f1f1f;
+}
+
+.heroSummary {
+  font-size: 26px;
+  color: #8c8c8c;
+}
+
+.heroMeta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.metaTag {
+  font-size: 22px;
+  color: #1677ff;
+  background: rgba(22, 119, 255, 0.08);
+  border-radius: 8px;
+  padding: 4px 12px;
+}
+
+.metaText {
+  font-size: 22px;
+  color: #a6a6a6;
+}
+
+.actionRow {
+  display: flex;
+  gap: 20px;
+  padding: 20px 24px;
+  background: #ffffff;
+  border-top: 1px solid #f0f0f0;
+}
+
+.actionBtn {
+  flex: 1;
+  text-align: center;
+  padding: 16px 0;
+  border-radius: 12px;
+  font-size: 28px;
+  color: #1677ff;
+  border: 1px solid rgba(22, 119, 255, 0.3);
+}
+
+.card {
+  margin: 20px 24px;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 16px;
+}
+
+.cardTitle {
+  display: block;
+  font-size: 30px;
+  font-weight: 600;
+  color: #1f1f1f;
+  margin-bottom: 16px;
+}
+
+.starRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.star {
+  font-size: 44px;
+  color: #d9d9d9;
+}
+
+.starActive {
+  color: #faad14;
+}
+
+.starHint {
+  font-size: 22px;
+  color: #a6a6a6;
+}
+
+.optionRow {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.option {
+  font-size: 24px;
+  color: #666666;
+  padding: 8px 20px;
+  border-radius: 30px;
+  background: #f5f6f8;
+}
+
+.optionActive {
+  color: #1677ff;
+  background: rgba(22, 119, 255, 0.1);
+}
+
+.sourceItem {
+  display: block;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  font-size: 26px;
+  color: #333333;
+}
+
+.sourceActive {
+  border-color: #1677ff;
+  color: #1677ff;
+}
+
+.lockedBox,
+.resolvedBox {
+  margin-top: 16px;
+  padding: 20px;
+  border-radius: 12px;
+  background: #fafafa;
+}
+
+.lockedTitle {
+  display: block;
+  font-size: 28px;
+  font-weight: 600;
+  color: #fa8c16;
+  margin-bottom: 8px;
+}
+
+.lockedHint {
+  display: block;
+  font-size: 24px;
+  color: #666666;
+  margin-bottom: 4px;
+}
+
+.resolvedUrl {
+  display: block;
+  font-size: 24px;
+  color: #1677ff;
+  word-break: break-all;
+  margin-bottom: 8px;
+}
+
+.resolvedCode {
+  display: block;
+  font-size: 26px;
+  font-weight: 600;
+  color: #1f1f1f;
+  margin-bottom: 8px;
+}
+
+.resolvedHint {
+  display: block;
+  font-size: 22px;
+  color: #a6a6a6;
+}
+
+.resolveBtn {
+  display: block;
+  margin-top: 16px;
+  text-align: center;
+  padding: 20px 0;
+  border-radius: 12px;
+  background: #1677ff;
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 600;
+}
+
+.resolveBtnBusy {
+  opacity: 0.7;
+}
+
+.richText {
+  font-size: 26px;
+  color: #333333;
+  line-height: 1.7;
+}
+
+.releaseItem {
+  padding: 16px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.releaseName {
+  display: block;
+  font-size: 28px;
+  font-weight: 600;
+  color: #1f1f1f;
+  margin-bottom: 6px;
+}
+
+.releaseMeta {
+  display: block;
+  font-size: 24px;
+  color: #8c8c8c;
+}
+
+.commentInputRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.commentInput {
+  flex: 1;
+  height: 72px;
+  padding: 0 24px;
+  background: #f5f6f8;
+  border-radius: 36px;
+  font-size: 26px;
+}
+
+.commentSend {
+  font-size: 28px;
+  color: #1677ff;
+  padding: 8px 4px;
+}
+
+.commentItem {
+  padding: 16px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.commentUser {
+  display: block;
+  font-size: 26px;
+  font-weight: 600;
+  color: #1f1f1f;
+  margin-bottom: 6px;
+}
+
+.commentContent {
+  display: block;
+  font-size: 26px;
+  color: #333333;
+  margin-bottom: 8px;
+}
+
+.commentActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.commentLike {
+  font-size: 24px;
+  color: #fa541c;
+}
+
+.commentTime {
+  font-size: 22px;
+  color: #bfbfbf;
+}
+
+.emptyText {
+  display: block;
+  color: #a6a6a6;
+  font-size: 24px;
+  padding: 20px 0;
+}
+
+.bottomSpace {
+  height: 80px;
+}

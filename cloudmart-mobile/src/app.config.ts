@@ -68,6 +68,8 @@ export default defineAppConfig({
     'pages/annualReport/index',
     'pages/matchSquad/index',
     'pages/leaderboard/index',
+    'pages/software/index',
+    'pages/softwareDetail/index',
     'pages/wishMap/index',
     'pages/encounter/index',
     'pages/workshop/index',

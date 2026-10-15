@@ -21,6 +21,8 @@ const ORDER_TABS = [
 const MENU_ITEMS = [
   { icon: '🤖', name: 'AI 助手', path: '/pages/aiChat/index', color: 'var(--color-accent-purple)' },
   { icon: '🌟', name: '心愿助手', path: '/pages/aiAssistant/index', color: 'var(--color-accent-purple)' },
+  // S13：小答软件入口（浏览/获取链接/评论在列表与详情页内完成）
+  { icon: '🧩', name: '小答软件', path: '/pages/software/index', color: 'var(--color-accent-blue)' },
   { icon: '🏅', name: '我的徽章', path: '/pages/badgeWall/index', color: 'var(--color-accent-gold)' },
   { icon: '🎁', name: '我的礼物', path: '/pages/myGifts/index', color: 'var(--color-accent-gold)' },
   { icon: '🛡️', name: '隐私中心', path: '/pages/wishPrivacy/index', color: 'var(--color-accent-purple)' },

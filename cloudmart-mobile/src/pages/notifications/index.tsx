@@ -69,6 +69,22 @@ export default function NotificationsPage() {
       return
     }
     // R19：星光转赠 / 邀请奖励通知深链
+    // 小答软件域（S10/S12）：更新订阅直达详情；审核结果/封禁/评论/来源进广场或详情
+    if (n.type === 'SOFTWARE_RELEASE_PUBLISHED' && n.bizId) {
+      Taro.navigateTo({ url: `/pages/softwareDetail/index?id=${n.bizId}` })
+      return
+    }
+    if (n.bizType === 'SOFTWARE_COMMENT' || n.bizType === 'SOFTWARE_SOURCE') {
+      if (n.bizId) {
+        Taro.navigateTo({ url: `/pages/softwareDetail/index?id=${n.bizId}` })
+      }
+      return
+    }
+    if (n.bizType === 'SOFTWARE') {
+      // 审核结果/封禁：进软件广场（移动端暂未提供"我的软件"管理页）
+      Taro.navigateTo({ url: '/pages/software/index' })
+      return
+    }
     if (n.bizType === 'STARLIGHT_TRANSFER') {
       Taro.navigateTo({ url: '/pages/starlightTransfer/index' })
       return
