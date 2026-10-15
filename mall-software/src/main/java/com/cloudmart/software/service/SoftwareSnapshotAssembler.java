@@ -129,7 +129,10 @@ public class SoftwareSnapshotAssembler {
             revision.setOfficialUrl(null);
         }
 
-        revision.setLicenseType(parseEnum(input.getLicenseType(), SoftwareLicenseType.class, "授权类型"));
+        // 4.1：草稿允许暂缺授权类型（DB 列 NULL），提交时 validateForSubmit 强制
+        revision.setLicenseType(input.getLicenseType() == null || input.getLicenseType().isBlank()
+                ? null
+                : parseEnum(input.getLicenseType(), SoftwareLicenseType.class, "授权类型"));
         if (input.getAttributionType() != null && !input.getAttributionType().isBlank()
                 && !ATTRIBUTION_TYPES.contains(input.getAttributionType())) {
             throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID",
