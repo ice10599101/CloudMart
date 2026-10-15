@@ -45,6 +45,7 @@ const SORT_OPTIONS = [
   { value: "recommend", label: "推荐" },
   { value: "latest", label: "最近更新" },
   { value: "popular", label: "热门" },
+  { value: "rating", label: "评分（至少 5 人）" },
 ];
 
 const SORT_VALUES = SORT_OPTIONS.map((item) => item.value);
@@ -67,7 +68,10 @@ export default function SoftwareExplore() {
   const tagId = searchParams.get("tagId") ?? undefined;
   const rawSort = searchParams.get("sort") ?? "";
   const sort = (SORT_VALUES.includes(rawSort) ? rawSort : "recommend") as
-    "recommend" | "latest" | "popular";
+    | "recommend"
+    | "latest"
+    | "popular"
+    | "rating";
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
 
   // 地址栏/回退带来的 keyword 变化要同步进输入框，避免显示与结果不一致

@@ -107,16 +107,47 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public void sendSoftwareEventNotification(Long userId, String eventId, String type, String title,
                                               String content, Long bizId, String bizType, Long actorId) {
+        insertSoftwareEventNotification(userId, eventId, type, title, content, bizId, bizType);
+    }
+
+    /**
+     * P1：订阅更新批量提醒（9.4）——mall-software fanout 投递，重复批次按
+     * eventId（SWREL:{softwareId}:{publicationSeq}） + userId 稳定去重；返回实际创建数。
+     */
+    @Override
+    @Transactional
+    public int sendSoftwareReleaseNotifications(Long softwareId, Integer publicationSeq,
+                                                Long revisionId, java.util.List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return 0;
+        }
+        String eventId = "SWREL:" + softwareId + ":" + publicationSeq;
+        int created = 0;
+        for (Long userId : userIds) {
+            if (insertSoftwareEventNotification(userId, eventId, "SOFTWARE_RELEASE_PUBLISHED",
+                    "订阅的软件更新了", "你订阅的软件发布了新版本，点击查看",
+                    softwareId, "SOFTWARE")) {
+                created++;
+            }
+        }
+        return created;
+    }
+
+    /** 单条软件事件通知落库 + WebSocket 推送；返回 false 表示命中去重键（已存在） */
+    private boolean insertSoftwareEventNotification(Long userId, String eventId, String type,
+                                                    String title, String content, Long bizId,
+                                                    String bizType) {
         Notification entity = buildNotification(userId, type, title, content, bizId, bizType);
         entity.setEventId(eventId + ":" + userId);
         try {
             notificationMapper.insert(entity);
         } catch (org.springframework.dao.DuplicateKeyException duplicate) {
             log.info("软件域事件通知已存在（幂等跳过） eventId={} userId={}", eventId, userId);
-            return;
+            return false;
         }
         NotificationDTO dto = notificationConverter.toDTO(entity);
         sessionManager.sendMessageToUser(userId, dto);
+        return true;
     }
 
     /** N01：订单事件通知（eventId 唯一去重——MQ 重复投递不产生重复通知） */

@@ -7,11 +7,13 @@ import {
   Empty,
   Input,
   List,
+  Rate,
   Select,
   Space,
   Spin,
   Tabs,
   Tag,
+  Typography,
 } from "antd";
 import { CopyOutlined, StarFilled, StarOutlined } from "@ant-design/icons";
 import { history, useParams } from "umi";
@@ -23,9 +25,15 @@ import {
   likeSoftwareComment,
   listSoftwareComments,
   listSoftwareReleases,
+  pinSoftwareComment,
+  rateSoftware,
   reportSoftware,
   resolveSoftwareSource,
+  revokeSoftwareRating,
+  subscribeSoftware,
   unfavoriteSoftware,
+  unpinSoftwareComment,
+  unsubscribeSoftware,
   type SoftwareAccessState,
   type SoftwareComment,
   type SoftwareDetail,
@@ -75,6 +83,13 @@ export default function SoftwareDetail() {
     type: "SOFTWARE" | "SOFTWARE_COMMENT";
     id: string;
   } | null>(null);
+  /** P1：评分/订阅本地状态（详情返回后同步） */
+  const [myScore, setMyScore] = useState(0);
+  const [ratingCount, setRatingCount] = useState(0);
+  const [ratingAvg, setRatingAvg] = useState<number | null>(null);
+  const [subscribed, setSubscribed] = useState(false);
+  const [ratingBusy, setRatingBusy] = useState(false);
+  const currentUserId = useAuthStore((s) => s.user?.id);
 
   useEffect(() => {
     if (!id) return;
@@ -85,7 +100,13 @@ export default function SoftwareDetail() {
       listSoftwareComments(id, { page: 1, size: 20 }),
     ])
       .then(([detailRes, releaseRes, commentRes]) => {
-        if (detailRes.data.success) setDetail(detailRes.data.data);
+        if (detailRes.data.success) {
+          setDetail(detailRes.data.data);
+          setMyScore(detailRes.data.data.myScore ?? 0);
+          setRatingCount(detailRes.data.data.ratingCount ?? 0);
+          setRatingAvg(detailRes.data.data.ratingAvg ?? null);
+          setSubscribed(Boolean(detailRes.data.data.isSubscribed));
+        }
         if (releaseRes.data.success) setReleases(releaseRes.data.data ?? []);
         if (commentRes.data.success)
           setComments(commentRes.data.data?.records ?? []);
@@ -144,6 +165,82 @@ export default function SoftwareDetail() {
       setResolving(false);
     }
   }, [id, sourceId]);
+
+  const applyRatingResult = (result: {
+    myScore: number | null;
+    ratingCount: number;
+    ratingAvg: number | null;
+  }) => {
+    setMyScore(result.myScore ?? 0);
+    setRatingCount(result.ratingCount);
+    setRatingAvg(result.ratingAvg);
+  };
+
+  const handleRate = async (score: number) => {
+    if (!isAuthenticated) {
+      message.warning("请先登录后再评分");
+      return;
+    }
+    setRatingBusy(true);
+    try {
+      const res = await rateSoftware(id, score);
+      applyRatingResult(res.data.data);
+      message.success(`已评 ${score} 星`);
+    } catch {
+      // 业务错误（分享者自评/不可见等）已由全局拦截器提示
+    } finally {
+      setRatingBusy(false);
+    }
+  };
+
+  const handleRevokeRating = async () => {
+    setRatingBusy(true);
+    try {
+      const res = await revokeSoftwareRating(id);
+      applyRatingResult(res.data.data);
+      message.success("已撤销评分");
+    } catch {
+      // 提示由拦截器统一处理
+    } finally {
+      setRatingBusy(false);
+    }
+  };
+
+  const handleToggleSubscribe = async () => {
+    if (!isAuthenticated) {
+      message.warning("请先登录后再订阅更新");
+      return;
+    }
+    try {
+      if (subscribed) {
+        await unsubscribeSoftware(id);
+        setSubscribed(false);
+        message.success("已取消订阅");
+      } else {
+        await subscribeSoftware(id);
+        setSubscribed(true);
+        message.success("已订阅更新（仅新增版本时提醒）");
+      }
+    } catch {
+      // 提示由拦截器统一处理
+    }
+  };
+
+  const handleTogglePin = async (comment: SoftwareComment) => {
+    try {
+      if (comment.pinned) {
+        await unpinSoftwareComment(id, comment.id);
+        message.success("已取消置顶");
+      } else {
+        await pinSoftwareComment(id, comment.id);
+        message.success("已置顶（每款软件最多一个）");
+      }
+      const res = await listSoftwareComments(id, { page: 1, size: 20 });
+      if (res.data.success) setComments(res.data.data?.records ?? []);
+    } catch {
+      // 提示由拦截器统一处理
+    }
+  };
 
   const handleToggleFavorite = useCallback(async () => {
     if (!detail || !isAuthenticated) {
@@ -368,6 +465,39 @@ export default function SoftwareDetail() {
                 label: `交流讨论（${detail.commentCount}）`,
                 children: (
                   <div>
+                    {/* P1 评分：独立区块（不把评论自动变成评分）；零票显示"暂无评分" */}
+                    <div className={styles.ratingBlock}>
+                      <div className={styles.ratingSummary}>
+                        <span className={styles.ratingScore}>
+                          {ratingAvg == null ? "暂无评分" : ratingAvg.toFixed(1)}
+                        </span>
+                        <span className={styles.ratingMeta}>
+                          {ratingCount > 0 ? `${ratingCount} 人评分` : "成为第一个评分的人"}
+                        </span>
+                      </div>
+                      <Space>
+                        <Rate
+                          value={myScore}
+                          disabled={ratingBusy || detail.ownerId === String(currentUserId ?? "")}
+                          onChange={(value) => void handleRate(value)}
+                        />
+                        {myScore > 0 ? (
+                          <Button
+                            type="link"
+                            size="small"
+                            loading={ratingBusy}
+                            onClick={() => void handleRevokeRating()}
+                          >
+                            撤销评分
+                          </Button>
+                        ) : null}
+                      </Space>
+                      {detail.ownerId === String(currentUserId ?? "") ? (
+                        <Typography.Text type="secondary">
+                          分享者不能给自己的软件评分
+                        </Typography.Text>
+                      ) : null}
+                    </div>
                     <Space.Compact style={{ width: "100%", marginBottom: 12 }}>
                       <Input
                         value={commentText}
@@ -389,6 +519,7 @@ export default function SoftwareDetail() {
                         <div key={item.id} className={styles.commentItem}>
                           <div>
                             <strong>{item.nickname}</strong>
+                            {item.pinned ? <Tag color="gold" style={{ marginLeft: 8 }}>置顶</Tag> : null}
                             <span style={{ opacity: 0.6, marginLeft: 8 }}>
                               {item.createdAt}
                             </span>
@@ -414,6 +545,15 @@ export default function SoftwareDetail() {
                             >
                               举报
                             </Button>
+                            {detail.ownerId === String(currentUserId ?? "") ? (
+                              <Button
+                                type="link"
+                                size="small"
+                                onClick={() => void handleTogglePin(item)}
+                              >
+                                {item.pinned ? "取消置顶" : "置顶"}
+                              </Button>
+                            ) : null}
                           </Space>
                           {item.replies.map((reply) => (
                             <div key={reply.id} className={styles.replyItem}>
@@ -526,6 +666,13 @@ export default function SoftwareDetail() {
               onClick={() => void handleToggleFavorite()}
             >
               {detail.isFavorited ? "已收藏" : "收藏"}
+            </Button>
+            <Button
+              block
+              style={{ marginTop: 8 }}
+              onClick={() => void handleToggleSubscribe()}
+            >
+              {subscribed ? "已订阅更新" : "订阅更新"}
             </Button>
             <Button
               block

@@ -148,7 +148,12 @@ class SoftwarePublishServiceImplTest {
                 org.mockito.Mockito.mock(com.cloudmart.software.service.SoftwareAssetBindingService.class),
                 outboxService,
                 communitySupportFeignClient, userSupportFeignClient, softwareProperties,
-                rateLimiter, new ObjectMapper(), Clock.fixed(NOW, ZoneId.systemDefault()),
+                rateLimiter,
+                org.mockito.Mockito.mock(
+                        com.cloudmart.software.service.SoftwareReleaseFanoutService.class),
+                org.mockito.Mockito.mock(
+                        com.cloudmart.software.repository.SoftwareSubscriptionMapper.class),
+                new ObjectMapper(), Clock.fixed(NOW, ZoneId.systemDefault()),
                 transactionTemplate);
         // operationService 透传业务动作（真实执行状态机逻辑）
         lenient().when(operationService.execute(anyString(), any(), anyString(), anyString(),
@@ -302,7 +307,8 @@ class SoftwarePublishServiceImplTest {
         assertThat(decision.publicationSeq()).isEqualTo(2);
         assertThat(locked.getPublishedRevisionId()).isEqualTo(REVISION_ID);
         assertThat(locked.getWorkingRevisionId()).isNull();
-        verify(outboxService).record(any());
+        // 更新发布（seq 1→2）：REVIEW_APPROVED + RELEASE_PUBLISHED（P1 订阅广播）共两条
+        verify(outboxService, org.mockito.Mockito.times(2)).record(any());
         verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(2), eq(ADMIN_ID),
                 eq("ADMIN"), eq("APPROVE"), eq("PENDING"), eq("APPROVED"), eq("内容合格"), eq("req-1"));
     }

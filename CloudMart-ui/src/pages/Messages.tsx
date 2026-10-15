@@ -111,6 +111,7 @@ const NOTIFICATION_TYPE_MAP: Record<string, { category: NotificationCategory; av
   SOFTWARE_COMMENT_VISIBLE: { category: 'interaction', avatarClass: styles.avatarComment, icon: <MessageOutlined /> },
   SOFTWARE_REPLY_VISIBLE: { category: 'interaction', avatarClass: styles.avatarComment, icon: <MessageOutlined /> },
   SOFTWARE_SOURCE_REPORTED: { category: 'system', avatarClass: styles.avatarSystem, icon: <WarningOutlined /> },
+  SOFTWARE_RELEASE_PUBLISHED: { category: 'system', avatarClass: styles.avatarSystem, icon: <BellOutlined /> },
 }
 
 function enrichNotification(item: NotificationItem): EnrichedNotification {
@@ -168,6 +169,9 @@ function navigateToBiz(item: EnrichedNotification) {
     history.push('/invite')
   } else if (item.bizType === 'ENCOUNTER_LETTER' || item.type === 'ENCOUNTER_LETTER') {
     history.push('/encounter-letters')
+  } else if (item.type === 'SOFTWARE_RELEASE_PUBLISHED' && item.bizId) {
+    // 订阅更新：直接去对应软件详情（bizType 同为 SOFTWARE，需按类型先分流）
+    history.push(`/software/${item.bizId}`)
   } else if (item.bizType === 'SOFTWARE' && item.bizId) {
     // 审核结果/封禁：作者去「我的软件」查看状态与继续维护
     history.push('/software/mine')

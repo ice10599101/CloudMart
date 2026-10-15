@@ -158,6 +158,8 @@ cloudmart:
       mall-community: community:software-support
       mall-user: user:software-support
       mall-file: file:internal
+      # P1 订阅更新提醒：内部通知端点（mall-notification 侧 iss 白名单同步含 mall-software）
+      mall-notification: notification:internal
 
 # 小答软件业务开关与限流（方案 11.2；支持 Nacos mall-software.yml 热更新）
 software:

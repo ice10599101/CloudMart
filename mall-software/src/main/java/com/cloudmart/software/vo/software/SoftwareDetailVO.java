@@ -35,7 +35,13 @@ public record SoftwareDetailVO(
         String ownerNickname,
         String ownerAvatar,
         /** 登录用户个性化：是否已收藏（游客 null） */
-        Boolean isFavorited) {
+        Boolean isFavorited,
+        /** 分享者会员 ID（前端判断作者操作如置顶留言；游客也可见） */
+        Long ownerId,
+        /** 登录用户个性化：我的评分 1~5（未评分/游客 null；P1） */
+        Integer myScore,
+        /** 登录用户个性化：是否已订阅更新（游客 null；P1） */
+        Boolean isSubscribed) {
 
     /** 截图（无障碍文本随素材走） */
     public record ScreenshotVO(Long assetId, Integer displayOrder, String altText) {

@@ -573,3 +573,89 @@ export function markLinkFeedback(
     softwareWriteConfig('POST', url, payload, idempotencyKey),
   )
 }
+
+// ==================== 专题（P1：software:topic） ====================
+
+export interface AdminSoftwareTopic {
+  topicId: string
+  slug: string
+  title: string
+  status: 'DRAFT' | 'PUBLISHED' | 'DISABLED'
+  sortOrder: number
+  itemCount: number
+  updatedAt: string
+}
+
+export interface AdminTopicPayload {
+  slug: string
+  title: string
+  summary?: string
+  coverAssetId?: number
+  status?: 'DRAFT' | 'PUBLISHED' | 'DISABLED'
+  sortOrder?: number
+  items: Array<{ softwareId: number; sortOrder?: number }>
+}
+
+export function listAdminTopics(params?: { page?: number; size?: number }) {
+  return request.get<ApiResponse<PageResult<AdminSoftwareTopic>>>(`${BASE}/topics`, { params })
+}
+
+/** 专题编辑读取：专题 + 原始清单（不过滤可见性） */
+export function getAdminTopic(topicId: string) {
+  return request.get<ApiResponse<AdminTopicPayload & { topicId: string }>>(
+    `${BASE}/topics/${topicId}`,
+  )
+}
+
+export function createAdminTopic(payload: AdminTopicPayload, idempotencyKey?: string) {
+  const url = `${BASE}/topics`
+  return request.post<ApiResponse<string>>(
+    url,
+    payload,
+    softwareWriteConfig('POST', url, payload, idempotencyKey),
+  )
+}
+
+export function updateAdminTopic(
+  topicId: string,
+  payload: AdminTopicPayload,
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/topics/${topicId}`
+  return request.put<ApiResponse<string>>(
+    url,
+    payload,
+    softwareWriteConfig('PUT', url, payload, idempotencyKey),
+  )
+}
+
+/** DELETE 语义为禁用 */
+export function disableAdminTopic(topicId: string, idempotencyKey?: string) {
+  const url = `${BASE}/topics/${topicId}`
+  return request.delete<ApiResponse<boolean>>(
+    url,
+    softwareWriteConfig('DELETE', url, null, idempotencyKey),
+  )
+}
+
+// ==================== 统计（P1：software:stats） ====================
+
+export interface AdminSoftwareStatistics {
+  windowDays: number
+  windowNote: string
+  publishedCount: number
+  pendingReviewCount: number
+  avgReviewMinutes: number | null
+  accessCount: number
+  accessUsers: number
+  favoriteTotal: number
+  newFavorites: number
+  newRatings: number
+  newRatingAvg: number | null
+  pendingFeedbacks: number
+  pendingReports: number
+}
+
+export function getSoftwareStatistics() {
+  return request.get<ApiResponse<AdminSoftwareStatistics>>(`${BASE}/statistics`)
+}

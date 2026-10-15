@@ -74,9 +74,10 @@ public class SecurityConfig {
                         "/software/level-options").authenticated()
                 .requestMatchers(HttpMethod.GET, "/software/{id}/access-state",
                         "/software/{id}/editor").authenticated()
-                // 公开浏览：软件广场/分类/标签（7.2，sort 与筛选由业务层过滤可见性）
+                // 公开浏览：软件广场/分类/标签/榜单/专题（7.2，可见性由业务层过滤）
                 .requestMatchers(HttpMethod.GET, "/software", "/software/categories",
-                        "/software/tags").permitAll()
+                        "/software/tags", "/software/rankings", "/software/topics",
+                        "/software/topics/{slug}").permitAll()
                 // 公开浏览：详情、查看条件摘要、版本来源摘要（无 URL/提取码）
                 .requestMatchers(HttpMethod.GET, "/software/{id}", "/software/{id}/access-policy",
                         "/software/{id}/releases").permitAll()

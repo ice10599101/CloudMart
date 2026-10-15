@@ -34,6 +34,7 @@ import com.cloudmart.software.repository.SoftwareSourceMapper;
 import com.cloudmart.software.service.SoftwareAuditService;
 import com.cloudmart.software.service.SoftwareOperationService;
 import com.cloudmart.software.service.SoftwareRateLimiter;
+import com.cloudmart.software.service.SoftwareReleaseFanoutService;
 import com.cloudmart.software.service.SoftwarePublishService;
 import com.cloudmart.software.service.SoftwareSnapshotAssembler;
 import com.cloudmart.software.vo.software.SoftwareCreatedVO;
@@ -83,7 +84,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
 
     private static final int SCHEMA_VERSION = 1;
     private static final Set<String> MINE_TABS =
-            java.util.Set.of("published", "draft", "pending", "rejected", "favorites");
+            java.util.Set.of("published", "draft", "pending", "rejected", "favorites",
+                    "subscriptions");
 
     private final SoftwareMapper softwareMapper;
     private final SoftwareRevisionMapper revisionMapper;
@@ -103,6 +105,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     private final com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
     private final SoftwareProperties softwareProperties;
     private final SoftwareRateLimiter rateLimiter;
+    private final SoftwareReleaseFanoutService fanoutService;
+    private final com.cloudmart.software.repository.SoftwareSubscriptionMapper subscriptionMapper;
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
@@ -686,9 +690,10 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             revision.setReviewStatus(SoftwareReviewStatus.APPROVED);
             revisionMapper.updateById(revision);
             // 事务内切换指针（4.1.3）：published→本快照、working 清空、上线序号+1
+            int previousSeq = locked.getPublicationSeq() == null ? 0 : locked.getPublicationSeq();
             locked.setPublishedRevisionId(revisionId);
             locked.setWorkingRevisionId(null);
-            locked.setPublicationSeq(locked.getPublicationSeq() + 1);
+            locked.setPublicationSeq(previousSeq + 1);
             if (locked.getPublishedAt() == null) {
                 locked.setPublishedAt(LocalDateTime.now(clock));
             }
@@ -706,6 +711,19 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                             "revisionId", String.valueOf(revisionId),
                             "authorId", String.valueOf(locked.getOwnerId()),
                             "publicationSeq", String.valueOf(locked.getPublicationSeq())))));
+            // P1 更新订阅（9.4）：非首次上线才广播；事件与 fanout 任务同事务登记
+            if (previousSeq > 0) {
+                outboxService.record(EventEnvelope.of(
+                        SoftwareEvents.TAG_RELEASE_PUBLISHED, SCHEMA_VERSION,
+                        String.valueOf(softwareId), locked.getPublicationSeq(), requestId,
+                        objectMapper.writeValueAsString(Map.of(
+                                "softwareId", String.valueOf(softwareId),
+                                "revisionId", String.valueOf(revisionId),
+                                "publicationSeq", String.valueOf(locked.getPublicationSeq()),
+                                "authorId", String.valueOf(locked.getOwnerId())))));
+                fanoutService.registerTask(softwareId, revisionId, locked.getPublicationSeq(),
+                        locked.getLastReleaseAt());
+            }
             return new SoftwareReviewDecisionVO(softwareId, revisionId, "APPROVED",
                     submitSeq, locked.getPublicationSeq(), locked.getLockVersion());
         }
@@ -725,14 +743,15 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     @Override
     public Page<SoftwareMineItemVO> mine(Long userId, String tab, int page, int size) {
         String normalizedTab = tab == null ? "published" : tab;
-        if ("subscriptions".equals(normalizedTab)) {
-            throw new BusinessException("SOFTWARE_P1_NOT_ENABLED", "订阅功能暂未开放");
-        }
         if (!MINE_TABS.contains(normalizedTab)) {
             throw new BusinessException("SOFTWARE_TAB_INVALID", "tab 取值非法");
         }
         if ("favorites".equals(normalizedTab)) {
             return mineFavorites(userId, Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 50)));
+        }
+        if ("subscriptions".equals(normalizedTab)) {
+            return mineSubscriptions(userId,
+                    Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 50)));
         }
         Page<Software> softwarePage = softwareMapper.selectPage(
                 Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 50)),
@@ -763,6 +782,44 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 revision == null ? "" : revision.getSummary(),
                 status, revisionId, software.getLockVersion(),
                 software.getFavoriteCount(), software.getUpdatedAt(), false);
+    }
+
+    /** 订阅列表（P1）：与收藏同口径——不可见软件显示不可用占位（保留 id 供取消订阅） */
+    private Page<SoftwareMineItemVO> mineSubscriptions(Long userId,
+                                                       Page<SoftwareMineItemVO> result) {
+        Page<com.cloudmart.software.entity.SoftwareSubscription> subscriptionPage =
+                subscriptionMapper.selectPage(
+                        Page.of(result.getCurrent(), result.getSize()),
+                        new LambdaQueryWrapper<com.cloudmart.software.entity.SoftwareSubscription>()
+                                .eq(com.cloudmart.software.entity.SoftwareSubscription::getUserId,
+                                        userId)
+                                .orderByDesc(com.cloudmart.software.entity.SoftwareSubscription
+                                        ::getCreatedAt));
+        result.setTotal(subscriptionPage.getTotal());
+        result.setRecords(subscriptionPage.getRecords().stream()
+                .map(subscription -> {
+                    Software software = softwareMapper.selectById(subscription.getSoftwareId());
+                    if (software == null) {
+                        return null;
+                    }
+                    SoftwareRevision revision = software.getPublishedRevisionId() == null ? null
+                            : revisionMapper.selectById(software.getPublishedRevisionId());
+                    boolean visible = revision != null
+                            && revision.getReviewStatus() == SoftwareReviewStatus.APPROVED
+                            && software.getLifecycle() == SoftwareLifecycle.ACTIVE
+                            && software.getDeletedAt() == null;
+                    if (visible) {
+                        return new SoftwareMineItemVO(software.getId(), revision.getName(),
+                                revision.getSummary(), "PUBLISHED", revision.getId(),
+                                software.getLockVersion(), software.getFavoriteCount(),
+                                software.getUpdatedAt(), false);
+                    }
+                    return new SoftwareMineItemVO(software.getId(), "", "", "UNAVAILABLE",
+                            null, null, null, null, true);
+                })
+                .filter(Objects::nonNull)
+                .toList());
+        return result;
     }
 
     private String resolveMineStatus(Software software, SoftwareRevision revision) {

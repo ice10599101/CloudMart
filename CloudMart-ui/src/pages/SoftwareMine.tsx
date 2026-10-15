@@ -1,11 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
-import { App, Button, Empty, List, Spin, Tabs, Tag } from "antd";
+import { App, Button, Empty, List, Space, Spin, Switch, Tabs, Tag } from "antd";
 import { history } from "umi";
-import { listMySoftware, type SoftwareMineItem } from "@/api/software";
+import {
+  getSoftwarePreferences,
+  listMySoftware,
+  unsubscribeSoftware,
+  updateSoftwarePreferences,
+  type SoftwareMineItem,
+} from "@/api/software";
 import { useAuthStore } from "@/stores/auth";
 import styles from "./SoftwareMine.module.css";
 
-type TabKey = "published" | "draft" | "pending" | "rejected" | "favorites";
+type TabKey =
+  | "published"
+  | "draft"
+  | "pending"
+  | "rejected"
+  | "favorites"
+  | "subscriptions";
 
 const STATUS_LABEL: Record<string, string> = {
   PUBLISHED: "已发布",
@@ -21,6 +33,9 @@ export default function SoftwareMine() {
   const [tab, setTab] = useState<TabKey>("published");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<SoftwareMineItem[]>([]);
+  /** P1 更新提醒总开关（缺省开启；与订阅关系相互独立） */
+  const [updateNotify, setUpdateNotify] = useState(true);
+  const [notifySaving, setNotifySaving] = useState(false);
 
   const load = useCallback(
     async (nextTab: TabKey) => {
@@ -43,6 +58,36 @@ export default function SoftwareMine() {
     void load(tab);
   }, [isAuthenticated, load, tab]);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    getSoftwarePreferences()
+      .then((res) => setUpdateNotify(res.data.data?.updateNotifications ?? true))
+      .catch(() => undefined);
+  }, [isAuthenticated]);
+
+  const handleToggleNotify = async (enabled: boolean) => {
+    setNotifySaving(true);
+    try {
+      const res = await updateSoftwarePreferences({ updateNotifications: enabled });
+      setUpdateNotify(res.data.data?.updateNotifications ?? enabled);
+      message.success(enabled ? "已开启软件更新提醒" : "已关闭软件更新提醒");
+    } catch {
+      // 提示由拦截器统一处理
+    } finally {
+      setNotifySaving(false);
+    }
+  };
+
+  const handleUnsubscribe = async (softwareId: string) => {
+    try {
+      await unsubscribeSoftware(softwareId);
+      message.success("已取消订阅");
+      void load(tab);
+    } catch {
+      // 提示由拦截器统一处理
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className={styles.page}>
@@ -59,12 +104,22 @@ export default function SoftwareMine() {
     <div className={styles.page}>
       <div className={styles.header}>
         <h1 className={styles.title}>我的软件</h1>
-        <Button
-          type="primary"
-          onClick={() => history.push("/software/publish")}
-        >
-          发布软件
-        </Button>
+        <Space size={16}>
+          <Space size={8}>
+            <span style={{ fontSize: 13, opacity: 0.75 }}>软件更新提醒</span>
+            <Switch
+              checked={updateNotify}
+              loading={notifySaving}
+              onChange={(checked) => void handleToggleNotify(checked)}
+            />
+          </Space>
+          <Button
+            type="primary"
+            onClick={() => history.push("/software/publish")}
+          >
+            发布软件
+          </Button>
+        </Space>
       </div>
       <Tabs
         activeKey={tab}
@@ -75,6 +130,7 @@ export default function SoftwareMine() {
           { key: "pending", label: "待审核" },
           { key: "rejected", label: "被退回" },
           { key: "favorites", label: "收藏" },
+          { key: "subscriptions", label: "订阅" },
         ]}
       />
       <Spin spinning={loading}>
@@ -97,14 +153,23 @@ export default function SoftwareMine() {
                   <Button
                     key="edit"
                     type="link"
-                    disabled={tab === "favorites"}
+                    disabled={tab === "favorites" || tab === "subscriptions"}
                     onClick={() =>
                       history.push(`/software/${item.softwareId}/edit`)
                     }
                   >
                     编辑
                   </Button>,
-                ]}
+                  tab === "subscriptions" ? (
+                    <Button
+                      key="unsubscribe"
+                      type="link"
+                      onClick={() => void handleUnsubscribe(item.softwareId)}
+                    >
+                      取消订阅
+                    </Button>
+                  ) : null,
+                ].filter(Boolean)}
               >
                 <List.Item.Meta
                   title={

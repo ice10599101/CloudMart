@@ -81,6 +81,9 @@ export default defineConfig({
         { path: '/software/explore', component: '@/pages/SoftwareExplore' },
         { path: '/software/publish', component: '@/pages/SoftwarePublish' },
         { path: '/software/mine', component: '@/pages/SoftwareMine' },
+        // P1：排行榜与专题（固定路径先于 /software/:id）
+        { path: '/software/rankings', component: '@/pages/SoftwareRankings' },
+        { path: '/software/topics/:slug', component: '@/pages/SoftwareTopicDetail' },
         { path: '/software/:id', component: '@/pages/SoftwareDetail' },
         { path: '/software/:id/edit', component: '@/pages/SoftwareEdit' },
         { path: '/wish', component: '@/pages/WishHome' },
@@ -213,6 +216,9 @@ export default defineConfig({
         { path: '/admin/software/publishers', component: '@/pages/admin/software/Publishers' },
         { path: '/admin/software/access-grants', component: '@/pages/admin/software/AccessGrants' },
         { path: '/admin/software/access-contacts', component: '@/pages/admin/software/AccessContacts' },
+        // P1（V3__software_p1_menu.sql 5216~5217）
+        { path: '/admin/software/topics', component: '@/pages/admin/software/Topics' },
+        { path: '/admin/software/statistics', component: '@/pages/admin/software/Statistics' },
         { path: '/admin/monitor/operations', component: '@/pages/admin/monitor/Operations' },
         { path: '/admin/monitor/job', component: '@/pages/admin/monitor/Job' },
         { path: '/admin/monitor/server', component: '@/pages/admin/monitor/Server' },

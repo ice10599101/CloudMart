@@ -55,6 +55,14 @@ public interface SoftwareQueryMapper {
               <when test="q.sort == 'popular'">
                 ORDER BY s.link_access_count DESC, s.favorite_count DESC, s.id DESC
               </when>
+              <when test="q.sort == 'rating'">
+                ORDER BY (CASE WHEN s.rating_count &gt;= 5
+                  THEN (s.rating_count / (s.rating_count + 10.0))
+                       * (s.rating_sum / s.rating_count)
+                       + (10.0 / (s.rating_count + 10.0))
+                         * (SELECT COALESCE(AVG(score), 3.5) FROM software_rating)
+                  ELSE -1 END) DESC, s.rating_count DESC, s.id DESC
+              </when>
               <otherwise>
                 ORDER BY s.featured_rank DESC, s.last_release_at DESC, s.id DESC
               </otherwise>
@@ -77,6 +85,30 @@ public interface SoftwareQueryMapper {
             </script>
             """)
     List<PlatformRow> platformsOfRevisions(@Param("revisionIds") List<Long> revisionIds);
+
+    /**
+     * 按 ID 集取卡片（P1 榜单用）：与 pageCards 同列、同公开可见谓词；
+     * 顺序由调用方按榜单排名排列（SQL 不保证顺序）。
+     */
+    @Select("""
+            <script>
+            SELECT s.id, r.name, r.summary, r.icon_asset_id AS iconAssetId,
+                   r.license_type AS licenseType, r.category_id AS categoryId,
+                   c.name AS categoryName, s.last_release_at AS lastReleaseAt,
+                   s.favorite_count AS favoriteCount, s.comment_count AS commentCount,
+                   s.rating_count AS ratingCount, s.rating_sum AS ratingSum
+            FROM software s
+            JOIN software_revision r
+              ON r.id = s.published_revision_id AND r.review_status = 'APPROVED'
+            LEFT JOIN software_category c ON c.id = r.category_id
+            WHERE s.deleted_at IS NULL AND s.lifecycle = 'ACTIVE'
+              AND s.id IN
+              <foreach collection="softwareIds" item="id" open="(" separator="," close=")">
+                #{id}
+              </foreach>
+            </script>
+            """)
+    List<CardRow> cardsByIds(@Param("softwareIds") List<Long> softwareIds);
 
     /** 卡片行（Mapper 内部行结构，不外暴实体） */
     record CardRow(Long id, String name, String summary, Long iconAssetId, String licenseType,

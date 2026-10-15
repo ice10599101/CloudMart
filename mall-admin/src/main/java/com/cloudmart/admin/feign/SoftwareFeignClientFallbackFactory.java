@@ -190,6 +190,36 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
                 throw unavailable(cause);
             }
 
+            @Override
+            public ApiResponse<Object> topics(int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> topicDetail(Long topicId) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> createTopic(Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> updateTopic(Long topicId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> disableTopic(Long topicId) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> statistics() {
+                throw unavailable(cause);
+            }
+
             private BusinessException unavailable(Throwable root) {
                 return new BusinessException("SOFTWARE_SERVICE_UNAVAILABLE",
                         "软件服务暂不可用，请稍后重试", root);

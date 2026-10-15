@@ -357,4 +357,55 @@ public class AdminSoftwareController {
             @RequestParam(value = "size", defaultValue = "20") int size) {
         return softwareFeignClient.permissionAudits(userId, softwareId, page, size);
     }
+
+    // ---------------- 专题（P1：software:topic） ----------------
+
+    @GetMapping("/topics")
+    @RequiresPermission("software:topic")
+    @Operation(summary = "专题分页（含草稿/禁用）", description = "P1")
+    public ApiResponse<Object> topics(
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return softwareFeignClient.topics(page, size);
+    }
+
+    @GetMapping("/topics/{topicId}")
+    @RequiresPermission("software:topic")
+    @Operation(summary = "专题编辑读取", description = "专题 + 原始清单（不过滤可见性）")
+    public ApiResponse<Object> topicDetail(@PathVariable("topicId") Long topicId) {
+        return softwareFeignClient.topicDetail(topicId);
+    }
+
+    @PostMapping("/topics")
+    @RequiresPermission("software:topic")
+    @Operation(summary = "新增专题", description = "清单全量替换；slug 唯一")
+    public ApiResponse<Object> createTopic(@RequestBody Map<String, Object> body) {
+        return softwareFeignClient.createTopic(body);
+    }
+
+    @PutMapping("/topics/{topicId}")
+    @RequiresPermission("software:topic")
+    @Operation(summary = "更新专题", description = "含上线/下线与清单整体替换")
+    public ApiResponse<Object> updateTopic(
+            @PathVariable("topicId") Long topicId,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.updateTopic(topicId, body);
+    }
+
+    @DeleteMapping("/topics/{topicId}")
+    @RequiresPermission("software:topic")
+    @Operation(summary = "禁用专题", description = "DELETE 语义为禁用")
+    public ApiResponse<Object> disableTopic(@PathVariable("topicId") Long topicId) {
+        return softwareFeignClient.disableTopic(topicId);
+    }
+
+    // ---------------- 统计（P1：software:stats） ----------------
+
+    @GetMapping("/statistics")
+    @RequiresPermission("software:stats")
+    @Operation(summary = "运营统计总览",
+            description = "在架/待审/平均审核分钟/获取链接次数与人数/收藏/新评分/待办；口径随响应返回")
+    public ApiResponse<Object> statistics() {
+        return softwareFeignClient.statistics();
+    }
 }

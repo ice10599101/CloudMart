@@ -24,4 +24,13 @@ public interface SoftwareMapper extends BaseMapper<Software> {
             + "WHERE id = #{softwareId}")
     int incrementFavoriteCount(@org.apache.ibatis.annotations.Param("softwareId") Long softwareId,
                                @org.apache.ibatis.annotations.Param("delta") int delta);
+
+    /** 评分人数/星数和原子增减且不为负（P1：与评分行同事务，唯一口径） */
+    @org.apache.ibatis.annotations.Update(
+            "UPDATE software SET rating_count = GREATEST(CAST(rating_count AS SIGNED) + #{countDelta}, 0), "
+            + "rating_sum = GREATEST(CAST(rating_sum AS SIGNED) + #{sumDelta}, 0) "
+            + "WHERE id = #{softwareId}")
+    int incrementRating(@org.apache.ibatis.annotations.Param("softwareId") Long softwareId,
+                        @org.apache.ibatis.annotations.Param("countDelta") int countDelta,
+                        @org.apache.ibatis.annotations.Param("sumDelta") int sumDelta);
 }

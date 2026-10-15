@@ -4,11 +4,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.software.dto.software.SoftwareCommentCreateRequest;
+import com.cloudmart.software.dto.software.SoftwareRatingRequest;
 import com.cloudmart.software.dto.software.SoftwareReportCreateRequest;
 import com.cloudmart.software.service.SoftwareCommentService;
 import com.cloudmart.software.service.SoftwareFavoriteService;
+import com.cloudmart.software.service.SoftwareRatingService;
 import com.cloudmart.software.service.SoftwareReportService;
+import com.cloudmart.software.service.SoftwareSubscriptionService;
 import com.cloudmart.software.vo.software.SoftwareCommentVO;
+import com.cloudmart.software.vo.software.SoftwareRatingVO;
 import com.cloudmart.software.vo.software.SoftwareReportCreatedVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -37,6 +41,8 @@ public class SoftwareInteractionController {
     private final SoftwareCommentService commentService;
     private final SoftwareFavoriteService favoriteService;
     private final SoftwareReportService reportService;
+    private final SoftwareRatingService ratingService;
+    private final SoftwareSubscriptionService subscriptionService;
 
     @PostMapping("/{id}/comments")
     @Operation(summary = "发表评论",
@@ -117,6 +123,67 @@ public class SoftwareInteractionController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("id") Long id) {
         favoriteService.unfavorite(userId, id);
+        return ApiResponse.ok(null);
+    }
+
+    @PutMapping("/{id}/rating")
+    @Operation(summary = "评分（P1）",
+            description = "1~5 星，新建/改分幂等；分享者不能给自己评分；expectedVersion 可选（CAS）")
+    public ApiResponse<SoftwareRatingVO> rate(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @RequestBody SoftwareRatingRequest request) {
+        return ApiResponse.ok(ratingService.rate(userId, id, request.getScore(),
+                request.getExpectedVersion()));
+    }
+
+    @DeleteMapping("/{id}/rating")
+    @Operation(summary = "撤销评分（P1）", description = "幂等：未评分也成功；expectedVersion 可选")
+    public ApiResponse<SoftwareRatingVO> revokeRating(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
+        return ApiResponse.ok(ratingService.revoke(userId, id, expectedVersion));
+    }
+
+    @PutMapping("/{id}/subscription")
+    @Operation(summary = "订阅更新（P1）", description = "幂等；要求公开可见；仅接收新增版本通知")
+    public ApiResponse<Void> subscribe(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id) {
+        subscriptionService.subscribe(userId, id);
+        return ApiResponse.ok(null);
+    }
+
+    @DeleteMapping("/{id}/subscription")
+    @Operation(summary = "取消订阅（P1）", description = "幂等；软件下架也成功且不泄露信息")
+    public ApiResponse<Void> unsubscribe(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id) {
+        subscriptionService.unsubscribe(userId, id);
+        return ApiResponse.ok(null);
+    }
+
+    @PutMapping("/{id}/comments/{commentId}/pin")
+    @Operation(summary = "置顶留言（P1）",
+            description = "仅分享者；每软件最多一个可见根留言；expectedVersion 可选（CAS）")
+    public ApiResponse<Void> pinComment(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @PathVariable("commentId") Long commentId,
+            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
+        commentService.pin(userId, id, commentId, expectedVersion);
+        return ApiResponse.ok(null);
+    }
+
+    @DeleteMapping("/{id}/comments/{commentId}/pin")
+    @Operation(summary = "取消置顶（P1）", description = "仅分享者；幂等")
+    public ApiResponse<Void> unpinComment(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @PathVariable("commentId") Long commentId,
+            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
+        commentService.unpin(userId, id, commentId, expectedVersion);
         return ApiResponse.ok(null);
     }
 

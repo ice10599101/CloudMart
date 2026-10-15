@@ -24,4 +24,13 @@ public interface SoftwareCommentService {
 
     /** 幂等点赞（PUT）/取消（DELETE）：仅可见评论 */
     void like(Long userId, Long softwareId, Long commentId, boolean like);
+
+    /**
+     * 分享者置顶一个可见根评论（P1 4.4）：expectedVersion=CAS 评论版本；
+     * 每软件最多一个置顶（主行锁保护），置顶校验归属为软件分享者。
+     */
+    void pin(Long userId, Long softwareId, Long commentId, Integer expectedVersion);
+
+    /** 取消置顶（分享者本人；幂等：未置顶也成功） */
+    void unpin(Long userId, Long softwareId, Long commentId, Integer expectedVersion);
 }

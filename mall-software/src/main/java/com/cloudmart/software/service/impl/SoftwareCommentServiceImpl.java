@@ -72,6 +72,7 @@ public class SoftwareCommentServiceImpl implements SoftwareCommentService {
     private final UserSupportFeignClient userSupportFeignClient;
     private final SoftwareOperationService operationService;
     private final SoftwareRateLimiter rateLimiter;
+    private final com.cloudmart.software.repository.SoftwareLockMapper lockMapper;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -281,8 +282,71 @@ public class SoftwareCommentServiceImpl implements SoftwareCommentService {
                     .or(inner -> inner.eq(SoftwareComment::getStatus, SoftwareCommentStatus.PENDING)
                             .eq(SoftwareComment::getUserId, viewerId)));
         }
-        return wrapper.orderByDesc(SoftwareComment::getCreatedAt)
+        // P1：作者置顶的可见根评论优先展示，其余按最新排序
+        return wrapper.orderByDesc(SoftwareComment::getPinned)
+                .orderByDesc(SoftwareComment::getCreatedAt)
                 .orderByDesc(SoftwareComment::getId);
+    }
+
+    // ------------------------------------------------------------------
+    // 作者置顶（P1 4.4）
+    // ------------------------------------------------------------------
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void pin(Long userId, Long softwareId, Long commentId, Integer expectedVersion) {
+        Software software = softwareMapper.selectById(softwareId);
+        if (software == null || software.getDeletedAt() != null
+                || !software.getOwnerId().equals(userId)) {
+            throw new BusinessException("SOFTWARE_FORBIDDEN", "仅分享者可置顶留言");
+        }
+        // 每软件最多一个置顶：主行锁串行化并发置顶
+        lockMapper.lockSoftware(softwareId);
+        SoftwareComment comment = commentMapper.selectById(commentId);
+        if (comment == null || !softwareId.equals(comment.getSoftwareId())
+                || comment.getParentId() != null
+                || comment.getStatus() != SoftwareCommentStatus.VISIBLE) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "仅可置顶该软件下的可见根留言");
+        }
+        requireCommentVersion(comment, expectedVersion);
+        // 先清旧置顶，再设置目标（同事务）
+        commentMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update
+                .LambdaUpdateWrapper<SoftwareComment>()
+                .eq(SoftwareComment::getSoftwareId, softwareId)
+                .eq(SoftwareComment::getPinned, true)
+                .ne(SoftwareComment::getId, commentId)
+                .set(SoftwareComment::getPinned, false));
+        if (!Boolean.TRUE.equals(comment.getPinned())) {
+            comment.setPinned(true);
+            comment.setLockVersion(comment.getLockVersion() + 1);
+            commentMapper.updateById(comment);
+        }
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public void unpin(Long userId, Long softwareId, Long commentId, Integer expectedVersion) {
+        Software software = softwareMapper.selectById(softwareId);
+        if (software == null || software.getDeletedAt() != null
+                || !software.getOwnerId().equals(userId)) {
+            throw new BusinessException("SOFTWARE_FORBIDDEN", "仅分享者可取消置顶");
+        }
+        SoftwareComment comment = commentMapper.selectById(commentId);
+        if (comment == null || !softwareId.equals(comment.getSoftwareId())) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "留言不存在");
+        }
+        requireCommentVersion(comment, expectedVersion);
+        if (Boolean.TRUE.equals(comment.getPinned())) {
+            comment.setPinned(false);
+            comment.setLockVersion(comment.getLockVersion() + 1);
+            commentMapper.updateById(comment);
+        }
+    }
+
+    private void requireCommentVersion(SoftwareComment comment, Integer expectedVersion) {
+        if (expectedVersion != null && !expectedVersion.equals(comment.getLockVersion())) {
+            throw new BusinessException("SOFTWARE_VERSION_CONFLICT", "留言已被更新，请刷新后重试");
+        }
     }
 
     private SoftwareCommentVO toRootVo(SoftwareComment comment, Long viewerId,
@@ -307,7 +371,8 @@ public class SoftwareCommentServiceImpl implements SoftwareCommentService {
                 null, null, displayContent(comment, status, isSelf(comment, viewerId)),
                 status, comment.getLikeCount(),
                 viewerId == null ? null : likedByMe(comment.getId(), viewerId),
-                comment.getCreatedAt(), previews, hasMore);
+                comment.getCreatedAt(), previews, hasMore,
+                Boolean.TRUE.equals(comment.getPinned()));
     }
 
     private SoftwareCommentVO toVo(SoftwareComment comment, Long viewerId) {
@@ -316,7 +381,8 @@ public class SoftwareCommentServiceImpl implements SoftwareCommentService {
                 null, null, displayContent(comment, status, isSelf(comment, viewerId)),
                 status, comment.getLikeCount(),
                 viewerId == null ? null : likedByMe(comment.getId(), viewerId),
-                comment.getCreatedAt(), null, null);
+                comment.getCreatedAt(), null, null,
+                Boolean.TRUE.equals(comment.getPinned()));
     }
 
     /** 本人创建的待审评论展示为 SELF_PENDING（"待审核"） */
@@ -408,7 +474,8 @@ public class SoftwareCommentServiceImpl implements SoftwareCommentService {
     private SoftwareCommentVO toSelfVo(SoftwareComment comment) {
         return new SoftwareCommentVO(comment.getId(), comment.getParentId(), comment.getUserId(),
                 null, null, comment.getContent(), resolveDisplayStatus(comment, comment.getUserId()),
-                comment.getLikeCount(), false, comment.getCreatedAt(), null, null);
+                comment.getLikeCount(), false, comment.getCreatedAt(), null, null,
+                Boolean.TRUE.equals(comment.getPinned()));
     }
 
     // ------------------------------------------------------------------

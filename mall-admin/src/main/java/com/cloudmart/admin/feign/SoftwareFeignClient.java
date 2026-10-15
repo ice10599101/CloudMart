@@ -158,6 +158,27 @@ public interface SoftwareFeignClient {
                                   @RequestParam(value = "userId", required = false) Long userId,
                                   @RequestParam("page") int page, @RequestParam("size") int size);
 
+    // ---------------- 专题与统计（P1：software:topic / software:stats） ----------------
+
+    @GetMapping("/topics")
+    ApiResponse<Object> topics(@RequestParam("page") int page, @RequestParam("size") int size);
+
+    @GetMapping("/topics/{topicId}")
+    ApiResponse<Object> topicDetail(@PathVariable("topicId") Long topicId);
+
+    @PostMapping("/topics")
+    ApiResponse<Object> createTopic(@RequestBody Map<String, Object> body);
+
+    @PutMapping("/topics/{topicId}")
+    ApiResponse<Object> updateTopic(@PathVariable("topicId") Long topicId,
+                                    @RequestBody Map<String, Object> body);
+
+    @DeleteMapping("/topics/{topicId}")
+    ApiResponse<Object> disableTopic(@PathVariable("topicId") Long topicId);
+
+    @GetMapping("/statistics")
+    ApiResponse<Object> statistics();
+
     @GetMapping("/permission-audits")
     ApiResponse<Object> permissionAudits(
             @RequestParam(value = "userId", required = false) Long userId,

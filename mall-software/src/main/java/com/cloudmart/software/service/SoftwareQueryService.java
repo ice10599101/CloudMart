@@ -20,6 +20,9 @@ public interface SoftwareQueryService {
     /** 软件广场/筛选结果分页 */
     Page<SoftwareCardVO> pageCards(SoftwareListQuery query);
 
+    /** 按 ID 集取卡片（P1 榜单/专题用）：仅公开可见返回；顺序由调用方决定 */
+    List<SoftwareCardVO> cardsByIds(List<Long> softwareIds);
+
     /** 详情（viewerId 可空：游客个性化字段为 null；登录返回 isFavorited） */
     SoftwareDetailVO detail(Long softwareId, Long viewerId);
 

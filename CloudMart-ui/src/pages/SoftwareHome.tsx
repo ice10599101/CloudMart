@@ -4,9 +4,11 @@ import { SearchOutlined } from "@ant-design/icons";
 import { history } from "umi";
 import {
   listSoftware,
+  listSoftwareTopics,
   listSoftwareCategories,
   type SoftwareCard,
   type SoftwareCategory,
+  type SoftwareTopicSummary,
 } from "@/api/software";
 import SoftwareCardGrid from "@/components/software/SoftwareCardGrid";
 import styles from "./SoftwareHome.module.css";
@@ -25,6 +27,8 @@ export default function SoftwareHome() {
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
   const [categories, setCategories] = useState<SoftwareCategory[]>([]);
+  /** P1：专题合集（只取已上线；无专题时整块不渲染） */
+  const [topics, setTopics] = useState<SoftwareTopicSummary[]>([]);
   const [recommended, setRecommended] = useState<SoftwareCard[]>([]);
   const [latest, setLatest] = useState<SoftwareCard[]>([]);
 
@@ -36,6 +40,12 @@ export default function SoftwareHome() {
       .catch(() => {
         // 分类加载失败不阻塞主列表：广场本身仍可浏览
       });
+  }, []);
+
+  useEffect(() => {
+    listSoftwareTopics()
+      .then((res) => setTopics(res.data.data ?? []))
+      .catch(() => setTopics([]));
   }, []);
 
   useEffect(() => {
@@ -86,6 +96,11 @@ export default function SoftwareHome() {
             }}
           />
         </div>
+        <div className={styles.quickLinks}>
+          <Button type="link" onClick={() => history.push("/software/rankings")}>
+            排行榜（获取热榜 / 收藏榜 / 评分榜）
+          </Button>
+        </div>
         <div className={styles.categories}>
           <Tag style={{ cursor: "pointer" }} onClick={() => goExplore({})}>
             全部
@@ -134,6 +149,26 @@ export default function SoftwareHome() {
               </div>
               <SoftwareCardGrid cards={latestVisible} />
             </section>
+
+            {/* P1 专题合集：运营维护，只展示已上线专题 */}
+            {topics.length > 0 ? (
+              <section>
+                <div className={styles.sectionHead}>
+                  <h2 className={styles.sectionTitle}>专题合集</h2>
+                </div>
+                <div className={styles.topicList}>
+                  {topics.map((topic) => (
+                    <Tag
+                      key={topic.topicId}
+                      className={styles.topicTag}
+                      onClick={() => history.push(`/software/topics/${topic.slug}`)}
+                    >
+                      {topic.title}
+                    </Tag>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </>
         )}
       </Spin>

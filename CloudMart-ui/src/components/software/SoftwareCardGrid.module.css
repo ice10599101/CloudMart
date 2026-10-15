@@ -85,3 +85,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 榜单名次徽标（仅 rankOffset 传参时渲染） */
+.rankBadge {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}

@@ -79,6 +79,10 @@ class SoftwareQueryServiceImplTest {
     @Mock
     private SoftwareFavoriteMapper favoriteMapper;
     @Mock
+    private com.cloudmart.software.repository.SoftwareRatingMapper ratingMapper;
+    @Mock
+    private com.cloudmart.software.repository.SoftwareSubscriptionMapper subscriptionMapper;
+    @Mock
     private SoftwareAccessContactMapper accessContactMapper;
     @Mock
     private UserSupportFeignClient userSupportFeignClient;

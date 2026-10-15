@@ -24,5 +24,7 @@ public record SoftwareCommentVO(
         /** 仅根楼：回复预览（升序 ≤3 条，已过隐私过滤） */
         List<SoftwareCommentVO> replies,
         /** 仅根楼：是否存在预览之外的可见回复 */
-        Boolean replyHasMore) {
+        Boolean replyHasMore,
+        /** 仅根楼：作者置顶（P1；每软件最多一个可见根评论） */
+        Boolean pinned) {
 }

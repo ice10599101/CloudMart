@@ -34,6 +34,15 @@ public interface NotificationService {
      * 小答软件域事件通知（方案 9.4）：eventId + recipientId 唯一去重——
      * MQ at-least-once 重投/并发双消费不产生重复站内信；重复事件静默跳过。
      */
+    /**
+     * 订阅更新批量提醒（P1 9.4）：mall-software fanout 调用；
+     * 按 eventId=SWREL:{softwareId}:{publicationSeq} + userId 稳定去重（重复投递不重复通知）。
+     *
+     * @return 实际创建的（未被去重跳过的）通知条数
+     */
+    int sendSoftwareReleaseNotifications(Long softwareId, Integer publicationSeq, Long revisionId,
+                                         java.util.List<Long> userIds);
+
     void sendSoftwareEventNotification(Long userId, String eventId, String type, String title,
                                        String content, Long bizId, String bizType, Long actorId);
 

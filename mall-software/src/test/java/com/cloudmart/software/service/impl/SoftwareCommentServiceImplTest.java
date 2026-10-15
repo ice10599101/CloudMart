@@ -99,7 +99,7 @@ class SoftwareCommentServiceImplTest {
         lenient().when(rateLimiter.allowComment(any())).thenReturn(true);
         service = new SoftwareCommentServiceImpl(accessPolicy, softwareMapper, commentMapper,
                 commentLikeMapper, communitySupportFeignClient, userSupportFeignClient,
-                operationService, rateLimiter, outboxService, new ObjectMapper(),
+                operationService, rateLimiter, null, outboxService, new ObjectMapper(),
                 Clock.fixed(Instant.parse("2026-10-15T12:00:00Z"), ZoneId.systemDefault()),
                 transactionTemplate);
 

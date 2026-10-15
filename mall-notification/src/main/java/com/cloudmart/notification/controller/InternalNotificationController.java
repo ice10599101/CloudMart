@@ -8,7 +8,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +29,11 @@ import java.util.List;
 @Tag(name = "通知·内部端点", description = "mall-pet 专用：按用户查询通知列表/未读数（外部不可达）")
 @RequiredArgsConstructor
 public class InternalNotificationController {
+
+    /** 订阅更新批量提醒请求（mall-software fanout 内部契约镜像） */
+    public record SoftwareReleaseNotifyRequest(Long softwareId, Integer publicationSeq,
+                                               Long revisionId, List<Long> userIds) {
+    }
 
     private final NotificationService notificationService;
 
@@ -51,6 +58,17 @@ public class InternalNotificationController {
             @RequestParam("userId") Long userId,
             @RequestParam("type") String type) {
         return ApiResponse.ok(notificationService.markAllAsReadByType(userId, type.toUpperCase()));
+    }
+
+    @PostMapping("/software-release")
+    @Operation(summary = "订阅更新批量提醒（P1）",
+            description = "mall-software fanout 调用：按 SWREL:{softwareId}:{publicationSeq} "
+                    + "+ userId 稳定去重，重复批次不重复通知；返回实际创建条数")
+    @PreAuthorize("hasRole('INTERNAL')")
+    public ApiResponse<Integer> softwareRelease(@RequestBody SoftwareReleaseNotifyRequest request) {
+        return ApiResponse.ok(notificationService.sendSoftwareReleaseNotifications(
+                request.softwareId(), request.publicationSeq(), request.revisionId(),
+                request.userIds()));
     }
 
     @GetMapping("/unread-count")

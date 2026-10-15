@@ -1,0 +1,23 @@
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.note {
+  margin-top: 10px;
+}
+
+.pager {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}

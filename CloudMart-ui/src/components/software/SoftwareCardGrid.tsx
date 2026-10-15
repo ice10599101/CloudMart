@@ -30,13 +30,15 @@ function formatUpdatedAt(value: string | null): string {
 
 interface Props {
   cards: SoftwareCard[];
+  /** 榜单场景：显示名次（第 offset+1 名起），广场/筛选不传 */
+  rankOffset?: number;
 }
 
 /** 软件卡片网格：广场与筛选结果共用，避免两处维护同一套卡片结构 */
-export default function SoftwareCardGrid({ cards }: Props) {
+export default function SoftwareCardGrid({ cards, rankOffset }: Props) {
   return (
     <div className={styles.grid}>
-      {cards.map((item) => (
+      {cards.map((item, index) => (
         <Card
           key={item.id}
           hoverable
@@ -44,6 +46,11 @@ export default function SoftwareCardGrid({ cards }: Props) {
           onClick={() => history.push(`/software/${item.id}`)}
         >
           <div className={styles.cardHead}>
+            {rankOffset !== undefined ? (
+              <span className={styles.rankBadge} aria-label={`第 ${rankOffset + index + 1} 名`}>
+                {rankOffset + index + 1}
+              </span>
+            ) : null}
             <img
               className={styles.icon}
               src={iconUrl(item.iconAssetId) ?? "/default-avatar.png"}

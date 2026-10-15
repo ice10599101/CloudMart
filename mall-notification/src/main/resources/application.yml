@@ -127,7 +127,7 @@ cloudmart:
         issuers: [mall-admin]
         scope: notification:admin
       - prefix: /internal
-        issuers: [mall-user, mall-job, mall-pet]
+        issuers: [mall-user, mall-job, mall-pet, mall-software]
         scope: notification:internal
     outbound-scopes:
       mall-user: user:admin

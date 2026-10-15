@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * 软件广场列表查询（方案 7.2）：筛选写入 URL；sort=recommend/latest/popular。
+ * 软件广场列表查询（方案 7.2）：筛选写入 URL；sort=recommend/latest/popular（P1 增 rating）。
  * 分页 page 从 1 起，size 默认 20 最大 50；page 过大限制 1000。
  */
 @Getter
@@ -22,7 +22,7 @@ public class SoftwareListQuery {
 
     private Long tagId;
 
-    /** recommend/latest/popular（非法值回落 recommend） */
+    /** recommend/latest/popular/rating（P1；非法值回落 recommend） */
     private String sort = "recommend";
 
     private Integer page = 1;

@@ -59,3 +59,21 @@
     padding: 0 16px 40px;
   }
 }
+
+/* P1：首页快捷入口与专题合集 */
+.quickLinks {
+  margin-top: 4px;
+  text-align: center;
+}
+
+.topicList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.topicTag {
+  cursor: pointer;
+  padding: 4px 12px;
+  font-size: 13px;
+}

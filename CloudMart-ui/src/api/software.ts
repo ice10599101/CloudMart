@@ -81,7 +81,7 @@ export interface SoftwareListQuery {
   license?: string;
   tagId?: string;
   /** recommend=推荐位优先、latest=最近更新、popular=获取链接与收藏热度 */
-  sort?: "recommend" | "latest" | "popular";
+  sort?: "recommend" | "latest" | "popular" | "rating";
   page?: number;
   size?: number;
 }
@@ -120,6 +120,12 @@ export interface SoftwareDetail {
   ownerNickname: string | null;
   ownerAvatar: string | null;
   isFavorited: boolean;
+  /** 分享者会员 ID（前端判断作者操作如置顶留言） */
+  ownerId: string;
+  /** 我的评分 1~5（未评分/游客 null；P1） */
+  myScore: number | null;
+  /** 是否已订阅更新（游客 null；P1） */
+  isSubscribed: boolean | null;
 }
 
 export interface SoftwareSourceSummary {
@@ -207,6 +213,8 @@ export interface SoftwareComment {
   createdAt: string;
   replies: SoftwareComment[];
   replyHasMore: boolean;
+  /** 作者置顶（P1；每软件最多一个可见根评论） */
+  pinned: boolean;
 }
 
 export interface SoftwareCommentCreatePayload {
@@ -537,6 +545,137 @@ export function reportSoftware(
     url,
     payload,
     softwareWriteConfig("POST", url, payload, idempotencyKey),
+  );
+}
+
+// ========== 排行榜 / 专题（P1） ==========
+
+export type SoftwareRankingType = "access" | "favorite" | "rating";
+
+/** 排行榜（P1）：access=7 天获取去重人数；favorite=7 天新增收藏；rating=贝叶斯（≥5 人） */
+export function listSoftwareRankings(params?: {
+  type?: SoftwareRankingType;
+  page?: number;
+  size?: number;
+}) {
+  return request.get<ApiResponse<PageResult<SoftwareCard>>>(
+    `${BASE}/rankings`,
+    { params },
+  );
+}
+
+export interface SoftwareTopicSummary {
+  topicId: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  coverAssetId: string | null;
+  sortOrder: number;
+}
+
+export interface SoftwareTopicDetail {
+  topicId: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  coverAssetId: string | null;
+  items: SoftwareCard[];
+}
+
+/** 专题列表（P1）：只返回 PUBLISHED */
+export function listSoftwareTopics() {
+  return request.get<ApiResponse<SoftwareTopicSummary[]>>(`${BASE}/topics`);
+}
+
+/** 专题详情（P1）：清单已按实时可见性过滤 */
+export function getSoftwareTopic(slug: string) {
+  return request.get<ApiResponse<SoftwareTopicDetail>>(
+    `${BASE}/topics/${slug}`,
+  );
+}
+
+// ========== 评分 / 订阅 / 提醒偏好（P1） ==========
+
+export interface SoftwareRatingResult {
+  softwareId: string;
+  myScore: number | null;
+  ratingCount: number;
+  ratingAvg: number | null;
+}
+
+/** 评分（P1）：新建/改分幂等；分享者不能给自己评分 */
+export function rateSoftware(
+  id: string,
+  score: number,
+  expectedVersion?: number,
+) {
+  return request.put<ApiResponse<SoftwareRatingResult>>(
+    `${BASE}/${id}/rating`,
+    { score, expectedVersion },
+  );
+}
+
+/** 撤销评分（P1）：幂等 */
+export function revokeSoftwareRating(id: string, expectedVersion?: number) {
+  return request.delete<ApiResponse<SoftwareRatingResult>>(
+    `${BASE}/${id}/rating`,
+    { params: { expectedVersion } },
+  );
+}
+
+/** 订阅更新（P1）：幂等；与收藏相互独立 */
+export function subscribeSoftware(id: string) {
+  return request.put<ApiResponse<void>>(`${BASE}/${id}/subscription`);
+}
+
+/** 取消订阅（P1）：幂等；软件下架也成功 */
+export function unsubscribeSoftware(id: string) {
+  return request.delete<ApiResponse<void>>(`${BASE}/${id}/subscription`);
+}
+
+export interface SoftwarePreference {
+  updateNotifications: boolean;
+  lockVersion: number;
+}
+
+/** 读取更新提醒偏好（P1）：无记录视为开启 */
+export function getSoftwarePreferences() {
+  return request.get<ApiResponse<SoftwarePreference>>(`${BASE}/preferences`);
+}
+
+/** 修改更新提醒偏好（P1） */
+export function updateSoftwarePreferences(payload: {
+  updateNotifications: boolean;
+  expectedVersion?: number;
+}) {
+  return request.put<ApiResponse<SoftwarePreference>>(
+    `${BASE}/preferences`,
+    payload,
+  );
+}
+
+/** 置顶留言（P1）：仅分享者；每软件最多一个可见根留言 */
+export function pinSoftwareComment(
+  id: string,
+  commentId: string,
+  expectedVersion?: number,
+) {
+  return request.put<ApiResponse<void>>(
+    `${BASE}/${id}/comments/${commentId}/pin`,
+    null,
+    { params: { expectedVersion } },
+  );
+}
+
+/** 取消置顶（P1）：仅分享者；幂等 */
+export function unpinSoftwareComment(
+  id: string,
+  commentId: string,
+  expectedVersion?: number,
+) {
+  return request.delete<ApiResponse<void>>(
+    `${BASE}/${id}/comments/${commentId}/pin`,
+    { params: { expectedVersion } },
   );
 }
 

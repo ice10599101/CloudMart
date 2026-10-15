@@ -52,6 +52,8 @@ public class SoftwareOperationService {
     public static final String OP_CATEGORY_DISABLE = "CATEGORY_DISABLE";
     public static final String OP_TAG_SAVE = "TAG_SAVE";
     public static final String OP_TAG_DISABLE = "TAG_DISABLE";
+    public static final String OP_TOPIC_SAVE = "TOPIC_SAVE";
+    public static final String OP_TOPIC_DISABLE = "TOPIC_DISABLE";
 
     private final SoftwareOperationMapper operationMapper;
     private final ObjectMapper objectMapper;

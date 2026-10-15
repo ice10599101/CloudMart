@@ -5,6 +5,8 @@ import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.software.dto.software.SoftwareListQuery;
 import com.cloudmart.software.service.SoftwareQueryService;
+import com.cloudmart.software.service.SoftwareRankingService;
+import com.cloudmart.software.service.SoftwareTopicService;
 import com.cloudmart.software.vo.software.SoftwareAccessPolicyVO;
 import com.cloudmart.software.vo.software.SoftwareCardVO;
 import com.cloudmart.software.vo.software.SoftwareCategoryVO;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 小答软件公开只读端点（方案 7.2）：匿名可浏览；
@@ -36,6 +39,8 @@ import java.util.List;
 public class SoftwareController {
 
     private final SoftwareQueryService softwareQueryService;
+    private final SoftwareRankingService softwareRankingService;
+    private final SoftwareTopicService softwareTopicService;
 
     @GetMapping
     @Operation(summary = "软件广场", description = "keyword/categoryId/platform/license/tagId/sort 筛选；仅已发布可见")
@@ -56,6 +61,30 @@ public class SoftwareController {
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
         return ApiResponse.ok(softwareQueryService.pageTags(keyword, page, size));
+    }
+
+    @GetMapping("/rankings")
+    @Operation(summary = "排行榜（P1）",
+            description = "type=access（7 天获取去重人数）/favorite（7 天新增收藏）/rating"
+                    + "（至少 5 人，贝叶斯平滑）；缓存后仍按实时可见性过滤")
+    public ApiResponse<Page<SoftwareCardVO>> rankings(
+            @RequestParam(value = "type", defaultValue = "access") String type,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(softwareRankingService.rankings(type, page, size));
+    }
+
+    @GetMapping("/topics")
+    @Operation(summary = "专题列表（P1）", description = "只显示 PUBLISHED")
+    public ApiResponse<List<Map<String, Object>>> topics() {
+        return ApiResponse.ok(softwareTopicService.listPublished());
+    }
+
+    @GetMapping("/topics/{slug}")
+    @Operation(summary = "专题详情（P1）",
+            description = "运营说明 + 软件清单；不可见软件从公共专题实时过滤")
+    public ApiResponse<Map<String, Object>> topicDetail(@PathVariable("slug") String slug) {
+        return ApiResponse.ok(softwareTopicService.publishedDetail(slug));
     }
 
     @GetMapping("/{id}")

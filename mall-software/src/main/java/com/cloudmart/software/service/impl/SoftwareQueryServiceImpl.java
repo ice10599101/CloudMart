@@ -69,6 +69,8 @@ public class SoftwareQueryServiceImpl implements com.cloudmart.software.service.
     private final SoftwareTagMapper tagMapper;
     private final SoftwareRevisionMediaMapper revisionMediaMapper;
     private final SoftwareFavoriteMapper favoriteMapper;
+    private final com.cloudmart.software.repository.SoftwareRatingMapper ratingMapper;
+    private final com.cloudmart.software.repository.SoftwareSubscriptionMapper subscriptionMapper;
     private final SoftwareAccessContactMapper accessContactMapper;
     private final UserSupportFeignClient userSupportFeignClient;
     private final ObjectMapper objectMapper;
@@ -77,10 +79,24 @@ public class SoftwareQueryServiceImpl implements com.cloudmart.software.service.
     public Page<SoftwareCardVO> pageCards(SoftwareListQuery query) {
         Page<SoftwareQueryMapper.CardRow> rows =
                 queryMapper.pageCards(Page.of(query.safePage(), query.safeSize()), query);
+        Page<SoftwareCardVO> result = new Page<>(rows.getCurrent(), rows.getSize(), rows.getTotal());
+        result.setRecords(assembleCards(rows.getRecords()));
+        return result;
+    }
 
-        // 批量加载软件指针（行 ID 即软件 ID），再按 published revision 批查平台去重集
-        List<Long> softwareIds = rows.getRecords().stream()
-                .map(SoftwareQueryMapper.CardRow::id).toList();
+    @Override
+    public List<SoftwareCardVO> cardsByIds(List<Long> softwareIds) {
+        List<Long> ids = softwareIds == null ? List.of()
+                : softwareIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return assembleCards(queryMapper.cardsByIds(ids));
+    }
+
+    /** 卡片行 → VO：批量加载发布快照指针与平台去重集，消除 N+1（9.2） */
+    private List<SoftwareCardVO> assembleCards(List<SoftwareQueryMapper.CardRow> rows) {
+        List<Long> softwareIds = rows.stream().map(SoftwareQueryMapper.CardRow::id).toList();
         Map<Long, Long> revisionIdBySoftware = softwareIds.isEmpty() ? Map.of()
                 : softwareMapper.selectBatchIds(softwareIds).stream()
                         .filter(software -> software.getPublishedRevisionId() != null)
@@ -94,9 +110,7 @@ public class SoftwareQueryServiceImpl implements com.cloudmart.software.service.
                                 Collectors.mapping(
                                         SoftwareQueryMapper.PlatformRow::platform,
                                         Collectors.toList())));
-
-        Page<SoftwareCardVO> result = new Page<>(rows.getCurrent(), rows.getSize(), rows.getTotal());
-        result.setRecords(rows.getRecords().stream()
+        return rows.stream()
                 .map(row -> new SoftwareCardVO(
                         row.id(), row.name(), row.summary(), row.iconAssetId(),
                         row.categoryId(), row.categoryName(), row.licenseType(),
@@ -105,8 +119,7 @@ public class SoftwareQueryServiceImpl implements com.cloudmart.software.service.
                         row.lastReleaseAt(), row.favoriteCount(), row.commentCount(),
                         row.ratingCount(),
                         ratingAvg(row.ratingCount(), row.ratingSum())))
-                .toList());
-        return result;
+                .toList();
     }
 
     @Override
@@ -154,6 +167,22 @@ public class SoftwareQueryServiceImpl implements com.cloudmart.software.service.
                         .eq(SoftwareFavorite::getSoftwareId, softwareId)
                         .eq(SoftwareFavorite::getUserId, viewerId)) > 0;
 
+        // P1：登录用户个性化——我的评分 / 是否订阅更新
+        Integer myScore = null;
+        Boolean isSubscribed = null;
+        if (viewerId != null) {
+            var rating = ratingMapper.selectOne(new LambdaQueryWrapper<
+                            com.cloudmart.software.entity.SoftwareRating>()
+                    .eq(com.cloudmart.software.entity.SoftwareRating::getUserId, viewerId)
+                    .eq(com.cloudmart.software.entity.SoftwareRating::getSoftwareId, softwareId));
+            myScore = rating == null ? null : rating.getScore();
+            isSubscribed = subscriptionMapper.selectCount(new LambdaQueryWrapper<
+                            com.cloudmart.software.entity.SoftwareSubscription>()
+                    .eq(com.cloudmart.software.entity.SoftwareSubscription::getUserId, viewerId)
+                    .eq(com.cloudmart.software.entity.SoftwareSubscription::getSoftwareId,
+                            softwareId)) > 0;
+        }
+
         return new SoftwareDetailVO(softwareId, revision.getName(), revision.getSummary(),
                 revision.getDescriptionHtml(), revision.getIconAssetId(),
                 revision.getCategoryId(), categoryName, tags, screenshots,
@@ -165,7 +194,8 @@ public class SoftwareQueryServiceImpl implements com.cloudmart.software.service.
                 software.getCommentCount(), software.getFavoriteCount(),
                 software.getRatingCount(), ratingAvg(software.getRatingCount(),
                 software.getRatingSum()),
-                ownerNickname, ownerAvatar, isFavorited);
+                ownerNickname, ownerAvatar, isFavorited,
+                software.getOwnerId(), myScore, isSubscribed);
     }
 
     private List<SoftwareTagVO> loadTags(Long revisionId) {
