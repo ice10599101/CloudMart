@@ -76,6 +76,8 @@ export default defineConfig({
         { path: '/user/:id/following', component: '@/pages/Following' },
         { path: '/collections', component: '@/pages/Collections' },
         { path: '/gift/my', component: '@/pages/MyGifts' },
+        // 小答软件（S07）：固定路径必须先于 /software/:id 声明（手册 §3.1）
+        { path: '/software', component: '@/pages/SoftwareHome' },
         { path: '/wish', component: '@/pages/WishHome' },
         { path: '/wish/list', component: '@/pages/WishSquare' },
         { path: '/wish/create', component: '@/pages/WishCreate' },
