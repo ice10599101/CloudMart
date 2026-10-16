@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   App,
   Button,
@@ -29,6 +29,7 @@ import {
   type SoftwareLicenseType,
   type SoftwareSourceType,
   type SoftwareTag,
+  getSoftwareEditor,
 } from "@/api/software";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -117,8 +118,9 @@ export default function SoftwarePublish() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // ---------------- 草稿跨页保留（sessionStorage；提交成功即清） ----------------
+  // ---------------- 草稿跨页保留（localStorage；提交成功即清） ----------------
   const DRAFT_KEY = "software-publish-draft";
+  const restoredRef = useRef(false);
 
   // 恢复：切走再回来时还原已填内容与服务端进度（含未提交完的 softwareId 链）
   useEffect(() => {
@@ -157,12 +159,14 @@ export default function SoftwarePublish() {
     if (draft.softwareId) setSoftwareId(draft.softwareId);
     if (draft.revisionId) setRevisionId(draft.revisionId);
     if (draft.lockVersion != null) setLockVersion(draft.lockVersion);
-    // 仅挂载恢复一次
+    restoredRef.current = true;
+    // 仅挂载恢复一次；置位后保存 effect 才开始写档（防挂载初始值覆盖存档）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 保存：任一草稿字段变化即落 sessionStorage
+  // 保存：任一草稿字段变化即落 localStorage（恢复完成前不写，防挂载空值覆盖存档）
   useEffect(() => {
+    if (!restoredRef.current) return;
     savePageDraft(DRAFT_KEY, {
       name,
       summary,
@@ -311,11 +315,12 @@ export default function SoftwarePublish() {
       if (!res.data.success) return;
       setLockVersion(res.data.data?.lockVersion ?? lockVersion);
       message.success("草稿已保存");
-    } catch {
-      // 统一拦截器已提示（版本冲突等）；防 Unhandled Rejection 炸屏
+    } catch (err) {
+      await syncOnConflict(err, setSaving);
     } finally {
       setSaving(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildPayload, lockVersion, message, name, revisionId, softwareId]);
 
   /** 提交审核二次确认：提交即进入待审队列，内容冻结不可再编辑 */
@@ -328,6 +333,63 @@ export default function SoftwarePublish() {
       onOk: () => doSubmit(),
     })
   }, [])
+
+  /**
+   * 版本冲突自愈（A08）：SOFTWARE_VERSION_CONFLICT 时以服务端 editor 为准
+   * 覆盖本地草稿并同步版本号（冲突即服务端已有更新版本，本地覆盖合理），
+   * 明确提示用户核对；其余错误维持拦截器统一提示，不额外处理。
+   */
+  const syncOnConflict = useCallback(
+    async (err: unknown, setBusy: (v: boolean) => void) => {
+      const code = (err as { code?: string } | null)?.code;
+      if (code !== "SOFTWARE_VERSION_CONFLICT" || !softwareId) {
+        return; // 拦截器已提示；防 Unhandled Rejection 炸屏
+      }
+      setBusy(true);
+      try {
+        const res = await getSoftwareEditor(softwareId);
+        if (!res.data.success) return;
+        const editor = res.data.data;
+        setName(editor.name ?? "");
+        setSummary(editor.summary ?? "");
+        setCategoryId(editor.categoryId ?? undefined);
+        setDescriptionHtml(editor.descriptionHtml ?? "");
+        if (editor.licenseType) setLicenseType(editor.licenseType);
+        setDeveloperName(editor.developerName ?? "");
+        setOfficialUrl(editor.officialUrl ?? "");
+        setSystemRequirements(editor.systemRequirements ?? "");
+        setTagIds(editor.tagIds ?? []);
+        setAccessMode(editor.accessMode);
+        if (editor.minCommunityLevel != null)
+          setMinCommunityLevel(editor.minCommunityLevel);
+        if (editor.accessContactId) setAccessContactId(editor.accessContactId);
+        setReleases(
+          editor.releases.map((release) => ({
+            uid: nextDraftUid(),
+            versionName: release.versionName,
+            changelog: release.changelog ?? "",
+            recommended: Boolean(release.recommended),
+            sources: release.sources.map((source) => ({
+              uid: nextDraftUid(),
+              sourceType: source.sourceType,
+              link: source.url ?? "",
+              extractionCode: source.extractionCode ?? "",
+            })),
+          })),
+        );
+        setRevisionId(editor.revisionId);
+        setLockVersion(editor.lockVersion);
+        message.info(
+          "检测到内容已在服务器更新，已同步最新版本，请核对后再操作",
+        );
+      } catch {
+        // 同步失败维持拦截器提示
+      } finally {
+        setBusy(false);
+      }
+    },
+    [message, softwareId],
+  );
 
   const doSubmit = useCallback(async () => {
     if (!name.trim()) {
@@ -371,8 +433,8 @@ export default function SoftwarePublish() {
       clearPageDraft(DRAFT_KEY);
       message.success("已提交审核，审核通过后公开可见");
       history.push("/software/mine");
-    } catch {
-      // 统一拦截器已提示（版本冲突/校验/审核拒绝）；此处防 Unhandled Rejection 炸屏
+    } catch (err) {
+      await syncOnConflict(err, setSubmitting);
     } finally {
       setSubmitting(false);
     }
