@@ -29,7 +29,6 @@ import {
   type SoftwareLicenseType,
   type SoftwareSourceType,
   type SoftwareTag,
-  getSoftwareEditor,
 } from "@/api/software";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -321,16 +320,7 @@ export default function SoftwarePublish() {
       setLockVersion(res.data.data?.lockVersion ?? lockVersion);
       message.success("草稿已保存");
     } catch (err) {
-      const code = (err as { code?: string } | null)?.code;
-      if (code === "SOFTWARE_NOT_FOUND") {
-        // 服务端草稿已被删除：清进度重走创建链，本地内容原样保留
-        setSoftwareId(null);
-        setRevisionId(null);
-        setLockVersion(null);
-        await doSaveFresh();
-        return;
-      }
-      await syncOnConflict(err, setSaving);
+      // 拦截器已统一提示
     } finally {
       setSaving(false);
     }
@@ -348,47 +338,6 @@ export default function SoftwarePublish() {
     })
   }, [])
 
-  /**
-   * 版本冲突自愈（A08）：冲突时【保留本地内容】（那才是用户的真实意图——
-   * 服务端可能只是 create 建出的空壳），仅同步服务端进度（revisionId/lockVersion），
-   * 并用本地内容自动重试一次保存；提交链冲突则保存后提示再次点击提交。
-   */
-  const syncOnConflict = useCallback(
-    async (err: unknown, setBusy: (v: boolean) => void) => {
-      const code = (err as { code?: string } | null)?.code;
-      if (code !== "SOFTWARE_VERSION_CONFLICT" || !softwareId) {
-        return; // 拦截器已提示；防 Unhandled Rejection 炸屏
-      }
-      setBusy(true);
-      try {
-        const res = await getSoftwareEditor(softwareId);
-        if (!res.data.success) return;
-        const editor = res.data.data;
-        if (editor.reviewStatus !== "DRAFT" && editor.reviewStatus !== "REJECTED") {
-          message.info("该软件当前状态不可编辑，请刷新后查看");
-          return;
-        }
-        // 只同步进度，不动本地已填内容
-        setRevisionId(editor.revisionId);
-        setLockVersion(editor.lockVersion);
-        const saved = await saveSoftwareDraft(editor.softwareId ?? softwareId, editor.revisionId, {
-          ...buildPayload(),
-          expectedVersion: editor.lockVersion,
-        });
-        if (saved.data.success) {
-          setLockVersion(saved.data.data?.lockVersion ?? editor.lockVersion);
-          message.success("检测到版本冲突，已自动以最新版本保存你的内容");
-        } else {
-          message.warning("版本冲突已同步，请重试保存");
-        }
-      } catch {
-        // 同步/重试失败维持拦截器提示
-      } finally {
-        setBusy(false);
-      }
-    },
-    [buildPayload, message, softwareId],
-  );
 
   const doSubmit = useCallback(async () => {
     if (!name.trim()) {
@@ -433,7 +382,7 @@ export default function SoftwarePublish() {
       message.success("已提交审核，审核通过后公开可见");
       history.push("/software/mine");
     } catch (err) {
-      await syncOnConflict(err, setSubmitting);
+      // 拦截器已统一提示
     } finally {
       setSubmitting(false);
     }
