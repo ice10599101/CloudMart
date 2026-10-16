@@ -40,6 +40,12 @@ public class AfterSaleCase {
     /** 订单项 ID（null=整单售后） */
     private Long itemId;
 
+    /** 请求事实键（TRADE-01：客户端 X-Idempotency-Key；同键同参重放返回原案件，同键异参拒绝） */
+    private String requestKey;
+
+    /** 请求载荷摘要（TRADE-01：与 requestKey 联合判同键异参） */
+    private String payloadHash;
+
     private String type;
 
     private String reason;

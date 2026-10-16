@@ -628,7 +628,7 @@ public class OrderServiceImpl implements OrderService {
         }
         afterSaleCaseService.apply(userId, new com.cloudmart.order.dto.CreateAfterSaleRequest(
                 orderId, null, com.cloudmart.order.entity.AfterSaleCase.TYPE_REFUND_ONLY,
-                refundReason, null, 0));
+                refundReason, null, 0), null);
         return buildOrderDto(orderId);
     }
 
@@ -681,8 +681,10 @@ public class OrderServiceImpl implements OrderService {
 
     /**
      * T04：明细实付分摊——按价×量占比分摊订单实付（2 位小数向下截断，余数归属末项
-     * 固定规则），保证明细和恒等于订单实付。报价异常（gross≤0）不猜测，留 NULL
-     * 走人工规则。
+     * 固定规则），保证明细和恒等于订单实付。
+     *
+     * <p>TRADE-01：建单强制写实付快照——报价/实付异常时不再留 NULL（售后金额核定
+     * 只能依据快照，NULL 会导致受理事后 fail-closed），统一落 0.00 并告警待人工核查。</p>
      */
     private void allocateItemPayAmounts(List<OrderItem> items, BigDecimal payAmount) {
         if (items == null || items.isEmpty()) {
@@ -691,8 +693,12 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal gross = items.stream()
                 .map(i -> i.getPrice().multiply(BigDecimal.valueOf(i.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (gross.compareTo(BigDecimal.ZERO) <= 0 || payAmount == null || payAmount.compareTo(BigDecimal.ZERO) < 0) {
-            log.warn("[T04] 明细分摊跳过（报价或实付异常）, payAmount={}, gross={}", payAmount, gross);
+        if (payAmount == null || payAmount.compareTo(BigDecimal.ZERO) < 0
+                || gross.compareTo(BigDecimal.ZERO) <= 0) {
+            log.warn("[T04/TRADE-01] 明细分摊异常，按 0.00 快照落库待人工核查, payAmount={}, gross={}",
+                    payAmount, gross);
+            BigDecimal zero = BigDecimal.ZERO.setScale(2);
+            items.forEach(i -> i.setPayAmount(zero));
             return;
         }
         BigDecimal allocated = BigDecimal.ZERO;

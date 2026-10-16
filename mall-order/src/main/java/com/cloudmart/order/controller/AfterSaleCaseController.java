@@ -34,16 +34,30 @@ public class AfterSaleCaseController {
     private final AfterSaleCaseService afterSaleCaseService;
 
     @PostMapping("/{orderId}/after-sale")
-    @Operation(summary = "申请售后", description = "PAID/SHIPPED 可申请；未发货仅退款，已发货按项退货退款；同单同项 PENDING 唯一")
+    @Operation(summary = "申请售后",
+            description = "PAID/SHIPPED/COMPLETED（确认收货 N 天内）可申请；未发货仅退款，已发货按项退货退款；"
+                    + "X-Idempotency-Key 同键同参重放返回原案件、同键异参 409")
     public ApiResponse<AfterSaleCaseVO> apply(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "订单ID", required = true) @PathVariable Long orderId,
+            @Parameter(description = "幂等键（客户端持久键；缺省不参与重放收敛）")
+            @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateAfterSaleRequest request) {
         // orderId 以路径为准（防 body 越权改单）
         CreateAfterSaleRequest scoped = new CreateAfterSaleRequest(
                 orderId, request.itemId(), request.type(), request.reason(),
                 request.attachmentFileIds(), request.quantity());
-        return ApiResponse.ok(afterSaleCaseService.apply(userId, scoped));
+        return ApiResponse.ok(afterSaleCaseService.apply(userId, scoped, idempotencyKey));
+    }
+
+    @GetMapping("/{orderId}/after-sale/eligibility")
+    @Operation(summary = "售后可申请性",
+            description = "TRADE-01：allowedTypes/剩余数量/剩余可退金额/窗口截止/拒绝原因，与 apply 校验同源")
+    public ApiResponse<com.cloudmart.order.dto.AfterSaleEligibilityVO> eligibility(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @Parameter(description = "订单ID", required = true) @PathVariable Long orderId,
+            @Parameter(description = "订单项ID（缺省=整单维度）") @RequestParam(required = false) Long itemId) {
+        return ApiResponse.ok(afterSaleCaseService.eligibility(userId, orderId, itemId));
     }
 
     @PostMapping("/after-sale/{caseId}/cancel")

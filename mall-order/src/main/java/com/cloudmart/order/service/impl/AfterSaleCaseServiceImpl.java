@@ -7,6 +7,7 @@ import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.outbox.OutboxService;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.order.dto.AfterSaleCaseVO;
+import com.cloudmart.order.dto.AfterSaleEligibilityVO;
 import com.cloudmart.order.dto.CreateAfterSaleRequest;
 import com.cloudmart.order.entity.AfterSaleCase;
 import com.cloudmart.order.entity.AfterSaleCaseEvent;
@@ -18,11 +19,13 @@ import com.cloudmart.order.repository.OrderItemMapper;
 import com.cloudmart.order.repository.OrderMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -45,10 +48,13 @@ import java.util.UUID;
 public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.AfterSaleCaseService {
 
     private static final Set<String> ALLOWED_TYPES = Set.of(AfterSaleCase.TYPE_REFUND_ONLY, AfterSaleCase.TYPE_RETURN_REFUND);
-    private static final Set<String> APPLICABLE_ORDER_STATUS = Set.of("PAID", "SHIPPED");
+    /** TRADE-01：可申请订单状态——PAID/SHIPPED 不限时；COMPLETED 受 applyWindowDays 窗口约束 */
+    private static final Set<String> APPLICABLE_ORDER_STATUS = Set.of("PAID", "SHIPPED", "COMPLETED");
     /** 数量占用口径：预占（PENDING/APPROVED）+ 已退（REFUNDED）都不可再次申请 */
     private static final Set<String> QUANTITY_OCCUPYING_STATUSES =
             Set.of(AfterSaleCase.STATUS_PENDING, AfterSaleCase.STATUS_APPROVED, AfterSaleCase.STATUS_REFUNDED);
+    /** TRADE-01：请求键上限（超出按参数错误拒绝，防止超长键打爆唯一索引） */
+    private static final int MAX_REQUEST_KEY_LENGTH = 128;
 
     private final AfterSaleCaseMapper caseMapper;
     private final AfterSaleCaseEventMapper eventMapper;
@@ -56,44 +62,61 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
     private final OrderItemMapper orderItemMapper;
     private final OutboxService outboxService;
     private final tools.jackson.databind.ObjectMapper objectMapper;
+    private final com.cloudmart.order.config.AfterSaleProperties afterSaleProperties;
 
     @Override
     @Transactional
-    public AfterSaleCaseVO apply(Long userId, CreateAfterSaleRequest request) {
-        Order order = orderMapper.selectById(request.orderId());
+    public AfterSaleCaseVO apply(Long userId, CreateAfterSaleRequest request, String requestKey) {
+        // TRADE-01：锁顺序 订单→案件/行项→事件——读取占用前先锁订单行，
+        // 同一订单上的并发申请串行化（原实现"先读计数后插入"，两个请求会同时认为还有数量）
+        Order order = orderMapper.selectByIdForUpdate(request.orderId());
         if (order == null) {
             throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
         }
         if (!order.getUserId().equals(userId)) {
             throw new BusinessException("ORDER_ACCESS_DENIED", "无权操作该订单");
         }
-        if (!APPLICABLE_ORDER_STATUS.contains(order.getStatus())) {
-            throw new BusinessException("ORDER_STATUS_ERROR", "当前订单状态不支持申请售后");
-        }
+        requireApplicableOrder(order);
         if (!ALLOWED_TYPES.contains(request.type())) {
             throw new BusinessException("AFTER_SALE_TYPE_INVALID", "售后类型非法");
         }
-        if ("SHIPPED".equals(order.getStatus()) && request.itemId() == null
-                && AfterSaleCase.TYPE_RETURN_REFUND.equals(request.type())) {
-            // 已发货整单退货退款首期不开放（需按行拆分），只允许仅退款
-            throw new BusinessException("AFTER_SALE_TYPE_INVALID", "已发货订单请按商品项申请退货退款");
+        // 可申请类型合同：整单只能仅退款（退货退款需按行拆分）；未发货订单只能仅退款
+        if (request.itemId() == null && AfterSaleCase.TYPE_RETURN_REFUND.equals(request.type())) {
+            throw new BusinessException("AFTER_SALE_TYPE_INVALID", "整单售后请选择仅退款，退货退款请按商品项申请");
+        }
+        if ("PAID".equals(order.getStatus()) && AfterSaleCase.TYPE_RETURN_REFUND.equals(request.type())) {
+            throw new BusinessException("AFTER_SALE_TYPE_INVALID", "订单未发货，请选择仅退款");
+        }
+
+        // TRADE-01 请求事实键：同键同参返回原案件（不重复占用、不重复建案），同键异参 409
+        String normalizedKey = normalizeRequestKey(requestKey);
+        String payloadHash = normalizedKey == null ? null : payloadHashOf(userId, request);
+        if (normalizedKey != null) {
+            AfterSaleCase existing = findCaseByRequestKey(userId, normalizedKey);
+            if (existing != null) {
+                return replayExisting(existing, payloadHash, order.getOrderNo());
+            }
+        }
+
+        // 有效状态占用（PENDING/APPROVED/REFUNDED）同时覆盖整单与按行：
+        // 整单案件存在时不允许另开任何案件；已有行案件时不允许另开整单案件（重叠退款防护）
+        List<AfterSaleCase> occupying = activeCasesOf(order.getId());
+        boolean wholeOrderActive = occupying.stream().anyMatch(c -> c.getItemId() == null);
+        if (wholeOrderActive) {
+            throw new BusinessException("AFTER_SALE_DUPLICATE", "该订单已有整单售后处理中，不能再申请");
+        }
+        if (request.itemId() == null && !occupying.isEmpty()) {
+            throw new BusinessException("AFTER_SALE_DUPLICATE", "该订单已有商品项售后处理中，不能申请整单售后");
         }
 
         Long itemId = request.itemId();
+        OrderItem item = null;
         if (itemId != null) {
-            OrderItem item = orderItemMapper.selectById(itemId);
+            item = orderItemMapper.selectById(itemId);
             if (item == null || !order.getId().equals(item.getOrderId())) {
                 throw new BusinessException("AFTER_SALE_ITEM_INVALID", "售后商品项不属于该订单");
             }
-            validateItemQuantity(item, request.quantity());
-        }
-
-        Long open = caseMapper.selectCount(new LambdaQueryWrapper<AfterSaleCase>()
-                .eq(AfterSaleCase::getOrderId, request.orderId())
-                .eq(itemId != null, AfterSaleCase::getItemId, itemId)
-                .eq(AfterSaleCase::getStatus, AfterSaleCase.STATUS_PENDING));
-        if (open > 0) {
-            throw new BusinessException("AFTER_SALE_DUPLICATE", "该订单已有待处理的售后申请");
+            validateItemQuantity(item, request.quantity(), occupying);
         }
 
         AfterSaleCase entity = new AfterSaleCase();
@@ -102,25 +125,120 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
         entity.setOrderId(request.orderId());
         entity.setUserId(userId);
         entity.setItemId(itemId);
+        entity.setRequestKey(normalizedKey);
+        entity.setPayloadHash(payloadHash);
         entity.setType(request.type());
         entity.setReason(request.reason());
         entity.setAttachmentFileIds(request.attachmentFileIds());
         entity.setQuantity(request.quantity() == null ? 0 : request.quantity());
         entity.setStatus(AfterSaleCase.STATUS_PENDING);
-        caseMapper.insert(entity);
+        try {
+            caseMapper.insert(entity);
+        } catch (DuplicateKeyException race) {
+            // 并发同键竞态：uk(user_id, request_key) 兜底——按同键语义收敛（同参返回原案件，异参 409）
+            AfterSaleCase existing = normalizedKey == null ? null : findCaseByRequestKey(userId, normalizedKey);
+            if (existing != null && payloadHash != null) {
+                return replayExisting(existing, payloadHash, order.getOrderNo());
+            }
+            throw race;
+        }
         appendEvent(entity.getId(), "APPLY", "user:" + userId,
                 "{\"type\":\"" + request.type() + "\",\"orderId\":" + request.orderId()
                         + ",\"quantity\":" + entity.getQuantity() + "}");
-        log.info("[T04] 售后案件已创建 caseNo={} orderId={} type={} itemId={} quantity={}",
+        log.info("[T04/TRADE-01] 售后案件已创建 caseNo={} orderId={} type={} itemId={} quantity={}",
                 entity.getCaseNo(), request.orderId(), request.type(), itemId, entity.getQuantity());
         return toVO(entity, order.getOrderNo());
     }
 
+    /** 归属状态 + COMPLETED 窗口校验（与 eligibility 同源） */
+    private void requireApplicableOrder(Order order) {
+        if (!APPLICABLE_ORDER_STATUS.contains(order.getStatus())) {
+            throw new BusinessException("ORDER_STATUS_ERROR", "当前订单状态不支持申请售后");
+        }
+        if ("COMPLETED".equals(order.getStatus()) && isWindowExpired(order)) {
+            throw new BusinessException("AFTER_SALE_WINDOW_EXPIRED",
+                    "已超过售后申请期限（确认收货后 " + afterSaleProperties.getApplyWindowDays() + " 天）");
+        }
+    }
+
+    /** COMPLETED 售后窗口是否已过；completedAt 缺失（数据异常）按 fail-closed 处理 */
+    private boolean isWindowExpired(Order order) {
+        LocalDateTime completedAt = order.getCompletedAt();
+        if (completedAt == null) {
+            return true;
+        }
+        return LocalDateTime.now(ZoneOffset.UTC)
+                .isAfter(completedAt.plusDays(afterSaleProperties.getApplyWindowDays()));
+    }
+
+    /** COMPLETED 窗口截止时间（其他状态为 null） */
+    private LocalDateTime applyDeadlineOf(Order order) {
+        if (!"COMPLETED".equals(order.getStatus()) || order.getCompletedAt() == null) {
+            return null;
+        }
+        return order.getCompletedAt().plusDays(afterSaleProperties.getApplyWindowDays());
+    }
+
+    /** 请求键规范化：空白视为未提供；超长按参数错误拒绝 */
+    private String normalizeRequestKey(String requestKey) {
+        if (requestKey == null || requestKey.isBlank()) {
+            return null;
+        }
+        String trimmed = requestKey.trim();
+        if (trimmed.length() > MAX_REQUEST_KEY_LENGTH) {
+            throw new BusinessException("AFTER_SALE_REQUEST_KEY_INVALID", "幂等键过长（≤128 字符）");
+        }
+        return trimmed;
+    }
+
+    /** 请求载荷摘要：绑定订单/商品项/类型/数量/原因/附件（同键异参判定） */
+    private String payloadHashOf(Long userId, CreateAfterSaleRequest request) {
+        return sha256Hex(String.join("|",
+                String.valueOf(userId), String.valueOf(request.orderId()),
+                String.valueOf(request.itemId()), String.valueOf(request.type()),
+                String.valueOf(request.quantity()),
+                request.reason() == null ? "" : request.reason(),
+                request.attachmentFileIds() == null ? "" : request.attachmentFileIds()));
+    }
+
+    private String sha256Hex(String canonical) {
+        try {
+            return java.util.HexFormat.of().formatHex(
+                    java.security.MessageDigest.getInstance("SHA-256")
+                            .digest(canonical.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
+
+    /** 同键重放收敛：同参返回原案件，异参拒绝 */
+    private AfterSaleCaseVO replayExisting(AfterSaleCase existing, String payloadHash, String orderNo) {
+        if (payloadHash == null || !payloadHash.equals(existing.getPayloadHash())) {
+            throw new BusinessException("AFTER_SALE_REQUEST_CONFLICT",
+                    "同一请求键的申请内容不同，请使用新键重新提交");
+        }
+        return toVO(existing, orderNo);
+    }
+
+    private AfterSaleCase findCaseByRequestKey(Long userId, String requestKey) {
+        return caseMapper.selectOne(new LambdaQueryWrapper<AfterSaleCase>()
+                .eq(AfterSaleCase::getUserId, userId)
+                .eq(AfterSaleCase::getRequestKey, requestKey)
+                .last("LIMIT 1"));
+    }
+
+    /** 订单有效占用的案件（PENDING/APPROVED/REFUNDED；调用方持订单行锁） */
+    private List<AfterSaleCase> activeCasesOf(Long orderId) {
+        return caseMapper.selectList(new LambdaQueryWrapper<AfterSaleCase>()
+                .eq(AfterSaleCase::getOrderId, orderId)
+                .in(AfterSaleCase::getStatus, QUANTITY_OCCUPYING_STATUSES));
+    }
+
     /**
-     * T04 数量维度占用校验：同一订单项的可申请数量 = 明细数量 −（PENDING/APPROVED/REFUNDED
-     * 案件已占数量）。两次申请不得同时占用同一件商品。
+     * TRADE-01 数量维度占用校验：同一订单项的可申请数量 = 明细数量 −（PENDING/APPROVED/REFUNDED
+     * 案件已占数量）。有效占用包含整单与按行；订单行锁内调用，串行化并发申请。
      */
-    private void validateItemQuantity(OrderItem item, Integer requestedQuantity) {
+    private void validateItemQuantity(OrderItem item, Integer requestedQuantity, List<AfterSaleCase> occupying) {
         int requested = requestedQuantity == null ? 0 : requestedQuantity;
         if (requested < 1) {
             throw new BusinessException("AFTER_SALE_QUANTITY_INVALID", "售后数量必须为正整数");
@@ -129,10 +247,8 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
             throw new BusinessException("AFTER_SALE_QUANTITY_INVALID",
                     "售后数量超过该明细购买数量（" + item.getQuantity() + "）");
         }
-        int occupied = caseMapper.selectList(new LambdaQueryWrapper<AfterSaleCase>()
-                        .eq(AfterSaleCase::getItemId, item.getId())
-                        .in(AfterSaleCase::getStatus, QUANTITY_OCCUPYING_STATUSES))
-                .stream()
+        int occupied = occupying.stream()
+                .filter(c -> item.getId().equals(c.getItemId()))
                 .mapToInt(c -> c.getQuantity() == null ? 0 : c.getQuantity())
                 .sum();
         if (occupied + requested > item.getQuantity()) {
@@ -148,6 +264,8 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
         if (!entity.getUserId().equals(userId)) {
             throw new BusinessException("ORDER_ACCESS_DENIED", "无权操作该案件");
         }
+        // TRADE-01：一致锁顺序 订单→案件→事件——与 apply/approve 在同一订单上串行化
+        orderMapper.selectByIdForUpdate(entity.getOrderId());
         if (caseMapper.closeByOwner(caseId, userId) == 0) {
             throw new BusinessException("AFTER_SALE_STATUS_ERROR", "案件状态已变更，无法撤销");
         }
@@ -186,6 +304,83 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
             throw new BusinessException("ORDER_ACCESS_DENIED", "无权查看该案件");
         }
         return toVO(entity, orderNoOf(entity.getOrderId()));
+    }
+
+    @Override
+    public AfterSaleEligibilityVO eligibility(Long userId, Long orderId, Long itemId) {
+        Order order = orderMapper.selectById(orderId);
+        if (order == null || !order.getUserId().equals(userId)) {
+            throw new BusinessException("ORDER_NOT_FOUND", "订单不存在");
+        }
+        final OrderItem item;
+        if (itemId != null) {
+            OrderItem loaded = orderItemMapper.selectById(itemId);
+            if (loaded == null || !order.getId().equals(loaded.getOrderId())) {
+                throw new BusinessException("AFTER_SALE_ITEM_INVALID", "售后商品项不属于该订单");
+            }
+            item = loaded;
+        } else {
+            item = null;
+        }
+
+        String status = order.getStatus();
+        String rejectReason = null;
+        if (!APPLICABLE_ORDER_STATUS.contains(status)) {
+            rejectReason = "ORDER_STATUS_ERROR";
+        } else if ("COMPLETED".equals(status) && isWindowExpired(order)) {
+            rejectReason = "AFTER_SALE_WINDOW_EXPIRED";
+        }
+
+        // 有效占用（PENDING/APPROVED/REFUNDED）覆盖整单与按行——与 apply 校验同源
+        List<AfterSaleCase> occupying = activeCasesOf(orderId);
+        if (rejectReason == null) {
+            boolean wholeOrderActive = occupying.stream().anyMatch(c -> c.getItemId() == null);
+            if (wholeOrderActive) {
+                rejectReason = "AFTER_SALE_DUPLICATE";
+            } else if (item == null && !occupying.isEmpty()) {
+                rejectReason = "AFTER_SALE_DUPLICATE";
+            }
+        }
+
+        // 可申请类型（与 apply 同源）：整单/未发货 → 仅退款；已发货/已完成按商品项 → 退货退款或仅退款
+        List<String> allowedTypes;
+        if (item == null || "PAID".equals(status)) {
+            allowedTypes = List.of(AfterSaleCase.TYPE_REFUND_ONLY);
+        } else {
+            allowedTypes = List.of(AfterSaleCase.TYPE_RETURN_REFUND, AfterSaleCase.TYPE_REFUND_ONLY);
+        }
+
+        Integer remainingQuantity = null;
+        BigDecimal remainingRefundAmount;
+        if (item != null) {
+            int totalQty = item.getQuantity() == null ? 0 : item.getQuantity();
+            int occupiedQty = occupying.stream()
+                    .filter(c -> item.getId().equals(c.getItemId()))
+                    .mapToInt(c -> c.getQuantity() == null ? 0 : c.getQuantity())
+                    .sum();
+            // 剩余可申请数量：PENDING/APPROVED/REFUNDED 一并占用（已退不再回到可申请池，与 apply 同源）
+            remainingQuantity = Math.max(totalQty - occupiedQty, 0);
+            long linePaidCents = item.getPayAmount() == null ? 0L : toCents(item.getPayAmount());
+            long approvedCents = occupying.stream()
+                    .filter(c -> item.getId().equals(c.getItemId()))
+                    .filter(c -> AfterSaleCase.STATUS_APPROVED.equals(c.getStatus())
+                            || AfterSaleCase.STATUS_REFUNDED.equals(c.getStatus()))
+                    .map(AfterSaleCase::getRefundAmount)
+                    .filter(java.util.Objects::nonNull)
+                    .mapToLong(this::toCents)
+                    .sum();
+            remainingRefundAmount = fromCents(Math.max(linePaidCents - approvedCents, 0));
+            if (rejectReason == null && remainingQuantity <= 0) {
+                rejectReason = "AFTER_SALE_QUANTITY_EXCEEDED";
+            }
+        } else {
+            BigDecimal occupied = occupiedRefundAmount(orderId, null);
+            remainingRefundAmount = order.getPayAmount() == null
+                    ? BigDecimal.ZERO
+                    : order.getPayAmount().subtract(occupied).max(BigDecimal.ZERO);
+        }
+        return new AfterSaleEligibilityVO(orderId, itemId, rejectReason == null,
+                allowedTypes, remainingQuantity, remainingRefundAmount, applyDeadlineOf(order), rejectReason);
     }
 
     @Override
@@ -269,35 +464,21 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
     }
 
     /**
-     * T04 金额上限（资金安全），锁内核算：
-     * ① 行级——按申请数量 × 明细实付单价（pay_amount/quantity，历史单回退 price）
-     *    核定，不得超过该行可退金额；
+     * TRADE-01 金额上限（资金安全），锁内核算、整数分计算：
+     * ① 行级（两种退款类型一致，原实现只约束 RETURN_REFUND）——
+     *    行实付快照按件均分（floor），前几件按均分额度，最后剩余数量段可取
+     *    行实付尾差；同时受"该行剩余可退金额"（行实付 − 该行已受理/已退金额）约束，
+     *    任意阶段累计不超过行实付（10 元/3 件分批退累计恰为 10 元）；
      * ② 订单级——同订单其他案件占用（APPROVED+REFUNDED）+ 本案 ≤ 订单实付。
-     * 校验依据写入事件时间线供人工追溯。
+     * 金额一律取建单时冻结的 pay_amount 快照，不用现价/当前促销重算；
+     * 无快照回退原价的旧分支已删除（新库无历史数据，缺失即数据异常 fail-closed）。
      *
      * @return 订单实付金额（事件时间线记录校验依据用）
      */
     private BigDecimal validateRefundAmount(AfterSaleCase entity, Order order, BigDecimal refundAmount) {
         BigDecimal orderPayAmount = order.getPayAmount();
-        if (AfterSaleCase.TYPE_RETURN_REFUND.equals(entity.getType()) && entity.getItemId() != null) {
-            OrderItem item = orderItemMapper.selectById(entity.getItemId());
-            if (item == null || item.getPrice() == null || item.getQuantity() == null
-                    || item.getQuantity() <= 0) {
-                throw new BusinessException("AFTER_SALE_AMOUNT_INVALID", "订单项缺失，无法核定退货退款金额");
-            }
-            BigDecimal caseQuantity = BigDecimal.valueOf(
-                    entity.getQuantity() == null || entity.getQuantity() <= 0 ? 1 : entity.getQuantity());
-            // 单价实付分摊优先（T04 落库字段），历史单未分摊回退成交价（订单级上限兜底）
-            BigDecimal unitPaid = item.getPayAmount() != null
-                    ? item.getPayAmount().divide(BigDecimal.valueOf(item.getQuantity()), 2,
-                            java.math.RoundingMode.DOWN)
-                    : item.getPrice();
-            BigDecimal itemCap = unitPaid.multiply(caseQuantity);
-            if (refundAmount.compareTo(itemCap) > 0) {
-                throw new BusinessException("AFTER_SALE_AMOUNT_EXCEEDED",
-                        "退款金额超过该商品行 " + caseQuantity.toPlainString() + " 件可退上限 ¥"
-                                + itemCap.toPlainString());
-            }
+        if (entity.getItemId() != null) {
+            validateItemRefundCap(entity, refundAmount);
         }
         BigDecimal occupiedElsewhere = occupiedRefundAmount(entity.getOrderId(), entity.getId());
         if (occupiedElsewhere.add(refundAmount).compareTo(orderPayAmount) > 0) {
@@ -308,10 +489,67 @@ public class AfterSaleCaseServiceImpl implements com.cloudmart.order.service.Aft
         return orderPayAmount;
     }
 
+    /** 行级可退上限（整数分）：数量均分 + 尾差归最后一个数量段 + 行剩余可退金额兜底 */
+    private void validateItemRefundCap(AfterSaleCase entity, BigDecimal refundAmount) {
+        OrderItem item = orderItemMapper.selectById(entity.getItemId());
+        if (item == null || item.getPayAmount() == null
+                || item.getQuantity() == null || item.getQuantity() <= 0) {
+            throw new BusinessException("AFTER_SALE_AMOUNT_INVALID", "订单项实付快照缺失，无法核定退款金额");
+        }
+        int totalQty = item.getQuantity();
+        long linePayCents = toCents(item.getPayAmount());
+        long unitCents = linePayCents / totalQty;
+        long tailCents = linePayCents - unitCents * totalQty;
+        // 行案件数量：整单语义（0/null）按整行数量处理（本方法仅行案件进入）
+        int caseQty = entity.getQuantity() == null || entity.getQuantity() <= 0 ? totalQty : entity.getQuantity();
+
+        // 该行已受理/已退（APPROVED/REFUNDED，不含本案）的数量与金额（调用方持订单行锁）
+        List<AfterSaleCase> lineCases = caseMapper.selectList(new LambdaQueryWrapper<AfterSaleCase>()
+                .eq(AfterSaleCase::getItemId, entity.getItemId())
+                .ne(AfterSaleCase::getId, entity.getId())
+                .in(AfterSaleCase::getStatus, AfterSaleCase.STATUS_APPROVED, AfterSaleCase.STATUS_REFUNDED));
+        int lineOccupiedQty = lineCases.stream()
+                .mapToInt(c -> c.getQuantity() == null || c.getQuantity() <= 0 ? totalQty : c.getQuantity())
+                .sum();
+        long lineOccupiedCents = lineCases.stream()
+                .map(AfterSaleCase::getRefundAmount)
+                .filter(java.util.Objects::nonNull)
+                .mapToLong(this::toCents)
+                .sum();
+
+        long baseCapCents = unitCents * caseQty;
+        if (lineOccupiedQty + caseQty >= totalQty) {
+            // 尾差归最后一个数量段：本次覆盖后该行数量全部进入"已受理/已退"口径
+            baseCapCents += tailCents;
+        }
+        long lineRemainingCents = Math.max(linePayCents - lineOccupiedCents, 0);
+        long capCents = Math.min(baseCapCents, lineRemainingCents);
+        if (toCents(refundAmount) > capCents) {
+            throw new BusinessException("AFTER_SALE_AMOUNT_EXCEEDED",
+                    "退款金额超过该商品行可退上限（" + caseQty + " 件，上限 ¥"
+                            + fromCents(capCents).toPlainString() + "）");
+        }
+    }
+
+    /** 金额转整数分（DECIMAL(10,2) 语义；超过两位小数按参数错误拒绝） */
+    private long toCents(BigDecimal amount) {
+        try {
+            return amount.movePointRight(2).longValueExact();
+        } catch (ArithmeticException e) {
+            throw new BusinessException("AFTER_SALE_AMOUNT_INVALID", "金额精度非法（最多两位小数）");
+        }
+    }
+
+    private BigDecimal fromCents(long cents) {
+        return BigDecimal.valueOf(cents, 2);
+    }
+
     @Override
     @Transactional
     public AfterSaleCaseVO reject(Long adminId, Long caseId, String rejectReason) {
         AfterSaleCase entity = requireCase(caseId);
+        // TRADE-01：一致锁顺序 订单→案件→事件（释放占用前先与同订单其他申请串行化）
+        orderMapper.selectByIdForUpdate(entity.getOrderId());
         if (caseMapper.reject(caseId, rejectReason, adminId) == 0) {
             throw new BusinessException("AFTER_SALE_STATUS_ERROR", "案件状态已变更，无法拒绝");
         }

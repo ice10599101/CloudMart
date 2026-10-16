@@ -402,7 +402,8 @@ class OrderServiceImplTest {
             assertThat(result.status()).isEqualTo("PAID");
             var caseCaptor = org.mockito.ArgumentCaptor.forClass(
                     com.cloudmart.order.dto.CreateAfterSaleRequest.class);
-            verify(afterSaleCaseService).apply(org.mockito.ArgumentMatchers.eq(100L), caseCaptor.capture());
+            verify(afterSaleCaseService).apply(org.mockito.ArgumentMatchers.eq(100L), caseCaptor.capture(),
+                    org.mockito.ArgumentMatchers.isNull());
             assertThat(caseCaptor.getValue().orderId()).isEqualTo(1L);
             assertThat(caseCaptor.getValue().itemId()).isNull();
             assertThat(caseCaptor.getValue().type()).isEqualTo(

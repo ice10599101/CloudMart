@@ -316,7 +316,8 @@ class OrderServiceTest {
         verify(afterSaleCaseService).apply(org.mockito.ArgumentMatchers.eq(userId),
                 org.mockito.ArgumentMatchers.argThat(r -> r.orderId().equals(orderId)
                         && r.itemId() == null
-                        && com.cloudmart.order.entity.AfterSaleCase.TYPE_REFUND_ONLY.equals(r.type())));
+                        && com.cloudmart.order.entity.AfterSaleCase.TYPE_REFUND_ONLY.equals(r.type())),
+                org.mockito.ArgumentMatchers.isNull());
         verify(orderMapper, never()).updateStatusToRefunding(org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString());

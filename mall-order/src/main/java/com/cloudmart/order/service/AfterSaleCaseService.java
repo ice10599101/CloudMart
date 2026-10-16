@@ -11,8 +11,19 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
  */
 public interface AfterSaleCaseService {
 
-    /** 用户申请售后：PAID/SHIPPED 可申请；未发货=仅退款，已发货=退货退款或仅退款；同单同项 PENDING 唯一 */
-    AfterSaleCaseVO apply(Long userId, CreateAfterSaleRequest request);
+    /**
+     * 用户申请售后（TRADE-01）：PAID/SHIPPED/COMPLETED（确认收货 N 天内）可申请；
+     * 未发货=仅退款，已发货按商品项可退货退款/仅退款，整单仅退款。
+     * 锁订单行后校验有效占用（PENDING/APPROVED/REFUNDED 覆盖整单与按行）；
+     * requestKey（X-Idempotency-Key，可空）：同键同参返回原案件，同键异参 409。
+     */
+    AfterSaleCaseVO apply(Long userId, CreateAfterSaleRequest request, String requestKey);
+
+    /**
+     * TRADE-01：售后可申请性查询——allowedTypes/剩余数量/剩余可退金额/窗口截止/拒绝原因，
+     * 与服务端 apply 校验同源（前端据此显示，不自行推断）。
+     */
+    com.cloudmart.order.dto.AfterSaleEligibilityVO eligibility(Long userId, Long orderId, Long itemId);
 
     /** 用户撤销 PENDING 申请 */
     void cancel(Long userId, Long caseId);
