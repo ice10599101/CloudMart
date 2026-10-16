@@ -219,8 +219,9 @@ export interface PetPublicCard {
 }
 
 /** 我的宠物（未领养 404 PET_NOT_FOUND） */
-export function getMyPet() {
-  return request.get<ApiResponse<PetInfo>>('/pet/me')
+/** config.silentError：装饰性调用（如消息页头像）未领养时不弹统一错误 */
+export function getMyPet(config?: { silentError?: boolean }) {
+  return request.get<ApiResponse<PetInfo>>('/pet/me', config)
 }
 
 /** 设置主人称呼（宠物怎么叫主人，1~12 字；blank 重置默认「主人」） */

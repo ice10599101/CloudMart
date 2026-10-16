@@ -352,7 +352,7 @@ export default function Messages() {
 
   useEffect(() => {
     // 宠物消息头像：拉一次自己的主宠（Fail-Open，未领养/接口故障回落系统图标）
-    getMyPet()
+    getMyPet({ silentError: true })
       .then((res) => {
         const pet = res.data.data as PetInfo | null
         if (pet?.species) setPetIdentity({ name: pet.name, species: pet.species })
