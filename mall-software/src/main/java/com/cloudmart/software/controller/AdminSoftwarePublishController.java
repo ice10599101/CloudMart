@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,6 +32,16 @@ public class AdminSoftwarePublishController {
 
     private final SoftwarePublishService softwarePublishService;
     private final com.cloudmart.software.service.AdminSoftwareSourceService adminSoftwareSourceService;
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/items/{softwareId}")
+    @Operation(summary = "管理员删除软件", description = "软删 lifecycle=DELETED，幂等；公开面即时隐藏（A10 同口径）")
+    public ApiResponse<Boolean> delete(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
+            @org.springframework.web.bind.annotation.PathVariable("softwareId") Long softwareId,
+            @RequestParam("expectedVersion") Integer expectedVersion) {
+        softwarePublishService.adminDelete(adminUserId, softwareId, expectedVersion);
+        return ApiResponse.ok(true);
+    }
 
     @PostMapping("/revisions/{revisionId}/decision")
     @Operation(summary = "审核决策",

@@ -48,6 +48,9 @@ public interface SoftwarePublishService {
     /** 软删除本人软件（归属校验；审计保留） */
     void delete(Long userId, Long softwareId, Integer expectedVersion);
 
+    /** 管理员删除（软删 DELETED，幂等；审计 actor=ADMIN；任意 lifecycle 可删） */
+    void adminDelete(Long adminId, Long softwareId, Integer expectedVersion);
+
     /** 管理员审核决策（幂等）：携带 revisionId+submitSeq+expectedVersion 防旧批次覆盖（A07） */
     SoftwareReviewDecisionVO reviewDecision(Long adminId, String idempotencyKey, Long softwareId,
                                             Long revisionId, Integer submitSeq, Integer expectedVersion,

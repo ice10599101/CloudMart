@@ -419,8 +419,11 @@ export function getSoftwareAccessPolicy(id: string) {
   );
 }
 
-export function listSoftwareReleases(id: string) {
-  return request.get<ApiResponse<SoftwareRelease[]>>(`${BASE}/${id}/releases`);
+/** 后端返回 Page 分页结构；详情页一次取全量版本（默认 50 足够） */
+export function listSoftwareReleases(id: string, page = 1, size = 50) {
+  return request.get<ApiResponse<PageResult<SoftwareRelease>>>(
+    `${BASE}/${id}/releases?page=${page}&size=${size}`,
+  );
 }
 
 // ========== 查看条件与获取链接 ==========

@@ -107,7 +107,8 @@ export default function SoftwareDetail() {
           setRatingAvg(detailRes.data.data.ratingAvg ?? null);
           setSubscribed(Boolean(detailRes.data.data.isSubscribed));
         }
-        if (releaseRes.data.success) setReleases(releaseRes.data.data ?? []);
+        if (releaseRes.data.success)
+          setReleases(releaseRes.data.data?.records ?? []);
         if (commentRes.data.success)
           setComments(commentRes.data.data?.records ?? []);
       })

@@ -637,13 +637,39 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         if (locked.getLifecycle() == SoftwareLifecycle.DELETED) {
             return; // 幂等
         }
+        String fromStatus = locked.getLifecycle().name();
         locked.setLifecycle(SoftwareLifecycle.DELETED);
         locked.setDeletedAt(LocalDateTime.now(clock));
         locked.setLockVersion(locked.getLockVersion() + 1);
         softwareMapper.updateById(locked);
         auditService.record(softwareId, null, null, userId, "USER",
-                "DELETE", locked.getLifecycle() == SoftwareLifecycle.BANNED ? "BANNED" : null,
+                "DELETE", "BANNED".equals(fromStatus) ? "BANNED" : null,
                 "DELETED", "作者删除（软删，审计保留）", null);
+    }
+
+    // ------------------------------------------------------------------
+    // 管理员删除（软删；与作者删除同语义，无归属校验，审计 actor=ADMIN）
+    // ------------------------------------------------------------------
+
+    @Override
+    @Transactional
+    public void adminDelete(Long adminId, Long softwareId, Integer expectedVersion) {
+        Software locked = lockMapper.lockSoftware(softwareId);
+        if (locked == null) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
+        }
+        requireVersion(locked, expectedVersion);
+        if (locked.getLifecycle() == SoftwareLifecycle.DELETED) {
+            return; // 幂等
+        }
+        String fromStatus = locked.getLifecycle().name();
+        locked.setLifecycle(SoftwareLifecycle.DELETED);
+        locked.setDeletedAt(LocalDateTime.now(clock));
+        locked.setLockVersion(locked.getLockVersion() + 1);
+        softwareMapper.updateById(locked);
+        auditService.record(softwareId, null, null, adminId, "ADMIN",
+                "DELETE", "BANNED".equals(fromStatus) ? "BANNED" : null,
+                "DELETED", "管理员删除（软删，审计保留）", null);
     }
 
     // ------------------------------------------------------------------

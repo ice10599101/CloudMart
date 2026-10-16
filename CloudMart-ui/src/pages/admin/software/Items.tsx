@@ -8,12 +8,14 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Space,
   Tag,
   Typography,
 } from 'antd'
 import {
   banAdminSoftware,
+  deleteAdminSoftware,
   featureAdminSoftware,
   getAdminSoftwareDetail,
   listAdminSoftware,
@@ -76,6 +78,20 @@ export default function SoftwareItems() {
       actionRef.current?.reload()
     } catch {
       // 业务错误（版本冲突等）已由全局拦截器提示；保留弹窗供核对后重试
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const submitDelete = async (record: AdminSoftwareItem) => {
+    setSubmitting(true)
+    try {
+      await deleteAdminSoftware(record.softwareId, record.lockVersion)
+      message.success('已删除（软删，公开面立即隐藏）')
+      actionRef.current?.reload()
+    } catch {
+      // 失败提示由请求层统一弹出；刷新行数据以拿到新 lockVersion 重试
+      actionRef.current?.reload()
     } finally {
       setSubmitting(false)
     }
@@ -217,6 +233,17 @@ export default function SoftwareItems() {
         >
           {record.lifecycle === 'BANNED' ? '解除封禁' : '封禁'}
         </a>,
+        <Popconfirm
+          key="delete"
+          title="删除软件"
+          description={`软删除「${record.name}」，公开面立即隐藏且作者不可恢复，确认？`}
+          okText="删除"
+          okButtonProps={{ danger: true }}
+          cancelText="取消"
+          onConfirm={() => void submitDelete(record)}
+        >
+          <a style={{ color: '#d4380d' }}>删除</a>
+        </Popconfirm>,
       ],
     },
   ]

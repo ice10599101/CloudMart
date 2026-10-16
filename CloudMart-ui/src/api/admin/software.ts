@@ -357,6 +357,19 @@ export function updateSoftwareCategory(
   )
 }
 
+/** 管理员删除软件（软删 lifecycle=DELETED，幂等；公开面即时隐藏） */
+export function deleteAdminSoftware(
+  softwareId: string,
+  expectedVersion: number,
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/items/${softwareId}?expectedVersion=${expectedVersion}`
+  return request.delete<ApiResponse<boolean>>(
+    url,
+    softwareWriteConfig('DELETE', url, null, idempotencyKey),
+  )
+}
+
 /** DELETE 语义为禁用（被引用分类不做物理删除） */
 export function disableSoftwareCategory(categoryId: string, idempotencyKey?: string) {
   const url = `${BASE}/categories/${categoryId}`
