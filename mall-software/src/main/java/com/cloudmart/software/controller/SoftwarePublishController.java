@@ -14,6 +14,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,6 +46,13 @@ public class SoftwarePublishController {
     public ApiResponse<SoftwarePublisherPolicy.UiHint> publisherStatus(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
         return ApiResponse.ok(publisherPolicy.uiHint(userId));
+    }
+
+    /** 固定路径必须先于 /{id} 可匹配（Spring 字面量优先于模板，防 "access-contacts" 撞 {id} 转 Long 失败） */
+    @GetMapping("/access-contacts")
+    @Operation(summary = "作者侧可选联系入口", description = "仅启用项；ADMIN_PAID 查看条件的选择来源（7.3）")
+    public ApiResponse<List<Map<String, Object>>> accessContacts() {
+        return ApiResponse.ok(softwarePublishService.listEnabledAccessContacts());
     }
 
     @PostMapping

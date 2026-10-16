@@ -201,14 +201,21 @@ export default function SoftwarePublish() {
     }
     setSaving(true);
     try {
-      // 首次保存先创建（幂等键保证重试不重复建单），后续走同一工作副本
+      // 首次保存：create 只建空草稿（后端不读 body），须紧接着把快照 saveDraft 落库
       if (!softwareId || !revisionId) {
         const created = await createSoftware(buildPayload());
         if (!created.data.success) return;
-        setSoftwareId(created.data.data.softwareId);
-        setRevisionId(created.data.data.workingRevisionId);
-        setLockVersion(created.data.data.lockVersion);
-        message.success("草稿已创建");
+        const sid = created.data.data.softwareId;
+        const rid = created.data.data.workingRevisionId;
+        setSoftwareId(sid);
+        setRevisionId(rid);
+        const saved = await saveSoftwareDraft(sid, rid, {
+          ...buildPayload(),
+          expectedVersion: created.data.data.lockVersion,
+        });
+        if (!saved.data.success) return;
+        setLockVersion(saved.data.data?.lockVersion ?? created.data.data.lockVersion);
+        message.success("草稿已保存");
         return;
       }
       const res = await saveSoftwareDraft(softwareId, revisionId, {
@@ -234,7 +241,7 @@ export default function SoftwarePublish() {
     }
     setSubmitting(true);
     try {
-      // 未保存过则先落草稿再提交，保证审核的是同一份内容
+      // 未保存过则先创建并落快照再提交，保证审核的是同一份内容（create 本身不携带快照）
       let targetSoftwareId = softwareId;
       let targetRevisionId = revisionId;
       let version = lockVersion;
@@ -246,6 +253,12 @@ export default function SoftwarePublish() {
         version = created.data.data.lockVersion;
         setSoftwareId(targetSoftwareId);
         setRevisionId(targetRevisionId);
+        const saved = await saveSoftwareDraft(targetSoftwareId, targetRevisionId, {
+          ...buildPayload(),
+          expectedVersion: version,
+        });
+        if (!saved.data.success) return;
+        version = saved.data.data?.lockVersion ?? version;
         setLockVersion(version);
       }
       const res = await submitSoftwareForReview(

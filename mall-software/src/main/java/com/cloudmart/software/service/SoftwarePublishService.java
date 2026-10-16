@@ -19,6 +19,9 @@ public interface SoftwarePublishService {
     /** 创建软件（幂等）：ACTIVE 主体 + 初始 DRAFT 工作快照 */
     SoftwareCreatedVO create(Long userId, String idempotencyKey);
 
+    /** 作者侧可选联系入口（仅启用项；ADMIN_PAID 查看条件的选择来源） */
+    java.util.List<java.util.Map<String, Object>> listEnabledAccessContacts();
+
     /** 克隆工作快照（幂等）：已有工作副本直接返回；否则克隆 published（仅本人） */
     SoftwareEditorVO workingRevision(Long userId, Long softwareId, String idempotencyKey);
 

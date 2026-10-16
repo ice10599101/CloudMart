@@ -11,6 +11,7 @@ import com.cloudmart.software.dto.software.InteractionContextRequest;
 import com.cloudmart.software.dto.software.SoftwareReviewRequest;
 import com.cloudmart.software.dto.software.SoftwareReviewOutcomeVO;
 import com.cloudmart.software.dto.software.SoftwareSnapshotInput;
+import com.cloudmart.software.entity.SoftwareAccessContact;
 import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareFavorite;
 import com.cloudmart.software.entity.SoftwarePublisherPermission;
@@ -24,6 +25,7 @@ import com.cloudmart.software.enums.SoftwareLifecycle;
 import com.cloudmart.software.enums.SoftwareReviewStatus;
 import com.cloudmart.software.mq.SoftwareEvents;
 import com.cloudmart.software.policy.SoftwarePublisherPolicy;
+import com.cloudmart.software.repository.SoftwareAccessContactMapper;
 import com.cloudmart.software.repository.SoftwareFavoriteMapper;
 import com.cloudmart.software.repository.SoftwareLockMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
@@ -95,6 +97,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     private final SoftwareRevisionTagMapper revisionTagMapper;
     private final SoftwareRevisionMediaMapper revisionMediaMapper;
     private final SoftwareFavoriteMapper favoriteMapper;
+    private final SoftwareAccessContactMapper accessContactMapper;
     private final SoftwareLockMapper lockMapper;
     private final SoftwarePublisherPolicy publisherPolicy;
     private final SoftwareSnapshotAssembler assembler;
@@ -111,6 +114,28 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
+    // ------------------------------------------------------------------
+    // 作者侧联系入口（ADMIN_PAID 查看条件的选择来源）
+    // ------------------------------------------------------------------
+
+    @Override
+    public List<Map<String, Object>> listEnabledAccessContacts() {
+        // 只暴露启用项；作者选择后其 id 进入快照 accessContactId（A43：停用后不可再选）
+        return accessContactMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SoftwareAccessContact>()
+                        .eq(SoftwareAccessContact::getEnabled, true)
+                        .orderByAsc(SoftwareAccessContact::getSortOrder)
+                        .orderByAsc(SoftwareAccessContact::getId))
+                .stream().map(contact -> {
+                    Map<String, Object> row = new HashMap<>();
+                    row.put("id", String.valueOf(contact.getId()));
+                    row.put("name", contact.getName());
+                    row.put("contactType", contact.getContactType());
+                    row.put("contactValue", contact.getContactValue());
+                    return row;
+                })
+                .toList();
+    }
 
     // ------------------------------------------------------------------
     // 创建（幂等）

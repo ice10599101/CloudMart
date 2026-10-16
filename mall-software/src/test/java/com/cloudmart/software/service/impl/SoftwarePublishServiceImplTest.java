@@ -154,7 +154,10 @@ class SoftwarePublishServiceImplTest {
             }
         });
         service = new SoftwarePublishServiceImpl(softwareMapper, revisionMapper, releaseMapper,
-                sourceMapper, revisionTagMapper, revisionMediaMapper, favoriteMapper, lockMapper,
+                sourceMapper, revisionTagMapper, revisionMediaMapper, favoriteMapper,
+                org.mockito.Mockito.mock(
+                        com.cloudmart.software.repository.SoftwareAccessContactMapper.class),
+                lockMapper,
                 publisherPolicy, assembler, operationService, auditService,
                 org.mockito.Mockito.mock(com.cloudmart.software.service.SoftwareAssetBindingService.class),
                 outboxService,
