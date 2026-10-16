@@ -410,6 +410,7 @@ export default function SoftwarePublish() {
           </Space>
           <Select
             mode="multiple"
+            style={{ width: "100%" }}
             placeholder="选择标签"
             value={tagIds}
             onChange={setTagIds}

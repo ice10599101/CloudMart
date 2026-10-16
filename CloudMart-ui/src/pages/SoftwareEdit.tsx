@@ -504,6 +504,7 @@ export default function SoftwareEdit() {
           <Select
             disabled={frozen}
             mode="multiple"
+            style={{ width: "100%" }}
             placeholder="选择标签"
             value={tagIds}
             onChange={setTagIds}
