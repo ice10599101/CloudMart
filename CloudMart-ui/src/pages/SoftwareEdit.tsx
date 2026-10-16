@@ -156,6 +156,7 @@ export default function SoftwareEdit() {
                 }))
               : [
                   {
+                    uid: nextDraftUid(),
                     sourceType: "NETDISK",
                     link: "",
                     extractionCode: "",
