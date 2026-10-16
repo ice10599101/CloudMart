@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { App, Button, Empty, List, Space, Spin, Switch, Tabs, Tag } from "antd";
+import { App, Button, Empty, List, Popconfirm, Space, Spin, Switch, Tabs, Tag } from "antd";
 import { history } from "umi";
 import {
+  deleteMySoftware,
   getSoftwarePreferences,
   listMySoftware,
   unsubscribeSoftware,
@@ -78,6 +79,16 @@ export default function SoftwareMine() {
     }
   };
 
+  const handleDeleteDraft = async (item: SoftwareMineItem) => {
+    try {
+      await deleteMySoftware(item.softwareId, item.lockVersion);
+      message.success("已删除");
+      void load(tab);
+    } catch {
+      // 拦截器已统一提示
+    }
+  };
+
   const handleUnsubscribe = async (softwareId: string) => {
     try {
       await unsubscribeSoftware(softwareId);
@@ -143,13 +154,15 @@ export default function SoftwareMine() {
               <List.Item
                 className={styles.item}
                 actions={[
-                  <Button
-                    key="view"
-                    type="link"
-                    onClick={() => history.push(`/software/${item.softwareId}`)}
-                  >
-                    查看
-                  </Button>,
+                  item.status === "PUBLISHED" ? (
+                    <Button
+                      key="view"
+                      type="link"
+                      onClick={() => history.push(`/software/${item.softwareId}`)}
+                    >
+                      查看
+                    </Button>
+                  ) : null,
                   <Button
                     key="edit"
                     type="link"
@@ -160,6 +173,23 @@ export default function SoftwareMine() {
                   >
                     编辑
                   </Button>,
+                  item.status === "DRAFT" ||
+                  item.status === "REJECTED" ||
+                  item.status === "PENDING" ? (
+                    <Popconfirm
+                      key="delete"
+                      title="删除草稿"
+                      description={`软删除「${item.name}」，不可恢复，确认？`}
+                      okText="删除"
+                      okButtonProps={{ danger: true }}
+                      cancelText="取消"
+                      onConfirm={() => void handleDeleteDraft(item)}
+                    >
+                      <Button type="link" danger>
+                        删除
+                      </Button>
+                    </Popconfirm>
+                  ) : null,
                   tab === "subscriptions" ? (
                     <Button
                       key="unsubscribe"

@@ -14,6 +14,7 @@ import {
   Tabs,
   Tag,
   Typography,
+  Result,
 } from "antd";
 import { CopyOutlined, StarFilled, StarOutlined } from "@ant-design/icons";
 import { history, useParams } from "umi";
@@ -98,6 +99,7 @@ export default function SoftwareDetail() {
   const [ratingCount, setRatingCount] = useState(0);
   const [ratingAvg, setRatingAvg] = useState<number | null>(null);
   const [subscribed, setSubscribed] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [ratingBusy, setRatingBusy] = useState(false);
   const currentUserId = useAuthStore((s) => s.user?.id);
 
@@ -110,6 +112,10 @@ export default function SoftwareDetail() {
       listSoftwareComments(id, { page: 1, size: 20 }),
     ])
       .then(([detailRes, releaseRes, commentRes]) => {
+        if (!detailRes.data.success) {
+          setLoadError(detailRes.data.error?.message || "软件不存在或已下架");
+          return;
+        }
         if (detailRes.data.success) {
           setDetail(detailRes.data.data);
           setMyScore(detailRes.data.data.myScore ?? 0);
@@ -412,7 +418,24 @@ export default function SoftwareDetail() {
   }, [accessState, isAuthenticated, refreshAccessState]);
 
   if (loading) {
+    if (loadError) {
     return (
+      <div style={{ padding: 48 }}>
+        <Result
+          status="404"
+          title="软件不存在或已下架"
+          subTitle={loadError}
+          extra={
+            <Button type="primary" onClick={() => history.push("/software")}>
+              返回软件广场
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
       <div className={styles.page}>
         <Spin />
       </div>

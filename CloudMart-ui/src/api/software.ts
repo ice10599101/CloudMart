@@ -720,6 +720,13 @@ export function saveSoftwareDraft(
   );
 }
 
+/** 删除我的软件（软删 lifecycle=DELETED，幂等；expectedVersion URL 参数） */
+export function deleteMySoftware(id: string, expectedVersion: number) {
+  return request.delete<ApiResponse<boolean>>(
+    `${BASE}/${id}?expectedVersion=${expectedVersion}`,
+  );
+}
+
 /** 提交审核：expectedVersion 走 URL 查询参数（后端 @RequestParam 契约） */
 export function submitSoftwareForReview(
   id: string,
