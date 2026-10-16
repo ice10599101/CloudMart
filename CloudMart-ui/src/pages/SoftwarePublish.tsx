@@ -45,6 +45,29 @@ const LICENSE_OPTIONS: { value: SoftwareLicenseType; label: string }[] = [
   { value: "COMMERCIAL", label: "商业" },
 ];
 
+const PLATFORM_OPTIONS = [
+  { value: "WINDOWS", label: "Windows" },
+  { value: "MACOS", label: "macOS" },
+  { value: "LINUX", label: "Linux" },
+  { value: "ANDROID", label: "Android" },
+  { value: "IOS", label: "iOS" },
+  { value: "CROSS_PLATFORM", label: "跨平台" },
+];
+
+const ARCH_OPTIONS = [
+  { value: "X64", label: "x64" },
+  { value: "X86", label: "x86" },
+  { value: "ARM64", label: "ARM64" },
+  { value: "UNIVERSAL", label: "通用" },
+  { value: "OTHER", label: "其他" },
+];
+
+const ATTRIBUTION_OPTIONS = [
+  { value: "ORIGINAL", label: "原创" },
+  { value: "AUTHORIZED", label: "授权转载" },
+  { value: "OFFICIAL_PUBLIC", label: "官方公开内容" },
+];
+
 const SOURCE_TYPE_OPTIONS: { value: SoftwareSourceType; label: string }[] = [
   { value: "NETDISK", label: "网盘链接" },
   { value: "MAGNET", label: "磁力链接" },
@@ -54,6 +77,10 @@ const SOURCE_TYPE_OPTIONS: { value: SoftwareSourceType; label: string }[] = [
 interface SourceDraft {
   /** 稳定 key：删除中间行时避免索引 key 导致输入框状态错位 */
   uid: string;
+  /** 来源展示名（1~80 字，后端必填校验） */
+  label: string;
+  platform: string;
+  arch: string;
   sourceType: SoftwareSourceType;
   /** 网盘 HTTPS 链接 / magnet: 链接 / .torrent 外链，按类型择一 */
   link: string;
@@ -77,7 +104,15 @@ const emptyRelease = (): ReleaseDraft => ({
   changelog: "",
   recommended: true,
   sources: [
-    { uid: nextDraftUid(), sourceType: "NETDISK", link: "", extractionCode: "" },
+    {
+      uid: nextDraftUid(),
+      label: "网盘",
+      platform: "WINDOWS",
+      arch: "X64",
+      sourceType: "NETDISK",
+      link: "",
+      extractionCode: "",
+    },
   ],
 });
 
@@ -102,6 +137,7 @@ export default function SoftwarePublish() {
   const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
   const [descriptionHtml, setDescriptionHtml] = useState("");
   const [licenseType, setLicenseType] = useState<SoftwareLicenseType>("FREE");
+  const [attributionType, setAttributionType] = useState<string>("ORIGINAL");
   const [developerName, setDeveloperName] = useState("");
   const [officialUrl, setOfficialUrl] = useState("");
   const [systemRequirements, setSystemRequirements] = useState("");
@@ -228,6 +264,9 @@ export default function SoftwarePublish() {
       release.sources
         .filter((source) => source.link.trim().length > 0)
         .map((source) => ({
+          label: source.label.trim(),
+          platform: source.platform,
+          arch: source.arch,
           sourceType: source.sourceType,
           ...(source.sourceType === "NETDISK"
             ? {
@@ -249,6 +288,7 @@ export default function SoftwarePublish() {
       categoryId,
       descriptionHtml,
       licenseType,
+      attributionType,
       developerName: developerName || undefined,
       officialUrl: officialUrl || undefined,
       systemRequirements: systemRequirements || undefined,
@@ -269,6 +309,7 @@ export default function SoftwarePublish() {
     };
   }, [
     accessContactId,
+    attributionType,
     accessMode,
     categoryId,
     descriptionHtml,
@@ -496,6 +537,13 @@ export default function SoftwarePublish() {
               onChange={setLicenseType}
               options={LICENSE_OPTIONS}
             />
+            <Select
+              style={{ width: 160 }}
+              value={attributionType}
+              onChange={setAttributionType}
+              options={ATTRIBUTION_OPTIONS}
+              placeholder="来源声明"
+            />
           </Space>
           <Space wrap>
             <Input
@@ -638,6 +686,37 @@ export default function SoftwarePublish() {
             <div style={{ marginTop: 8 }}>
               {release.sources.map((source, sourceIndex) => (
                 <div key={source.uid} className={styles.sourceRow}>
+                  <Input
+                    style={{ width: 160 }}
+                    placeholder="展示名，如 百度网盘"
+                    value={source.label}
+                    onChange={(event) => {
+                      const next = [...releases];
+                      next[releaseIndex].sources[sourceIndex].label =
+                        event.target.value;
+                      setReleases(next);
+                    }}
+                  />
+                  <Select
+                    style={{ width: 120 }}
+                    value={source.platform}
+                    onChange={(value) => {
+                      const next = [...releases];
+                      next[releaseIndex].sources[sourceIndex].platform = value;
+                      setReleases(next);
+                    }}
+                    options={PLATFORM_OPTIONS}
+                  />
+                  <Select
+                    style={{ width: 100 }}
+                    value={source.arch}
+                    onChange={(value) => {
+                      const next = [...releases];
+                      next[releaseIndex].sources[sourceIndex].arch = value;
+                      setReleases(next);
+                    }}
+                    options={ARCH_OPTIONS}
+                  />
                   <Select
                     value={source.sourceType}
                     onChange={(value) => {
@@ -696,6 +775,9 @@ export default function SoftwarePublish() {
                   const next = [...releases];
                   next[releaseIndex].sources.push({
                     uid: nextDraftUid(),
+                    label: "网盘",
+                    platform: "WINDOWS",
+                    arch: "X64",
                     sourceType: "NETDISK",
                     link: "",
                     extractionCode: "",

@@ -42,6 +42,29 @@ const LICENSE_OPTIONS: { value: SoftwareLicenseType; label: string }[] = [
   { value: "COMMERCIAL", label: "商业" },
 ];
 
+const PLATFORM_OPTIONS = [
+  { value: "WINDOWS", label: "Windows" },
+  { value: "MACOS", label: "macOS" },
+  { value: "LINUX", label: "Linux" },
+  { value: "ANDROID", label: "Android" },
+  { value: "IOS", label: "iOS" },
+  { value: "CROSS_PLATFORM", label: "跨平台" },
+];
+
+const ARCH_OPTIONS = [
+  { value: "X64", label: "x64" },
+  { value: "X86", label: "x86" },
+  { value: "ARM64", label: "ARM64" },
+  { value: "UNIVERSAL", label: "通用" },
+  { value: "OTHER", label: "其他" },
+];
+
+const ATTRIBUTION_OPTIONS = [
+  { value: "ORIGINAL", label: "原创" },
+  { value: "AUTHORIZED", label: "授权转载" },
+  { value: "OFFICIAL_PUBLIC", label: "官方公开内容" },
+];
+
 const SOURCE_TYPE_OPTIONS: { value: SoftwareSourceType; label: string }[] = [
   { value: "NETDISK", label: "网盘链接" },
   { value: "MAGNET", label: "磁力链接" },
@@ -67,6 +90,9 @@ interface SoftwareEditorReleaseDraft {
   recommended: boolean;
   sources: {
     uid: string;
+    label: string;
+    platform: string;
+    arch: string;
     sourceType: SoftwareSourceType;
     link: string;
     extractionCode: string;
@@ -80,6 +106,9 @@ const nextDraftUid = () => `d${++draftUidSeq}`;
 
 const emptySource = () => ({
   uid: nextDraftUid(),
+  label: "网盘",
+  platform: "WINDOWS",
+  arch: "X64",
   sourceType: "NETDISK" as SoftwareSourceType,
   link: "",
   extractionCode: "",
@@ -104,6 +133,7 @@ export default function SoftwareEdit() {
   const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
   const [descriptionHtml, setDescriptionHtml] = useState("");
   const [licenseType, setLicenseType] = useState<SoftwareLicenseType>("FREE");
+  const [attributionType, setAttributionType] = useState<string>("ORIGINAL");
   const [developerName, setDeveloperName] = useState("");
   const [officialUrl, setOfficialUrl] = useState("");
   const [systemRequirements, setSystemRequirements] = useState("");
@@ -132,6 +162,7 @@ export default function SoftwareEdit() {
       setCategoryId(data.categoryId ?? undefined);
       setDescriptionHtml(data.descriptionHtml ?? "");
       setLicenseType(data.licenseType ?? "FREE");
+      setAttributionType(data.attributionType ?? "ORIGINAL");
       setDeveloperName(data.developerName ?? "");
       setOfficialUrl(data.officialUrl ?? "");
       setSystemRequirements(data.systemRequirements ?? "");
@@ -149,6 +180,9 @@ export default function SoftwareEdit() {
             release.sources.length > 0
               ? release.sources.map((source) => ({
                   uid: nextDraftUid(),
+                  label: source.label ?? "",
+                  platform: source.platform ?? "WINDOWS",
+                  arch: source.arch ?? "X64",
                   sourceType: source.sourceType,
                   link: sourceLink(source),
                   extractionCode: source.extractionCode ?? "",
@@ -157,6 +191,9 @@ export default function SoftwareEdit() {
               : [
                   {
                     uid: nextDraftUid(),
+                    label: "网盘",
+                    platform: "WINDOWS",
+                    arch: "X64",
                     sourceType: "NETDISK",
                     link: "",
                     extractionCode: "",
@@ -198,6 +235,7 @@ export default function SoftwareEdit() {
       categoryId,
       descriptionHtml,
       licenseType,
+      attributionType,
       developerName: developerName || undefined,
       officialUrl: officialUrl || undefined,
       systemRequirements: systemRequirements || undefined,
@@ -216,6 +254,9 @@ export default function SoftwareEdit() {
           sources: release.sources
             .filter((source) => source.link.trim().length > 0)
             .map((source) => ({
+              label: source.label.trim(),
+              platform: source.platform,
+              arch: source.arch,
               sourceType: source.sourceType,
               ...(source.sourceType === "NETDISK"
                 ? {
@@ -477,6 +518,12 @@ export default function SoftwareEdit() {
               onChange={setLicenseType}
               options={LICENSE_OPTIONS}
             />
+            <Select
+              value={attributionType}
+              onChange={setAttributionType}
+              options={ATTRIBUTION_OPTIONS}
+              placeholder="来源声明"
+            />
           </Space>
           <Space wrap>
             <Input
@@ -616,6 +663,39 @@ export default function SoftwareEdit() {
               <div style={{ marginTop: 8 }}>
                 {release.sources.map((source, sourceIndex) => (
                   <div key={source.uid} className={styles.sourceRow}>
+                    <Input
+                      disabled={frozen}
+                      style={{ width: 160 }}
+                      placeholder="展示名，如 百度网盘"
+                      value={source.label}
+                      onChange={(event) =>
+                        updateSource(releaseIndex, sourceIndex, {
+                          label: event.target.value,
+                        })
+                      }
+                    />
+                    <Select
+                      disabled={frozen}
+                      style={{ width: 120 }}
+                      value={source.platform}
+                      onChange={(value) =>
+                        updateSource(releaseIndex, sourceIndex, {
+                          platform: value,
+                        })
+                      }
+                      options={PLATFORM_OPTIONS}
+                    />
+                    <Select
+                      disabled={frozen}
+                      style={{ width: 100 }}
+                      value={source.arch}
+                      onChange={(value) =>
+                        updateSource(releaseIndex, sourceIndex, {
+                          arch: value,
+                        })
+                      }
+                      options={ARCH_OPTIONS}
+                    />
                     <Select
                       disabled={frozen}
                       value={source.sourceType}
