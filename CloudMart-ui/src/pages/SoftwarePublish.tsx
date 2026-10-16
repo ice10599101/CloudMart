@@ -235,6 +235,8 @@ export default function SoftwarePublish() {
       if (!res.data.success) return;
       setLockVersion(res.data.data?.lockVersion ?? lockVersion);
       message.success("草稿已保存");
+    } catch {
+      // 统一拦截器已提示（版本冲突等）；防 Unhandled Rejection 炸屏
     } finally {
       setSaving(false);
     }
@@ -292,6 +294,8 @@ export default function SoftwarePublish() {
       if (!res.data.success) return;
       message.success("已提交审核，审核通过后公开可见");
       history.push("/software/mine");
+    } catch {
+      // 统一拦截器已提示（版本冲突/校验/审核拒绝）；此处防 Unhandled Rejection 炸屏
     } finally {
       setSubmitting(false);
     }

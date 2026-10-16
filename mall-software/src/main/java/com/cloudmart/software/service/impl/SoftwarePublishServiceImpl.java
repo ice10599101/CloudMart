@@ -180,7 +180,9 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         softwareMapper.updateById(software);
         auditService.record(software.getId(), revision.getId(), 0, userId, "USER",
                 "CREATE", null, "DRAFT", "创建软件", null);
-        return new SoftwareCreatedVO(software.getId(), revision.getId(), software.getLockVersion());
+                // lockVersion 返回工作快照（revision）的版本：前端拿它做 saveDraft 的 expectedVersion；
+        // 误返回 software 主行版本会导致提交链首个 saveDraft 必然乐观锁冲突（线上实测踩坑）
+        return new SoftwareCreatedVO(software.getId(), revision.getId(), revision.getLockVersion());
     }
 
     // ------------------------------------------------------------------
