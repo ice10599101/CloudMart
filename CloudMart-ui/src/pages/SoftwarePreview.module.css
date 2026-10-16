@@ -1,0 +1,67 @@
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.section {
+  margin-bottom: 16px;
+  border-radius: 10px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.summary {
+  color: var(--color-text-secondary);
+  font-size: 15px;
+}
+
+.meta {
+  margin-top: 8px;
+}
+
+.description {
+  color: var(--color-text);
+  line-height: 1.7;
+  word-break: break-word;
+}
+
+.sourceList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.releaseCard {
+  border-radius: 8px;
+}
+
+.sourceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.sourceType {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.sourceUrl {
+  word-break: break-all;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}

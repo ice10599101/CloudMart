@@ -190,6 +190,17 @@ export default function SoftwareMine() {
                       </Button>
                     </Popconfirm>
                   ) : null,
+                  item.status !== "PUBLISHED" ? (
+                    <Button
+                      key="preview"
+                      type="link"
+                      onClick={() =>
+                        history.push(`/software/${item.softwareId}/preview`)
+                      }
+                    >
+                      查看
+                    </Button>
+                  ) : null,
                   tab === "subscriptions" ? (
                     <Button
                       key="unsubscribe"

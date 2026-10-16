@@ -86,6 +86,7 @@ export default defineConfig({
         { path: '/software/topics/:slug', component: '@/pages/SoftwareTopicDetail' },
         { path: '/software/:id', component: '@/pages/SoftwareDetail' },
         { path: '/software/:id/edit', component: '@/pages/SoftwareEdit' },
+        { path: '/software/:id/preview', component: '@/pages/SoftwarePreview' },
         { path: '/wish', component: '@/pages/WishHome' },
         { path: '/wish/list', component: '@/pages/WishSquare' },
         { path: '/wish/create', component: '@/pages/WishCreate' },
