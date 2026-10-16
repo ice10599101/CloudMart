@@ -284,6 +284,23 @@ export default function SoftwarePublish() {
     tagIds,
   ]);
 
+  /** 新建链：create（空草稿）→ saveDraft 落本地内容（软件被删自愈时也复用） */
+  const doSaveFresh = useCallback(async () => {
+    const created = await createSoftware(buildPayload());
+    if (!created.data.success) return;
+    const sid = created.data.data.softwareId;
+    const rid = created.data.data.workingRevisionId;
+    setSoftwareId(sid);
+    setRevisionId(rid);
+    const saved = await saveSoftwareDraft(sid, rid, {
+      ...buildPayload(),
+      expectedVersion: created.data.data.lockVersion,
+    });
+    if (!saved.data.success) return;
+    setLockVersion(saved.data.data?.lockVersion ?? created.data.data.lockVersion);
+    message.success("草稿已保存");
+  }, [buildPayload, message]);
+
   const handleSaveDraft = useCallback(async () => {
     if (!name.trim()) {
       message.warning("请先填写软件名称");
@@ -293,19 +310,7 @@ export default function SoftwarePublish() {
     try {
       // 首次保存：create 只建空草稿（后端不读 body），须紧接着把快照 saveDraft 落库
       if (!softwareId || !revisionId) {
-        const created = await createSoftware(buildPayload());
-        if (!created.data.success) return;
-        const sid = created.data.data.softwareId;
-        const rid = created.data.data.workingRevisionId;
-        setSoftwareId(sid);
-        setRevisionId(rid);
-        const saved = await saveSoftwareDraft(sid, rid, {
-          ...buildPayload(),
-          expectedVersion: created.data.data.lockVersion,
-        });
-        if (!saved.data.success) return;
-        setLockVersion(saved.data.data?.lockVersion ?? created.data.data.lockVersion);
-        message.success("草稿已保存");
+        await doSaveFresh();
         return;
       }
       const res = await saveSoftwareDraft(softwareId, revisionId, {
@@ -316,6 +321,15 @@ export default function SoftwarePublish() {
       setLockVersion(res.data.data?.lockVersion ?? lockVersion);
       message.success("草稿已保存");
     } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === "SOFTWARE_NOT_FOUND") {
+        // 服务端草稿已被删除：清进度重走创建链，本地内容原样保留
+        setSoftwareId(null);
+        setRevisionId(null);
+        setLockVersion(null);
+        await doSaveFresh();
+        return;
+      }
       await syncOnConflict(err, setSaving);
     } finally {
       setSaving(false);
@@ -335,9 +349,9 @@ export default function SoftwarePublish() {
   }, [])
 
   /**
-   * 版本冲突自愈（A08）：SOFTWARE_VERSION_CONFLICT 时以服务端 editor 为准
-   * 覆盖本地草稿并同步版本号（冲突即服务端已有更新版本，本地覆盖合理），
-   * 明确提示用户核对；其余错误维持拦截器统一提示，不额外处理。
+   * 版本冲突自愈（A08）：冲突时【保留本地内容】（那才是用户的真实意图——
+   * 服务端可能只是 create 建出的空壳），仅同步服务端进度（revisionId/lockVersion），
+   * 并用本地内容自动重试一次保存；提交链冲突则保存后提示再次点击提交。
    */
   const syncOnConflict = useCallback(
     async (err: unknown, setBusy: (v: boolean) => void) => {
@@ -350,45 +364,30 @@ export default function SoftwarePublish() {
         const res = await getSoftwareEditor(softwareId);
         if (!res.data.success) return;
         const editor = res.data.data;
-        setName(editor.name ?? "");
-        setSummary(editor.summary ?? "");
-        setCategoryId(editor.categoryId ?? undefined);
-        setDescriptionHtml(editor.descriptionHtml ?? "");
-        if (editor.licenseType) setLicenseType(editor.licenseType);
-        setDeveloperName(editor.developerName ?? "");
-        setOfficialUrl(editor.officialUrl ?? "");
-        setSystemRequirements(editor.systemRequirements ?? "");
-        setTagIds(editor.tagIds ?? []);
-        setAccessMode(editor.accessMode);
-        if (editor.minCommunityLevel != null)
-          setMinCommunityLevel(editor.minCommunityLevel);
-        if (editor.accessContactId) setAccessContactId(editor.accessContactId);
-        setReleases(
-          editor.releases.map((release) => ({
-            uid: nextDraftUid(),
-            versionName: release.versionName,
-            changelog: release.changelog ?? "",
-            recommended: Boolean(release.recommended),
-            sources: release.sources.map((source) => ({
-              uid: nextDraftUid(),
-              sourceType: source.sourceType,
-              link: source.url ?? "",
-              extractionCode: source.extractionCode ?? "",
-            })),
-          })),
-        );
+        if (editor.reviewStatus !== "DRAFT" && editor.reviewStatus !== "REJECTED") {
+          message.info("该软件当前状态不可编辑，请刷新后查看");
+          return;
+        }
+        // 只同步进度，不动本地已填内容
         setRevisionId(editor.revisionId);
         setLockVersion(editor.lockVersion);
-        message.info(
-          "检测到内容已在服务器更新，已同步最新版本，请核对后再操作",
-        );
+        const saved = await saveSoftwareDraft(editor.softwareId ?? softwareId, editor.revisionId, {
+          ...buildPayload(),
+          expectedVersion: editor.lockVersion,
+        });
+        if (saved.data.success) {
+          setLockVersion(saved.data.data?.lockVersion ?? editor.lockVersion);
+          message.success("检测到版本冲突，已自动以最新版本保存你的内容");
+        } else {
+          message.warning("版本冲突已同步，请重试保存");
+        }
       } catch {
-        // 同步失败维持拦截器提示
+        // 同步/重试失败维持拦截器提示
       } finally {
         setBusy(false);
       }
     },
-    [message, softwareId],
+    [buildPayload, message, softwareId],
   );
 
   const doSubmit = useCallback(async () => {
