@@ -2,6 +2,7 @@ package com.cloudmart.software.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.software.config.SoftwareMetrics;
 import com.cloudmart.software.config.SoftwareProperties;
 import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareAccessContact;
@@ -62,10 +63,21 @@ public class SoftwareSourceAccessServiceImpl implements SoftwareSourceAccessServ
     private final SoftwareAccessContactMapper accessContactMapper;
     private final SoftwareRateLimiter rateLimiter;
     private final SoftwareProperties softwareProperties;
+    private final SoftwareMetrics softwareMetrics;
     private final TransactionTemplate transactionTemplate;
 
     @Override
     public SoftwareResolveVO resolve(Long userId, Long softwareId, Long sourceId) {
+        try {
+            return doResolve(userId, softwareId, sourceId);
+        } catch (BusinessException e) {
+            // 16：按原因统计获取链接拒绝（等级/付款/来源失效/限流/开关）
+            softwareMetrics.resolveRejected(e.getCode());
+            throw e;
+        }
+    }
+
+    private SoftwareResolveVO doResolve(Long userId, Long softwareId, Long sourceId) {
         // 11.2 获取链接开关：服务端生效，关闭后旧前端也无法获取（A30）
         if (!softwareProperties.isResolveEnabled()) {
             throw new BusinessException("SOFTWARE_RESOLVE_DISABLED", "获取链接功能暂未开放");

@@ -1,6 +1,8 @@
 package com.cloudmart.software.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.common.async.outbox.OutboxService;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.software.config.SoftwareProperties;
@@ -26,6 +28,8 @@ import com.cloudmart.software.service.SoftwareSnapshotAssembler;
 import com.cloudmart.software.vo.software.SoftwareCreatedVO;
 import com.cloudmart.software.vo.software.SoftwareReviewDecisionVO;
 import com.cloudmart.software.vo.software.SoftwareSubmittedVO;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -63,6 +67,13 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class SoftwarePublishServiceImplTest {
+
+    @BeforeAll
+    static void initTableInfo() {
+        // LambdaUpdateWrapper 在单测环境需要 TableInfo（生产由 MP 启动装配）
+        TableInfoHelper.initTableInfo(
+                new MapperBuilderAssistant(new MybatisConfiguration(), ""), Software.class);
+    }
 
     private static final Long USER_ID = 42L;
     private static final Long ADMIN_ID = 1000L;

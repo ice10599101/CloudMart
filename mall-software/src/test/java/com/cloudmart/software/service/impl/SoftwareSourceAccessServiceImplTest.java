@@ -2,6 +2,7 @@ package com.cloudmart.software.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.software.config.SoftwareMetrics;
 import com.cloudmart.software.config.SoftwareProperties;
 import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareLinkAccessDaily;
@@ -87,6 +88,8 @@ class SoftwareSourceAccessServiceImplTest {
     @Mock
     private SoftwareProperties softwareProperties;
     @Mock
+    private SoftwareMetrics softwareMetrics;
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private SoftwareSourceAccessServiceImpl service;
@@ -101,7 +104,7 @@ class SoftwareSourceAccessServiceImplTest {
         service = new SoftwareSourceAccessServiceImpl(accessPolicy, linkAccessPolicy,
                 softwareMapper, releaseMapper, sourceMapper, sourceStateMapper,
                 linkAccessDailyMapper, accessContactMapper, rateLimiter, softwareProperties,
-                transactionTemplate);
+                softwareMetrics, transactionTemplate);
     }
 
     private void stubVisibleChain() {

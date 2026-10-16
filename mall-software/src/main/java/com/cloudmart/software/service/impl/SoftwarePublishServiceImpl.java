@@ -1,6 +1,7 @@
 package com.cloudmart.software.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.outbox.OutboxService;
@@ -699,7 +700,17 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             }
             locked.setLastReleaseAt(LocalDateTime.now(clock));
             locked.setLockVersion(locked.getLockVersion() + 1);
-            softwareMapper.updateById(locked);
+            // ⚠️ 必须用显式 UpdateWrapper 写 null：updateById 默认 NOT_NULL 策略会跳过
+            // working_revision_id=null，导致指针滞留在已审快照上——已发布内容从此无法
+            // 克隆编辑（A06/A07 回归，真实环境复现）
+            softwareMapper.update(null, new LambdaUpdateWrapper<Software>()
+                    .eq(Software::getId, softwareId)
+                    .set(Software::getPublishedRevisionId, revisionId)
+                    .set(Software::getWorkingRevisionId, null)
+                    .set(Software::getPublicationSeq, locked.getPublicationSeq())
+                    .set(Software::getPublishedAt, locked.getPublishedAt())
+                    .set(Software::getLastReleaseAt, locked.getLastReleaseAt())
+                    .set(Software::getLockVersion, locked.getLockVersion()));
             auditService.record(softwareId, revisionId, submitSeq, adminId, "ADMIN",
                     "APPROVE", "PENDING", "APPROVED", reason, requestId);
             // Outbox 与指针切换同事务（9.4）：软件事件载荷不含链接/提取码/正文

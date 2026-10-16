@@ -243,6 +243,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
                         .orderByDesc(SoftwareAccessGrant::getGrantedAt))
                 .stream().map(grant -> {
                     Map<String, Object> row = new HashMap<>();
+                    row.put("grantId", String.valueOf(grant.getId()));
                     row.put("userId", String.valueOf(grant.getUserId()));
                     row.put("status", grant.getStatus());
                     row.put("grantedBy", grant.getGrantedBy() == null ? null
@@ -271,6 +272,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
                 grantRows.getTotal());
         result.setRecords(grantRows.getRecords().stream().map(grant -> {
             Map<String, Object> row = new HashMap<>();
+            row.put("grantId", String.valueOf(grant.getId()));
             row.put("softwareId", String.valueOf(grant.getSoftwareId()));
             row.put("userId", String.valueOf(grant.getUserId()));
             // 展示口径：撤销优先，其次按当前时间实时判定到期（与授权裁决一致）

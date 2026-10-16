@@ -24,6 +24,10 @@ import java.util.List;
 @Mapper
 public interface OutboxEventMapper {
 
+    /** 死信事件数（监控 gauge 采样；超限转 DEAD_LETTER 的行） */
+    @Select("SELECT COUNT(*) FROM outbox_event WHERE status = 'DEAD_LETTER'")
+    long countDeadLetters();
+
     @Insert("""
             INSERT IGNORE INTO outbox_event
               (event_id, event_type, schema_version, aggregate_id, aggregate_version,

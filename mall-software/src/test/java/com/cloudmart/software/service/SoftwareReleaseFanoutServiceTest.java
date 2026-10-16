@@ -2,6 +2,7 @@ package com.cloudmart.software.service;
 
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.software.config.SoftwareMetrics;
 import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareFanoutTask;
 import com.cloudmart.software.entity.SoftwareSubscription;
@@ -77,7 +78,7 @@ class SoftwareReleaseFanoutServiceTest {
                 ((TransactionCallback<?>) invocation.getArgument(0)).doInTransaction(null));
         service = new SoftwareReleaseFanoutService(fanoutTaskMapper, subscriptionMapper,
                 deliveryMapper, preferenceMapper, softwareMapper, notificationClient,
-                transactionTemplate,
+                org.mockito.Mockito.mock(SoftwareMetrics.class), transactionTemplate,
                 Clock.fixed(Instant.parse("2026-10-16T02:00:00Z"), ZoneId.systemDefault()));
         // insert 回填自增 ID
         doAnswer(inv -> {

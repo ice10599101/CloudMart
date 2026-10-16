@@ -1,6 +1,7 @@
 package com.cloudmart.software.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.cloudmart.software.config.SoftwareMetrics;
 import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareFanoutTask;
 import com.cloudmart.software.entity.SoftwareSubscription;
@@ -62,6 +63,7 @@ public class SoftwareReleaseFanoutService {
     private final SoftwareUserPreferenceMapper preferenceMapper;
     private final SoftwareMapper softwareMapper;
     private final SoftwareNotificationFeignClient notificationClient;
+    private final SoftwareMetrics softwareMetrics;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -273,15 +275,20 @@ public class SoftwareReleaseFanoutService {
 
     private boolean deliver(Long softwareId, Integer publicationSeq, Long revisionId,
                             List<Long> userIds) {
+        long start = System.nanoTime();
+        boolean sent = false;
         try {
             var response = notificationClient.releasePublished(
                     new com.cloudmart.software.dto.software.SoftwareReleaseNotifyRequest(
                             softwareId, publicationSeq, revisionId, userIds));
-            return response != null && response.data() != null;
+            sent = response != null && response.data() != null;
+            return sent;
         } catch (Exception e) {
             log.warn("订阅提醒投递失败 softwareId={} seq={} users={}: {}",
                     softwareId, publicationSeq, userIds.size(), e.getMessage());
             return false;
+        } finally {
+            softwareMetrics.recordFanoutDelivery(sent, (System.nanoTime() - start) / 1_000_000);
         }
     }
 
