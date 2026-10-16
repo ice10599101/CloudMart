@@ -203,7 +203,19 @@ export default function SoftwareMine() {
               >
                 <List.Item.Meta
                   title={
-                    <span>
+                    <span
+                      style={{
+                        cursor: item.unavailable ? 'default' : 'pointer',
+                      }}
+                      onClick={() => {
+                        if (item.unavailable) return
+                        history.push(
+                          item.status === 'PUBLISHED'
+                            ? `/software/${item.softwareId}`
+                            : `/software/${item.softwareId}/edit`,
+                        )
+                      }}
+                    >
                       {item.name}
                       {STATUS_LABEL[item.status] ? (
                         <Tag style={{ marginLeft: 8 }}>
