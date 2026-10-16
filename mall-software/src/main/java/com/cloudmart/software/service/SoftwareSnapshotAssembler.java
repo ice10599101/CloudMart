@@ -110,9 +110,11 @@ public class SoftwareSnapshotAssembler {
             throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID",
                     "富文本介绍过长（≤" + MAX_DESCRIPTION_LENGTH + " 字符）");
         }
-        String sanitizedHtml = sanitizer.sanitize(input.getDescriptionHtml());
-        revision.setDescriptionHtml(sanitizedHtml);
-        revision.setDescriptionText(sanitizer.extractText(sanitizedHtml));
+        // 2026-10-17：服务端 HTML 消毒按用户决定移除——原样保存，展示端 DOMPurify 兜底
+        String descriptionHtml = input.getDescriptionHtml() == null
+                ? "" : input.getDescriptionHtml().trim();
+        revision.setDescriptionHtml(descriptionHtml);
+        revision.setDescriptionText(sanitizer.extractText(descriptionHtml));
 
         if (input.getDeveloperName() != null && input.getDeveloperName().length() > 80) {
             throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "开发者名称最长 80 字");
