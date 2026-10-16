@@ -146,6 +146,7 @@ public class GlobalExceptionHandler {
             case "USER_NOT_FOUND", "ROLE_NOT_FOUND", "MENU_NOT_FOUND",
                  "ACTIVITY_NOT_FOUND", "PRODUCT_NOT_FOUND", "TABLE_NOT_FOUND",
                  "ORDER_NOT_FOUND", "COUPON_NOT_FOUND", "TAG_NOT_FOUND",
+                 "AFTER_SALE_NOT_FOUND",
                  "BADGE_NOT_FOUND", "REPORT_NOT_FOUND", "COMMENT_NOT_FOUND",
                  "POST_NOT_FOUND", "CATEGORY_NOT_FOUND", "BRAND_NOT_FOUND",
                  "WAREHOUSE_NOT_FOUND", "SHIPPING_NOT_FOUND",
@@ -184,7 +185,10 @@ public class GlobalExceptionHandler {
                  // 小答软件（7.6 错误契约）：通用不可见提示，不泄露封禁/草稿详情
                  "SOFTWARE_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "WISH_STARLIGHT_INSUFFICIENT" -> HttpStatus.PAYMENT_REQUIRED;
-            case "WISH_CAPSULE_NOT_AVAILABLE", "WISH_STATUS_CONFLICT",
+            case "INVENTORY_ALREADY_INITIALIZED",
+                 "AFTER_SALE_STATUS_ERROR", "AFTER_SALE_DUPLICATE", "AFTER_SALE_QUANTITY_EXCEEDED",
+                 "AFTER_SALE_REQUEST_CONFLICT", "AFTER_SALE_WINDOW_EXPIRED",
+                 "WISH_CAPSULE_NOT_AVAILABLE", "WISH_STATUS_CONFLICT",
                  "WISH_ALREADY_INTERACTED", "WISH_ALREADY_CHECKIN_TODAY",
                  "WISH_ALREADY_SIGNED_IN",
                  "GIFT_OFF_SHELF",
@@ -236,6 +240,7 @@ public class GlobalExceptionHandler {
                  "USER_REGISTER_CODE_FREQUENT" -> HttpStatus.TOO_MANY_REQUESTS;
             case "AI_SERVICE_UNAVAILABLE",
                  "WISH_AI_UNAVAILABLE", "PET_AI_UNAVAILABLE",
+                 "WISH_BRAND_POOL_MAINTENANCE",
                  "PET_SETTLEMENT_PENDING", "PET_FEATURE_DISABLED", "PET_TEMPORARILY_UNAVAILABLE",
                  "JWK_LOAD_FAILED" -> HttpStatus.SERVICE_UNAVAILABLE;
             // 内部错误：下游服务经 Feign 回传的 INTERNAL_ERROR 必须保持 500，
