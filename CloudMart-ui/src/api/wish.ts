@@ -254,9 +254,9 @@ export function sparkWish(id: number | string) {
 }
 
 export function listWishes(params: {
-  categoryId?: number
-  /** 作者用户 ID 筛选（他人主页「TA 的心愿」；服务端仍强制仅返回 PUBLIC） */
-  userId?: number
+  categoryId?: number | string
+  /** 作者用户 ID 筛选（他人主页「TA 的心愿」；服务端仍强制仅返回 PUBLIC）；BASE-01：字符串防精度损失 */
+  userId?: number | string
   status?: WishStatus
   keyword?: string
   cursor?: string
@@ -735,7 +735,7 @@ export interface AiGoal {
 }
 
 /** 意图分析 + 目标拆解（前置 AI 同意；10 次/日；403/429/503 错误码由组件分发） */
-export function breakdownGoal(data: { text: string; wishId?: number }) {
+export function breakdownGoal(data: { text: string; wishId?: number | string }) {
   // 同上：AI 生成耗时最长 30s+，单独放宽超时
   return request.post<ApiResponse<AiBreakdownResult>>('/wish/ai/assistant', data, { timeout: 60000 })
 }
@@ -743,7 +743,7 @@ export function breakdownGoal(data: { text: string; wishId?: number }) {
 /** 勾选步骤批量持久化（status=PENDING） */
 export function createAiGoals(data: {
   sessionId: string
-  wishId?: number
+  wishId?: number | string
   goals: Array<Pick<AiBreakdownGoal, 'title' | 'description' | 'estimatedDays' | 'priority'>>
 }) {
   return request.post<ApiResponse<AiGoal[]>>('/wish/ai/goals', data)
@@ -757,7 +757,7 @@ export function updateAiGoalStatus(goalId: number | string, status: AiGoalStatus
 /** 我的 AI 目标列表（id 倒序游标分页） */
 export function listMyAiGoals(params: {
   status?: AiGoalStatus
-  wishId?: number
+  wishId?: number | string
   cursor?: string
   pageSize?: number
 } = {}) {
@@ -903,7 +903,7 @@ export function recommendMatchGroups(params: MatchRecommendQuery = {}) {
 }
 
 /** 建组（创建者为 LEADER；429 建组日限频 / 409 同关键词已有小队 / 403 被踢冷却） */
-export function createMatchGroup(data: { keyword: string; maxMembers?: number; wishId?: number }) {
+export function createMatchGroup(data: { keyword: string; maxMembers?: number; wishId?: number | string }) {
   return request.post<ApiResponse<MatchGroupCreated>>('/wish/match/groups', data)
 }
 

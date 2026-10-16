@@ -99,7 +99,8 @@ export default function MapAdmin() {
         try {
             await createAdminFence({
                 name: fenceForm.name,
-                wishId: Number(fenceForm.wishId),
+                // BASE-01：心愿 ID 是雪花 ID，保持字符串提交（Number 转换会丢精度）
+                wishId: fenceForm.wishId.trim(),
                 centerLat: Number(fenceForm.centerLat),
                 centerLng: Number(fenceForm.centerLng),
                 radiusM: Number(fenceForm.radiusM),

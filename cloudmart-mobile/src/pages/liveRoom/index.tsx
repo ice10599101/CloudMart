@@ -42,7 +42,8 @@ function formatCount(count: number): string {
 
 export default function LiveRoomPage() {
   const { dataTheme, themeStyle } = useThemeClass()
-  const roomId = Number(Taro.getCurrentInstance().router?.params?.id || 0)
+  // BASE-01：房间 ID 是雪花 ID，保持字符串（路由参数 -> WS/接口全程不落 Number）
+  const roomId = Taro.getCurrentInstance().router?.params?.id ?? ''
   const { user, isLoggedIn } = useAuthStore()
 
   const [room, setRoom] = useState<RoomDetail | null>(null)

@@ -75,7 +75,7 @@ export default function Members() {
   const [permReason, setPermReason] = useState('')
   const [permSubmitting, setPermSubmitting] = useState(false)
 
-  const loadPublisherPermissions = (ids: number[]) => {
+  const loadPublisherPermissions = (ids: Array<string | number>) => {
     if (ids.length === 0) {
       setPermMap({})
       return
@@ -108,8 +108,9 @@ export default function Members() {
       loadPublisherPermissions(
         Object.keys(permMap).length
           ? Object.values(permMap)
-              .map((item) => Number(item.userId))
-              .concat(permTarget.id)
+              // BASE-01：用户 ID 是雪花 ID，保持字符串（Number 转换会丢精度）
+              .map((item) => item.userId)
+              .concat(String(permTarget.id))
           : [permTarget.id],
       )
     } catch {

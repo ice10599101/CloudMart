@@ -45,7 +45,8 @@ export default function Notifications() {
   const handleSend = async (values: Record<string, any>) => {
     return confirmSubmit(async () => {
       await sendNotification({
-        userId: values.userId ? Number(values.userId) : undefined,
+        // BASE-01：用户 ID 是雪花 ID，保持字符串（Number 转换会丢精度导致通知发错人）
+        userId: values.userId ? String(values.userId).trim() : undefined,
         type: values.type,
         title: values.title,
         content: values.content,

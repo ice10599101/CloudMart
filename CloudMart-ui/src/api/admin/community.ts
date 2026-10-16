@@ -154,7 +154,7 @@ export function grantBadge(id: number | string, data: Record<string, any>) {
 }
 
 /** T23：撤销徽章（原因必填审计；授予历史保留） */
-export function revokeBadge(id: number, data: { userId: number; reason: string }) {
+export function revokeBadge(id: number, data: { userId: string; reason: string }) {
   return request.post(`/admin/community/badges/${id}/revoke`, data)
 }
 

@@ -62,11 +62,12 @@ export default function CapsuleCreate() {
     }, [user])
 
     // 预期管理通知「转入时间胶囊」深链：预填心愿标题/内容/照片，open_at 默认 +30 天
+    // BASE-01：心愿 ID 是雪花 ID，字符串直接透传（Number 转换会丢精度）
     const prefillWishId = searchParams.get('wishId')
     useEffect(() => {
         if (!prefillWishId || !user) return
         let cancelled = false
-        getWishDetail(Number(prefillWishId))
+        getWishDetail(prefillWishId)
             .then((res) => {
                 if (cancelled || !res.data.success || !res.data.data) return
                 const detail = res.data.data

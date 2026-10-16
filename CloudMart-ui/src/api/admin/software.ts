@@ -615,10 +615,11 @@ export interface AdminTopicPayload {
   slug: string
   title: string
   summary?: string
-  coverAssetId?: number
+  /** BASE-01：资产 ID 为雪花 ID，字符串传递 */
+  coverAssetId?: string
   status?: 'DRAFT' | 'PUBLISHED' | 'DISABLED'
   sortOrder?: number
-  items: Array<{ softwareId: number; sortOrder?: number }>
+  items: Array<{ softwareId: string; sortOrder?: number }>
 }
 
 export function listAdminTopics(params?: { page?: number; size?: number }) {

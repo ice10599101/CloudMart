@@ -54,7 +54,8 @@ export default function PostDetailScreen() {
   const { width: contentWidth } = useWindowDimensions()
   const theme = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
-  const postId = Number(id)
+  // BASE-01：帖子 ID 是雪花 ID，保持字符串（路由参数 -> 请求全程不落 Number）
+  const postId = id ?? ''
 
   const [post, setPost] = useState<PostData | null>(null)
   // 好物分享帖：关联商品卡片（社区→电商转化）

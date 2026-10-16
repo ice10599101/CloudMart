@@ -6,7 +6,8 @@ import { AVATAR_FRAME_RINGS } from '@/utils/avatarFrame'
 /** 订阅某个用户的头像装饰信息（头像框/等级/徽章数），按需批量拉取并缓存 */
 export function useDecoration(userId: number | string | null | undefined) {
   const decoration = useDecorationStore((s) =>
-    userId === null || userId === undefined ? undefined : s.decorations[Number(userId)],
+    // BASE-01：装饰缓存按字符串 ID 索引（雪花 ID 不能经 Number 转换）
+    userId === null || userId === undefined ? undefined : s.decorations[String(userId)],
   )
   const ensure = useDecorationStore((s) => s.ensure)
 

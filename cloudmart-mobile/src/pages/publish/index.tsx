@@ -80,7 +80,8 @@ export default function PublishPage() {
   const [publishing, setPublishing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
+  // BASE-01：帖子 ID 保持字符串（雪花 ID 不做 Number/parseInt 转换）
+  const [editingId, setEditingId] = useState<number | string | null>(null)
   const [draftId, setDraftId] = useState<number | null>(null)
   const leavingRef = useRef(false)
   // P0-6：投票/问卷附件
@@ -135,13 +136,13 @@ export default function PublishPage() {
 
   useDidShow(() => {
     const params = Taro.getCurrentInstance().router?.params
-    const editId = params?.edit ? parseInt(params.edit) : null
+    const editId = params?.edit ?? null
     if (editId && !isEditing) {
       loadPostForEdit(editId)
     }
   })
 
-  const loadPostForEdit = async (id: number) => {
+  const loadPostForEdit = async (id: number | string) => {
     try {
       const res = await communityApi.getPost(id)
       const post = res.data?.data

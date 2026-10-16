@@ -154,7 +154,8 @@ export type StarlightTransferDirection = 'SENT' | 'RECEIVED'
 export interface StarlightTransferRecord {
     id: number | string
     fromUserId: number
-    toUserId: number
+    /** BASE-01：目标用户 ID 保持字符串（雪花 ID 防精度损失） */
+    toUserId: number | string
     amount: number
     message: string | null
     direction: StarlightTransferDirection
@@ -173,7 +174,8 @@ export interface StarlightTransferLimits {
 
 /** R19：发起转赠请求体（金额 10-100；requestKey 幂等键） */
 export interface CreateStarlightTransferPayload {
-    toUserId: number
+    /** BASE-01：目标用户 ID 保持字符串（雪花 ID 防精度损失） */
+    toUserId: number | string
     amount: number
     message?: string
     requestKey: string
@@ -250,7 +252,7 @@ export interface UpdateWishPayload {
 
 export interface WishListQuery {
     /** 作者用户 ID 筛选（他人主页「TA 的心愿」；服务端强制仅返回 PUBLIC） */
-    userId?: number
+    userId?: number | string
     categoryId?: number
     keyword?: string
     cursor?: string
@@ -527,13 +529,13 @@ export const wishApi = {
 
     // ---- AI 心愿助手（Sprint 2.5）----
     /** 意图分析 + 目标拆解（前置 AI 同意；10 次/日；403/429/503 由页面分发） */
-    breakdownGoal: (data: { text: string; wishId?: number }) =>
+    breakdownGoal: (data: { text: string; wishId?: number | string }) =>
         request<AiBreakdownResult>({ url: '/wish/ai/assistant', method: 'POST', data: data as unknown as Record<string, unknown> }),
     /** 勾选步骤批量持久化（status=PENDING） */
     createAiGoals: (data: CreateAiGoalsPayload) =>
         request<AiGoal[]>({ url: '/wish/ai/goals', method: 'POST', data: data as unknown as Record<string, unknown> }),
     /** 目标状态流转（PENDING→IN_PROGRESS→COMPLETED；非终态可 CANCELLED；终态再变更 409） */
-    updateAiGoalStatus: (goalId: number, status: AiGoalStatus) =>
+    updateAiGoalStatus: (goalId: number | string, status: AiGoalStatus) =>
         request<AiGoal>({ url: `/wish/ai/goals/${goalId}`, method: 'PUT', data: { status } }),
     /** 我的 AI 目标列表（id 倒序游标分页） */
     listMyAiGoals: (params?: MyAiGoalsQuery) =>

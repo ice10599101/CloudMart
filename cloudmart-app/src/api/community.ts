@@ -15,21 +15,22 @@ export const communityApi = {
     request<PaginatedResult<Post>>({ url: `/community/posts/feed${buildQuery(params as Record<string, unknown>)}` }),
   getFollowingFeed: (params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/posts/feed/following${buildQuery(params as Record<string, unknown>)}` }),
-  getPost: (id: number) => request<Post>({ url: `/community/posts/${id}` }),
+  // BASE-01：帖子 ID 保持字符串联合（雪花 ID 防精度损失）
+  getPost: (id: number | string) => request<Post>({ url: `/community/posts/${id}` }),
   createPost: (data: { title: string; content: string; tags?: string[] }) =>
     request<Post>({ url: '/community/posts', method: 'POST', data }),
-  deletePost: (id: number) => request<void>({ url: `/community/posts/${id}`, method: 'DELETE' }),
-  likePost: (id: number) => request<void>({ url: `/community/posts/${id}/like`, method: 'POST' }),
-  unlikePost: (id: number) => request<void>({ url: `/community/posts/${id}/like`, method: 'DELETE' }),
-  collectPost: (id: number) => request<void>({ url: `/community/posts/${id}/collect`, method: 'POST' }),
-  uncollectPost: (id: number) => request<void>({ url: `/community/posts/${id}/collect`, method: 'DELETE' }),
-  sharePost: (id: number) => request<void>({ url: `/community/posts/${id}/share`, method: 'POST' }),
-  getComments: (postId: number, params?: { page?: number; pageSize?: number }) =>
+  deletePost: (id: number | string) => request<void>({ url: `/community/posts/${id}`, method: 'DELETE' }),
+  likePost: (id: number | string) => request<void>({ url: `/community/posts/${id}/like`, method: 'POST' }),
+  unlikePost: (id: number | string) => request<void>({ url: `/community/posts/${id}/like`, method: 'DELETE' }),
+  collectPost: (id: number | string) => request<void>({ url: `/community/posts/${id}/collect`, method: 'POST' }),
+  uncollectPost: (id: number | string) => request<void>({ url: `/community/posts/${id}/collect`, method: 'DELETE' }),
+  sharePost: (id: number | string) => request<void>({ url: `/community/posts/${id}/share`, method: 'POST' }),
+  getComments: (postId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Comment>>({ url: `/community/posts/${postId}/comments${buildQuery(params as Record<string, unknown>)}` }),
-  createComment: (postId: number, data: { content: string; parentId?: number; replyToUserId?: number }) =>
+  createComment: (postId: number | string, data: { content: string; parentId?: number | string; replyToUserId?: number | string }) =>
     request<Comment>({ url: `/community/posts/${postId}/comments`, method: 'POST', data }),
-  likeComment: (id: number) => request<void>({ url: `/community/comments/${id}/like`, method: 'POST' }),
-  unlikeComment: (id: number) => request<void>({ url: `/community/comments/${id}/like`, method: 'DELETE' }),
+  likeComment: (id: number | string) => request<void>({ url: `/community/comments/${id}/like`, method: 'POST' }),
+  unlikeComment: (id: number | string) => request<void>({ url: `/community/comments/${id}/like`, method: 'DELETE' }),
   searchPosts: (params: { keyword: string; page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/posts/search${buildQuery(params as Record<string, unknown>)}` }),
   getHotTags: () => request<Tag[]>({ url: '/community/tags/hot' }),
@@ -44,9 +45,9 @@ export const communityApi = {
   followUser: (userId: number | string) => request<void>({ url: `/community/users/${userId}/follow`, method: 'POST' }),
   unfollowUser: (userId: number | string) => request<void>({ url: `/community/users/${userId}/follow`, method: 'DELETE' }),
   getUserProfile: (userId: number | string) => request<User>({ url: `/community/users/${userId}/profile` }),
-  getUserFollowers: (userId: number, params?: { page?: number; pageSize?: number }) =>
+  getUserFollowers: (userId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<FollowUser>>({ url: `/community/users/${userId}/followers${buildQuery(params as Record<string, unknown>)}` }),
-  getUserFollowing: (userId: number, params?: { page?: number; pageSize?: number }) =>
+  getUserFollowing: (userId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<FollowUser>>({ url: `/community/users/${userId}/following${buildQuery(params as Record<string, unknown>)}` }),
   getUserCollections: (userId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/users/${userId}/collections${buildQuery(params as Record<string, unknown>)}` }),
@@ -56,13 +57,13 @@ export const communityApi = {
     request<PaginatedResult<Comment>>({ url: `/community/comments/mine${buildQuery(params as Record<string, unknown>)}` }),
   getUserDrafts: (params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/posts/drafts${buildQuery(params as Record<string, unknown>)}` }),
-  updatePost: (id: number, data: Record<string, unknown>) =>
+  updatePost: (id: number | string, data: Record<string, unknown>) =>
     request<Post>({ url: `/community/posts/${id}`, method: 'PUT', data }),
   searchUsers: (params: { keyword: string; page?: number; pageSize?: number }) =>
     request<PaginatedResult<UserBasic>>({ url: `/community/users/search${buildQuery(params as Record<string, unknown>)}` }),
   blockUser: (userId: number | string) => request<void>({ url: `/community/blocks/${userId}`, method: 'POST' }),
   unblockUser: (userId: number | string) => request<void>({ url: `/community/blocks/${userId}`, method: 'DELETE' }),
-  report: (data: { targetType: string; targetId: number; reason: string; description?: string }) =>
+  report: (data: { targetType: string; targetId: number | string; reason: string; description?: string }) =>
     request<void>({ url: '/community/reports', method: 'POST', data }),
   getSettings: () => request<Record<string, string>>({ url: '/community/settings' }),
   updateSettings: (data: Record<string, unknown>) => request<void>({ url: '/community/settings', method: 'PUT', data }),

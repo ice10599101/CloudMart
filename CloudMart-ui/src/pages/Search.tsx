@@ -403,10 +403,10 @@ function FilterSidebar({
   brands: BrandBucket[]
   categories: CategoryBucket[]
   selectedBrand?: string
-  selectedCategoryId?: number
+  selectedCategoryId?: number | string
   selectedPriceRange: { min?: number; max?: number }
   onBrandChange: (brand: string | undefined) => void
-  onCategoryChange: (id: number | undefined) => void
+  onCategoryChange: (id: number | string | undefined) => void
   onPriceRangeChange: (range: { min?: number; max?: number }) => void
   onReset: () => void
 }) {
@@ -586,9 +586,8 @@ export default function Search() {
   const sort = searchParams.get('sort') || 'relevance'
   const page = Number(searchParams.get('page')) || 1
   const brandParam = searchParams.get('brand') || undefined
-  const categoryIdParam = searchParams.get('categoryId')
-    ? Number(searchParams.get('categoryId'))
-    : undefined
+  // BASE-01：分类 ID 是雪花 ID，URL 参数保持字符串透传（Number 转换会丢精度）
+  const categoryIdParam = searchParams.get('categoryId') || undefined
   const minPriceParam = searchParams.get('minPrice')
     ? Number(searchParams.get('minPrice'))
     : undefined
@@ -684,7 +683,7 @@ export default function Search() {
     setSearchParams(params)
   }
 
-  const handleCategoryChange = (nextId: number | undefined) => {
+  const handleCategoryChange = (nextId: number | string | undefined) => {
     const params = new URLSearchParams(searchParams)
     if (nextId !== undefined) {
       params.set('categoryId', String(nextId))

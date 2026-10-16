@@ -65,7 +65,8 @@ export default function PublishPage() {
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null)
+  // BASE-01：帖子 ID 保持字符串（雪花 ID 不做 Number/parseInt 转换）
+  const [editingId, setEditingId] = useState<number | string | null>(null)
   const [draftId, setDraftId] = useState<number | null>(null)
   // P0-6：投票/问卷附件
   const [pollDrafts, setPollDrafts] = useState<PollDraft[]>([])
@@ -90,7 +91,7 @@ export default function PublishPage() {
     return () => backHandler.remove()
   }, [hasContent])
 
-  const loadPostForEdit = async (id: number) => {
+  const loadPostForEdit = async (id: number | string) => {
     try {
       const res = await communityApi.getPost(id)
       const post = res.data?.data
@@ -134,7 +135,8 @@ export default function PublishPage() {
     if (!params.edit || isEditing) return
     const editId = params.edit
     async function run() {
-      await loadPostForEdit(parseInt(editId))
+      // BASE-01：帖子 ID 是雪花 ID，保持字符串（不做 parseInt）
+      await loadPostForEdit(editId)
     }
     void run()
   }, [params.edit, isLoggedIn])

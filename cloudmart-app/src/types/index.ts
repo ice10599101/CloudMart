@@ -277,7 +277,8 @@ export interface Notification {
 
 // Conversation
 export interface Conversation {
-  id: number
+  /** BASE-01：会话 ID 保持字符串（后端 Long 统一十进制字符串） */
+  id: number | string
   targetUser: UserBasic
   lastMessage: string
   lastMessageTime: string
@@ -285,9 +286,9 @@ export interface Conversation {
 }
 
 export interface ChatMessage {
-  id: number
-  conversationId: number
-  senderId: number
+  id: number | string
+  conversationId: number | string
+  senderId: number | string
   content: string
   /** 消息类型（后端为字符串：TEXT / IMAGE） */
   type: string
@@ -834,13 +835,14 @@ export interface AiGoal {
 
 export interface CreateAiGoalsPayload {
   sessionId: string
-  wishId?: number
+  /** BASE-01：心愿 ID 保持字符串联合（雪花 ID 防精度损失） */
+  wishId?: number | string
   goals: Pick<AiBreakdownGoal, 'title' | 'description' | 'estimatedDays' | 'priority'>[]
 }
 
 export interface MyAiGoalsQuery {
   status?: AiGoalStatus
-  wishId?: number
+  wishId?: number | string
   cursor?: string
   pageSize?: number
 }

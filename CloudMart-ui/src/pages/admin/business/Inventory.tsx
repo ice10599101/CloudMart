@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ProTable, ModalForm, ProFormText, ProFormDigit, ProFormSelect } from '@ant-design/pro-components'
+import { ProTable, ModalForm, ProFormText, ProFormDigit } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
 import { Button, Descriptions, Modal, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
@@ -10,8 +10,9 @@ import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
 
 interface InventoryRecord {
-  id: number
-  skuId: number
+  /** BASE-01：库存行 ID 与 SKU ID 均为雪花 ID，按字符串贯通（number | string 兼容小整数种子数据） */
+  id: number | string
+  skuId: number | string
   productName: string
   skuName: string
   availableStock: number
@@ -22,7 +23,7 @@ interface InventoryRecord {
 }
 
 interface InventoryDetail {
-  skuId: number
+  skuId: number | string
   productName: string
   skuName: string
   availableStock: number
@@ -46,13 +47,27 @@ export default function Inventory() {
 
   const handleInit = async (values: Record<string, any>) => {
     return confirmSubmit(async () => {
-      await initInventory(values)
-      message.success('库存初始化成功')
-      actionRef.current?.reload()
+      try {
+        // BASE-01：身份 ID 保持字符串原样提交（后端 Jackson 从十进制字符串解析 Long）
+        await initInventory({
+          skuId: String(values.skuId ?? '').trim(),
+          productId: String(values.productId ?? '').trim(),
+          stock: Number(values.stock),
+        })
+        message.success('库存初始化成功')
+        actionRef.current?.reload()
+      } catch (error) {
+        // TRADE-02：已有库存一律拒绝覆盖（409 INVENTORY_ALREADY_INITIALIZED），如实展示服务端原因
+        const msg =
+          (error as { response?: { data?: { error?: { message?: string } } } })
+            ?.response?.data?.error?.message
+        message.error(msg ?? '库存初始化失败')
+        throw error
+      }
     })
   }
 
-  const handleViewDetail = async (skuId: number) => {
+  const handleViewDetail = async (skuId: number | string) => {
     setDetailLoading(true)
     setDetailVisible(true)
     try {
@@ -135,54 +150,32 @@ export default function Inventory() {
         modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
         width={520}
       >
-        <ProFormDigit
+        <ProFormText
           name="skuId"
           label="SKU ID"
-          min={1}
-          fieldProps={{ precision: 0 }}
-          rules={[{ required: true, message: '请输入 SKU ID' }]}
+          placeholder="请输入 SKU ID"
+          tooltip="雪花 ID 按字符串原样提交（BASE-01：不做数字转换，防精度损失）"
+          rules={[
+            { required: true, message: '请输入 SKU ID' },
+            { pattern: /^\d{1,19}$/, message: 'SKU ID 应为 1-19 位数字' },
+          ]}
         />
         <ProFormText
-          name="productName"
-          label="商品名称"
-          placeholder="请输入商品名称"
-          rules={[{ required: true, message: '请输入商品名称' }]}
-        />
-        <ProFormText
-          name="skuName"
-          label="SKU 名称"
-          placeholder="请输入 SKU 名称"
+          name="productId"
+          label="商品 ID"
+          placeholder="请输入商品 ID"
+          rules={[
+            { required: true, message: '请输入商品 ID' },
+            { pattern: /^\d{1,19}$/, message: '商品 ID 应为 1-19 位数字' },
+          ]}
         />
         <ProFormDigit
-          name="totalStock"
-          label="总库存"
+          name="stock"
+          label="初始库存"
           min={0}
           fieldProps={{ precision: 0 }}
-          rules={[{ required: true, message: '请输入总库存' }]}
-        />
-        <ProFormDigit
-          name="safetyStock"
-          label="安全库存"
-          min={0}
-          fieldProps={{ precision: 0 }}
-        />
-        <ProFormDigit
-          name="replenishmentQty"
-          label="补货数量"
-          min={0}
-          fieldProps={{ precision: 0 }}
-        />
-        <ProFormSelect
-          name="warehouseCode"
-          label="仓库编码"
-          placeholder="请选择仓库"
-          rules={[{ required: true, message: '请选择仓库' }]}
-          valueEnum={{
-            WH_BJ_01: '北京仓',
-            WH_SH_01: '上海仓',
-            WH_GZ_01: '广州仓',
-            WH_CD_01: '成都仓',
-          }}
+          tooltip="仅对未初始化过的 SKU 生效；已有库存会被拒绝（TRADE-02，补货请走后续调整单）"
+          rules={[{ required: true, message: '请输入初始库存' }]}
         />
       </ModalForm>
 

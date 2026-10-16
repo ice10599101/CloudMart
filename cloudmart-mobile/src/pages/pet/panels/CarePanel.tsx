@@ -47,7 +47,7 @@ export function CarePanel({ pet, linkedProductEnabled = true, onRefresh, onNavig
 }) {
   const [careTab, setCareTab] = useState<CareTab>('shop')
   const [carePending, setCarePending] = useState<string | null>(null)
-  const [shopBalance, setShopBalance] = useState<number | null>(null)
+  const [shopBalance, setShopBalance] = useState<number | string | null>(null)
   const [shopItems, setShopItems] = useState<PetShopItem[]>([])
   const [inventory, setInventory] = useState<PetInventoryItem[]>([])
   const [skills, setSkills] = useState<PetSkillItem[]>([])

@@ -83,9 +83,9 @@ export default function AiAssistant() {
   const { message } = App.useApp()
   const { user, userLoading } = useAuthStore()
 
-  /** 预期管理通知「调整目标」深链携带的心愿 ID */
+  /** 预期管理通知「调整目标」深链携带的心愿 ID（BASE-01：雪花 ID 保持字符串） */
   const wishIdParam = searchParams.get('wishId')
-  const wishId = wishIdParam ? Number(wishIdParam) : undefined
+  const wishId = wishIdParam ?? undefined
 
   const [text, setText] = useState('')
   const [breaking, setBreaking] = useState(false)

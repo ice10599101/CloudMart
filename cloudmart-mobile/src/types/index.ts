@@ -282,7 +282,8 @@ export interface Notification {
 
 // Conversation
 export interface Conversation {
-  id: number
+  /** BASE-01：会话 ID 保持字符串（后端 Long 统一十进制字符串） */
+  id: number | string
   targetUser: UserBasic
   lastMessage: string
   lastMessageTime: string
@@ -290,9 +291,9 @@ export interface Conversation {
 }
 
 export interface ChatMessage {
-  id: number
-  conversationId: number
-  senderId: number
+  id: number | string
+  conversationId: number | string
+  senderId: number | string
   content: string
   /** 消息类型（后端为字符串：TEXT / IMAGE） */
   type: string
@@ -660,8 +661,8 @@ export interface SubmitFulfillmentPayload {
   story: string
   mediaUrls?: string[]
   feeling?: string
-  /** 心愿关联商品闭环（§6）：还愿凭证订单号（心愿关联商品时选填；服务端 fail-closed 校验） */
-  purchaseOrderId?: number
+  /** 心愿关联商品闭环（§6）：还愿凭证订单号（心愿关联商品时选填；服务端 fail-closed 校验）；BASE-01：字符串防精度损失 */
+  purchaseOrderId?: number | string
 }
 
 // ---- 世界树（Sprint 2.1，与 mall-wish WorldTreeVO/TreeFruitVO 对齐）----

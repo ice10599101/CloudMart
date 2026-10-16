@@ -94,7 +94,8 @@ export default function UserProfileScreen() {
   const loadWishes = async () => {
     if (!userId) return
     try {
-      const res = await wishApi.listWishes({ userId: Number(userId), pageSize: 30 })
+      // BASE-01：用户 ID 是雪花 ID，字符串透传
+      const res = await wishApi.listWishes({ userId, pageSize: 30 })
       setWishes((res.data as { data?: { wishId?: number; id?: number; title: string; fruitType?: string; status?: string; authorNickname?: string }[] })?.data ?? [])
     } catch {
       setWishes([])
@@ -156,7 +157,7 @@ export default function UserProfileScreen() {
   /** 举报用户（7 类原因逐项提交，对齐 Web 端 ReportModal） */
   const submitReport = async (reason: string) => {
     try {
-      await communityApi.report({ targetType: 'USER', targetId: Number(userId), reason })
+      await communityApi.report({ targetType: 'USER', targetId: userId, reason })
       Alert.alert('提示', '举报成功，感谢你的反馈')
     } catch (error) {
       Alert.alert('错误', errorMessage(error, '举报失败'))

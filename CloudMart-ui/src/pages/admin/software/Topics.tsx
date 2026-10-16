@@ -20,7 +20,8 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 }
 
 interface ItemRow {
-  softwareId: number | null
+  /** BASE-01：软件 ID 为雪花 ID，字符串传递防精度损失 */
+  softwareId: string | null
   sortOrder: number | null
 }
 
@@ -56,7 +57,7 @@ export default function SoftwareTopics() {
       setEditing({ topicId })
       setItems(
         (detail.items ?? []).map((item) => ({
-          softwareId: Number(item.softwareId),
+          softwareId: item.softwareId,
           sortOrder: item.sortOrder ?? null,
         })),
       )
@@ -64,7 +65,7 @@ export default function SoftwareTopics() {
         slug: detail.slug,
         title: detail.title,
         summary: detail.summary ?? '',
-        coverAssetId: detail.coverAssetId ? Number(detail.coverAssetId) : null,
+        coverAssetId: detail.coverAssetId ?? null,
         status: detail.status ?? 'DRAFT',
         sortOrder: detail.sortOrder ?? 0,
       })
@@ -88,7 +89,7 @@ export default function SoftwareTopics() {
     const cleanItems = items
       .filter((item) => item.softwareId != null)
       .map((item) => ({
-        softwareId: item.softwareId as number,
+        softwareId: item.softwareId as string,
         sortOrder: item.sortOrder ?? undefined,
       }))
     if (cleanItems.length === 0) {
@@ -241,14 +242,13 @@ export default function SoftwareTopics() {
           <Form.Item label="软件清单（顺序即展示顺序；保存全量替换）" required>
             {items.map((item, index) => (
               <Space key={index} style={{ display: 'flex', marginBottom: 8 }}>
-                <InputNumber
+                <Input
                   placeholder="软件ID"
-                  min={1}
-                  value={item.softwareId}
-                  onChange={(value) =>
+                  value={item.softwareId ?? ''}
+                  onChange={(e) =>
                     setItems((prev) =>
                       prev.map((row, rowIndex) =>
-                        rowIndex === index ? { ...row, softwareId: value ?? null } : row,
+                        rowIndex === index ? { ...row, softwareId: e.target.value || null } : row,
                       ),
                     )
                   }

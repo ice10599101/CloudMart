@@ -81,8 +81,8 @@ export default function Coupons() {
 
   // ==================== 兑换码管理 ====================
   const codesActionRef = useRef<ActionType>(null)
-  const [templateOptions, setTemplateOptions] = useState<{ label: string; value: number }[]>([])
-  const [codesTemplateId, setCodesTemplateId] = useState<number | null>(null)
+  const [templateOptions, setTemplateOptions] = useState<{ label: string; value: string }[]>([])
+  const [codesTemplateId, setCodesTemplateId] = useState<string | null>(null)
   const [generateOpen, setGenerateOpen] = useState(false)
   const [generateResult, setGenerateResult] = useState<{ batchNo: string; count: number; codes: string[] } | null>(null)
 
@@ -94,7 +94,8 @@ export default function Coupons() {
         if (cancelled) return
         const response = res as ApiResponse<CouponRecord[]>
         setTemplateOptions(
-          (response.data ?? []).map((c) => ({ label: `#${c.id} ${c.name}`, value: Number(c.id) })),
+          // BASE-01：模板 ID 是雪花 ID，保持字符串传递——Number 转换会在大 ID 上丢精度
+          (response.data ?? []).map((c) => ({ label: `#${c.id} ${c.name}`, value: String(c.id) })),
         )
       })
       .catch(() => undefined)

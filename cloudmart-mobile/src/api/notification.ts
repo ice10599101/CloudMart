@@ -18,17 +18,17 @@ export const notificationApi = {
   markAllRead: () => request<void>({ url: '/notification/notifications/read-all', method: 'PUT' }),
   getConversations: (params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Conversation>>({ url: `/notification/conversations${buildQuery(params as Record<string, unknown>)}` }),
-  getMessages: (conversationId: number, params?: { page?: number; pageSize?: number }) =>
+  getMessages: (conversationId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<ChatMessage>>({ url: `/notification/conversations/${conversationId}/messages${buildQuery(params as Record<string, unknown>)}` }),
-  sendMessage: (conversationId: number, data: { content: string; type?: string }) =>
+  sendMessage: (conversationId: number | string, data: { content: string; type?: string }) =>
     request<ChatMessage>({ url: `/notification/conversations/${conversationId}/messages`, method: 'POST', data }),
-  createConversation: (data: { otherUserId: number }) =>
+  createConversation: (data: { otherUserId: number | string }) =>
     request<Conversation>({ url: '/notification/conversations', method: 'POST', data }),
   /** N-1 订阅消息：授权建档（requestSubscribeMessage 通过后以 Taro.login code 建档，一次授权 = 一条额度） */
   bindSubscribe: (code: string, templateKey: string) =>
     request<void>({ url: '/notification/notifications/subscribe/bind', method: 'POST', data: { code, templateKey } }),
-  markConversationRead: (conversationId: number) =>
+  markConversationRead: (conversationId: number | string) =>
     request<void>({ url: `/notification/conversations/${conversationId}/read`, method: 'PUT' }),
-  recallMessage: (messageId: number) =>
+  recallMessage: (messageId: number | string) =>
     request<void>({ url: `/notification/conversations/messages/${messageId}/recall`, method: 'PUT' }),
 }

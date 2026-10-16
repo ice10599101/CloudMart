@@ -18,18 +18,19 @@ export default function ChatPage() {
   const { dataTheme, themeStyle } = useThemeClass()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [conversationId, setConversationId] = useState<number>(0)
+  // BASE-01：会话 ID 保持字符串（路由参数 -> 状态 -> 请求全程不落 Number）
+  const [conversationId, setConversationId] = useState<string>('')
   const [sending, setSending] = useState(false)
   const { user } = useAuthStore()
   useAuthGuard()
 
   const routerParams = Taro.getCurrentInstance().router?.params ?? {}
   // 兼容三个入口的参数：message 页传会话 id(?id=)、userProfile 传对方用户 id(?userId=)、旧深链 ?targetUserId=
-  const routeConversationId = Number(routerParams.id) || 0
-  const routeTargetUserId = Number(routerParams.userId || routerParams.targetUserId) || 0
+  const routeConversationId = routerParams.id ?? ''
+  const routeTargetUserId = routerParams.userId || routerParams.targetUserId || ''
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const lastLoadedIdRef = useRef(0)
+  const lastLoadedIdRef = useRef<number | string>(0)
 
   useEffect(() => {
     initConversation()
@@ -40,10 +41,10 @@ export default function ChatPage() {
 
   const initConversation = async () => {
     try {
-      let convId = routeConversationId
+      let convId: string = routeConversationId
       if (!convId && routeTargetUserId) {
         const convRes = await notificationApi.createConversation({ otherUserId: routeTargetUserId })
-        convId = convRes.data?.data?.id ?? 0
+        convId = String(convRes.data?.data?.id ?? '')
       }
       if (!convId) return
       setConversationId(convId)
@@ -56,7 +57,7 @@ export default function ChatPage() {
     }
   }
 
-  const loadMessages = async (convId: number, reset: boolean) => {
+  const loadMessages = async (convId: number | string, reset: boolean) => {
     try {
       const msgRes = await notificationApi.getMessages(convId, { page: 1, pageSize: 50 })
       const list = msgRes.data?.data?.list || []
@@ -68,7 +69,7 @@ export default function ChatPage() {
   }
 
   /** 轮询增量消息（移动端无 WS：只拉新消息追加） */
-  const startPolling = (convId: number) => {
+  const startPolling = (convId: number | string) => {
     if (pollRef.current) clearInterval(pollRef.current)
     pollRef.current = setInterval(async () => {
       try {
@@ -149,7 +150,8 @@ export default function ChatPage() {
           </View>
         ) : (
           messages.map((msg, idx) => {
-            const isMine = msg.senderId === user?.id
+            // BASE-01：运行时 senderId 可能为数字或字符串，统一字符串化比较
+            const isMine = String(msg.senderId) === String(user?.id ?? '')
             // 按天分组（对齐 Web 端：今天/昨天/日期分隔）
             const prev = messages[idx - 1]
             const dayOf = (t: string) => new Date(t).toDateString()

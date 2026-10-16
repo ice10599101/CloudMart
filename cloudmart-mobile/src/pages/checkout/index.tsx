@@ -25,7 +25,8 @@ interface Address {
 
 interface CheckoutItem {
   productId: number
-  skuId: number
+  /** BASE-01：SKU ID 保持字符串（防大 ID 精度损失） */
+  skuId: number | string
   productName: string
   productImage: string
   skuName?: string
@@ -107,7 +108,7 @@ export default function CheckoutPage() {
           setItems([
             {
               productId: product.id,
-              skuId: sku?.id ?? Number(directSkuId ?? 0),
+              skuId: sku?.id ?? directSkuId ?? '',
               productName: product.name,
               productImage: sku?.image || product.mainImage,
               skuName: sku?.attributes,

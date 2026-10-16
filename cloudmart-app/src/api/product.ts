@@ -48,11 +48,12 @@ export interface OwnReview {
 export const productApi = {
   search: (params: { keyword?: string; categoryId?: number; page?: number; size?: number; sort?: string }) =>
     request<PaginatedResult<Product>>({ url: `/product/products/search${buildQuery(params as Record<string, unknown>)}` }),
-  getDetail: (id: number) => request<Product>({ url: `/product/products/${id}` }),
+  // BASE-01：商品 ID 保持字符串联合（雪花 ID 防精度损失）
+  getDetail: (id: number | string) => request<Product>({ url: `/product/products/${id}` }),
   getCategories: () => request<ProductCategory[]>({ url: '/product/categories' }),
-  getReviews: (productId: number, params?: { page?: number; pageSize?: number }) =>
+  getReviews: (productId: number | string, params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Review>>({ url: `/product/reviews/product/${productId}${buildQuery(params as Record<string, unknown>)}` }),
-  getReviewStats: (productId: number) =>
+  getReviewStats: (productId: number | string) =>
     request<ReviewStats>({ url: `/product/reviews/stats/${productId}` }),
   createReview: (data: {
     orderItemId: number

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, DatePicker, Input, InputNumber, Modal, Space, Tabs, Tag, Typography } from 'antd'
+import { Button, DatePicker, Input, Modal, Space, Tabs, Tag, Typography } from 'antd'
 import dayjs from 'dayjs'
 import {
   grantSoftwareAccess,
@@ -33,7 +33,7 @@ export default function SoftwareAccessGrants() {
   const [userFilter, setUserFilter] = useState('')
 
   const [grantTarget, setGrantTarget] = useState<Partial<AdminAccessGrant> | null>(null)
-  const [grantUserId, setGrantUserId] = useState<number | null>(null)
+  const [grantUserId, setGrantUserId] = useState<string | null>(null)
   const [grantSoftwareId, setGrantSoftwareId] = useState<string>('')
   const [expiresAt, setExpiresAt] = useState<dayjs.Dayjs | null>(null)
   const [confirmationNote, setConfirmationNote] = useState('')
@@ -47,7 +47,8 @@ export default function SoftwareAccessGrants() {
   const openGrant = (record?: AdminAccessGrant) => {
     setGrantTarget(record ?? {})
     setGrantSoftwareId(record?.softwareId ?? softwareFilter)
-    setGrantUserId(record ? Number(record.userId) : userFilter ? Number(userFilter) : null)
+    // BASE-01：会员 ID 是雪花 ID，保持字符串（Number 转换会在授予前就丢精度）
+    setGrantUserId(record ? record.userId : userFilter ? userFilter : null)
     setExpiresAt(record?.expiresAt ? dayjs(record.expiresAt) : null)
     setConfirmationNote('')
     setExternalReference(record?.externalReference ?? '')
@@ -296,12 +297,11 @@ export default function SoftwareAccessGrants() {
             value={grantSoftwareId}
             onChange={(e) => setGrantSoftwareId(e.target.value)}
           />
-          <InputNumber
+          <Input
             placeholder="前台会员ID"
-            value={grantUserId}
-            onChange={(value) => setGrantUserId(value)}
+            value={grantUserId ?? ''}
+            onChange={(e) => setGrantUserId(e.target.value || null)}
             style={{ width: '100%' }}
-            min={1}
           />
           <DatePicker
             showTime

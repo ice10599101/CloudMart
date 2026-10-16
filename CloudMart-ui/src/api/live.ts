@@ -30,11 +30,11 @@ export function listLiveRooms(page = 1, size = 10, status?: string) {
   return request.get<ApiResponse<LiveRoomPage>>('/live/rooms', { params: { page, size, status } })
 }
 
-export function getLiveRoom(id: number) {
+export function getLiveRoom(id: number | string) {
   return request.get<ApiResponse<LiveRoom>>(`/live/rooms/${id}`)
 }
 
-export function enterLiveRoom(id: number) {
+export function enterLiveRoom(id: number | string) {
   return request.post<ApiResponse<LiveRoom>>(`/live/rooms/${id}/enter`)
 }
 

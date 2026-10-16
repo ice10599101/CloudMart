@@ -24,7 +24,8 @@ export default function FollowingScreen() {
   const { type, userId: userIdParam } = useLocalSearchParams<{ type?: string; userId?: string }>()
   const { user: currentUser } = useAuthStore()
 
-  const targetUserId = userIdParam ? Number(userIdParam) : currentUser?.id
+  // BASE-01：用户 ID 是雪花 ID，保持字符串（路由参数 -> 请求全程不落 Number）
+  const targetUserId = userIdParam ?? (currentUser?.id != null ? String(currentUser.id) : undefined)
 
   const initialTab: TabKey = type === 'followers' ? 'followers' : 'following'
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)

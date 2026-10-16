@@ -47,6 +47,17 @@ describe('chat API', () => {
     })
   })
 
+  it('getMessages() 大 ID 会话字符串透传（BASE-01：不落 Number，读取不串会话）', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
+
+    await getMessages('9007199254740993')
+
+    expect(request.get).toHaveBeenCalledWith(
+      '/notification/conversations/9007199254740993/messages',
+      { params: { beforeId: undefined, pageSize: 30 } },
+    )
+  })
+
   it('sendMessage() calls POST with content and type', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
 

@@ -11,7 +11,8 @@ export function listTemplates(params?: {
   return request.get<ApiResponse<CouponTemplate[]>>('/coupon/coupon-templates', { params })
 }
 
-export function claimCoupon(templateId: number) {
+// BASE-01：模板 ID 为雪花 ID，保持字符串联合（URL 参数直接透传，禁止 Number 转换）
+export function claimCoupon(templateId: number | string) {
   return request.post<ApiResponse<UserCoupon>>('/coupon/user-coupons/claim', null, { params: { templateId } })
 }
 

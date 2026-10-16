@@ -441,7 +441,8 @@ export default function UserProfile() {
   const fetchWishes = useCallback(async () => {
     if (!id) return
     try {
-      const { data: res } = await listWishes({ userId: Number(id), pageSize: 50 })
+      // BASE-01：用户 ID 是雪花 ID，字符串透传（Number 转换会丢精度）
+      const { data: res } = await listWishes({ userId: id, pageSize: 50 })
       setWishes(res.data ?? [])
     } catch {
       setWishes([])

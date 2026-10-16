@@ -29,7 +29,8 @@ interface DanmakuMessage {
 
 export default function LiveRoomPage() {
   const { roomId } = useParams<{ roomId: string }>()
-  const numericRoomId = Number(roomId)
+  // BASE-01：房间 ID 保持字符串（路由参数 -> WS/接口全程不落 Number，防雪花 ID 精度损失）
+  const numericRoomId = roomId ?? ''
   const { user, accessToken } = useAuthStore()
 
   const [room, setRoom] = useState<LiveRoom | null>(null)
@@ -200,7 +201,7 @@ export default function LiveRoomPage() {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
 
   useEffect(() => {
-    if (!Number.isFinite(numericRoomId)) return
+    if (!numericRoomId) return
     let cancelled = false
     let iceTimer: ReturnType<typeof setInterval> | null = null
     let seenIceCount = 0
@@ -667,7 +668,7 @@ export default function LiveRoomPage() {
             {room.startTime && <div>开播：{new Date(room.startTime).toLocaleString()}</div>}
           </div>
           {/* T22：主播本人挂件设置入口（观众不可见） */}
-          {typeof user?.id === 'number' && user.id === room.anchorUserId && (
+          {user?.id != null && String(user.id) === String(room.anchorUserId) && (
             <div style={{ marginTop: 10 }}>
               <WishLiveWidgetConfig streamerId={room.anchorUserId} isAnchor />
             </div>

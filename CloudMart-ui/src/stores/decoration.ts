@@ -2,14 +2,15 @@ import { create } from 'zustand'
 import { getUserDecorations, type UserDecoration } from '@/api/growth'
 
 interface DecorationState {
-  decorations: Record<number, UserDecoration>
+  /** BASE-01：以字符串形式的用户 ID 为键（雪花 ID 经 Number 转换会丢精度） */
+  decorations: Record<string, UserDecoration>
   /** 正在补齐中的用户，避免同一批并发重复请求 */
-  inFlight: Record<number, boolean>
+  inFlight: Record<string, boolean>
   ensure: (userIds: Array<number | string>) => Promise<void>
-  setAvatarFrame: (userId: number, frame: string) => void
+  setAvatarFrame: (userId: number | string, frame: string) => void
 }
 
-const toNumber = (id: number | string): number => Number(id)
+const toId = (id: number | string): string => String(id)
 
 /**
  * 全站头像装饰（头像框/等级/徽章数）缓存。
@@ -20,10 +21,10 @@ export const useDecorationStore = create<DecorationState>((set, get) => ({
   inFlight: {},
 
   ensure: async (userIds) => {
-    const ids = userIds.map(toNumber).filter((n) => Number.isFinite(n) && n > 0)
+    const ids = [...new Set(userIds.map(toId))].filter((id) => /^\d+$/.test(id))
     if (ids.length === 0) return
 
-    const missing = [...new Set(ids)].filter((id) => {
+    const missing = ids.filter((id) => {
       const state = get()
       return !state.decorations[id] && !state.inFlight[id]
     })
@@ -33,10 +34,9 @@ export const useDecorationStore = create<DecorationState>((set, get) => ({
     try {
       const { data: resp } = await getUserDecorations(missing)
       const remote = resp.data ?? {}
-      const merged: Record<number, UserDecoration> = {}
+      const merged: Record<string, UserDecoration> = {}
       for (const [key, value] of Object.entries(remote)) {
-        const id = Number(key)
-        if (Number.isFinite(id)) merged[id] = { ...value, userId: id }
+        merged[key] = { ...value, userId: key }
       }
       set({ decorations: { ...get().decorations, ...merged } })
     } catch {
@@ -49,10 +49,11 @@ export const useDecorationStore = create<DecorationState>((set, get) => ({
   },
 
   setAvatarFrame: (userId, frame) => {
-    const prev = get().decorations[userId]
+    const id = toId(userId)
+    const prev = get().decorations[id]
     const next: UserDecoration = prev
       ? { ...prev, avatarFrame: frame }
-      : { userId, level: 1, levelTitle: '', levelIcon: '', avatarFrame: frame, badgeCount: 0 }
-    set({ decorations: { ...get().decorations, [userId]: next } })
+      : { userId: id, level: 1, levelTitle: '', levelIcon: '', avatarFrame: frame, badgeCount: 0 }
+    set({ decorations: { ...get().decorations, [id]: next } })
   },
 }))

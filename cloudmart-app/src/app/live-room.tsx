@@ -78,7 +78,8 @@ function getCountdown(targetTime: string): string {
 export default function LiveRoomScreen() {
   const theme = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
-  const roomId = Number(id)
+  // BASE-01：房间 ID 是雪花 ID，保持字符串（路由参数 -> WS/接口全程不落 Number）
+  const roomId = id ?? ''
   const { user, isLoggedIn } = useAuthStore()
 
   const [room, setRoom] = useState<LiveRoom | null>(null)

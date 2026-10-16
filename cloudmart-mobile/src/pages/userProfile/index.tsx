@@ -115,7 +115,8 @@ export default function UserProfilePage() {
     if (!userId) return
     setLoading(true)
     try {
-      const res = await wishApi.listWishes({ userId: Number(userId), pageSize: 30 })
+      // BASE-01：用户 ID 是雪花 ID，字符串透传
+      const res = await wishApi.listWishes({ userId, pageSize: 30 })
       setWishes(res.data?.data || [])
     } catch {
       setWishes([])

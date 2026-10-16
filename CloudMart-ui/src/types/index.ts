@@ -122,7 +122,8 @@ export interface Sku {
 }
 
 export interface Category {
-  id: number
+  /** BASE-01：分类 ID 由后端序列化为字符串，联合类型兼容数字形态 */
+  id: number | string
   name: string
   parentId: number | null
   icon: string | null
@@ -133,7 +134,8 @@ export interface Category {
 
 export interface ProductSearchRequest {
   keyword?: string
-  categoryId?: number
+  /** BASE-01：分类 ID 保持字符串（URL 参数直接透传，禁止 Number 转换） */
+  categoryId?: number | string
   brand?: string
   minPrice?: number
   maxPrice?: number
@@ -166,7 +168,8 @@ export interface BrandBucket {
 }
 
 export interface CategoryBucket {
-  categoryId: number
+  /** BASE-01：分类 ID 保持字符串（防大 ID 精度损失） */
+  categoryId: number | string
   count: number
 }
 

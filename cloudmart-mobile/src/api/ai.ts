@@ -58,6 +58,6 @@ export const aiApi = {
   hybridSearch: (query: string, topK = 20) =>
     request<AiVectorSearchResult[]>({ url: `/ai/hybrid-search${buildQuery({ query, topK })}` }),
   /** 评论语义摘要（优缺点+总体评价） */
-  getProductReviewSummary: (productId: number) =>
+  getProductReviewSummary: (productId: number | string) =>
     request<AiReviewSummary>({ url: `/ai/reviews/summary/${productId}` }),
 }

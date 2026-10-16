@@ -48,8 +48,9 @@ export default function ChatPage() {
     useLocalSearchParams<{ targetUserId?: string; conversationId?: string }>()
   const currentUser = useAuthStore((s) => s.user)
 
-  const [conversationId, setConversationId] = useState<number | null>(
-    conversationIdParam ? Number(conversationIdParam) : null,
+  // BASE-01：会话 ID 保持字符串（路由参数 -> 状态 -> 请求全程不落 Number）
+  const [conversationId, setConversationId] = useState<string | null>(
+    conversationIdParam ?? null,
   )
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
@@ -64,7 +65,7 @@ export default function ChatPage() {
     messagesRef.current = messages
   }, [messages])
 
-  const loadMessages = useCallback(async (convId: number) => {
+  const loadMessages = useCallback(async (convId: number | string) => {
     try {
       const res = await notificationApi.getMessages(convId, { page: 1, pageSize: 50 })
       const list = res.data?.data?.list ?? res.data?.data ?? []
@@ -88,13 +89,13 @@ export default function ChatPage() {
       if (targetUserId) {
         try {
           const res = await notificationApi.createConversation({
-            otherUserId: Number(targetUserId),
+            otherUserId: targetUserId,
           })
           const convId = res.data?.data?.id ?? res.data?.data
           if (convId) {
-            setConversationId(Number(convId))
-            await loadMessages(Number(convId))
-            notificationApi.markConversationRead(Number(convId)).catch(() => {})
+            setConversationId(String(convId))
+            await loadMessages(String(convId))
+            notificationApi.markConversationRead(String(convId)).catch(() => {})
           }
         } catch (error) {
           Alert.alert('错误', errorMessage(error, '创建会话失败'))
@@ -217,7 +218,8 @@ export default function ChatPage() {
           </View>
         ) : (
           messages.map((msg) => {
-            const isMine = msg.senderId === currentUserId
+            // BASE-01：运行时 senderId 可能为数字或字符串，统一字符串化比较
+            const isMine = String(msg.senderId) === String(currentUserId ?? '')
             return (
               <View
                 key={msg.id}

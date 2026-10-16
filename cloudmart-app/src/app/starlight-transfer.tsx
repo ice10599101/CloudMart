@@ -109,8 +109,9 @@ export default function StarlightTransferScreen() {
   const handleSubmit = useCallback(async () => {
     if (submitting) return
     const trimmedTarget = toUserIdText.trim()
-    const toUserId = Number(trimmedTarget)
-    if (!/^\d+$/.test(trimmedTarget) || !Number.isInteger(toUserId) || toUserId <= 0) {
+    // BASE-01：用户 ID 是雪花 ID，保持字符串（正则校验，不做 Number 转换）
+    const toUserId = trimmedTarget
+    if (!/^\d{1,20}$/.test(trimmedTarget) || /^0+$/.test(trimmedTarget)) {
       Alert.alert('提示', '请输入正确的对方用户 ID')
       return
     }

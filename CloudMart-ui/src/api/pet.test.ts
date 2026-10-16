@@ -137,6 +137,18 @@ describe('pet API', () => {
     )
   })
 
+  it('buyPetItem() 大 ID petId 原样提交（BASE-01：9007199254740993 不会向错误宠物交付）', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as never)
+
+    await buyPetItem({ petId: '9007199254740993', itemType: 'FOOD', itemCode: 'apple' })
+
+    expect(request.post).toHaveBeenCalledWith(
+      '/pet/purchases',
+      { petId: '9007199254740993', itemType: 'FOOD', itemCode: 'apple' },
+      { persistentIntent: true },
+    )
+  })
+
   it('getPetPublicCard() calls GET /pet/public/:userId', async () => {
     vi.mocked(request.get).mockResolvedValue({ data: {} } as never)
 

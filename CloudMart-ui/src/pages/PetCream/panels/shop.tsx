@@ -22,7 +22,7 @@ import styles from '../../PetCream.module.css'
 
 export function ShopPanel({ petId, onChanged }: { petId: number | string; onChanged: () => void }) {
     const { message } = App.useApp()
-    const [shop, setShop] = useState<{ balance: number | null; currency: string; items: Array<{
+    const [shop, setShop] = useState<{ balance: number | string | null; currency: string; items: Array<{
         itemType: PetItemType; code: string; name: string; description: string; icon: string
         rarity: string; priceCoins: number
     }> } | null>(null)

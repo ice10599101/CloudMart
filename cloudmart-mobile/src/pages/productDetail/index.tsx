@@ -165,7 +165,8 @@ export default function ProductDetailPage() {
     // P1-11：AI 摘要懒加载（每次进入评价页尝试一次；无评论商品后端会降级/报错，静默）
     if (tab === 'reviews' && aiSummary === null && !aiSummaryLoading) {
       setAiSummaryLoading(true)
-      aiApi.getProductReviewSummary(Number(id))
+      // BASE-01：商品 ID 是雪花 ID，字符串透传（Number 转换会丢精度）
+      aiApi.getProductReviewSummary(id)
         .then((res) => { if (res.data?.data?.summary) setAiSummary(res.data.data) })
         .catch(() => undefined)
         .finally(() => setAiSummaryLoading(false))

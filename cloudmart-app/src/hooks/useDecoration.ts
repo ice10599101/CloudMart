@@ -8,24 +8,25 @@ import { useAuthStore } from '@/store/auth'
  * 自动把 userId 加入批量补齐队列；本人头像框优先读本地（选择后即时生效）。
  */
 export function useDecoration(userId: number | string | null | undefined): UserDecoration | undefined {
-  const numericId = userId != null ? Number(userId) : NaN
-  const decoration = useDecorationStore((state) => (Number.isFinite(numericId) ? state.decorations[numericId] : undefined))
+  // BASE-01：装饰缓存按字符串 ID 索引（雪花 ID 不能经 Number 转换）
+  const decorationId = userId != null ? String(userId) : ''
+  const decoration = useDecorationStore((state) => (decorationId ? state.decorations[decorationId] : undefined))
   const { user } = useAuthStore()
 
   useEffect(() => {
-    if (!Number.isFinite(numericId) || numericId <= 0) return
-    void useDecorationStore.getState().ensure([numericId])
-  }, [numericId])
+    if (!decorationId || !/^\d+$/.test(decorationId) || /^0+$/.test(decorationId)) return
+    void useDecorationStore.getState().ensure([decorationId])
+  }, [decorationId])
 
-  if (user && numericId === Number(user.id)) {
+  if (user && decorationId && decorationId === String(user.id)) {
     void storage.getItem('avatar_frame').then((localFrame) => {
       if (localFrame && decoration && decoration.avatarFrame !== localFrame) {
-        useDecorationStore.getState().setAvatarFrame(numericId, localFrame)
+        useDecorationStore.getState().setAvatarFrame(decorationId, localFrame)
       }
     })
     const localFrame = decoration?.avatarFrame ?? 'none'
     if (decoration) return decoration
-    return { userId: numericId, level: 0, levelTitle: '', levelIcon: '', avatarFrame: localFrame, badgeCount: 0 }
+    return { userId: decorationId, level: 0, levelTitle: '', levelIcon: '', avatarFrame: localFrame, badgeCount: 0 }
   }
   return decoration
 }

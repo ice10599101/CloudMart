@@ -231,9 +231,9 @@ export interface UpdateWishPayload {
 }
 
 export interface WishListQuery {
-    /** 作者用户 ID 筛选（他人主页「TA 的心愿」；服务端强制仅返回 PUBLIC） */
-    userId?: number
-    categoryId?: number
+    /** 作者用户 ID 筛选（他人主页「TA 的心愿」；服务端强制仅返回 PUBLIC）；BASE-01：字符串防精度损失 */
+    userId?: number | string
+    categoryId?: number | string
     keyword?: string
     cursor?: string
     pageSize?: number
@@ -826,7 +826,8 @@ export interface StarlightTransferPage {
 
 /** 创建转赠载荷（amount 10..100 整数；message 最长 100；requestKey 为幂等键） */
 export interface CreateStarlightTransferPayload {
-    toUserId: number
+    /** BASE-01：目标用户 ID 保持字符串（雪花 ID 防精度损失） */
+    toUserId: number | string
     amount: number
     message?: string
     requestKey: string

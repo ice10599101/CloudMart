@@ -85,7 +85,8 @@ export default function ProductDetailScreen() {
     setLoading(true)
     setError(false)
     try {
-      const res = await productApi.getDetail(Number(id))
+      // BASE-01：商品 ID 是雪花 ID，字符串透传（Number 转换会丢精度）
+      const res = await productApi.getDetail(id)
       const data = res.data as { data?: Product }
       if (data?.data) {
         setProduct(data.data)
@@ -117,7 +118,7 @@ export default function ProductDetailScreen() {
   const checkWishlistStatus = useCallback(async () => {
     if (!isLoggedIn || !id) return
     try {
-      const res = await userApi.checkWishlist(Number(id))
+      const res = await userApi.checkWishlist(id)
       setIsWishlisted(res.data?.data ?? false)
     } catch {
       // 默认未收藏，不影响使用
@@ -143,10 +144,10 @@ export default function ProductDetailScreen() {
     setWishlistLoading(true)
     try {
       if (isWishlisted) {
-        await userApi.removeFromWishlist(Number(id))
+        await userApi.removeFromWishlist(id)
         setIsWishlisted(false)
       } else {
-        await userApi.addToWishlist(Number(id))
+        await userApi.addToWishlist(id)
         setIsWishlisted(true)
       }
     } catch (error) {
@@ -183,7 +184,7 @@ export default function ProductDetailScreen() {
   const loadReviewStats = async () => {
     if (!id) return
     try {
-      const res = await productApi.getReviewStats(Number(id))
+      const res = await productApi.getReviewStats(id)
       setReviewStats((res.data as { data?: ReviewStatsShape })?.data ?? null)
     } catch {
       // 评价统计不可用时静默
@@ -194,7 +195,7 @@ export default function ProductDetailScreen() {
     if (!id || reviewLoading) return
     setReviewLoading(true)
     try {
-      const res = await productApi.getReviews(Number(id), { page, pageSize: 10 })
+      const res = await productApi.getReviews(id, { page, pageSize: 10 })
       const list = (res.data as { data?: { list?: ReviewItemShape[] } })?.data?.list ?? []
       setReviews((prev) => (append ? [...prev, ...list] : list))
       setReviewPage(page)
@@ -227,7 +228,7 @@ export default function ProductDetailScreen() {
       return
     }
     try {
-      const skuId = selectedSku?.id ?? skus[0]?.id ?? Number(id)
+      const skuId = selectedSku?.id ?? skus[0]?.id ?? id
       await cartApi.addItem({ skuId, quantity })
       Alert.alert('提示', '已加入购物车')
     } catch (error) {

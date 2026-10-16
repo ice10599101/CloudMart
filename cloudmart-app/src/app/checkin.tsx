@@ -102,7 +102,7 @@ export default function CheckInPage() {
     setAvatarFrameState(key)
     void storage.setItem('avatar_frame', key)
     if (user) {
-      useDecorationStore.getState().setAvatarFrame(Number(user.id), key)
+      useDecorationStore.getState().setAvatarFrame(String(user.id), key)
     }
     try {
       await growthApi.setAvatarFrame(key)

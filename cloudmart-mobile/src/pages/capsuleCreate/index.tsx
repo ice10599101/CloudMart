@@ -50,7 +50,8 @@ export default function CapsuleCreatePage() {
         if (!prefillWishId || !isLoggedIn) return
         let cancelled = false
         wishApi
-            .getWishDetail(Number(prefillWishId))
+            // BASE-01：心愿 ID 是雪花 ID，字符串透传
+            .getWishDetail(prefillWishId)
             .then((res) => {
                 if (cancelled || !res.data.data) return
                 const detail = res.data.data

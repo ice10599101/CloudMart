@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, InputNumber, Popconfirm, Select, Table, Tag, Typography } from 'antd'
+import { Button, Input, Popconfirm, Select, Table, Tag, Typography } from 'antd'
 import {
     listAdminLiveWidgetConfigs,
     saveAdminLiveWidgetConfig,
@@ -43,7 +43,8 @@ export default function LiveWidgetAdmin() {
     }, [])
 
     const handleSave = async () => {
-        const sid = Number(streamerId)
+        // BASE-01：主播用户 ID 是雪花 ID，保持字符串（Number 转换会丢精度导致配置错人）
+        const sid = streamerId.trim()
         if (!sid) {
             message.warning('请填写主播用户 ID')
             return
@@ -67,11 +68,11 @@ export default function LiveWidgetAdmin() {
                 全局降级开关：灰度控制台 → feature「wish_live_widget」比例置 0 → 所有挂件隐藏。
             </Typography.Paragraph>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
-                <InputNumber
+                <Input
                     style={{ width: 160 }}
                     placeholder="主播用户 ID"
-                    value={streamerId === '' ? undefined : Number(streamerId)}
-                    onChange={(v) => setStreamerId(String(v ?? ''))}
+                    value={streamerId}
+                    onChange={(e) => setStreamerId(e.target.value)}
                 />
                 <Select style={{ width: 120 }} value={position} onChange={setPosition} options={POSITION_OPTIONS} />
                 <Button type="primary" loading={saving} onClick={handleSave}>保存配置</Button>

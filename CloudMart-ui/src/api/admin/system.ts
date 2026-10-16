@@ -156,7 +156,8 @@ export function getSalesTrend(params?: Record<string, any>) {
 // ========== T24 多运营：管理员账号管理 ==========
 
 export interface AdminUserRow {
-  id: number
+  /** BASE-01：身份 ID 保持字符串联合（雪花 ID 防精度损失） */
+  id: number | string
   username: string
   nickname: string | null
   email: string | null
@@ -165,11 +166,11 @@ export interface AdminUserRow {
   deptId: number | null
   remark: string | null
   createdAt: string
-  roles?: Array<{ roleId?: number; roleName: string; roleKey: string }> | null
+  roles?: Array<{ roleId?: number | string; roleName: string; roleKey: string }> | null
 }
 
 export interface AdminRoleRow {
-  id: number
+  id: number | string
   roleName: string
   roleKey: string
   roleSort: number

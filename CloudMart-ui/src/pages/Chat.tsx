@@ -59,8 +59,9 @@ export default function Chat() {
   const notificationWs = useNotificationStore((s) => s.ws)
 
   const [conversations, setConversations] = useState<ChatConversation[]>([])
-  const [activeConversationId, setActiveConversationId] = useState<number | null>(
-    urlConversationId ? Number(urlConversationId) : null,
+  // BASE-01：会话 ID 保持字符串（URL 参数 -> 状态 -> 请求全程不落 Number）
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(
+    urlConversationId ?? null,
   )
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputText, setInputText] = useState('')
@@ -77,7 +78,9 @@ export default function Chat() {
   const textInputRef = useRef<HTMLTextAreaElement>(null)
   const shouldScrollToBottom = useRef(true)
 
-  const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null
+  // BASE-01：运行时会话 ID 可能为数字（安全范围内）或字符串（雪花），统一字符串化比较
+  const activeConversation =
+    conversations.find((c) => String(c.id) === String(activeConversationId)) ?? null
 
   useEffect(() => {
     if (!notificationWs) return
@@ -99,9 +102,9 @@ export default function Chat() {
           createdAt: data.createdAt,
         }
 
-        if (data.conversationId === activeConversationId) {
+        if (String(data.conversationId) === String(activeConversationId)) {
           setMessages((prev) => {
-            if (prev.some((m) => m.id === incomingMsg.id)) return prev
+            if (prev.some((m) => String(m.id) === String(incomingMsg.id))) return prev
             return [...prev, incomingMsg]
           })
           shouldScrollToBottom.current = true
@@ -110,8 +113,8 @@ export default function Chat() {
 
         setConversations((prev) =>
           prev.map((c) =>
-            c.id === data.conversationId
-              ? { ...c, lastMessage: data.content, lastMessageTime: data.createdAt, unreadCount: c.unreadCount + (c.id === activeConversationId ? 0 : 1) }
+            String(c.id) === String(data.conversationId)
+              ? { ...c, lastMessage: data.content, lastMessageTime: data.createdAt, unreadCount: c.unreadCount + (String(c.id) === String(activeConversationId) ? 0 : 1) }
               : c,
           ),
         )
@@ -127,7 +130,7 @@ export default function Chat() {
 
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === data.messageId ? { ...m, isRecalled: true, content: '该消息已撤回' } : m,
+            String(m.id) === String(data.messageId) ? { ...m, isRecalled: true, content: '该消息已撤回' } : m,
           ),
         )
       } catch {
@@ -152,7 +155,7 @@ export default function Chat() {
     }
   }, [])
 
-  const fetchMessages = useCallback(async (convId: number, beforeId?: number) => {
+  const fetchMessages = useCallback(async (convId: number | string, beforeId?: number | string) => {
     setMessagesLoading(true)
     try {
       const res = await getMessages(convId, beforeId, 30)
@@ -184,7 +187,7 @@ export default function Chat() {
 
   useEffect(() => {
     if (urlConversationId) {
-      setActiveConversationId(Number(urlConversationId))
+      setActiveConversationId(urlConversationId)
     }
   }, [urlConversationId])
 
@@ -193,7 +196,7 @@ export default function Chat() {
     fetchMessages(activeConversationId)
     markConversationRead(activeConversationId).catch(() => {})
     setConversations((prev) =>
-      prev.map((c) => (c.id === activeConversationId ? { ...c, unreadCount: 0 } : c)),
+      prev.map((c) => (String(c.id) === String(activeConversationId) ? { ...c, unreadCount: 0 } : c)),
     )
   }, [activeConversationId, fetchMessages])
 
@@ -203,7 +206,7 @@ export default function Chat() {
     }
   }, [messages])
 
-  const handleSelectConversation = useCallback((convId: number) => {
+  const handleSelectConversation = useCallback((convId: string) => {
     setActiveConversationId(convId)
     setInputText('')
     shouldScrollToBottom.current = true
@@ -237,9 +240,10 @@ export default function Chat() {
 
     // T20：幂等键随消息意图生成——失败重试复用同键，用户重试不会产生第二条消息
     const optimisticMessage: ChatMessage = {
-      id: Date.now(),
+      // BASE-01：本端临时 ID 与身份均为字符串（与后端十进制字符串契约一致）
+      id: `local-${Date.now()}`,
       conversationId: activeConversationId,
-      senderId: currentUser?.id ?? 0,
+      senderId: String(currentUser?.id ?? ''),
       senderNickname: currentUser?.nickname ?? '我',
       senderAvatar: currentUser?.avatar ?? '',
       content: text,
@@ -273,14 +277,14 @@ export default function Chat() {
 
     setConversations((prev) =>
       prev.map((c) =>
-        c.id === activeConversationId
+        String(c.id) === String(activeConversationId)
           ? { ...c, lastMessage: text, lastMessageTime: new Date().toISOString() }
           : c,
       ),
     )
   }, [inputText, activeConversationId, sending, currentUser])
 
-  const handleRecallMessage = useCallback(async (msgId: number) => {
+  const handleRecallMessage = useCallback(async (msgId: number | string) => {
     try {
       await recallMessage(msgId)
       setMessages((prev) =>
@@ -343,16 +347,17 @@ export default function Chat() {
     }
   }, [userSearchText])
 
-  const handleStartChat = useCallback(async (otherUserId: number) => {
+  const handleStartChat = useCallback(async (otherUserId: number | string) => {
     try {
       const res = await createConversation(otherUserId)
       const conv = res.data.data
       if (conv) {
         setConversations((prev) => {
-          if (prev.some((c) => c.id === conv.id)) return prev
+          if (prev.some((c) => String(c.id) === String(conv.id))) return prev
           return [conv, ...prev]
         })
-        setActiveConversationId(conv.id)
+        // BASE-01：状态统一字符串形态（运行时数字形态由 String() 归一）
+        setActiveConversationId(String(conv.id))
         setShowNewChat(false)
         setUserSearchText('')
         setUserSearchResults([])
@@ -382,7 +387,8 @@ export default function Chat() {
         lastDateStr = msg.createdAt
       }
 
-      const isSelf = msg.senderId === (currentUser?.id ?? 0)
+      // BASE-01：身份比较统一字符串化（雪花 ID 不做数值比较）
+      const isSelf = String(msg.senderId) === String(currentUser?.id ?? '')
       const canRecall = isSelf && !msg.isRecalled && (Date.now() - (parseServerTime(msg.createdAt) ?? 0) < 120000)
 
       if (msg.isRecalled) {

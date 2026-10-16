@@ -22,7 +22,8 @@ const QUICK_ENTRIES = [
 
 /** N-4 客服工单（起步版）：私信官方服务账号（userId 由 TARO_APP_SERVICE_USER_ID 注入，缺省 1=平台账号）。
  *  工单升级（分类/SLA/多客服分配）待运营体系成型后扩展。 */
-const SERVICE_ACCOUNT_USER_ID = Number(process.env.TARO_APP_SERVICE_USER_ID || 1)
+// BASE-01：用户 ID 保持字符串（雪花 ID 不做 Number 转换）
+const SERVICE_ACCOUNT_USER_ID = process.env.TARO_APP_SERVICE_USER_ID || '1'
 
 export default function MessagePage() {
   const { dataTheme, themeStyle } = useThemeClass()
@@ -73,7 +74,8 @@ export default function MessagePage() {
     Taro.navigateTo({ url: `/pages/chat/index?userId=${SERVICE_ACCOUNT_USER_ID}` })
   }
 
-  const handleConversationClick = (id: number) => {
+  // BASE-01：会话 ID 保持字符串（雪花 ID 不做 Number 转换）
+  const handleConversationClick = (id: number | string) => {
     Taro.navigateTo({ url: `/pages/chat/index?id=${id}` })
   }
 

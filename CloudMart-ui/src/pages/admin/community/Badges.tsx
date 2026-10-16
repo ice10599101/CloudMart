@@ -62,8 +62,9 @@ export default function Badges() {
       message.warning('撤销原因必填')
       return
     }
-    const userId = Number(window.prompt('被撤销用户的用户 ID：'))
-    if (!Number.isFinite(userId) || userId <= 0) {
+    // BASE-01：用户 ID 是雪花 ID，保持字符串（Number 转换会丢精度导致撤销错人）
+    const userId = (window.prompt('被撤销用户的用户 ID：') ?? '').trim()
+    if (!userId || !/^\d{1,20}$/.test(userId)) {
       message.warning('用户 ID 非法')
       return
     }

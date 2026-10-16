@@ -199,7 +199,8 @@ export default function WishFulfillmentPage() {
         story: story.trim(),
         mediaUrls: uploadedUrls.length > 0 ? uploadedUrls : undefined,
         feeling: feeling.trim() || undefined,
-        purchaseOrderId: purchaseOrderId ? Number(purchaseOrderId) : undefined,
+        // BASE-01：订单号是雪花 ID，字符串透传
+        purchaseOrderId: purchaseOrderId ? purchaseOrderId : undefined,
       })
       setSubmitResult(res.data.data)
     } catch {

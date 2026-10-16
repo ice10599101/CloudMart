@@ -38,6 +38,16 @@ describe('coupon API', () => {
     expect(request.post).toHaveBeenCalledWith('/coupon/user-coupons/claim', null, { params: { templateId: 5 } })
   })
 
+  it('claimCoupon() 大 ID 原样透传（BASE-01：9007199254740993 领取不指向错误模板）', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+
+    await claimCoupon('9007199254740993')
+
+    expect(request.post).toHaveBeenCalledWith('/coupon/user-coupons/claim', null, {
+      params: { templateId: '9007199254740993' },
+    })
+  })
+
   it('listUserCoupons() calls GET /coupon/user-coupons with params', async () => {
     vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
 

@@ -32,7 +32,8 @@ function CreateUserForm({ roles, onDone }: { roles: AdminRoleRow[]; onDone: () =
   const [username, setUsername] = useState('')
   const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
-  const [roleIds, setRoleIds] = useState<number[]>([])
+  // BASE-01：角色 ID 以字符串贯通（选项 value/选中值/提交载荷同一形态，后端 Jackson 解析十进制字符串为 Long）
+  const [roleIds, setRoleIds] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
 
   return (
@@ -45,7 +46,7 @@ function CreateUserForm({ roles, onDone }: { roles: AdminRoleRow[]; onDone: () =
         placeholder="选择角色"
         value={roleIds}
         onChange={setRoleIds}
-        options={roles.map((r) => ({ value: r.id, label: `${r.roleName}（${r.roleKey}）` }))}
+        options={roles.map((r) => ({ value: String(r.id), label: `${r.roleName}（${r.roleKey}）` }))}
       />
       <Button
         type="primary"
@@ -83,7 +84,7 @@ export default function AdminUsers() {
   const [modalVisible, setModalVisible] = useState(false)
   const [editing, setEditing] = useState<AdminUserRow | null>(null)
   const [roles, setRoles] = useState<AdminRoleRow[]>([])
-  const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([])
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([])
   const [pwdModal, setPwdModal] = useState<AdminUserRow | null>(null)
   const [newPwd, setNewPwd] = useState('')
 
@@ -106,8 +107,8 @@ export default function AdminUsers() {
     const detail = await getAdminUser(row.id)
     const d = detail.data.data
     setSelectedRoleIds(
-      ((d?.roles ?? []) as Array<{ roleId?: number }>)
-        .map((r) => Number(r.roleId ?? 0))
+      ((d?.roles ?? []) as Array<{ roleId?: number | string }>)
+        .map((r) => String(r.roleId ?? ''))
         .filter(Boolean),
     )
     setEditing(row)
@@ -237,7 +238,7 @@ export default function AdminUsers() {
           placeholder="选择角色"
           value={selectedRoleIds}
           onChange={setSelectedRoleIds}
-          options={roles.map((r) => ({ value: r.id, label: `${r.roleName}（${r.roleKey}）` }))}
+          options={roles.map((r) => ({ value: String(r.id), label: `${r.roleName}（${r.roleKey}）` }))}
         />
       </Modal>
 

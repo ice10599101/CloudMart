@@ -739,7 +739,8 @@ function createTreeScene(canvas: HTMLCanvasElement): TreeSceneHandle {
       fruitColor.set(palette[colorIndexFor(fruit, palette.length)])
       coreMeshByType[typeIdx].setColorAt(instIdx, fruitColor)
       haloMeshByType[typeIdx].setColorAt(instIdx, fruitColor)
-      instancePhases.push((Number(fruit.id) % 97) * 0.35)
+      // BASE-01：雪花 ID 不做 Number 转换，复用字符串哈希取确定性相位
+      instancePhases.push(colorIndexFor(fruit, 97) * 0.35)
       instanceScales[i] = scaleForLight(fruit.lightCount)
       writeFruitInstance(i, 1, 0)
     }

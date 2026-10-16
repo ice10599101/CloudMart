@@ -73,7 +73,8 @@ export function getContinuousDays() {
 }
 
 export interface UserDecoration {
-  userId: number
+  /** BASE-01：用户 ID 为字符串（雪花 ID 防精度损失） */
+  userId: number | string
   level: number
   levelTitle: string
   levelIcon: string

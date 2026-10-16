@@ -22,7 +22,8 @@ function calcCouponDiscount(coupon: UserCoupon, subtotal: number): number {
 }
 
 interface DisplayItem {
-  skuId: number
+  /** BASE-01：SKU ID 保持字符串联合（雪花 ID 防精度损失） */
+  skuId: number | string
   productId: number
   name: string
   image: string
@@ -65,7 +66,8 @@ export default function CheckoutPage() {
   }
 
   const loadDirectBuyItems = async () => {
-    const productId = Number(productIdParam)
+    // BASE-01：商品 ID 是雪花 ID，保持字符串（路由参数 -> 请求全程不落 Number）
+    const productId = productIdParam ?? ''
     const quantity = Number(quantityParam) || 1
     try {
       const res = await productApi.getDetail(productId)

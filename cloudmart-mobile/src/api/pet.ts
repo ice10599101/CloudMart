@@ -336,8 +336,8 @@ export interface PetShopItem {
 }
 
 export interface PetShopResult {
-  /** 宠物币余额（null=余额服务降级，前端隐藏） */
-  balance: number | null
+  /** 宠物币余额（null=余额服务降级，前端隐藏）；BASE-01：long 余额按十进制字符串展示，不做 Number 转换 */
+  balance: number | string | null
   currency: 'PET_COIN'
   items: PetShopItem[]
 }

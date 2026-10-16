@@ -52,16 +52,17 @@ function useCountdown(targetTime: string) {
 }
 
 function buildCategoryTree(categories: Category[]) {
-  const map = new Map<number, { category: Category; children: Category[] }>()
+  // BASE-01：分类 ID 以字符串为 Map 键（雪花 ID 不为算术/数值键服务）
+  const map = new Map<string, { category: Category; children: Category[] }>()
   const roots: Category[] = []
   for (const cat of categories) {
-    map.set(cat.id, { category: cat, children: [] })
+    map.set(String(cat.id), { category: cat, children: [] })
   }
   for (const cat of categories) {
-    if (!cat.parentId || !map.has(cat.parentId)) {
+    if (!cat.parentId || !map.has(String(cat.parentId))) {
       roots.push(cat)
     } else {
-      map.get(cat.parentId)!.children.push(cat)
+      map.get(String(cat.parentId))!.children.push(cat)
     }
   }
   return { map, roots }
@@ -73,8 +74,8 @@ function CategorySidebar({
   onSelect,
 }: {
   categories: Category[]
-  selectedId: number | undefined
-  onSelect: (id: number | undefined) => void
+  selectedId: number | string | undefined
+  onSelect: (id: number | string | undefined) => void
 }) {
   const { roots, map } = buildCategoryTree(categories)
 
@@ -129,7 +130,7 @@ function CategorySidebar({
           >
             {root.name}
           </div>
-          {map.get(root.id)?.children.map((child) => (
+          {map.get(String(root.id))?.children.map((child) => (
             <div
               key={child.id}
               onClick={() => onSelect(child.id)}
@@ -714,9 +715,8 @@ export default function ProductList() {
   const [loading, setLoading] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
-  const categoryId = searchParams.get('categoryId')
-    ? Number(searchParams.get('categoryId'))
-    : undefined
+  // BASE-01：分类 ID 是雪花 ID，URL 参数保持字符串透传（Number 转换会丢精度）
+  const categoryId = searchParams.get('categoryId') || undefined
   const page = Number(searchParams.get('page')) || 1
   const sort = searchParams.get('sort') || 'relevance'
   const pageSize = 12
@@ -743,7 +743,7 @@ export default function ProductList() {
       .finally(() => setLoading(false))
   }, [categoryId, page, sort])
 
-  const handleCategorySelect = (id: number | undefined) => {
+  const handleCategorySelect = (id: number | string | undefined) => {
     const params = new URLSearchParams(searchParams)
     if (id !== undefined) {
       params.set('categoryId', String(id))

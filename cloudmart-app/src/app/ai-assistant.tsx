@@ -65,7 +65,8 @@ export default function AiAssistantScreen() {
   const insets = useSafeAreaInsets()
   const params = useLocalSearchParams<{ wishId?: string }>()
   /** 预期管理通知「调整目标」深链携带的心愿 ID */
-  const wishId = params.wishId ? Number(params.wishId) : undefined
+  // BASE-01：心愿 ID 是雪花 ID，保持字符串
+  const wishId = params.wishId ?? undefined
   const user = useAuthStore((s) => s.user)
 
   const [text, setText] = useState('')

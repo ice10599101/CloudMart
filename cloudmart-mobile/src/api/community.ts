@@ -56,7 +56,8 @@ export const communityApi = {
     request<PaginatedResult<Comment>>({ url: `/community/comments/mine${buildQuery(params as Record<string, unknown>)}` }),
   getUserDrafts: (params?: { page?: number; pageSize?: number }) =>
     request<PaginatedResult<Post>>({ url: `/community/posts/drafts${buildQuery(params as Record<string, unknown>)}` }),
-  updatePost: (id: number, data: Record<string, unknown>) =>
+  // BASE-01：帖子 ID 保持字符串联合（雪花 ID 防精度损失）
+  updatePost: (id: number | string, data: Record<string, unknown>) =>
     request<Post>({ url: `/community/posts/${id}`, method: 'PUT', data }),
   searchUsers: (params: { keyword: string; page?: number; pageSize?: number }) =>
     request<PaginatedResult<UserBasic>>({ url: `/community/users/search${buildQuery(params as Record<string, unknown>)}` }),

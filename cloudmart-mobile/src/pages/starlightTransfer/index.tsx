@@ -97,11 +97,12 @@ export default function StarlightTransferPage() {
 
   const handleSubmit = async () => {
     if (submitting) return
-    const toUserId = Number(toUserIdInput.trim())
+    // BASE-01：用户 ID 是雪花 ID，保持字符串（正则校验，不做 Number 转换）
+    const toUserId = toUserIdInput.trim()
     const amount = Number(amountInput.trim())
     const trimmedMessage = message.trim()
 
-    if (!toUserIdInput.trim() || !Number.isInteger(toUserId) || toUserId <= 0) {
+    if (!/^\d{1,20}$/.test(toUserId) || /^0+$/.test(toUserId)) {
       Taro.showToast({ title: '请输入正确的对方用户ID', icon: 'none' })
       return
     }

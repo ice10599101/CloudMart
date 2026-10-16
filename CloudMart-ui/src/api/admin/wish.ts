@@ -766,22 +766,25 @@ export function getAdminMapAudit() {
 // ========== 围栏 + 温暖事件审核（Sprint 3.2，代理 mall-wish /admin/warm-map/**） ==========
 
 export interface AdminFenceRecord {
-  id: number
+  /** BASE-01：身份 ID 保持字符串联合（雪花 ID 防精度损失） */
+  id: number | string
   name: string
-  wishId: number
+  /** BASE-01：心愿 ID 为雪花 ID，字符串传递防精度损失 */
+  wishId: string
   centerGeohash: string
   radiusM: number
   validFrom: string | null
   validTo: string | null
   isActive: boolean
-  createdBy: number
+  createdBy: number | string
   createdAt: string
   updatedAt: string
 }
 
 export interface SaveFencePayload {
   name: string
-  wishId: number
+  /** BASE-01：字符串提交（后端 Long 由 Jackson 解析十进制字符串） */
+  wishId: string
   centerLat: number
   centerLng: number
   radiusM: number
@@ -790,7 +793,7 @@ export interface SaveFencePayload {
   isActive?: boolean
 }
 
-export function listAdminFences(params: { wishId?: number } = {}) {
+export function listAdminFences(params: { wishId?: number | string } = {}) {
   return request.get<ApiResponse<AdminFenceRecord[]>>('/admin/wish/warm-map/fences', { params })
 }
 
@@ -798,17 +801,17 @@ export function createAdminFence(data: SaveFencePayload) {
   return request.post<ApiResponse<AdminFenceRecord>>('/admin/wish/warm-map/fences', data)
 }
 
-export function updateAdminFence(id: number, data: SaveFencePayload) {
+export function updateAdminFence(id: number | string, data: SaveFencePayload) {
   return request.put<ApiResponse<AdminFenceRecord>>(`/admin/wish/warm-map/fences/${id}`, data)
 }
 
-export function toggleAdminFence(id: number, active: boolean) {
+export function toggleAdminFence(id: number | string, active: boolean) {
   return request.put<ApiResponse<null>>(`/admin/wish/warm-map/fences/${id}/active`, undefined, {
     params: { active },
   })
 }
 
-export function deleteAdminFence(id: number) {
+export function deleteAdminFence(id: number | string) {
   return request.delete<ApiResponse<null>>(`/admin/wish/warm-map/fences/${id}`)
 }
 
@@ -875,7 +878,8 @@ export function unfreezeAdminUser(userId: number) {
 
 export interface AdminLiveWidgetConfig {
   id?: number
-  streamerId: number
+  /** BASE-01：主播用户 ID 为雪花 ID，字符串传递防精度损失 */
+  streamerId: string
   position: 'TOP_LEFT' | 'TOP_RIGHT' | 'BOTTOM_LEFT' | 'BOTTOM_RIGHT'
   styleConfig: string | null
   isVisible: boolean
@@ -887,7 +891,7 @@ export function listAdminLiveWidgetConfigs() {
 }
 
 export function saveAdminLiveWidgetConfig(
-  streamerId: number,
+  streamerId: number | string,
   data: { position: string; styleConfig?: string; isVisible?: boolean },
 ) {
   return request.put<ApiResponse<AdminLiveWidgetConfig>>(
@@ -896,7 +900,7 @@ export function saveAdminLiveWidgetConfig(
   )
 }
 
-export function toggleAdminLiveWidgetVisible(streamerId: number, visible: boolean) {
+export function toggleAdminLiveWidgetVisible(streamerId: number | string, visible: boolean) {
   return request.put<ApiResponse<null>>(
     `/admin/wish/live/widget/${streamerId}/visible`,
     undefined,

@@ -91,7 +91,8 @@ export default function Activities() {
   }
 
   const handleApply = async () => {
-    const wishId = Number(applyWishId)
+    // BASE-01：心愿 ID 是雪花 ID，保持字符串提交（Number 转换会丢精度导致操作对象失真）
+    const wishId = applyWishId.trim()
     if (!wishId || !detail) return
     const skills = applySkills.split(/[,，]/).map((s) => s.trim()).filter(Boolean)
     setApplying(true)
@@ -218,11 +219,11 @@ export default function Activities() {
         onCancel={() => setApplyOpen(false)}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <InputNumber
+          <Input
             style={{ width: '100%' }}
             placeholder="协作心愿 ID（你的公开心愿）"
-            value={applyWishId === '' ? undefined : Number(applyWishId)}
-            onChange={(v) => setApplyWishId(String(v ?? ''))}
+            value={applyWishId}
+            onChange={(e) => setApplyWishId(e.target.value)}
           />
           <Input
             value={applySkills}

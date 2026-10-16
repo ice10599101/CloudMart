@@ -124,7 +124,8 @@ export default function CapsuleCreateScreen() {
     }
 
     // 预期管理通知「转入时间胶囊」深链：预填心愿标题/内容/照片，open_at 默认 +30 天
-    const prefillWishId = Number(params.wishId ?? 0)
+    // BASE-01：心愿 ID 是雪花 ID，保持字符串（路由参数 -> 请求全程不落 Number）
+    const prefillWishId = params.wishId ?? ''
     useEffect(() => {
         if (!prefillWishId) return
         let cancelled = false
