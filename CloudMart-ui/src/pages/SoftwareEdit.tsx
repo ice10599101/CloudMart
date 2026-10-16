@@ -12,7 +12,7 @@ import {
   Switch,
   Tag,
 } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import { history, useParams } from "umi";
 import TiptapEditor from "@/components/TiptapEditor";
 import {
@@ -60,10 +60,13 @@ function sourceLink(source: SoftwareEditorSource): string {
 }
 
 interface SoftwareEditorReleaseDraft {
+  /** 稳定 key：删除中间行时避免索引 key 导致输入框状态错位 */
+  uid: string;
   versionName: string;
   changelog: string;
   recommended: boolean;
   sources: {
+    uid: string;
     sourceType: SoftwareSourceType;
     link: string;
     extractionCode: string;
@@ -71,7 +74,12 @@ interface SoftwareEditorReleaseDraft {
   }[];
 }
 
+let draftUidSeq = 0;
+/** 稳定 key：删除中间行时避免索引 key 导致输入框状态错位 */
+const nextDraftUid = () => `d${++draftUidSeq}`;
+
 const emptySource = () => ({
+  uid: nextDraftUid(),
   sourceType: "NETDISK" as SoftwareSourceType,
   link: "",
   extractionCode: "",
@@ -133,12 +141,14 @@ export default function SoftwareEdit() {
       setAccessContactId(data.accessContactId ?? undefined);
       setReleases(
         data.releases.map((release) => ({
+          uid: nextDraftUid(),
           versionName: release.versionName,
           changelog: release.changelog ?? "",
           recommended: release.recommended,
           sources:
             release.sources.length > 0
               ? release.sources.map((source) => ({
+                  uid: nextDraftUid(),
                   sourceType: source.sourceType,
                   link: sourceLink(source),
                   extractionCode: source.extractionCode ?? "",
@@ -279,10 +289,28 @@ export default function SoftwareEdit() {
     );
   }, []);
 
+  const removeSource = useCallback((releaseIndex: number, sourceIndex: number) => {
+    setReleases((prev) =>
+      prev.map((release, i) =>
+        i === releaseIndex
+          ? {
+              ...release,
+              sources: release.sources.filter((_, j) => j !== sourceIndex),
+            }
+          : release,
+      ),
+    );
+  }, []);
+
+  const removeRelease = useCallback((releaseIndex: number) => {
+    setReleases((prev) => prev.filter((_, i) => i !== releaseIndex));
+  }, []);
+
   const handleAddRelease = useCallback(() => {
     setReleases((prev) => [
       ...prev,
       {
+        uid: nextDraftUid(),
         versionName: "",
         changelog: "",
         recommended: false,
@@ -539,7 +567,7 @@ export default function SoftwareEdit() {
           </Button>
         ) : (
           releases.map((release, releaseIndex) => (
-            <div key={releaseIndex} className={styles.releaseCard}>
+            <div key={release.uid} className={styles.releaseCard}>
               <Space wrap style={{ marginBottom: 8 }}>
                 <Input
                   disabled={frozen}
@@ -562,6 +590,17 @@ export default function SoftwareEdit() {
                     }
                   />
                 </Space>
+                {releases.length > 1 ? (
+                  <Button
+                    disabled={frozen}
+                    danger
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    onClick={() => removeRelease(releaseIndex)}
+                  >
+                    删除版本
+                  </Button>
+                ) : null}
               </Space>
               <Input.TextArea
                 disabled={frozen}
@@ -574,7 +613,7 @@ export default function SoftwareEdit() {
               />
               <div style={{ marginTop: 8 }}>
                 {release.sources.map((source, sourceIndex) => (
-                  <div key={sourceIndex} className={styles.sourceRow}>
+                  <div key={source.uid} className={styles.sourceRow}>
                     <Select
                       disabled={frozen}
                       value={source.sourceType}
@@ -620,6 +659,13 @@ export default function SoftwareEdit() {
                           archivePassword: event.target.value,
                         })
                       }
+                    />
+                    <Button
+                      disabled={frozen}
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => removeSource(releaseIndex, sourceIndex)}
                     />
                   </div>
                 ))}

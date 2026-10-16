@@ -12,7 +12,7 @@ import {
   Switch,
   Typography,
 } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import { history } from "umi";
 import TiptapEditor from "@/components/TiptapEditor";
 import {
@@ -47,6 +47,8 @@ const SOURCE_TYPE_OPTIONS: { value: SoftwareSourceType; label: string }[] = [
 ];
 
 interface SourceDraft {
+  /** 稳定 key：删除中间行时避免索引 key 导致输入框状态错位 */
+  uid: string;
   sourceType: SoftwareSourceType;
   /** 网盘 HTTPS 链接 / magnet: 链接 / .torrent 外链，按类型择一 */
   link: string;
@@ -54,17 +56,24 @@ interface SourceDraft {
 }
 
 interface ReleaseDraft {
+  uid: string;
   versionName: string;
   changelog: string;
   recommended: boolean;
   sources: SourceDraft[];
 }
 
+let draftUidSeq = 0;
+const nextDraftUid = () => `d${++draftUidSeq}`;
+
 const emptyRelease = (): ReleaseDraft => ({
+  uid: nextDraftUid(),
   versionName: "",
   changelog: "",
   recommended: true,
-  sources: [{ sourceType: "NETDISK", link: "", extractionCode: "" }],
+  sources: [
+    { uid: nextDraftUid(), sourceType: "NETDISK", link: "", extractionCode: "" },
+  ],
 });
 
 export default function SoftwarePublish() {
@@ -468,7 +477,7 @@ export default function SoftwarePublish() {
         }
       >
         {releases.map((release, releaseIndex) => (
-          <div key={releaseIndex} className={styles.releaseCard}>
+          <div key={release.uid} className={styles.releaseCard}>
             <Space wrap style={{ marginBottom: 8 }}>
               <Input
                 style={{ width: 200 }}
@@ -491,6 +500,20 @@ export default function SoftwarePublish() {
                   }}
                 />
               </Space>
+              {releases.length > 1 ? (
+                <Button
+                  danger
+                  type="text"
+                  icon={<DeleteOutlined />}
+                  onClick={() => {
+                    setReleases((prev) =>
+                      prev.filter((_, i) => i !== releaseIndex),
+                    );
+                  }}
+                >
+                  删除版本
+                </Button>
+              ) : null}
             </Space>
             <Input.TextArea
               placeholder="更新日志（选填）"
@@ -504,7 +527,7 @@ export default function SoftwarePublish() {
             />
             <div style={{ marginTop: 8 }}>
               {release.sources.map((source, sourceIndex) => (
-                <div key={sourceIndex} className={styles.sourceRow}>
+                <div key={source.uid} className={styles.sourceRow}>
                   <Select
                     value={source.sourceType}
                     onChange={(value) => {
@@ -541,6 +564,18 @@ export default function SoftwarePublish() {
                       setReleases(next);
                     }}
                   />
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => {
+                      const next = [...releases];
+                      next[releaseIndex].sources = next[releaseIndex].sources.filter(
+                        (_, i) => i !== sourceIndex,
+                      );
+                      setReleases(next);
+                    }}
+                  />
                 </div>
               ))}
               <Button
@@ -550,6 +585,7 @@ export default function SoftwarePublish() {
                 onClick={() => {
                   const next = [...releases];
                   next[releaseIndex].sources.push({
+                    uid: nextDraftUid(),
                     sourceType: "NETDISK",
                     link: "",
                     extractionCode: "",
