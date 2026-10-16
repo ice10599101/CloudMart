@@ -131,7 +131,7 @@ export default function PetCreamPage() {
         const generation = ++loadGenerationRef.current
         setLoading(true)
         try {
-            const { data: mine } = await getMyPet()
+            const { data: mine } = await getMyPet({ silentError: true })
             if (generation !== loadGenerationRef.current) {
                 return // 迟到的旧响应：丢弃（服务端权威数据由更新的一次 load 承载）
             }

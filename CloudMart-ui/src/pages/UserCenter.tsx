@@ -279,7 +279,7 @@ function PetTab() {
 
   useEffect(() => {
     let stale = false
-    getMyPet().then(({ data: res }) => {
+    getMyPet({ silentError: true }).then(({ data: res }) => {
       if (!stale && res.success && res.data) {
         setPet(res.data)
       } else if (!stale) {
@@ -299,7 +299,7 @@ function PetTab() {
     getPetBottleStatus().then(({ data: res }) => {
       if (!stale && res.success && res.data && (res.data.canClaim || res.data.fishing)) {
         // 有待领取/进行中的捞瓶时刷新一次摘要（保持简要，完整状态在宠物小窝）
-        getMyPet().then(({ data: r }) => {
+        getMyPet({ silentError: true }).then(({ data: r }) => {
           if (!stale && r.success && r.data) setPet(r.data)
         })
       }
