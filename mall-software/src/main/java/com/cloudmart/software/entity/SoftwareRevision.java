@@ -1,6 +1,8 @@
 package com.cloudmart.software.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.cloudmart.software.enums.SoftwareAccessMode;
@@ -44,9 +46,11 @@ public class SoftwareRevision {
     /** 一句话简介（提交时 10~160 字） */
     private String summary;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long categoryId;
 
     /** 图标素材（mall-file 资产 ID） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long iconAssetId;
 
     /** 服务端消毒后的富文本介绍 */
@@ -56,31 +60,41 @@ public class SoftwareRevision {
     private String descriptionText;
 
     /** 软件开发者名称（区别于本站分享者） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String developerName;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String officialUrl;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private SoftwareLicenseType licenseType;
 
     /** 来源声明：ORIGINAL/AUTHORIZED/OFFICIAL_PUBLIC */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String attributionType;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String attributionNote;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String systemRequirements;
 
     /** 语言代码 JSON 数组 */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String languages;
 
     private SoftwareAccessMode accessMode;
 
     /** 等级模式最低社区等级（须为现有启用等级；仅 COMMUNITY_LEVEL 非空） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Integer minCommunityLevel;
 
     /** 付款模式管理员联系入口（仅 ADMIN_PAID 非空） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long accessContactId;
 
     /** 查看条件说明（不存源链接/密码/支付凭证） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String accessNote;
 
     private LocalDateTime submittedAt;

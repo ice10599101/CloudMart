@@ -51,8 +51,10 @@ public class SecurityConfig {
             .addFilterBefore(userJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
-                // 仅最小健康检查匿名可达；metrics/env 等管理端点需要网络层限制（部署边界）
-                .requestMatchers("/error", "/actuator/health", "/actuator/health/**").permitAll()
+                // 健康探针与 prometheus 抓取端点匿名可达（指标无 PII；metrics/env
+                // 等其余管理端点仍锁定，由部署边界限制）
+                .requestMatchers("/error", "/actuator/health", "/actuator/health/**",
+                                  "/actuator/prometheus").permitAll()
                 // 内部端点：仅服务令牌（ROLE_INTERNAL），控制器 @PreAuthorize 再核能力域。
                 // R16：/logs/** 不能整体限定内部——管理日志查询/删除（/logs/login/page、
                 // /logs/oper/**）是管理员能力，按 ROLE_ADMIN + @RequiresPermission 授权；

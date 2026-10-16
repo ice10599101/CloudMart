@@ -71,10 +71,11 @@ pat = re.compile(r'^(\s*%s\s*:\s*)(\S+)\s*\$' % re.escape(key), re.M)
 if pat.search(text):
     text = pat.sub(lambda m: m.group(1) + val, text, count=1)
 elif re.search(r'^software:\s*\$', text, re.M):
-    text = re.sub(r'^(software:\s*\$)', lambda m: m.group(1) + '\n  ' + key + ': ' + val,
+    # chr(10) 而非 '\n'：Git Bash 嵌入脚本对 \n 有转义层风险（实测产出损坏 YAML）
+    text = re.sub(r'^(software:\s*\$)', lambda m: m.group(1) + chr(10) + '  ' + key + ': ' + val,
                   text, count=1, flags=re.M)
 else:
-    text = text.rstrip() + '\nsoftware:\n  ' + key + ': ' + val + '\n'
+    text = text.rstrip() + chr(10) + 'software:' + chr(10) + '  ' + key + ': ' + val + chr(10)
 print(text)
 " "$key" "$val")
   nacos_set "$updated"

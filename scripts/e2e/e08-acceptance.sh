@@ -6,11 +6,16 @@
 # 说明性跳过：A20/A25（MQ 容错语义由单测覆盖，live 中断演练需停 RocketMQ）、A29（真机）、
 #             A22/A44（需专用受限管理员账号）、A45（需停依赖服务）。
 # 副作用：开场软删上一轮「E08 验收工具」，创建新一轮同名软件并保留（演示数据）；
-#         结束态 ACTIVE/REGISTERED。
+#         结束态 ACTIVE/REGISTERED；
+#         运行窗口内经 Nacos 热更新临时关闭 submit/feedback/report 三个日级限流
+#         （0=不限，避免反复执行被配额挡住；分钟级限流保持不变），退出自动还原。
 set -uo pipefail
 
 GW=http://129.204.152.168:8090
 AUTH=http://129.204.152.168:9001
+NACOS=http://129.204.152.168:8848
+DATA_ID=mall-software.yml
+GROUP=DEFAULT_GROUP
 SWHOST=http://129.204.152.168:9026
 DB="mysql -h 129.204.152.168 -P 8306 -uroot -p123456 --connect-timeout=5"
 RUN=$(date +%s)
@@ -42,11 +47,50 @@ AH="Authorization: Bearer $ADMIN_TOKEN"; U1H="Authorization: Bearer $U1"; U2H="A
 [ -n "$ADMIN_TOKEN" ] && [ -n "$U1" ] && [ -n "$U2" ] || { echo "登录失败"; exit 1; }
 echo "  PASS  三令牌就绪"
 
+# ---- Nacos：运行窗口内关闭三个日级限流（0=不限），退出还原（与 e07-switches 同模式）----
+NTOK=$(curl -s -m 8 -X POST "$NACOS/nacos/v1/auth/login" -d "username=nacos&password=nacos" \
+  | jq_get "print(d.get('accessToken',''))")
+[ -n "$NTOK" ] || { echo "Nacos 登录失败"; exit 1; }
+nacos_get() {
+  curl -s -m 8 "$NACOS/nacos/v3/client/cs/config?dataId=$DATA_ID&groupName=$GROUP&accessToken=$NTOK" \
+    | jq_get "print(d['data']['content'])"
+}
+nacos_set() {
+  local enc
+  enc=$(printf '%s' "$1" | python -c "import sys,urllib.parse;print(urllib.parse.quote(sys.stdin.read(), safe=''))")
+  curl -s -m 8 -X POST "$NACOS/nacos/v3/admin/cs/config?accessToken=$NTOK" \
+    -d "dataId=$DATA_ID&groupName=$GROUP&type=yaml&content=$enc" > /dev/null
+}
+ORIGINAL_CONFIG=$(nacos_get)
+[ -n "$ORIGINAL_CONFIG" ] || { echo "读取原配置失败"; exit 1; }
+restore_config() { nacos_set "$ORIGINAL_CONFIG"; echo "（已还原 Nacos 配置）"; sleep 3; }
+trap restore_config EXIT INT TERM
+LIMITS_OFF=$(printf '%s' "$ORIGINAL_CONFIG" | python -c "
+import sys, re
+text = sys.stdin.read()
+for key in ('publish-submissions-per-user-day', 'feedback-per-user-day', 'report-per-user-day'):
+    pat = re.compile(r'^(\s*%s\s*:\s*)(\S+)\s*\$' % re.escape(key), re.M)
+    if pat.search(text):
+        text = pat.sub(lambda m: m.group(1) + '0', text, count=1)
+    elif re.search(r'^software:\s*\$', text, re.M):
+        # chr(10) 而非 '\n'：Git Bash 对嵌入脚本的 \n 有转义层风险（实测被改写为 /n 产出损坏 YAML）
+        text = re.sub(r'^(software:\s*\$)', lambda m: m.group(1) + chr(10) + '  ' + key + ': 0',
+                      text, count=1, flags=re.M)
+    else:
+        text = text.rstrip() + chr(10) + 'software:' + chr(10) + '  ' + key + ': 0' + chr(10)
+print(text)
+")
+nacos_set "$LIMITS_OFF"
+sleep 3
+echo "  PASS  日级限流已临时关闭（退出自动还原）"
+
 post_admin() { curl -s -m 20 -X POST "$GW/api/admin/software$1" -H "$AH" -H "Content-Type: application/json" -H "Idempotency-Key: $3" -d "$2"; }
 get_admin() { curl -s -m 20 "$GW/api/admin/software$1" -H "$AH"; }
 slock() { get_admin "/items?keyword=E08+%E9%AA%8C%E6%94%B6&page=1&size=10" | jq_get "print(next((str(r['lockVersion']) for r in d['data']['records'] if str(r['softwareId'])=='$1'), ''))"; }
 slifecycle() { get_admin "/items?keyword=E08+%E9%AA%8C%E6%94%B6&page=1&size=10" | jq_get "print(next((r['lifecycle'] for r in d['data']['records'] if str(r['softwareId'])=='$1'), ''))"; }
 spublished() { get_admin "/items?keyword=E08+%E9%AA%8C%E6%94%B6&page=1&size=10" | jq_get "print(next((str(r['publishedRevisionId']) for r in d['data']['records'] if str(r['softwareId'])=='$1'), ''))"; }
+bust_rank_cache() { python -c "import socket; keys=['software:rank:access:v1','software:rank:favorite:v1','software:rank:rating:v1']; blk=lambda x:'$'+str(len(x)); parts=['*'+str(1+len(keys)),blk('DEL'),'DEL']; [parts.extend([blk(k),k]) for k in keys]; payload=(chr(13)+chr(10)).join(parts)+(chr(13)+chr(10)); s=socket.create_connection(('129.204.152.168',8379),timeout=5); s.sendall(payload.encode()); s.recv(64); s.close()" > /dev/null 2>&1; }
+refresh_src() { curl -s -m 10 "$GW/api/software/$SID/releases" | jq_get "print(next((str(s['sourceId']) for r in d['data']['records'] for s in (r.get('sources') or []) if s.get('sourceType')=='NETDISK'), 'STALE'))"; }
 
 echo "=== 0.1 清理上一轮 E08 软件 ==="
 for OLD in $(get_admin "/items?keyword=E08+%E9%AA%8C%E6%94%B6&page=1&size=10" | jq_get "print(' '.join(str(r['softwareId']) for r in d['data']['records']))"); do
@@ -138,8 +182,9 @@ S1=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID3?expectedVersion
       "url":"https://pan.baidu.com/s/1e08abc?pwd=e08x","extractionCode":"e08secret","sizeLabel":"9MB"}]}]}')
 check "第二版保存" "true" "$(echo "$S1" | ok_of)"
 LV4=$(echo "$S1" | jq_get "print(d['data']['lockVersion'])")
-curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/submit?expectedVersion=$LV4" -H "$U1H" -H "Idempotency-Key: e08-submit2a-$RUN" > /dev/null
-WD=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/withdraw?expectedVersion=$LV4" -H "$U1H")
+SUB1=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/submit?expectedVersion=$LV4" -H "$U1H" -H "Idempotency-Key: e08-submit2a-$RUN")
+LV4S=$(echo "$SUB1" | jq_get "print(d['data']['lockVersion'])")
+WD=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/withdraw?expectedVersion=$LV4S" -H "$U1H")
 check "seq1 撤回（回 DRAFT 才能重提）" "true" "$(echo "$WD" | ok_of)"
 LV4W=$(echo "$WD" | jq_get "print(d['data']['lockVersion'])")
 S2=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID3?expectedVersion=$LV4W" -H "$U1H" -H "Content-Type: application/json" -d '{
@@ -153,7 +198,7 @@ LV5=$(echo "$S2" | jq_get "print(d['data']['lockVersion'])")
 SUB2=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/submit?expectedVersion=$LV5" -H "$U1H" -H "Idempotency-Key: e08-submit2b-$RUN")
 check "seq2 提交" "true" "$(echo "$SUB2" | ok_of)"
 SL=$(slock "$SID")
-RD=$(get_admin "/revisions/$RID3/review-detail")
+RD=$(get_admin "/revisions/$RID3")
 check "A14 审核详情含待审与线上快照" "true" "$(echo "$RD" | jq_get "print(str(d['data'].get('target') is not None and d['data'].get('published') is not None).lower())")"
 check "A14 来源标签变化可辨" "true" "$(echo "$RD" | jq_get "
 t=d['data']['target'] or {}; p=d['data']['published'] or {}
@@ -166,8 +211,10 @@ check "A07 错误码 SOFTWARE_SUBMIT_STALE" "SOFTWARE_SUBMIT_STALE" "$(code_of <
 DEC2=$(post_admin "/revisions/$RID3/decision" "{\"softwareId\":$SID,\"submitSeq\":2,\"expectedVersion\":$SL,\"approve\":true,\"reason\":\"E08 新批次\"}" "e08-dec2-$RUN")
 check "A07 新批次(submitSeq=2)通过" "APPROVED" "$(echo "$DEC2" | jq_get "print(d['data']['decision'])")"
 
+NETDISK_ID=$(refresh_src)
 echo "=== A26 榜单下架实时过滤 ==="
 curl -s -m 10 -X POST "$GW/api/software/$SID/sources/$NETDISK_ID/resolve" -H "$U2H" > /dev/null
+bust_rank_cache
 INR=$(curl -s -m 10 "$GW/api/software/rankings?type=access&page=1&size=50" | jq_get "print(str(any(str(x['id'])=='$SID' for x in d['data']['records'])).lower())")
 check "获取榜包含 SW" "true" "$INR"
 SL=$(slock "$SID")
@@ -178,13 +225,14 @@ check "A26 下架后榜单立即剔除（穿透缓存）" "false" "$INR2"
 SL=$(slock "$SID")
 REL=$(curl -s -m 15 -X POST "$GW/api/software/$SID/relist?expectedVersion=$SL" -H "$U1H")
 check "重新上架" "true" "$(echo "$REL" | ok_of)"
+bust_rank_cache
 INR3=$(curl -s -m 10 "$GW/api/software/rankings?type=access&page=1&size=50" | jq_get "print(str(any(str(x['id'])=='$SID' for x in d['data']['records'])).lower())")
 check "A26 重新上架后回榜" "true" "$INR3"
 
 echo "=== A43 联系入口 + A41 查看条件变更 + A38 授权 ==="
-CT=$(post_admin "/access-contacts" '{"name":"E08客服","contactType":"HTTPS_URL","contactValue":"https://example.com/e08","enabled":true,"sortOrder":10,"reason":"E08 联系入口"}' "e08-ct-$RUN")
+CT=$(post_admin "/access-contacts" "{\"name\":\"E08客服-$RUN\",\"contactType\":\"HTTPS_URL\",\"contactValue\":\"https://example.com/e08\",\"enabled\":true,\"sortOrder\":10,\"reason\":\"E08 联系入口\"}" "e08-ct-$RUN")
 check "A43 联系入口创建" "true" "$(echo "$CT" | ok_of)"
-CID_C=$(get_admin "/access-contacts" | jq_get "print(next((str(c['id']) for c in d['data'] if c.get('name')=='E08客服'),''))")
+CID_C=$(get_admin "/access-contacts" | jq_get "print(next((str(c['id']) for c in d['data'] if c.get('name')=='E08客服-$RUN'),''))")
 WR2=$(curl -s -m 15 -X POST "$GW/api/software/$SID/working-revision" -H "$U1H" -H "Idempotency-Key: e08-wr3-$RUN")
 RID4=$(echo "$WR2" | jq_get "print(d['data']['revisionId'])")
 LV6=$(echo "$WR2" | jq_get "print(d['data']['lockVersion'])")
@@ -200,27 +248,29 @@ curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID4/submit?expectedVers
 SL=$(slock "$SID")
 DEC3=$(post_admin "/revisions/$RID4/decision" "{\"softwareId\":$SID,\"submitSeq\":1,\"expectedVersion\":$SL,\"approve\":true,\"reason\":\"E08 改条件\"}" "e08-dec3-$RUN")
 check "A41 查看条件变更经审核生效" "APPROVED" "$(echo "$DEC3" | jq_get "print(d['data']['decision'])")"
+NETDISK_ID=$(refresh_src)
 R41=$(curl -s -m 10 -o /tmp/e08_41.json -w "%{http_code}" -X POST "$GW/api/software/$SID/sources/$NETDISK_ID/resolve" -H "$U2H")
 check "A41 未授权 resolve 403" "403" "$R41"
 check "A41 错误码 SOFTWARE_PAYMENT_ACCESS_REQUIRED" "SOFTWARE_PAYMENT_ACCESS_REQUIRED" "$(code_of < /tmp/e08_41.json)"
 AS=$(curl -s -m 10 "$GW/api/software/$SID/access-state" -H "$U2H")
-check "A43 付款模式展示联系入口" "true" "$(echo "$AS" | jq_get "print(str(any(c.get('name')=='E08客服' for c in (d['data'].get('contacts') or []))).lower())")"
-CTOFF=$(post_admin "/access-contacts" "{\"id\":$CID_C,\"name\":\"E08客服\",\"contactType\":\"HTTPS_URL\",\"contactValue\":\"https://example.com/e08\",\"enabled\":false,\"sortOrder\":10,\"reason\":\"E08 停用\"}" "e08-ctoff-$RUN")
+check "A43 付款模式展示联系入口" "true" "$(echo "$AS" | jq_get "print(str(any(c.get('name')=='E08客服-$RUN' for c in (d['data'].get('contacts') or []))).lower())")"
+CTOFF=$(post_admin "/access-contacts" "{\"id\":$CID_C,\"name\":\"E08客服-$RUN\",\"contactType\":\"HTTPS_URL\",\"contactValue\":\"https://example.com/e08\",\"enabled\":false,\"sortOrder\":10,\"reason\":\"E08 停用\"}" "e08-ctoff-$RUN")
 check "A43 停用成功" "true" "$(echo "$CTOFF" | ok_of)"
 AS2=$(curl -s -m 10 "$GW/api/software/$SID/access-state" -H "$U2H")
-check "A43 停用后联系入口消失" "false" "$(echo "$AS2" | jq_get "print(str(any(c.get('name')=='E08客服' for c in (d['data'].get('contacts') or []))).lower())")"
+check "A43 停用后联系入口消失" "false" "$(echo "$AS2" | jq_get "print(str(any(c.get('name')=='E08客服-$RUN' for c in (d['data'].get('contacts') or []))).lower())")"
 GR=$(post_admin "/$SID/access-grants" '{"userId":2,"expiresAt":null,"confirmationNote":"E08 线下确认","externalReference":"REF-E08","reason":"E08 授权"}' "e08-grant-$RUN")
 check "A38 人工授权" "true" "$(echo "$GR" | ok_of)"
 R38=$(curl -s -m 10 -o /dev/null -w "%{http_code}" -X POST "$GW/api/software/$SID/sources/$NETDISK_ID/resolve" -H "$U2H")
 check "A38 授权后 resolve 200" "200" "$R38"
 GID=$(get_admin "/$SID/access-grants" | jq_get "print(next((str(g['grantId']) for g in d['data'] if str(g.get('userId'))=='2'),''))")
 [ -n "$GID" ] || { echo "  FAIL  A38 授权行未返回 grantId"; FAIL=$((FAIL + 1)); }
-RVK=$(curl -s -m 15 -X POST "$GW/api/admin/software/$SID/access-grants/$GID/revoke" -H "$AH" -H "Content-Type: application/json" -H "Idempotency-Key: e08-revoke-$RUN" -d '{"reason":"E08 撤销"}')
+RVK=$(curl -s -m 15 -X POST "$GW/api/admin/software/$SID/access-grants/2/revoke" -H "$AH" -H "Content-Type: application/json" -H "Idempotency-Key: e08-revoke-$RUN" -d '{"reason":"E08 撤销"}')
 check "A38 撤销成功" "true" "$(echo "$RVK" | ok_of)"
 R38B=$(curl -s -m 10 -o /dev/null -w "%{http_code}" -X POST "$GW/api/software/$SID/sources/$NETDISK_ID/resolve" -H "$U2H")
 check "A38 撤销后 resolve 403" "403" "$R38B"
 
 echo "=== A19 失效反馈重复与修复 ==="
+NETDISK_ID=$(refresh_src)
 FB1=$(curl -s -m 10 -X POST "$GW/api/software/$SID/sources/$NETDISK_ID/feedback" -H "$U2H" -H "Idempotency-Key: e08-fb1-$RUN" -H "Content-Type: application/json" -d '{"reasonCode":"LINK_INVALID","description":"E08 反馈测试"}')
 check "A19 反馈创建" "true" "$(echo "$FB1" | ok_of)"
 FBID=$(echo "$FB1" | jq_get "print(d['data']['feedbackId'])")

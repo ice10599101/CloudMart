@@ -87,8 +87,9 @@ public class SecurityConfig {
                 // 服务域：管理代理与内部擦除端点（纵深防御；@PreAuthorize 保留）
                 .requestMatchers("/admin/**").hasRole("INTERNAL")
                 .requestMatchers("/internal/**").hasRole("INTERNAL")
-                // 健康探针匿名（仅最小端点）；其余 actuator 不匿名可达
-                .requestMatchers("/error", "/actuator/health").permitAll()
+                // 健康探针匿名；prometheus 端点匿名（指标无 PII，供抓取；
+                // 其余 actuator 仍不匿名可达）
+                .requestMatchers("/error", "/actuator/health", "/actuator/prometheus").permitAll()
                 .requestMatchers("/doc.html", "/webjars/**", "/swagger-resources/**",
                                   "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()
