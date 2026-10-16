@@ -817,18 +817,23 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             return mineSubscriptions(userId,
                     Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 50)));
         }
-        Page<Software> softwarePage = softwareMapper.selectPage(
-                Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 50)),
+        List<Software> all = softwareMapper.selectList(
                 new LambdaQueryWrapper<Software>()
                         .eq(Software::getOwnerId, userId)
                         .isNull(Software::getDeletedAt)
                         .orderByDesc(Software::getUpdatedAt));
-        Page<SoftwareMineItemVO> result = new Page<>(softwarePage.getCurrent(),
-                softwarePage.getSize(), softwarePage.getTotal());
-        result.setRecords(softwarePage.getRecords().stream()
+        // 先全量归类再内存分页：DB 行数≠当前 tab 条数，total 必须按归类后计数
+        List<SoftwareMineItemVO> matched = all.stream()
                 .map(software -> mineItem(software, normalizedTab))
                 .filter(java.util.Objects::nonNull)
-                .toList());
+                .toList();
+        int from = (int) Math.min((long) Math.max(page, 1) * Math.min(Math.max(size, 1), 50)
+                - Math.min(Math.max(size, 1), 50), matched.size());
+        int to = (int) Math.min((long) from + Math.min(Math.max(size, 1), 50),
+                matched.size());
+        Page<SoftwareMineItemVO> result = new Page<>(Math.max(page, 1),
+                Math.min(Math.max(size, 1), 50), matched.size());
+        result.setRecords(matched.subList(from, to));
         return result;
     }
 
@@ -838,7 +843,9 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 ? software.getWorkingRevisionId() : software.getPublishedRevisionId();
         SoftwareRevision revision = revisionId == null ? null : revisionMapper.selectById(revisionId);
         String status = resolveMineStatus(software, revision);
-        if (!tab.equals(status)) {
+        // tab 入参为小写（MINE_TABS），status 为枚举名大写——忽略大小写比较，
+        // 否则所有 tab 的 records 永远为空（total 与 records 不一致，线上实测踩坑）
+        if (!tab.equalsIgnoreCase(status)) {
             return null;
         }
         return new SoftwareMineItemVO(software.getId(),
