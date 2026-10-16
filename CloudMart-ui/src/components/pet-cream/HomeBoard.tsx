@@ -49,7 +49,7 @@ function posKey(posX: number | null, posY: number | null): string | null {
     return posX === null || posY === null ? null : `${posX}:${posY}`
 }
 
-export default function HomeBoard({ onChanged }: { onChanged?: () => void }) {
+export default function HomeBoard({ petId, onChanged }: { petId: number | string; onChanged?: () => void }) {
     const { message } = App.useApp()
     const [home, setHome] = useState<PetHome | null>(null)
     const [tab, setTab] = useState<HomeTab>('room')
@@ -153,9 +153,14 @@ export default function HomeBoard({ onChanged }: { onChanged?: () => void }) {
     }, [home, removeAt])
 
     const buy = useCallback(async (item: PetHomeItem) => {
+        // PET-01：购买必须显式携带目标宠物（服务端归属校验）；无宠物时不发起请求
+        if (petId === '' || petId === null || petId === undefined) {
+            message.warning('请先领养宠物')
+            return
+        }
         setBusy(`buy:${item.code}`)
         try {
-            const { data: res } = await buyPetItem({ itemType: 'FURNITURE', itemCode: item.code })
+            const { data: res } = await buyPetItem({ petId, itemType: 'FURNITURE', itemCode: item.code })
             if (res.success) {
                 message.success(`${item.name} 已入背包`)
                 await load()
@@ -166,7 +171,7 @@ export default function HomeBoard({ onChanged }: { onChanged?: () => void }) {
         } finally {
             setBusy(null)
         }
-    }, [load, message, onChanged])
+    }, [load, message, onChanged, petId])
 
     /** 换墙纸/地板：另一侧带原值一起提交（后端两个字段都会落库，null = 恢复默认） */
     const applyTheme = useCallback(async (wallCode: string | null, floorCode: string | null) => {

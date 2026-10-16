@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
+import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetAssetGrant;
 import com.cloudmart.pet.entity.PetPurchaseOrder;
 import com.cloudmart.pet.entity.PetRequestDedup;
@@ -13,6 +14,7 @@ import com.cloudmart.pet.repository.PetAssetGrantMapper;
 import com.cloudmart.pet.repository.PetPurchaseOrderMapper;
 import com.cloudmart.pet.repository.PetRequestDedupMapper;
 import com.cloudmart.pet.repository.PetRewardClaimMapper;
+import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.wallet.PetPurchaseCatalog;
 import com.cloudmart.pet.wallet.PetPurchaseCatalog.CatalogEntry;
 import com.cloudmart.pet.wallet.PetRewardApplicationService.RewardClaimCommand;
@@ -96,6 +98,26 @@ class WalletApplicationServiceTest {
         return new PetRequestDedupServiceStub(dedupMapper);
     }
 
+    /**
+     * PET-01：购买事务入口对显式 petId 做归属校验。
+     * 约定：petId=999 属于他人（越权用例触发 PET_NOT_OWNER），其余宠物归属调用者。
+     */
+    private PetService petServiceStub() {
+        PetService stub = mock(PetService.class);
+        lenient().when(stub.requireOwnedPet(any(), any())).thenAnswer(inv -> {
+            Long userId = inv.getArgument(0);
+            Long petId = inv.getArgument(1);
+            if (Long.valueOf(999L).equals(petId)) {
+                throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "宠物不存在或无权访问");
+            }
+            Pet pet = new Pet();
+            pet.setId(petId);
+            pet.setUserId(userId);
+            return pet;
+        });
+        return stub;
+    }
+
     // ---------------- 购买 ----------------
 
     @Test
@@ -103,7 +125,7 @@ class WalletApplicationServiceTest {
     void purchase_alreadyOwned_zeroCharge() {
         PetRequestDedupServiceStub dedup = dedup();
         when(dedupMapper.insert(any(PetRequestDedup.class))).thenReturn(1);
-        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, null,
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, petServiceStub(),
                 catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
         when(catalog.load(any(), any(), any(), any(), any()))
                 .thenReturn(new CatalogEntry("EQUIPMENT", "sword", 100, "v1", "剑", "r-key"));
@@ -122,7 +144,7 @@ class WalletApplicationServiceTest {
         PetRequestDedupServiceStub dedup = dedup();
         when(dedupMapper.insert(any(PetRequestDedup.class))).thenReturn(1);
         when(dedupMapper.update(any(), any())).thenReturn(1);
-        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, null,
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, petServiceStub(),
                 catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
         when(catalog.load(any(), any(), any(), any(), any()))
                 .thenReturn(new CatalogEntry("FOOD", "cake", 20, "v1", "蛋糕", "r-key"));
@@ -160,7 +182,7 @@ class WalletApplicationServiceTest {
                     + "\"deliveredSlots\":[\"cake\"],\"duplicate\":false,\"errorCode\":null}");
             return row;
         });
-        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, null,
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, petServiceStub(),
                 catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
 
         var result = service.purchase(1001L, 5L, "FOOD", "cake", "intent-key-000002", "v1");
@@ -185,7 +207,7 @@ class WalletApplicationServiceTest {
                     + "\"deliveredSlots\":[],\"duplicate\":false,\"errorCode\":\"PET_WALLET_INSUFFICIENT\"}");
             return row;
         });
-        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, null,
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, petServiceStub(),
                 catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
 
         assertThatThrownBy(() -> service.purchase(1001L, 5L, "FOOD", "cake", "intent-key-000003", "v1"))
@@ -200,7 +222,7 @@ class WalletApplicationServiceTest {
         PetRequestDedupServiceStub dedup = dedup();
         when(dedupMapper.insert(any(PetRequestDedup.class))).thenReturn(1);
         when(dedupMapper.update(any(), any())).thenReturn(1);
-        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, null,
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, petServiceStub(),
                 catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
         when(catalog.load(any(), any(), any(), any(), any()))
                 .thenReturn(new CatalogEntry("FOOD", "cake", 20, "v1", "蛋糕", "r-key"));
@@ -223,7 +245,7 @@ class WalletApplicationServiceTest {
     @Test
     @DisplayName("PET-12/T27：按请求键查询 COMPLETED 终态（恢复入口，不生成新键）")
     void requestStatus_completedOrder() {
-        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup(), walletService, null,
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup(), walletService, petServiceStub(),
                 catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
         PetPurchaseOrder order = new PetPurchaseOrder();
         order.setId(700L);
@@ -251,7 +273,7 @@ class WalletApplicationServiceTest {
     @Test
     @DisplayName("PET-12：未知请求键 → UNKNOWN 可重试（客户端用原键再提交，不换键）")
     void requestStatus_unknownKey() {
-        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup(), walletService, null,
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup(), walletService, petServiceStub(),
                 catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
         when(orderMapper.selectOne(any())).thenReturn(null);
 
@@ -260,6 +282,40 @@ class WalletApplicationServiceTest {
         assertThat(status.status()).isEqualTo("UNKNOWN");
         assertThat(status.retryable()).isTrue();
         assertThat(status.orderId()).isNull();
+    }
+
+    @Test
+    @DisplayName("PET-01：用他人的 petId 购买 → PET_NOT_OWNER 零副作用（无订单/无扣款/无交付/无资产授予）")
+    void purchase_otherPersonsPet_rejectedWithZeroSideEffects() {
+        PetRequestDedupServiceStub dedup = dedup();
+        when(dedupMapper.insert(any(PetRequestDedup.class))).thenReturn(1);
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, petServiceStub(),
+                catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
+
+        assertThatThrownBy(() -> service.purchase(1001L, 999L, "FOOD", "cake", "intent-key-000009", "v1"))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_NOT_OWNER));
+        // 归属校验在任何业务事实产生之前：不查目录、不建订单、不扣款、不写资产授予
+        verify(catalog, never()).load(any(), any(), any(), any(), any());
+        verify(orderMapper, never()).insert(any(PetPurchaseOrder.class));
+        verify(walletService, never()).debit(any(PetWalletCommand.class));
+        verify(assetGrantMapper, never()).insert(any(PetAssetGrant.class));
+        // 拒绝终态已保存：同键重放按首次结果返回同一拒绝，不重新执行
+        assertThat(dedup.completed).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("PET-01：显式 petId=null（缺目标宠物）→ PET_VALIDATION_ERROR，不进事务")
+    void purchase_nullPetId_rejected() {
+        PetRequestDedupServiceStub dedup = dedup();
+        PetPurchaseApplicationService service = new PetPurchaseApplicationService(dedup, walletService, petServiceStub(),
+                catalogProvider(catalog), delivererProvider(), orderMapper, assetGrantMapper, txTemplate());
+
+        assertThatThrownBy(() -> service.purchase(1001L, null, "FOOD", "cake", "intent-key-000010", "v1"))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getCode()).isEqualTo(PetErrorCodes.PET_VALIDATION_ERROR));
+        verify(catalog, never()).load(any(), any(), any(), any(), any());
+        verify(walletService, never()).debit(any(PetWalletCommand.class));
     }
 
     // ---------------- 领奖 ----------------

@@ -48,7 +48,7 @@ export function HomeSheetPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: ()
   return (
     <>
       <View style={{ gap: 6 }}>
-        <HomePanel onRefresh={onRefresh} />
+        <HomePanel petId={pet.petId} onRefresh={onRefresh} />
         <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>养成小贴士</Text>
         <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>🍖 饱食和清洁随时间下降，记得回来照顾它</Text>
         <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>💼 打工赚宠物币，📚 读书涨智力</Text>

@@ -2,6 +2,7 @@ package com.cloudmart.pet.wallet.impl;
 
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
+import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetAssetGrant;
 import com.cloudmart.pet.entity.PetPurchaseOrder;
 import com.cloudmart.pet.repository.PetAssetGrantMapper;
@@ -77,8 +78,9 @@ public class PetPurchaseApplicationService {
      * 幂等购买。
      *
      * @param requestKey 客户端持久化幂等键（16..128 ASCII；同一意图重试必须复用）
-     * @param petId      目标宠物（R02：可为 null——旧客户端兼容路径；首次执行绑定当前主宠并
-     *                   持久化到去重行，重放/接管按原绑定执行，切宠不改投）
+     * @param petId      目标宠物（PET-01：必填且必须在业务事务内通过归属校验；
+     *                   同键重试必须携带相同 petId，不同 petId 摘要不同按同键异参拒绝，
+     *                   切宠后不得把旧意图改投到新宠）
      */
     public PurchaseResult purchase(Long userId, Long petId, String itemType, String itemCode,
                                    String requestKey, String expectedConfigVersion) {
@@ -86,10 +88,12 @@ public class PetPurchaseApplicationService {
             throw new BusinessException(PetErrorCodes.PET_REQUEST_KEY_INVALID,
                     "缺少有效幂等键（16..128 ASCII），请重试一次由客户端生成");
         }
-        // R02：摘要包含显式 petId；旧请求无 petId 用 BIND 标记——同键重试摘要稳定，
-        // 不因服务端解析出的当前主宠不同而误判"同键异参"
+        if (petId == null) {
+            throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "请选择目标宠物");
+        }
+        // R02/PET-01：摘要包含显式 petId——同键同参重试摘要稳定，同键切宠（异参）明确拒绝
         String payloadHash = dedupService.canonicalHash(
-                userId, petId == null ? "BIND" : petId, itemType, itemCode,
+                userId, petId, itemType, itemCode,
                 expectedConfigVersion == null ? "" : expectedConfigVersion);
 
         PetRequestDedupService.ClaimResult claim = dedupService.claim(
@@ -120,20 +124,14 @@ public class PetPurchaseApplicationService {
             }
         }
 
-        // R02：无显式 petId 的首次执行绑定当前主宠并冻结（重放按 claim 返回的原绑定）
-        if (petId == null) {
-            petId = claim.boundPetId() != null ? claim.boundPetId() : petService.requireOwnedPet(userId).getId();
-            dedupService.bindPet(userId, ENDPOINT_KEY, requestKey, petId);
-        }
         String leaseOwner = claim.leaseOwner();
-        final Long boundPetId = petId;
 
         try {
             // P02：dedup 终态写入包含在业务事务内——提交即"订单+扣款+资产+幂等事实"四者原子成立，
             // 不存在"业务已成功、终态回写失败被误标 FAILED 后重试二次交付"的窗口
             PurchaseResult result = transactionTemplate.execute(status -> {
                 PurchaseResult purchased = doPurchase(
-                        userId, boundPetId, itemType, itemCode, expectedConfigVersion, requestKey);
+                        userId, petId, itemType, itemCode, expectedConfigVersion, requestKey);
                 dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey, leaseOwner,
                         purchased.orderId() == null ? null : Long.valueOf(purchased.orderId()),
                         PetJsonUtils.toJson(purchased));
@@ -143,14 +141,14 @@ public class PetPurchaseApplicationService {
         } catch (PetPurchaseCatalog.AlreadyOwnedException already) {
             // 不可重复物品已拥有：零扣款的明确拒绝，终态响应保存（T06）
             PurchaseResult rejected = new PurchaseResult(null, operationIdOf(userId, requestKey), null,
-                    null, boundPetId, itemType, itemCode, List.of(), false, PetErrorCodes.PET_ITEM_ALREADY_OWNED);
+                    null, petId, itemType, itemCode, List.of(), false, PetErrorCodes.PET_ITEM_ALREADY_OWNED);
             dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey, leaseOwner,
                     null, PetJsonUtils.toJson(rejected));
             throw new BusinessException(PetErrorCodes.PET_ITEM_ALREADY_OWNED, "已拥有该物品，无需重复购买");
         } catch (BusinessException definite) {
-            // 业务明确拒绝（余额不足/版本冲突/不可购买）：保存终态响应，同键返回原拒绝（§8.2）
+            // 业务明确拒绝（余额不足/版本冲突/归属不符/不可购买）：保存终态响应，同键返回原拒绝（§8.2）
             PurchaseResult rejected = new PurchaseResult(null, operationIdOf(userId, requestKey), null,
-                    null, boundPetId, itemType, itemCode, List.of(), false, definite.getCode());
+                    null, petId, itemType, itemCode, List.of(), false, definite.getCode());
             dedupService.completeSucceeded(userId, ENDPOINT_KEY, requestKey, leaseOwner,
                     null, PetJsonUtils.toJson(rejected));
             throw definite;
@@ -167,6 +165,9 @@ public class PetPurchaseApplicationService {
     /** 业务事务（T08：扣币后任何一步失败整体回滚） */
     private PurchaseResult doPurchase(Long userId, Long petId, String itemType, String itemCode,
                                       String expectedConfigVersion, String requestKey) {
+        // PET-01：业务事务入口先强制目标宠物归属——用户只能给自己名下的宠物购买，
+        // 越权（他人 petId）必须零副作用拒绝：不产生订单/扣款/资产事实；恢复与内部路径同样经此校验
+        Pet pet = petService.requireOwnedPet(userId, petId);
         PetPurchaseCatalog catalog = catalogProvider.getIfAvailable();
         if (catalog == null) {
             throw new BusinessException("PET_TEMPORARILY_UNAVAILABLE", "商城目录未接入，购买暂不可用");
@@ -226,7 +227,7 @@ public class PetPurchaseApplicationService {
             wallet = new PetWalletResult(null, operationId, currentBalance(userId), 0, "COMMITTED", false);
         }
 
-        List<String> slots = deliver(order, userId, petId, entry);
+        List<String> slots = deliver(order, userId, pet, entry);
 
         order.setStatus("COMPLETED");
         order.setWalletTransactionId(wallet.transactionId());
@@ -240,8 +241,14 @@ public class PetPurchaseApplicationService {
 
     /** 资产交付：asset_grant 事实记录（uk 保证同单同槽一次）+ 交付器回调业务库存。
      * R02：交付器必须恰好匹配一个——匹配零个（缺交付器）整单失败，绝不默认视为已交付 */
-    private List<String> deliver(PetPurchaseOrder order, Long userId, Long petId,
+    private List<String> deliver(PetPurchaseOrder order, Long userId, Pet pet,
                                  PetPurchaseCatalog.CatalogEntry entry) {
+        // PET-01 防御性再断言：交付前核对目标宠物归属与调用者一致（与入口校验同事务），
+        // 杜绝"宠物主人与资产 user_id 不一致"的越权写入
+        if (!userId.equals(pet.getUserId())) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "宠物不存在或无权访问");
+        }
+        Long petId = pet.getId();
         PetAssetDeliverer deliverer = deliverers.stream()
                 .filter(d -> d.supports(order.getItemType()))
                 .reduce((a, b) -> {

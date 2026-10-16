@@ -650,11 +650,12 @@ export interface PetPurchaseResult {
 
 /**
  * C13：商城/家具/食物唯一购买入口（旧 /pet/shop/buy 与 /pet/home/furniture/buy 已删除）。
- * petId 可空（首次执行绑定当前主宠并冻结）；必需 Idempotency-Key（拦截器按请求指纹生成，
- * persistentIntent 保证超时/刷新后重试复用原键，禁止重新生成一笔独立交易）。
+ * petId 必填（PET-01：服务端在业务事务内强制校验目标宠物归属，越权返回 PET_NOT_OWNER）；
+ * 必需 Idempotency-Key（拦截器按请求指纹生成，persistentIntent 保证超时/刷新后重试复用原键，
+ * 禁止重新生成一笔独立交易，同键切宠会被 409 拒绝）。
  */
 export function buyPetItem(data: {
-  petId?: number | string
+  petId: number | string
   itemType: PetItemType
   itemCode: string
   expectedConfigVersion?: string

@@ -585,7 +585,7 @@ export default function PetCreamPage() {
 
             {activePanel && activePanelMeta ? (
                 <CreamSheet title={activePanelMeta.title} onClose={() => setActivePanel(null)}>
-                    {activePanel === 'home' ? <HomeBoard onChanged={() => void load()} /> : null}
+                    {activePanel === 'home' ? <HomeBoard petId={pet?.petId ?? ''} onChanged={() => void load()} /> : null}
                     {activePanel === 'social' && pet ? (
                         <SocialBoard myPetId={pet.petId} onChanged={() => void load()} />
                     ) : null}
@@ -612,7 +612,7 @@ export default function PetCreamPage() {
                     {activePanel === 'bottle' ? <BottlePanel onChanged={() => void load()} /> : null}
                     {activePanel === 'battle' ? <BattlePanel myPetId={pet?.petId ?? ''} onChanged={() => void load()} /> : null}
                     {activePanel === 'chat' && pet ? <ChatPanel petName={pet.name} /> : null}
-                    {activePanel === 'shop' ? <ShopPanel onChanged={() => void load()} /> : null}
+                    {activePanel === 'shop' ? <ShopPanel petId={pet?.petId ?? ''} onChanged={() => void load()} /> : null}
                     {activePanel === 'inventory' ? <InventoryPanel onChanged={() => void load()} /> : null}
                     {activePanel === 'skills' ? <SkillsPanel petId={pet?.petId ?? ''} petLevel={pet?.level ?? 1} onChanged={() => void load()} /> : null}
                     {activePanel === 'events' ? <EventsPanel onChanged={() => void load()} /> : null}

@@ -114,10 +114,20 @@ class PetPurchaseRecoveryIntegrationTest {
             return new TransactionTemplate(transactionManager);
         }
 
-        /** 采购归属校验依赖 PetService；IT 只验钱包事实，归属恒真即可 */
+        /** PET-01：购买事务入口归属校验依赖 PetService；本 IT 只验钱包/幂等事实——归属恒真（返回调用者名下的宠物实体） */
         @Bean
         com.cloudmart.pet.service.PetService petService() {
-            return org.mockito.Mockito.mock(com.cloudmart.pet.service.PetService.class);
+            com.cloudmart.pet.service.PetService mock =
+                    org.mockito.Mockito.mock(com.cloudmart.pet.service.PetService.class);
+            org.mockito.Mockito.lenient().when(mock.requireOwnedPet(
+                            org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong()))
+                    .thenAnswer(inv -> {
+                        com.cloudmart.pet.entity.Pet pet = new com.cloudmart.pet.entity.Pet();
+                        pet.setId(inv.getArgument(1));
+                        pet.setUserId(inv.getArgument(0));
+                        return pet;
+                    });
+            return mock;
         }
 
         /** PET-25：恢复服务可观测性依赖（IT 内无 Micrometer 装配，mock 即可） */

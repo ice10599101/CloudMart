@@ -53,6 +53,14 @@ public interface PetService {
     Pet requireOwnedPet(Long userId);
 
     /**
+     * 按 ID 加载宠物并强制归属校验（多宠物显式目标统一入口，PET-01）。
+     *
+     * <p>用于"显式 petId"的写操作（购买/任务等），不允许目标宠物与认证用户不一致：
+     * 宠物不存在或非本人统一抛 {@code PET_NOT_OWNER}（不泄露他人宠物是否存在）。</p>
+     */
+    Pet requireOwnedPet(Long userId, Long petId);
+
+    /**
      * 基于已持有的宠物实体组装完整 VO（P2-1）：互动/结算链路复用——状态已在调用方
      * 事务内同步更新到实体上，不再经 {@link #getMyPet} 二次全量查询；
      * 喂食余量按实体归属用户实时计算（Fail-Open 为 null）。

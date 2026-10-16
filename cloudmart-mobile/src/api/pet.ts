@@ -721,10 +721,10 @@ export const petApi = {
   getShop: () => request<PetShopResult>({ url: '/pet/shop' }),
   /**
    * C13 统一购买（商城/家具/食物唯一入口 POST /pet/purchases）：扣款/交付/订单同事务。
-   * petId 可空（首次执行绑定当前主宠并冻结）；R25 持久意图——未知结果按原键查
-   * /pet/purchase-requests/{key}，不重复下单。
+   * petId 必填（PET-01：服务端在业务事务内强制校验目标宠物归属）；R25 持久意图——未知结果按原键查
+   * /pet/purchase-requests/{key}，不重复下单；同键切宠会被 409 拒绝。
    */
-  buyItem: (data: { petId?: number | string; itemType: PetItemType; itemCode: string; expectedConfigVersion?: string }) =>
+  buyItem: (data: { petId: number | string; itemType: PetItemType; itemCode: string; expectedConfigVersion?: string }) =>
     request<PetPurchaseResult>({ url: '/pet/purchases', method: 'POST', data, persistentIntent: true }),
 
   /** R25：按请求键查询购买状态（COMPLETED/PROCESSING/UNKNOWN）——断网/超时/重启恢复入口 */

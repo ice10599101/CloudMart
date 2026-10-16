@@ -9,7 +9,7 @@ import styles from '../index.module.scss'
 import cream from '@/components/pet-cream/pet-cream.module.scss'
 
 /** 家园面板（三期）：房间/家具商城/邻居串门（P2-4 自 index.tsx 拆出，行为不变） */
-export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
+export function HomePanel({ petId, onRefresh }: { petId: number | string; onRefresh: () => void }) {
   const [home, setHome] = useState<PetHome | null>(null)
   const [tab, setTab] = useState<'room' | 'shop' | 'visit'>('room')
   const [pending, setPending] = useState<string | null>(null)
@@ -191,7 +191,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                   <Button
                     className={item.eligible ? styles.miniBtn : styles.locked}
                     disabled={!item.eligible || pending === `buy-${item.code}`}
-                    onClick={() => run(`buy-${item.code}`, () => petApi.buyItem({ itemType: 'FURNITURE', itemCode: item.code }), '买到啦')}
+                    onClick={() => run(`buy-${item.code}`, () => petApi.buyItem({ petId, itemType: 'FURNITURE', itemCode: item.code }), '买到啦')}
                   >
                     {item.eligible ? '购买' : item.lockReason ?? '未解锁'}
                   </Button>

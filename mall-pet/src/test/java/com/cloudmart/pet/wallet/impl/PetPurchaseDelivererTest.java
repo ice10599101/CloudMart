@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.service.impl.PetCooperationService;
-import com.cloudmart.pet.service.impl.PetCooperationService;
 import com.cloudmart.pet.wallet.PetPurchaseCatalog;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
@@ -80,6 +79,21 @@ class PetPurchaseDelivererTest {
                 .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_pet_inventory_item"));
 
         assertThat(deliverer.deliver(context("FOOD", "apple"))).containsExactly("apple");
+    }
+
+    @Test
+    @DisplayName("PET-01：同键行归属不一致（堆叠重试仍 0 行）→ PET_STATE_CONFLICT 明确失败，不静默丢交付")
+    void foodDelivererOwnerMismatchFailsLoudly() {
+        PetFoodDeliverer deliverer = new PetFoodDeliverer(inventoryMapper, cooperationService);
+        when(inventoryMapper.update(any(), any())).thenReturn(0)
+                .thenReturn(0);
+        when(inventoryMapper.insert(any(PetInventory.class)))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_pet_inventory_item"));
+
+        assertThatThrownBy(() -> deliverer.deliver(context("FOOD", "apple")))
+                .isInstanceOfSatisfying(com.cloudmart.common.exception.BusinessException.class,
+                        e -> assertThat(e.getCode())
+                                .isEqualTo(com.cloudmart.pet.constant.PetErrorCodes.PET_STATE_CONFLICT));
     }
 
     @Test

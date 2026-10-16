@@ -332,6 +332,16 @@ public class PetServiceImpl implements PetService {
         return stateService.requireActivePet(userId);
     }
 
+    @Override
+    public Pet requireOwnedPet(Long userId, Long petId) {
+        Pet pet = petMapper.selectById(petId);
+        // PET-01：不存在与非本人统一无权限语义，避免探测他人宠物 ID 是否存在
+        if (pet == null || !userId.equals(pet.getUserId())) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_OWNER, "宠物不存在或无权访问");
+        }
+        return pet;
+    }
+
     /**
      * 今日剩余喂食次数（R20）：与 feed 动作同源（PetQuotaService 的 DB 配额+businessDate），
      * 不再读旧 Redis UTC 日计数——两条口径并存时关 Redis 会显示"不限次"/计数漂移。

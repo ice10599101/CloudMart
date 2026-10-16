@@ -7,7 +7,7 @@ import { PetCreamTheme } from '@/constants/pet-cream'
 import { petApi, type PetVisitNeighbor, type PetHome } from '@/api/pet'
 import { CARE_ERROR_HINT, ChipButton } from '../shared'
 
-export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
+export function HomePanel({ petId, onRefresh }: { petId: number | string; onRefresh: () => void }) {
   const colors = { ...useTheme(), ...PetCreamTheme }
   const [home, setHome] = useState<PetHome | null>(null)
   const [tab, setTab] = useState<'room' | 'shop' | 'visit'>('room')
@@ -191,7 +191,7 @@ export function HomePanel({ onRefresh }: { onRefresh: () => void }) {
                     label={item.eligible ? '购买' : item.lockReason ?? '未解锁'}
                     primary
                     disabled={!item.eligible || pending === `buy-${item.code}`}
-                    onPress={() => run(`buy-${item.code}`, () => petApi.buyItem({ itemType: 'FURNITURE', itemCode: item.code }), '买到啦')}
+                    onPress={() => run(`buy-${item.code}`, () => petApi.buyItem({ petId, itemType: 'FURNITURE', itemCode: item.code }), '买到啦')}
                   />
                 )}
               </View>

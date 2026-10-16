@@ -111,7 +111,8 @@ export function CarePanel(
    * 绝不重新下单（未知时先查原单；同键重放由服务端收敛）。
    */
   const runPurchase = async (item: PetShopItem) => {
-    const payload = { itemType: item.itemType, itemCode: item.code }
+    // PET-01：显式携带目标宠物（服务端在业务事务内校验归属），payload 同时作为持久意图指纹
+    const payload = { petId: pet.petId, itemType: item.itemType, itemCode: item.code }
     setCarePending(`buy-${item.code}`)
     try {
       await petApi.buyItem(payload)

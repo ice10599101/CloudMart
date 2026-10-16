@@ -20,7 +20,7 @@ import styles from '../../PetCream.module.css'
 
 // ---------------- 面板：商城 / 背包 ----------------
 
-export function ShopPanel({ onChanged }: { onChanged: () => void }) {
+export function ShopPanel({ petId, onChanged }: { petId: number | string; onChanged: () => void }) {
     const { message } = App.useApp()
     const [shop, setShop] = useState<{ balance: number | null; currency: string; items: Array<{
         itemType: PetItemType; code: string; name: string; description: string; icon: string
@@ -40,9 +40,14 @@ export function ShopPanel({ onChanged }: { onChanged: () => void }) {
     }, [load])
 
     const buy = useCallback(async (item: { itemType: PetItemType; code: string; name: string }) => {
+        // PET-01：购买必须显式携带目标宠物（服务端在业务事务内校验归属）；无宠物时不发起请求
+        if (petId === '' || petId === null || petId === undefined) {
+            message.warning('请先领养宠物')
+            return
+        }
         setBusy(item.code)
         try {
-            const { data: res } = await buyPetItem({ itemType: item.itemType, itemCode: item.code })
+            const { data: res } = await buyPetItem({ petId, itemType: item.itemType, itemCode: item.code })
             if (res.success) {
                 message.success(`${item.name} 已入背包`)
                 await load()
@@ -53,7 +58,7 @@ export function ShopPanel({ onChanged }: { onChanged: () => void }) {
         } finally {
             setBusy(null)
         }
-    }, [load, message, onChanged])
+    }, [load, message, onChanged, petId])
 
     if (!shop) {
         return <Spin />

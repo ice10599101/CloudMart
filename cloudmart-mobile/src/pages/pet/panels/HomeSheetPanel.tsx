@@ -49,7 +49,7 @@ export function HomeSheetPanel({ pet, onRefresh }: { pet: PetInfo; onRefresh: ()
   return (
     <View className={styles.tips}>
       {/* 三期：家园（房间布置 / 家具 / 拜访） */}
-      <HomePanel onRefresh={onRefresh} />
+      <HomePanel petId={pet.petId} onRefresh={onRefresh} />
       <Text className={styles.tip}>🍖 饱食和清洁随时间下降，记得回来照顾它</Text>
       <Text className={styles.tip}>💼 打工赚宠物币，📚 读书涨智力</Text>
       <Text className={styles.tip}>🍾 宠物会定时帮你捞社区漂流瓶并主动提醒</Text>
