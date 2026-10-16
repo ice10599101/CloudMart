@@ -32,31 +32,36 @@ class SoftwareHtmlSanitizerTest {
     void sanitize_stripsDangerousContent() {
         String evil = "<p onclick=\"alert(1)\">正常</p>"
                 + "<script>alert('xss')</script>"
-                + "<img src=\"https://evil.example.com/track.png\">"
+                + "<img src=\"data:image/png;base64,iVBOR\">"
+                + "<img src=\"javascript:alert(3)\">"
                 + "<a href=\"javascript:alert(2)\">坏链接</a>"
                 + "<iframe src=\"https://evil.example.com\"></iframe>";
         String sanitized = sanitizer.sanitize(evil);
 
         assertThat(sanitized)
                 .doesNotContain("script").doesNotContain("alert")
-                .doesNotContain("img").doesNotContain("iframe")
+                .doesNotContain("data:image").doesNotContain("iframe")
                 .doesNotContain("javascript:").doesNotContain("onclick")
                 .contains("正常");
     }
 
     @Test
-    @DisplayName("正文图片：本站 /files/ 相对路径保留，data:/外站剥离（2026-10-17 口径）")
-    void sanitize_keepsLocalFileImagesOnly() {
+    @DisplayName("正文图片：/files/ 与 https 外链保留，data:/javascript:/http 剥离")
+    void sanitize_keepsLocalAndHttpsImagesOnly() {
         String html = "<p>正文</p>"
                 + "<img src=\"/files/19\">"
+                + "<img src=\"https://cdn.example.com/pic.png\">"
                 + "<img src=\"data:image/png;base64,iVBOR\">"
-                + "<img src=\"https://cdn.example.com/pic.png\">";
+                + "<img src=\"http://insecure.example.com/pic.png\">"
+                + "<img src=\"javascript:alert(1)\">";
         String sanitized = sanitizer.sanitize(html);
 
         assertThat(sanitized)
                 .contains("src=\"/files/19\"")
+                .contains("https://cdn.example.com/pic.png")
                 .doesNotContain("data:image")
-                .doesNotContain("cdn.example.com");
+                .doesNotContain("http://insecure")
+                .doesNotContain("javascript:");
     }
 
     @Test

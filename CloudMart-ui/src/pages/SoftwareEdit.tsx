@@ -91,8 +91,8 @@ interface SoftwareEditorReleaseDraft {
   sources: {
     uid: string;
     label: string;
-    platform: string;
-    arch: string;
+    platform: string[];
+    arch: string[];
     sourceType: SoftwareSourceType;
     link: string;
     extractionCode: string;
@@ -107,8 +107,8 @@ const nextDraftUid = () => `d${++draftUidSeq}`;
 const emptySource = () => ({
   uid: nextDraftUid(),
   label: "网盘",
-  platform: "WINDOWS",
-  arch: "X64",
+  platform: ["WINDOWS"],
+  arch: ["X64"],
   sourceType: "NETDISK" as SoftwareSourceType,
   link: "",
   extractionCode: "",
@@ -178,22 +178,69 @@ export default function SoftwareEdit() {
           recommended: release.recommended,
           sources:
             release.sources.length > 0
-              ? release.sources.map((source) => ({
-                  uid: nextDraftUid(),
-                  label: source.label ?? "",
-                  platform: source.platform ?? "WINDOWS",
-                  arch: source.arch ?? "X64",
-                  sourceType: source.sourceType,
-                  link: sourceLink(source),
-                  extractionCode: source.extractionCode ?? "",
-                  archivePassword: source.archivePassword ?? "",
-                }))
+              ? (() => {
+                  // 同一来源（展示名+类型+链接+提取码+解压密码一致）在保存时
+                  // 被展开为多条平台×架构组合——加载时合并回一行多选
+                  const groups = new Map<
+                    string,
+                    {
+                      uid: string;
+                      label: string;
+                      platforms: string[];
+                      archs: string[];
+                      sourceType: SoftwareSourceType;
+                      link: string;
+                      extractionCode: string;
+                      archivePassword: string;
+                    }
+                  >();
+                  for (const source of release.sources) {
+                    const key = [
+                      source.label ?? "",
+                      source.sourceType,
+                      sourceLink(source),
+                      source.extractionCode ?? "",
+                      source.archivePassword ?? "",
+                    ].join("\u0001");
+                    const existing = groups.get(key);
+                    if (existing) {
+                      if (source.platform && !existing.platforms.includes(source.platform))
+                        existing.platforms.push(source.platform);
+                      if (source.arch && !existing.archs.includes(source.arch))
+                        existing.archs.push(source.arch);
+                    } else {
+                      groups.set(key, {
+                        uid: nextDraftUid(),
+                        label: source.label ?? "",
+                        platforms: [source.platform ?? "WINDOWS"],
+                        archs: [source.arch ?? "X64"],
+                        sourceType: source.sourceType,
+                        link: sourceLink(source),
+                        extractionCode: source.extractionCode ?? "",
+                        archivePassword: source.archivePassword ?? "",
+                      });
+                    }
+                  }
+                  const rows: SoftwareEditorReleaseDraft["sources"] = [
+                    ...groups.values(),
+                  ].map((group) => ({
+                    uid: group.uid,
+                    label: group.label,
+                    platform: group.platforms,
+                    arch: group.archs,
+                    sourceType: group.sourceType,
+                    link: group.link,
+                    extractionCode: group.extractionCode,
+                    archivePassword: group.archivePassword,
+                  }));
+                  return rows;
+                })()
               : [
                   {
                     uid: nextDraftUid(),
                     label: "网盘",
-                    platform: "WINDOWS",
-                    arch: "X64",
+                    platform: ["WINDOWS"],
+                    arch: ["X64"],
                     sourceType: "NETDISK",
                     link: "",
                     extractionCode: "",
@@ -253,25 +300,36 @@ export default function SoftwareEdit() {
           recommended: release.recommended,
           sources: release.sources
             .filter((source) => source.link.trim().length > 0)
-            .map((source) => ({
-              label: source.label.trim(),
-              platform: source.platform,
-              arch: source.arch,
-              sourceType: source.sourceType,
-              ...(source.sourceType === "NETDISK"
-                ? {
-                    url: source.link.trim(),
-                    extractionCode: source.extractionCode.trim() || undefined,
-                    archivePassword: source.archivePassword.trim() || undefined,
-                  }
-                : {}),
-              ...(source.sourceType === "MAGNET"
-                ? { magnetUri: source.link.trim() }
-                : {}),
-              ...(source.sourceType === "TORRENT_URL"
-                ? { torrentUrl: source.link.trim() }
-                : {}),
-            })),
+            .flatMap((source) => {
+              const platforms = source.platform.length > 0 ? source.platform : ["WINDOWS"];
+              const archs = source.arch.length > 0 ? source.arch : ["X64"];
+              const combos = new Set(
+                platforms.flatMap((p) => archs.map((a) => `${p}::${a}`)),
+              );
+              return [...combos].map((combo) => {
+                const [platform, arch] = combo.split("::");
+                return {
+                  label: source.label.trim(),
+                  platform,
+                  arch,
+                  sourceType: source.sourceType,
+                  ...(source.sourceType === "NETDISK"
+                    ? {
+                        url: source.link.trim(),
+                        extractionCode: source.extractionCode.trim() || undefined,
+                        archivePassword:
+                          source.archivePassword.trim() || undefined,
+                      }
+                    : {}),
+                  ...(source.sourceType === "MAGNET"
+                    ? { magnetUri: source.link.trim() }
+                    : {}),
+                  ...(source.sourceType === "TORRENT_URL"
+                    ? { torrentUrl: source.link.trim() }
+                    : {}),
+                };
+              });
+            })
         })),
     };
   }, [
@@ -676,7 +734,10 @@ export default function SoftwareEdit() {
                     />
                     <Select
                       disabled={frozen}
-                      style={{ width: 120 }}
+                      mode="multiple"
+                      style={{ minWidth: 160 }}
+                      maxTagCount={2}
+                      placeholder="平台"
                       value={source.platform}
                       onChange={(value) =>
                         updateSource(releaseIndex, sourceIndex, {
@@ -687,7 +748,10 @@ export default function SoftwareEdit() {
                     />
                     <Select
                       disabled={frozen}
-                      style={{ width: 100 }}
+                      mode="multiple"
+                      style={{ minWidth: 130 }}
+                      maxTagCount={2}
+                      placeholder="架构"
                       value={source.arch}
                       onChange={(value) =>
                         updateSource(releaseIndex, sourceIndex, {

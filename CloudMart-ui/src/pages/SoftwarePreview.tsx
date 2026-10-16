@@ -4,6 +4,8 @@ import DOMPurify from "dompurify";
 import { history, useParams } from "umi";
 import {
   getSoftwareEditor,
+  listSoftwareCategories,
+  type SoftwareCategory,
   type SoftwareEditorData,
 } from "@/api/software";
 import styles from "./SoftwarePreview.module.css";
@@ -48,7 +50,10 @@ function SourceLines({ sources }: { sources: SoftwareEditorData["releases"] }) {
           className={styles.releaseCard}
         >
           {release.changelog ? (
-            <Typography.Paragraph type="secondary">
+            <Typography.Paragraph
+              type="secondary"
+              style={{ whiteSpace: "pre-wrap", marginBottom: 8 }}
+            >
               更新日志：{release.changelog}
             </Typography.Paragraph>
           ) : null}
@@ -83,6 +88,15 @@ export default function SoftwarePreview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editor, setEditor] = useState<SoftwareEditorData | null>(null);
+  const [categories, setCategories] = useState<SoftwareCategory[]>([]);
+
+  useEffect(() => {
+    listSoftwareCategories()
+      .then((res) => {
+        if (res.data.success) setCategories(res.data.data ?? []);
+      })
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -143,7 +157,9 @@ export default function SoftwarePreview() {
         ) : null}
         <Descriptions column={2} size="small" className={styles.meta}>
           <Descriptions.Item label="分类">
-            {editor.categoryId ?? "-"}
+            {categories.find((item) => item.id === editor.categoryId)?.name ??
+              editor.categoryId ??
+              "-"}
           </Descriptions.Item>
           <Descriptions.Item label="授权类型">
             {editor.licenseType
@@ -159,16 +175,12 @@ export default function SoftwarePreview() {
           <Descriptions.Item label="开发者">
             {editor.developerName || "-"}
           </Descriptions.Item>
-          {editor.officialUrl ? (
-            <Descriptions.Item label="官方网站">
-              {editor.officialUrl}
-            </Descriptions.Item>
-          ) : null}
-          {editor.systemRequirements ? (
-            <Descriptions.Item label="系统要求">
-              {editor.systemRequirements}
-            </Descriptions.Item>
-          ) : null}
+          <Descriptions.Item label="官方网站">
+            {editor.officialUrl || "-"}
+          </Descriptions.Item>
+          <Descriptions.Item label="系统要求">
+            {editor.systemRequirements || "-"}
+          </Descriptions.Item>
         </Descriptions>
         {editor.reviewStatus === "REJECTED" && editor.reviewReason ? (
           <Typography.Paragraph type="danger">

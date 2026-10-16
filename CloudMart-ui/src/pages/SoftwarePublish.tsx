@@ -79,8 +79,9 @@ interface SourceDraft {
   uid: string;
   /** 来源展示名（1~80 字，后端必填校验） */
   label: string;
-  platform: string;
-  arch: string;
+  /** 多选：保存时按 平台×架构 展开为多条来源 */
+  platform: string[];
+  arch: string[];
   sourceType: SoftwareSourceType;
   /** 网盘 HTTPS 链接 / magnet: 链接 / .torrent 外链，按类型择一 */
   link: string;
@@ -107,8 +108,8 @@ const emptyRelease = (): ReleaseDraft => ({
     {
       uid: nextDraftUid(),
       label: "网盘",
-      platform: "WINDOWS",
-      arch: "X64",
+      platform: ["WINDOWS"],
+      arch: ["X64"],
       sourceType: "NETDISK",
       link: "",
       extractionCode: "",
@@ -263,24 +264,35 @@ export default function SoftwarePublish() {
     const sourcePayload = releases.flatMap((release) =>
       release.sources
         .filter((source) => source.link.trim().length > 0)
-        .map((source) => ({
-          label: source.label.trim(),
-          platform: source.platform,
-          arch: source.arch,
-          sourceType: source.sourceType,
-          ...(source.sourceType === "NETDISK"
-            ? {
-                url: source.link.trim(),
-                extractionCode: source.extractionCode.trim() || undefined,
-              }
-            : {}),
-          ...(source.sourceType === "MAGNET"
-            ? { magnetUri: source.link.trim() }
-            : {}),
-          ...(source.sourceType === "TORRENT_URL"
-            ? { torrentUrl: source.link.trim() }
-            : {}),
-        })),
+        .flatMap((source) => {
+          // 多平台×多架构：后端一个来源行只承载一个组合，保存时展开为多条
+          const platforms = source.platform.length > 0 ? source.platform : ["WINDOWS"];
+          const archs = source.arch.length > 0 ? source.arch : ["X64"];
+          const combos = new Set(
+            platforms.flatMap((p) => archs.map((a) => `${p}::${a}`)),
+          );
+          return [...combos].map((combo) => {
+            const [platform, arch] = combo.split("::");
+            return {
+              label: source.label.trim(),
+              platform,
+              arch,
+              sourceType: source.sourceType,
+              ...(source.sourceType === "NETDISK"
+                ? {
+                    url: source.link.trim(),
+                    extractionCode: source.extractionCode.trim() || undefined,
+                  }
+                : {}),
+              ...(source.sourceType === "MAGNET"
+                ? { magnetUri: source.link.trim() }
+                : {}),
+              ...(source.sourceType === "TORRENT_URL"
+                ? { torrentUrl: source.link.trim() }
+                : {}),
+            };
+          });
+        }),
     );
     return {
       name,
@@ -698,7 +710,10 @@ export default function SoftwarePublish() {
                     }}
                   />
                   <Select
-                    style={{ width: 120 }}
+                    mode="multiple"
+                    style={{ minWidth: 160 }}
+                    maxTagCount={2}
+                    placeholder="平台"
                     value={source.platform}
                     onChange={(value) => {
                       const next = [...releases];
@@ -708,7 +723,10 @@ export default function SoftwarePublish() {
                     options={PLATFORM_OPTIONS}
                   />
                   <Select
-                    style={{ width: 100 }}
+                    mode="multiple"
+                    style={{ minWidth: 130 }}
+                    maxTagCount={2}
+                    placeholder="架构"
                     value={source.arch}
                     onChange={(value) => {
                       const next = [...releases];
@@ -776,8 +794,8 @@ export default function SoftwarePublish() {
                   next[releaseIndex].sources.push({
                     uid: nextDraftUid(),
                     label: "网盘",
-                    platform: "WINDOWS",
-                    arch: "X64",
+                    platform: ["WINDOWS"],
+                    arch: ["X64"],
                     sourceType: "NETDISK",
                     link: "",
                     extractionCode: "",
