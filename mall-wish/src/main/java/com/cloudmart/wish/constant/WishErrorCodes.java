@@ -140,6 +140,8 @@ public final class WishErrorCodes {
     // --- 503 Service Unavailable ---
     /** AI 服务不可用（重试后仍失败，文档 30.1/30.3） */
     public static final String WISH_AI_UNAVAILABLE = "WISH_AI_UNAVAILABLE";
+    /** 品牌许愿池维护中（WISH-03：并发发奖唯一事实与原子认领修复完成前暂停参加/自动发奖） */
+    public static final String WISH_BRAND_POOL_MAINTENANCE = "WISH_BRAND_POOL_MAINTENANCE";
 
     // 全站虚拟礼物（V37）
     /** 礼物不存在（目录中无此礼物或已软删） */

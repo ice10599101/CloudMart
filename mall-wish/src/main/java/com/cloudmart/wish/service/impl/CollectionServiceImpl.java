@@ -48,6 +48,7 @@ public class CollectionServiceImpl implements CollectionService {
     private final StringRedisTemplate redisTemplate;
     private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
     private final WishOperationExecutor operationExecutor;
+    private final com.cloudmart.wish.config.WishBrandPoolProperties brandPoolProperties;
 
     // ---------------- 虚拟工坊 ----------------
 
@@ -482,10 +483,18 @@ public class CollectionServiceImpl implements CollectionService {
      * 达标发奖（文档 9.3 wish-brand-reward-check）：current_count >= target_count
      * 且 status=ACTIVE 的池 → 按 rewardJson 发星光（简化：仅星光通道，徽章/实物
      * 奖励待品牌方确认后扩展）→ 池置 ENDED。幂等：置 ENDED 后不再命中。
+     *
+     * <p>WISH-03 风险缓解：开关关闭（默认）时整体跳过——现实现无池级 CAS 结算、
+     * 无 (pool_id,user_id,reward_type) 唯一事实、earnStarlight 非幂等，双实例扫描
+     * 可能重复入账；修复完成并验收前不得执行。</p>
      */
     @Override
     @Transactional
     public Map<String, Object> brandRewardCheck() {
+        if (!brandPoolProperties.isEnabled()) {
+            log.warn("[wish-brand-reward-check] 品牌池开关关闭（WISH-03 修复前风险缓解），本次跳过不执行");
+            return Map.of("rewarded", 0, "skipped", 0, "disabled", true);
+        }
         final var pools = poolMapper.selectList(new LambdaQueryWrapper<BrandPool>()
                 .eq(BrandPool::getStatus, "ACTIVE"));
         int rewarded = 0;
@@ -556,6 +565,11 @@ public class CollectionServiceImpl implements CollectionService {
     @Override
     @Transactional
     public void joinPool(Long userId, Long poolId) {
+        // WISH-03 风险缓解：参加入口关闭时返回明确维护态（503），不产生成员/计数事实
+        if (!brandPoolProperties.isEnabled()) {
+            throw new BusinessException(WishErrorCodes.WISH_BRAND_POOL_MAINTENANCE,
+                    "品牌许愿池维护中，暂时不能参加");
+        }
         BrandPool pool = poolMapper.selectById(poolId);
         if (pool == null || !"ACTIVE".equals(pool.getStatus())) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "许愿池不存在或已结束");

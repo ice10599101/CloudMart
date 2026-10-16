@@ -145,6 +145,10 @@ springdoc:
 
 # 心愿模块业务配置（支持 Nacos 热更新）
 wish:
+  brand-pool:
+    # WISH-03：品牌池参加/自动发奖开关——并发发奖唯一事实与池级 CAS 认领修复并验收前保持 false
+    # （false 时参加返回 503 WISH_BRAND_POOL_MAINTENANCE，定时发奖跳过；后台池管理不受影响）
+    enabled: ${WISH_BRAND_POOL_ENABLED:false}
   security:
     # B01 身份边界：用户身份由可验证 JWT 建立（网关透传 Authorization，本服务自行验签）；
     # 服务身份由 X-Service-Token（HS256 短期令牌）建立，按路径强校验 iss/aud/scope。

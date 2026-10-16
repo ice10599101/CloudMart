@@ -85,6 +85,9 @@ class CollectionExchangeTest {
 
     private CollectionServiceImpl collectionService;
 
+    private final com.cloudmart.wish.config.WishBrandPoolProperties brandPoolProperties =
+            new com.cloudmart.wish.config.WishBrandPoolProperties();
+
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
@@ -96,7 +99,7 @@ class CollectionExchangeTest {
         collectionService = new CollectionServiceImpl(assetMapper, userAssetMapper, brandMapper,
                 poolMapper, brandRewardLogMapper, poolMemberMapper, userStatService,
                 badgeMapper, userBadgeMapper, wishMapper, redisTemplate,
-                new com.cloudmart.wish.policy.WishAccessPolicy(), executor);
+                new com.cloudmart.wish.policy.WishAccessPolicy(), executor, brandPoolProperties);
 
         when(operationMapper.insert(any(WishOperation.class))).thenReturn(1);
         when(redisTemplate.opsForValue()).thenReturn(
@@ -240,5 +243,45 @@ class CollectionExchangeTest {
         verify(userStatService, times(1)).spendStarlight(any(), eq(80), any(), any());
         // 库存条件扣减只发生一次
         verify(assetMapper, times(1)).update(any(), any());
+    }
+
+    // ---------------- WISH-03 品牌池风险缓解 ----------------
+
+    @Test
+    @DisplayName("WISH-03：开关关闭（默认）时参加品牌池 → 503 WISH_BRAND_POOL_MAINTENANCE，零成员/计数事实")
+    void joinPoolDisabled_returnsMaintenance() {
+        // 默认 properties.enabled=false（生产配置默认关闭，修复完成前不开放）
+        assertThatThrownBy(() -> collectionService.joinPool(USER, 1L))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getCode()).isEqualTo(WishErrorCodes.WISH_BRAND_POOL_MAINTENANCE));
+        verify(poolMemberMapper, never()).insert(any(com.cloudmart.wish.entity.BrandPoolMember.class));
+        verify(poolMapper, never()).update(any(), any());
+    }
+
+    @Test
+    @DisplayName("WISH-03：开关关闭时自动发奖整体跳过（disabled=true），不查询/不写奖励日志/不入星光")
+    void brandRewardCheckDisabled_skips() {
+        java.util.Map<String, Object> result = collectionService.brandRewardCheck();
+
+        assertThat(result).containsEntry("disabled", true).containsEntry("rewarded", 0);
+        verify(poolMapper, never()).selectList(any());
+        verify(brandRewardLogMapper, never()).insert(any(com.cloudmart.wish.entity.BrandRewardLog.class));
+        verify(userStatService, never()).earnStarlight(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any());
+    }
+
+    @Test
+    @DisplayName("WISH-03：开关打开后参加仍走原流程（关闭仅是风险缓解，不改业务语义）")
+    void joinPoolEnabled_keepsFlow() {
+        brandPoolProperties.setEnabled(true);
+        com.cloudmart.wish.entity.BrandPool pool = new com.cloudmart.wish.entity.BrandPool();
+        pool.setId(1L);
+        pool.setStatus("ACTIVE");
+        when(poolMapper.selectById(1L)).thenReturn(pool);
+        when(poolMemberMapper.insert(any(com.cloudmart.wish.entity.BrandPoolMember.class))).thenReturn(1);
+
+        collectionService.joinPool(USER, 1L);
+
+        verify(poolMemberMapper).insert(any(com.cloudmart.wish.entity.BrandPoolMember.class));
+        verify(poolMapper).update(any(), any());
     }
 }

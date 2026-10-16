@@ -68,6 +68,8 @@ import static org.mockito.Mockito.when;
         "spring.config.import=",
         "spring.cloud.nacos.config.enabled=false",
         "spring.cloud.nacos.discovery.enabled=false",
+        // WISH-03：生产默认关闭品牌池参加/发奖（风险缓解）；IT 覆盖实现流程需显式打开
+        "wish.brand-pool.enabled=true",
         // Sentinel 不急连 dashboard
         "spring.cloud.sentinel.eager=false",
         // 排除 RocketMQ 自动装配（合并主配置中已排除的 OAuth2 ResourceServer）；
