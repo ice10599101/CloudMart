@@ -45,6 +45,21 @@ class SoftwareHtmlSanitizerTest {
     }
 
     @Test
+    @DisplayName("正文图片：本站 /files/ 相对路径保留，data:/外站剥离（2026-10-17 口径）")
+    void sanitize_keepsLocalFileImagesOnly() {
+        String html = "<p>正文</p>"
+                + "<img src=\"/files/19\">"
+                + "<img src=\"data:image/png;base64,iVBOR\">"
+                + "<img src=\"https://cdn.example.com/pic.png\">";
+        String sanitized = sanitizer.sanitize(html);
+
+        assertThat(sanitized)
+                .contains("src=\"/files/19\"")
+                .doesNotContain("data:image")
+                .doesNotContain("cdn.example.com");
+    }
+
+    @Test
     @DisplayName("http 链接被剥离 href（仅 https）；空输入返回空串")
     void sanitize_httpsOnlyLinks() {
         String sanitized = sanitizer.sanitize("<p><a href=\"http://example.com/x\">链接</a></p>");
