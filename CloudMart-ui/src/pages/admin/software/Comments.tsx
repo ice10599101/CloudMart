@@ -38,14 +38,14 @@ export default function SoftwareComments() {
   const [submitting, setSubmitting] = useState(false)
 
   const submitModerate = async () => {
-    if (!target || !softwareId) return
+    if (!target) return
     if (!reason.trim()) {
       message.warning('请填写处置原因')
       return
     }
     setSubmitting(true)
     try {
-      await moderateAdminSoftwareComment(softwareId, target.commentId, {
+      await moderateAdminSoftwareComment(target.softwareId, target.commentId, {
         action: action as 'APPROVE' | 'HIDE' | 'RESTORE' | 'REJECT',
         reason: reason.trim(),
       })
@@ -62,6 +62,7 @@ export default function SoftwareComments() {
   const columns: ProColumns<AdminSoftwareComment>[] = [
     { title: '评论ID', dataIndex: 'commentId', width: 90, search: false },
     { title: '用户ID', dataIndex: 'userId', width: 100, search: false },
+    { title: '软件ID', dataIndex: 'softwareId', width: 90, search: false },
     {
       title: '内容',
       dataIndex: 'content',
@@ -108,23 +109,17 @@ export default function SoftwareComments() {
     <>
       <Space style={{ marginBottom: 12 }} wrap>
         <Input.Search
-          placeholder="输入软件ID定位评论"
+          placeholder="按软件ID筛选（留空查看全部）"
           allowClear
-          enterButton="查询"
+          enterButton="筛选"
           style={{ width: 320 }}
           onSearch={(value) => {
-            const next = value.trim()
-            setSoftwareId(next)
-            if (!next) {
-              actionRef.current?.reload()
-              return
-            }
-            // 触发重新请求（params 里读取最新 softwareId）
+            setSoftwareId(value.trim())
             actionRef.current?.reload()
           }}
         />
         <Typography.Text type="secondary">
-          评论列表以软件为单位加载；输入软件ID后查询
+          默认展示全部软件的评论；可按软件ID筛选
         </Typography.Text>
       </Space>
       <ProTable<AdminSoftwareComment>
@@ -135,19 +130,15 @@ export default function SoftwareComments() {
         options={{ density: false }}
         search={{ defaultCollapsed: false }}
         params={{ softwareId }}
-        request={(params) => {
-          const id = (params as { softwareId?: string }).softwareId
-          if (!id) {
-            return Promise.resolve({ data: [], total: 0, success: true })
-          }
-          return safeProTableRequest(() =>
-            listAdminSoftwareComments(id, {
+        request={(params) =>
+          safeProTableRequest(() =>
+            listAdminSoftwareComments(softwareId || undefined, {
               status: (params as Record<string, unknown>).status as string | undefined,
               page: params.current,
               size: params.pageSize,
             }),
           )
-        }}
+        }
         pagination={{ defaultPageSize: 20 }}
       />
 

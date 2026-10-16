@@ -58,6 +58,18 @@ public class AdminSoftwareQueryController {
         return ApiResponse.ok(adminSoftwareQueryService.adminDetail(softwareId));
     }
 
+    @GetMapping("/comments")
+    @Operation(summary = "评论管理全局列表",
+            description = "不指定 softwareId 时跨软件；含全部状态；HIDDEN/DELETED 不回传原文")
+    public ApiResponse<Page<Map<String, Object>>> commentsGlobal(
+            @RequestParam(value = "softwareId", required = false) Long softwareId,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(
+                adminSoftwareQueryService.commentPage(softwareId, status, page, size));
+    }
+
     @GetMapping("/{softwareId}/comments")
     @Operation(summary = "评论管理列表",
             description = "含 HIDDEN/PENDING/DELETED；HIDDEN/DELETED 不回传原文（与前台一致）")

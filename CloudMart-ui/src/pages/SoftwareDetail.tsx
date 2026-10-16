@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   App,
   Button,
@@ -21,6 +21,9 @@ import {
   handleSoftwareIconError,
   softwareIconUrl,
 } from "@/utils/softwareIcon";
+import CommentToolbar, { insertAtCursor } from "@/components/CommentToolbar";
+import CommentContent from "@/components/CommentContent";
+import { searchUsers } from "@/api/community";
 import {
   createSoftwareComment,
   favoriteSoftware,
@@ -66,6 +69,13 @@ export default function SoftwareDetail() {
   const [releases, setReleases] = useState<SoftwareRelease[]>([]);
   const [comments, setComments] = useState<SoftwareComment[]>([]);
   const [commentText, setCommentText] = useState("");
+  const [pendingImages, setPendingImages] = useState<string[]>([]);
+  const commentTextareaRef = useRef<any>(null);
+  const [mentionResults, setMentionResults] = useState<
+    { id: number; nickname: string }[]
+  >([]);
+  const [mentionVisible, setMentionVisible] = useState(false);
+  const mentionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [releaseKey, setReleaseKey] = useState<string | undefined>(undefined);
   const [sourceId, setSourceId] = useState<string | undefined>(undefined);
@@ -255,16 +265,66 @@ export default function SoftwareDetail() {
     setDetail({ ...detail, isFavorited: !detail.isFavorited });
   }, [detail, id, isAuthenticated, message]);
 
+  /** @提及检测（与社区同口径：@ 后无空格且 ≤20 字触发防抖搜索） */
+  const handleCommentTextChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      setCommentText(value);
+      const lastAtIndex = value.lastIndexOf("@");
+      if (lastAtIndex !== -1) {
+        const afterAt = value.slice(lastAtIndex + 1);
+        const hasSpace = afterAt.includes(" ");
+        if (!hasSpace && afterAt.length > 0 && afterAt.length <= 20) {
+          if (mentionTimerRef.current) clearTimeout(mentionTimerRef.current);
+          mentionTimerRef.current = setTimeout(async () => {
+            try {
+              const res = await searchUsers(afterAt);
+              setMentionResults(res.data.data ?? []);
+              setMentionVisible(true);
+            } catch {
+              setMentionResults([]);
+            }
+          }, 300);
+        } else if (hasSpace) {
+          setMentionVisible(false);
+          setMentionResults([]);
+        }
+      } else {
+        setMentionVisible(false);
+        setMentionResults([]);
+      }
+    },
+    [],
+  );
+
+  const handleSelectMention = useCallback(
+    (user: { id: number; nickname: string }) => {
+      const lastAtIndex = commentText.lastIndexOf("@");
+      if (lastAtIndex !== -1) {
+        setCommentText(`${commentText.slice(0, lastAtIndex)}@${user.nickname} `);
+      }
+      setMentionVisible(false);
+      setMentionResults([]);
+    },
+    [commentText],
+  );
+
   const handleSendComment = useCallback(async () => {
     if (!isAuthenticated) {
       message.warning("请先登录");
       return;
     }
-    const content = commentText.trim();
+    const trimmed = commentText.trim();
+    const content =
+      (trimmed +
+        pendingImages.map((url) => `\n![图片](${url})`).join("")).trim();
     if (!content) return;
     const res = await createSoftwareComment(id, { content });
     if (!res.data.success) return;
     setCommentText("");
+    setPendingImages([]);
+    setMentionVisible(false);
+    setMentionResults([]);
     message.success("评论成功");
     const listRes = await listSoftwareComments(id, { page: 1, size: 20 });
     if (listRes.data.success) setComments(listRes.data.data?.records ?? []);
@@ -497,20 +557,80 @@ export default function SoftwareDetail() {
                         </Typography.Text>
                       ) : null}
                     </div>
-                    <Space.Compact style={{ width: "100%", marginBottom: 12 }}>
-                      <Input
+                    <div style={{ marginBottom: 12, position: "relative" }}>
+                      <Input.TextArea
+                        ref={commentTextareaRef}
                         value={commentText}
-                        onChange={(event) => setCommentText(event.target.value)}
-                        placeholder="留下你的看法"
-                        maxLength={2000}
+                        onChange={handleCommentTextChange}
+                        placeholder={
+                          isAuthenticated
+                            ? "留下你的看法…（@提及用户，可附图片）"
+                            : "请先登录后再评论"
+                        }
+                        disabled={!isAuthenticated}
+                        autoSize={{ minRows: 2, maxRows: 4 }}
+                        maxLength={1000}
                       />
+                      <div style={{ marginTop: 6 }}>
+                        <CommentToolbar
+                          textareaRef={commentTextareaRef}
+                          onInsert={(fragment) =>
+                            setCommentText((prev) =>
+                              insertAtCursor(
+                                commentTextareaRef,
+                                fragment,
+                                prev,
+                                1000,
+                              ),
+                            )
+                          }
+                          pendingImages={pendingImages}
+                          onImagePicked={(url) =>
+                            setPendingImages((prev) => [...prev, url])
+                          }
+                          onRemoveImage={(url) =>
+                            setPendingImages((prev) =>
+                              prev.filter((item) => item !== url),
+                            )
+                          }
+                          disabled={!isAuthenticated}
+                        />
+                      </div>
+                      {mentionVisible && mentionResults.length > 0 ? (
+                        <div
+                          style={{
+                            position: "absolute",
+                            bottom: "100%",
+                            left: 0,
+                            right: 0,
+                            background: "var(--color-bg-elevated, #fff)",
+                            border: "1px solid var(--color-border, #eee)",
+                            borderRadius: 8,
+                            maxHeight: 180,
+                            overflowY: "auto",
+                            zIndex: 100,
+                          }}
+                        >
+                          {mentionResults.map((user) => (
+                            <div
+                              key={user.id}
+                              onClick={() => handleSelectMention(user)}
+                              style={{ padding: "6px 12px", cursor: "pointer" }}
+                            >
+                              @{user.nickname}
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                       <Button
                         type="primary"
+                        style={{ marginTop: 6 }}
                         onClick={() => void handleSendComment()}
+                        disabled={!isAuthenticated}
                       >
                         发送
                       </Button>
-                    </Space.Compact>
+                    </div>
                     {comments.length === 0 ? (
                       <Empty description="还没有评论" />
                     ) : (
@@ -523,7 +643,9 @@ export default function SoftwareDetail() {
                               {item.createdAt}
                             </span>
                           </div>
-                          <div>{item.content}</div>
+                          <div>
+                            <CommentContent content={item.content} />
+                          </div>
                           <Space size={12} style={{ marginTop: 6 }}>
                             <Button
                               type="link"

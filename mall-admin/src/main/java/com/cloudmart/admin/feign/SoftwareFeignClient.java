@@ -55,6 +55,10 @@ public interface SoftwareFeignClient {
                               @RequestParam(value = "status", required = false) String status,
                               @RequestParam("page") int page, @RequestParam("size") int size);
 
+    @DeleteMapping("/items/{softwareId}")
+    ApiResponse<Object> deleteSoftware(@PathVariable("softwareId") Long softwareId,
+                                       @RequestParam("expectedVersion") Integer expectedVersion);
+
     @PostMapping("/items/{softwareId}/ban")
     ApiResponse<Object> ban(@PathVariable("softwareId") Long softwareId,
                             @RequestBody Map<String, Object> body);
@@ -95,6 +99,12 @@ public interface SoftwareFeignClient {
 
     @DeleteMapping("/tags/{tagId}")
     ApiResponse<Object> disableTag(@PathVariable("tagId") Long tagId);
+
+    @GetMapping("/comments")
+    ApiResponse<Object> commentsGlobal(
+            @RequestParam(value = "softwareId", required = false) Long softwareId,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam("page") int page, @RequestParam("size") int size);
 
     @GetMapping("/{softwareId}/comments")
     ApiResponse<Object> comments(@PathVariable("softwareId") Long softwareId,

@@ -130,6 +130,17 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> commentsGlobal(Long softwareId, String status,
+                                                      int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> deleteSoftware(Long softwareId, Integer expectedVersion) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> unban(Long softwareId, Map<String, Object> body) {
                 throw unavailable(cause);
             }

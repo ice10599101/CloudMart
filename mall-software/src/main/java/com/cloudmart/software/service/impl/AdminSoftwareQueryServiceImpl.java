@@ -191,13 +191,13 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
 
     @Override
     public Page<Map<String, Object>> commentPage(Long softwareId, String status, int page, int size) {
-        if (softwareMapper.selectById(softwareId) == null) {
+        if (softwareId != null && softwareMapper.selectById(softwareId) == null) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
         }
         Page<SoftwareComment> commentPage = commentMapper.selectPage(
                 Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 100)),
                 new LambdaQueryWrapper<SoftwareComment>()
-                        .eq(SoftwareComment::getSoftwareId, softwareId)
+                        .eq(softwareId != null, SoftwareComment::getSoftwareId, softwareId)
                         .eq(status != null && !status.isBlank(), SoftwareComment::getStatus,
                                 status == null ? null : SoftwareCommentStatus.valueOf(status))
                         .orderByDesc(SoftwareComment::getCreatedAt));
@@ -207,6 +207,7 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                 .map(comment -> {
                     Map<String, Object> row = new HashMap<>();
                     row.put("commentId", String.valueOf(comment.getId()));
+                    row.put("softwareId", String.valueOf(comment.getSoftwareId()));
                     row.put("userId", String.valueOf(comment.getUserId()));
                     // HIDDEN/DELETED 不回传原文（与前台一致，防旁路泄漏）
                     row.put("content", comment.getStatus() == SoftwareCommentStatus.VISIBLE

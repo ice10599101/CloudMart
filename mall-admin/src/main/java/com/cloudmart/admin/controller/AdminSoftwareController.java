@@ -2,6 +2,7 @@ package com.cloudmart.admin.controller;
 
 import com.cloudmart.admin.feign.SoftwareFeignClient;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.annotation.OperLog;
 import com.cloudmart.common.annotation.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -40,6 +41,7 @@ public class AdminSoftwareController {
 
     // ---------------- 审核（software:review） ----------------
 
+    @OperLog(title = "软件审核", businessType = 2)
     @PostMapping("/revisions/{revisionId}/decision")
     @RequiresPermission("software:review")
     @Operation(summary = "审核决策", description = "通过/退回绑定提交批次；A07 防旧批次覆盖")
@@ -49,6 +51,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.decision(revisionId, body);
     }
 
+    @OperLog(title = "软件来源", businessType = 2)
     @PostMapping("/{softwareId}/sources/state")
     @RequiresPermission("software:link")
     @Operation(summary = "来源状态处置", description = "核实/禁用/解除（4.3 指纹匹配应用）")
@@ -87,6 +90,19 @@ public class AdminSoftwareController {
         return softwareFeignClient.comments(softwareId, status, page, size);
     }
 
+    @OperLog(title = "软件评论", businessType = 2)
+    @GetMapping("/comments")
+    @RequiresPermission("software:comment")
+    @Operation(summary = "评论管理全局列表",
+            description = "不指定 softwareId 时跨软件；HIDDEN/DELETED 不回传原文")
+    public ApiResponse<Object> commentsGlobal(
+            @RequestParam(value = "softwareId", required = false) Long softwareId,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return softwareFeignClient.commentsGlobal(softwareId, status, page, size);
+    }
+
     @PostMapping("/{softwareId}/comments/{commentId}/moderate")
     @RequiresPermission("software:comment")
     @Operation(summary = "评论人工处置", description = "APPROVE/HIDE/RESTORE/REJECT；幂等")
@@ -115,6 +131,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.permissionsOf(userIds);
     }
 
+    @OperLog(title = "软件发布资格", businessType = 2)
     @PostMapping("/publisher-permissions/{userId}/toggle")
     @RequiresPermission("software:publisher:manage")
     @Operation(summary = "开通/关闭发布资格",
@@ -134,6 +151,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.grants(softwareId);
     }
 
+    @OperLog(title = "软件查看授权", businessType = 1)
     @PostMapping("/{softwareId}/access-grants")
     @RequiresPermission("software:access:manage")
     @Operation(summary = "开通/延期授权", description = "重开更新同一行并追加审计；恰好到期即无效")
@@ -143,6 +161,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.grant(softwareId, body);
     }
 
+    @OperLog(title = "软件查看授权", businessType = 3)
     @PostMapping("/{softwareId}/access-grants/{userId}/revoke")
     @RequiresPermission("software:access:manage")
     @Operation(summary = "撤销授权", description = "幂等；已撤销重复调用无副作用")
@@ -160,6 +179,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.contacts();
     }
 
+    @OperLog(title = "联系入口", businessType = 1)
     @PostMapping("/access-contacts")
     @RequiresPermission("software:contact:manage")
     @Operation(summary = "新增/更新联系入口",
@@ -180,6 +200,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.reports(status, page, size);
     }
 
+    @OperLog(title = "软件举报处置", businessType = 2)
     @PostMapping("/reports/{reportId}/handle")
     @RequiresPermission("software:report")
     @Operation(summary = "举报处置",
@@ -201,6 +222,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.linkFeedbacks(status, page, size);
     }
 
+    @OperLog(title = "软件反馈处理", businessType = 2)
     @PostMapping("/link-feedbacks/{feedbackId}/mark")
     @RequiresPermission("software:link")
     @Operation(summary = "反馈标记",
@@ -239,6 +261,17 @@ public class AdminSoftwareController {
 
     // ---------------- 封禁/解除（software:moderate）与精选（software:feature） ----------------
 
+    @DeleteMapping("/items/{softwareId}")
+    @RequiresPermission("software:moderate")
+    @OperLog(title = "软件管理", businessType = 3)
+    @Operation(summary = "管理员删除软件", description = "软删 lifecycle=DELETED，幂等；公开面即时隐藏")
+    public ApiResponse<Object> deleteSoftware(
+            @PathVariable("softwareId") Long softwareId,
+            @RequestParam("expectedVersion") Integer expectedVersion) {
+        return softwareFeignClient.deleteSoftware(softwareId, expectedVersion);
+    }
+
+    @OperLog(title = "软件处置", businessType = 2)
     @PostMapping("/items/{softwareId}/ban")
     @RequiresPermission("software:moderate")
     @Operation(summary = "独立封禁",
@@ -249,6 +282,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.ban(softwareId, body);
     }
 
+    @OperLog(title = "软件处置", businessType = 2)
     @PostMapping("/items/{softwareId}/unban")
     @RequiresPermission("software:moderate")
     @Operation(summary = "解除封禁", description = "BANNED → UNLISTED，由作者恢复展示")
@@ -258,6 +292,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.unban(softwareId, body);
     }
 
+    @OperLog(title = "软件精选", businessType = 2)
     @PutMapping("/items/{softwareId}/featured")
     @RequiresPermission("software:feature")
     @Operation(summary = "精选排序", description = "featuredRank=0 取消精选；值越大越靠前")
@@ -276,6 +311,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.categories();
     }
 
+    @OperLog(title = "软件分类", businessType = 1)
     @PostMapping("/categories")
     @RequiresPermission("software:category")
     @Operation(summary = "新增分类", description = "slug 唯一")
@@ -283,6 +319,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.createCategory(body);
     }
 
+    @OperLog(title = "软件分类", businessType = 2)
     @PutMapping("/categories/{categoryId}")
     @RequiresPermission("software:category")
     @Operation(summary = "更新分类", description = "含启用/禁用与排序调整")
@@ -292,6 +329,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.updateCategory(categoryId, body);
     }
 
+    @OperLog(title = "软件分类", businessType = 3)
     @DeleteMapping("/categories/{categoryId}")
     @RequiresPermission("software:category")
     @Operation(summary = "禁用分类", description = "DELETE 语义为禁用，不做物理删除")
@@ -309,6 +347,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.tags(keyword, page, size);
     }
 
+    @OperLog(title = "软件标签", businessType = 1)
     @PostMapping("/tags")
     @RequiresPermission("software:category")
     @Operation(summary = "新增标签", description = "规范化去重")
@@ -316,6 +355,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.createTag(body);
     }
 
+    @OperLog(title = "软件标签", businessType = 2)
     @PutMapping("/tags/{tagId}")
     @RequiresPermission("software:category")
     @Operation(summary = "更新标签", description = "含启用/禁用")
@@ -325,6 +365,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.updateTag(tagId, body);
     }
 
+    @OperLog(title = "软件标签", businessType = 3)
     @DeleteMapping("/tags/{tagId}")
     @RequiresPermission("software:category")
     @Operation(summary = "禁用标签", description = "DELETE 语义为禁用，不做物理删除")
@@ -376,6 +417,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.topicDetail(topicId);
     }
 
+    @OperLog(title = "软件专题", businessType = 1)
     @PostMapping("/topics")
     @RequiresPermission("software:topic")
     @Operation(summary = "新增专题", description = "清单全量替换；slug 唯一")
@@ -383,6 +425,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.createTopic(body);
     }
 
+    @OperLog(title = "软件专题", businessType = 2)
     @PutMapping("/topics/{topicId}")
     @RequiresPermission("software:topic")
     @Operation(summary = "更新专题", description = "含上线/下线与清单整体替换")
@@ -392,6 +435,7 @@ public class AdminSoftwareController {
         return softwareFeignClient.updateTopic(topicId, body);
     }
 
+    @OperLog(title = "软件专题", businessType = 3)
     @DeleteMapping("/topics/{topicId}")
     @RequiresPermission("software:topic")
     @Operation(summary = "禁用专题", description = "DELETE 语义为禁用")

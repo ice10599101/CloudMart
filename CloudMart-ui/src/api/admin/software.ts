@@ -116,6 +116,7 @@ export interface AdminRevisionSnapshot extends Record<string, unknown> {
 
 export interface AdminSoftwareComment {
   commentId: string
+  softwareId: string
   userId: string
   content: string | null
   status: 'PENDING' | 'VISIBLE' | 'HIDDEN' | 'DELETED'
@@ -302,13 +303,14 @@ export function setSourceState(
 
 // ==================== 评论（software:comment） ====================
 
+/** 全局评论列表（softwareId 可选筛选；后端 /comments 固定路径） */
 export function listAdminSoftwareComments(
-  softwareId: string,
+  softwareId: string | undefined,
   params?: { status?: string; page?: number; size?: number },
 ) {
   return request.get<ApiResponse<PageResult<AdminSoftwareComment>>>(
-    `${BASE}/${softwareId}/comments`,
-    { params },
+    `${BASE}/comments`,
+    { params: { ...params, softwareId: softwareId || undefined } },
   )
 }
 
