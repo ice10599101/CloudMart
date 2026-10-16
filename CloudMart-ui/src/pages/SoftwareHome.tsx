@@ -100,6 +100,12 @@ export default function SoftwareHome() {
           <Button type="link" onClick={() => history.push("/software/rankings")}>
             排行榜（获取热榜 / 收藏榜 / 评分榜）
           </Button>
+          <Button type="link" onClick={() => history.push("/software/publish")}>
+            发布软件
+          </Button>
+          <Button type="link" onClick={() => history.push("/software/mine")}>
+            我的软件
+          </Button>
         </div>
         <div className={styles.categories}>
           <Tag style={{ cursor: "pointer" }} onClick={() => goExplore({})}>
