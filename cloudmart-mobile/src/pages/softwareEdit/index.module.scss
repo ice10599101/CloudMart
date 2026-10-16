@@ -1,0 +1,301 @@
+.scroll {
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 16rpx 24rpx 60rpx;
+  background: #f6f7fb;
+}
+
+.hint {
+  display: block;
+  padding: 48rpx 24rpx;
+  color: #8a93a6;
+  font-size: 26rpx;
+}
+
+.hintSmall {
+  display: block;
+  padding: 8rpx 4rpx;
+  color: #c07b12;
+  font-size: 24rpx;
+}
+
+.warnBar {
+  background: #fff4e0;
+  border-radius: 16rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.warnText {
+  color: #c07b12;
+  font-size: 24rpx;
+}
+
+.section {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(28, 35, 51, 0.06);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sectionTitle {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1c2333;
+  margin-bottom: 16rpx;
+}
+
+.sectionAction {
+  color: #3d5afe;
+  font-size: 26rpx;
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.field {
+  margin-bottom: 20rpx;
+}
+
+.fieldRow {
+  display: flex;
+  gap: 16rpx;
+}
+
+.fieldHalf {
+  flex: 1;
+}
+
+.label {
+  display: block;
+  font-size: 24rpx;
+  color: #5b6478;
+  margin-bottom: 8rpx;
+}
+
+.input {
+  background: #f4f6fa;
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+  font-size: 27rpx;
+  color: #1c2333;
+}
+
+.textarea {
+  background: #f4f6fa;
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+  font-size: 27rpx;
+  color: #1c2333;
+  width: auto;
+  min-height: 110rpx;
+}
+
+.textareaTall {
+  background: #f4f6fa;
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+  font-size: 27rpx;
+  color: #1c2333;
+  width: auto;
+  min-height: 260rpx;
+}
+
+.count {
+  display: block;
+  text-align: right;
+  color: #a8b0c0;
+  font-size: 22rpx;
+  margin-top: 4rpx;
+}
+
+.pickerValue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f4f6fa;
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+}
+
+.pickerText {
+  font-size: 27rpx;
+  color: #1c2333;
+}
+
+.pickerPlaceholder {
+  font-size: 27rpx;
+  color: #a8b0c0;
+}
+
+.arrow {
+  color: #a8b0c0;
+  font-size: 28rpx;
+}
+
+.iconRow {
+  display: flex;
+}
+
+.iconBox {
+  position: relative;
+  width: 140rpx;
+  height: 140rpx;
+}
+
+.iconImg {
+  width: 100%;
+  height: 100%;
+  border-radius: 18rpx;
+  background: #eef0f5;
+}
+
+.iconRemove {
+  position: absolute;
+  top: -12rpx;
+  right: -12rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: rgba(28, 35, 51, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconRemoveText {
+  color: #fff;
+  font-size: 26rpx;
+  line-height: 40rpx;
+}
+
+.iconTrigger {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 18rpx;
+  background: #f4f6fa;
+  border: 2rpx dashed #c9d0de;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plusIcon {
+  font-size: 56rpx;
+  color: #a8b0c0;
+}
+
+.releaseCard {
+  background: #f8f9fc;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.releaseHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14rpx;
+}
+
+.releaseTitle {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #3d5afe;
+}
+
+.releaseRemove {
+  color: #d3392f;
+  font-size: 24rpx;
+}
+
+.sourceCard {
+  background: #fff;
+  border-radius: 14rpx;
+  padding: 18rpx;
+  margin: 12rpx 0;
+}
+
+.bottomBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 20rpx;
+  padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -4rpx 20rpx rgba(28, 35, 51, 0.08);
+}
+
+.cancelBtn {
+  flex: 1;
+  padding: 20rpx;
+  border-radius: 40rpx;
+  background: #f4f6fa;
+  text-align: center;
+}
+
+.cancelBtnText {
+  color: #5b6478;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.submitBtn {
+  flex: 1.4;
+  padding: 20rpx;
+  border-radius: 40rpx;
+  background: #3d5afe;
+  text-align: center;
+}
+
+.submitBtnText {
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.btnDisabled {
+  opacity: 0.55;
+}
+
+.pendingOverlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 180rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin: 0 32rpx;
+  padding: 18rpx 24rpx;
+  border-radius: 18rpx;
+  background: #fff4e0;
+}
+
+.pendingText {
+  color: #c07b12;
+  font-size: 24rpx;
+  flex: 1;
+}
+
+.pendingBtn {
+  padding: 10rpx 24rpx;
+  border-radius: 24rpx;
+  background: #c07b12;
+}
+
+.pendingBtnText {
+  color: #fff;
+  font-size: 24rpx;
+}

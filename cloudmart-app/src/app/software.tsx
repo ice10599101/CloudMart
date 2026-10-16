@@ -162,6 +162,9 @@ export default function SoftwareScreen() {
         <TouchableOpacity onPress={() => void load(1, true)}>
           <Text style={{ color: theme.primary, fontSize: FontSize.md, lineHeight: 40 }}>搜索</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/software-mine')}>
+          <Text style={{ color: theme.primary, fontSize: FontSize.md, lineHeight: 40 }}>我的软件</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView

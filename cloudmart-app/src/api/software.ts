@@ -208,3 +208,201 @@ export const softwareApi = {
     )
   },
 }
+
+// ---------------------------------------------------------------------------
+// S13 发布流（作者侧）：与 Web/Taro 同一后端契约
+// ---------------------------------------------------------------------------
+
+export interface PublisherStatus {
+  canPublish: boolean
+  reasonCode: string | null
+  publishEnabled: boolean
+}
+
+export interface SoftwareMineItem {
+  softwareId: string
+  name: string
+  summary: string
+  status: 'PUBLISHED' | 'UNLISTED' | 'BANNED' | 'DRAFT' | 'PENDING' | 'REJECTED'
+  revisionId: string
+  lockVersion: number
+  favoriteCount: number
+  updatedAt: string
+  unavailable: boolean
+}
+
+export interface SoftwareContact {
+  id: string
+  name: string
+  contactType: string
+  contactValue: string
+}
+
+export interface SoftwareEditorSource {
+  sourceId?: string
+  sourceKey?: string
+  sourceType: 'NETDISK' | 'MAGNET' | 'TORRENT_URL'
+  provider?: string | null
+  platform: 'WINDOWS' | 'MACOS' | 'LINUX' | 'ANDROID' | 'IOS' | 'CROSS_PLATFORM'
+  arch: 'X64' | 'X86' | 'ARM64' | 'UNIVERSAL' | 'OTHER'
+  label: string | null
+  url: string | null
+  extractionCode: string | null
+  archivePassword: string | null
+  sizeLabel: string | null
+  displayOrder?: number
+}
+
+export interface SoftwareEditorRelease {
+  releaseId?: string
+  releaseKey?: string
+  versionName: string
+  channel: 'STABLE' | 'BETA'
+  releaseDate?: string | null
+  changelog: string | null
+  recommended: boolean | null
+  displayOrder?: number
+  sources: SoftwareEditorSource[]
+}
+
+export interface SoftwareEditorMedia {
+  assetId: string
+  altText: string | null
+  displayOrder: number
+}
+
+export interface SoftwareEditor {
+  softwareId: string
+  revisionId: string
+  revisionNo: number
+  reviewStatus: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'
+  submitSeq: number
+  lockVersion: number
+  name: string
+  summary: string
+  categoryId: string | null
+  iconAssetId: string | null
+  descriptionHtml: string
+  licenseType: 'FREE' | 'OPEN_SOURCE' | 'TRIAL' | 'COMMERCIAL' | null
+  developerName: string | null
+  officialUrl: string | null
+  attributionType: 'ORIGINAL' | 'AUTHORIZED' | 'OFFICIAL_PUBLIC' | null
+  attributionNote: string | null
+  systemRequirements: string | null
+  languages: string[] | null
+  accessMode: 'REGISTERED' | 'COMMUNITY_LEVEL' | 'ADMIN_PAID'
+  minCommunityLevel: number | null
+  accessContactId: string | null
+  accessNote: string | null
+  tagIds: string[] | null
+  screenshots: SoftwareEditorMedia[]
+  releases: SoftwareEditorRelease[]
+  reviewReason: string | null
+  lifecycle: 'ACTIVE' | 'UNLISTED' | 'BANNED' | null
+  softwareLockVersion: number
+  publishedRevisionId: string | null
+  workingRevisionId: string | null
+}
+
+export interface SoftwareCreated {
+  softwareId: string
+  workingRevisionId: string
+}
+
+export interface SoftwareSubmitted {
+  softwareId: string
+  revisionId: string
+  submitSeq: number
+  lockVersion: number
+}
+
+/** 移动端纯文本 → 后端 HTML（服务端消毒） */
+export function textToDescriptionHtml(text: string): string {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return `<p>${escaped.replace(/\n/g, '<br/>')}</p>`
+}
+
+/** 编辑器 HTML → 纯文本回填（简易去标签） */
+export function descriptionHtmlToText(html: string | null): string {
+  if (!html) return ''
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim()
+}
+
+export const softwarePublishApi = {
+  publisherStatus: () => request<PublisherStatus>({ url: `${BASE}/publisher-status` }),
+
+  mine: (page = 1, size = 20) =>
+    request<SoftwarePage<SoftwareMineItem>>({
+      url: `${BASE}/mine${buildQuery({ tab: 'mine', page, size })}`,
+    }),
+
+  contacts: () => request<SoftwareContact[]>({ url: `${BASE}/access-contacts` }),
+
+  create: () => {
+    const url = BASE
+    return write<SoftwareCreated>('POST', url, {}, (header) =>
+      request({ url, method: 'POST', data: {}, header }),
+    )
+  },
+
+  editor: (id: string) => request<SoftwareEditor>({ url: `${BASE}/${id}/editor` }),
+
+  workingRevision: (id: string) => {
+    const url = `${BASE}/${id}/working-revision`
+    return write<SoftwareEditor>('POST', url, {}, (header) =>
+      request({ url, method: 'POST', data: {}, header }),
+    )
+  },
+
+  saveDraft: (id: string, revisionId: string, expectedVersion: number, snapshot: Record<string, unknown>) => {
+    const url = `${BASE}/${id}/revisions/${revisionId}?expectedVersion=${expectedVersion}`
+    return write<SoftwareEditor>('PUT', url, snapshot, (header) =>
+      request({ url, method: 'PUT', data: snapshot, header }),
+    )
+  },
+
+  submit: (id: string, revisionId: string, expectedVersion: number) => {
+    const url = `${BASE}/${id}/revisions/${revisionId}/submit?expectedVersion=${expectedVersion}`
+    return write<SoftwareSubmitted>('POST', url, {}, (header) =>
+      request({ url, method: 'POST', data: {}, header }),
+    )
+  },
+
+  withdraw: (id: string, revisionId: string, expectedVersion: number) => {
+    const url = `${BASE}/${id}/revisions/${revisionId}/withdraw?expectedVersion=${expectedVersion}`
+    return write<SoftwareEditor>('POST', url, {}, (header) =>
+      request({ url, method: 'POST', data: {}, header }),
+    )
+  },
+
+  unlist: (id: string, expectedVersion: number) => {
+    const url = `${BASE}/${id}/unlist?expectedVersion=${expectedVersion}`
+    return write<SoftwareEditor>('POST', url, {}, (header) =>
+      request({ url, method: 'POST', data: {}, header }),
+    )
+  },
+
+  relist: (id: string, expectedVersion: number) => {
+    const url = `${BASE}/${id}/relist?expectedVersion=${expectedVersion}`
+    return write<SoftwareEditor>('POST', url, {}, (header) =>
+      request({ url, method: 'POST', data: {}, header }),
+    )
+  },
+
+  deleteSoftware: (id: string, expectedVersion: number) => {
+    const url = `${BASE}/${id}?expectedVersion=${expectedVersion}`
+    return write<void>('DELETE', url, {}, (header) =>
+      request({ url, method: 'DELETE', header }),
+    )
+  },
+}

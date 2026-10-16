@@ -96,6 +96,9 @@ export default function SoftwareList() {
         <Text className={styles.searchBtn} onClick={() => void load(1, true)}>
           搜索
         </Text>
+        <Text className={styles.mineEntry} onClick={() => Taro.navigateTo({ url: '/pages/softwareMine/index' })}>
+          我的软件
+        </Text>
       </View>
 
       <ScrollView className={styles.categoryBar} scrollX enableFlex>

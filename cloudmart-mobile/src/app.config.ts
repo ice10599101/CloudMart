@@ -70,6 +70,8 @@ export default defineAppConfig({
     'pages/leaderboard/index',
     'pages/software/index',
     'pages/softwareDetail/index',
+    'pages/softwareMine/index',
+    'pages/softwareEdit/index',
     'pages/wishMap/index',
     'pages/encounter/index',
     'pages/workshop/index',
