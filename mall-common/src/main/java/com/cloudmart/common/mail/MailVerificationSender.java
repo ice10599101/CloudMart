@@ -3,6 +3,7 @@ package com.cloudmart.common.mail;
 import jakarta.annotation.PostConstruct;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 
@@ -75,8 +76,38 @@ public class MailVerificationSender {
             sender.send(message);
             return true;
         } catch (Exception ex) {
-            log.warn("验证码邮件发送失败 to={}（如实返回失败）: {}", toEmail, ex.getMessage());
+            // 完整堆栈随异常参数落日志，保留深层根源，避免只有顶层 Message 无法定位
+            log.warn("验证码邮件发送失败 to={}（如实返回失败）: {}", toEmail, rootMessage(ex), ex);
+            if (isAuthFailure(ex)) {
+                log.warn("SMTP 认证失败：请核对 cloudmart.mail.username/password"
+                        + "（QQ/163 等邮箱需使用授权码，而非登录密码；from 须与发件账号一致）");
+            }
             return false;
         }
+    }
+
+    /** 提取异常链最深处的 message，顶层无信息时兜底用自身 message。 */
+    private String rootMessage(Throwable ex) {
+        Throwable root = ex;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        return root == ex ? ex.getMessage() : root.getMessage();
+    }
+
+    /** SMTP 认证失败识别：535/AuthenticationFailed，用于给运维可操作的日志提示。 */
+    private boolean isAuthFailure(Throwable ex) {
+        for (Throwable current = ex; current != null; current = current.getCause()) {
+            if (current instanceof MailAuthenticationException
+                    || current instanceof jakarta.mail.AuthenticationFailedException) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null
+                    && (message.contains("535") || message.toLowerCase(java.util.Locale.ROOT).contains("authentication"))) {
+                return true;
+            }
+        }
+        return false;
     }
 }
