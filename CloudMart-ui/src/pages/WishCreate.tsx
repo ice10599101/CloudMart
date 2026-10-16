@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { clearPageDraft, loadPageDraft, savePageDraft } from '@/utils/pageDraft'
 import { Form, Input, Modal, Select, DatePicker, Button, Upload, Tag, App, Radio, Card, Progress, Popconfirm } from 'antd'
 import { StarOutlined, PlusOutlined, ReloadOutlined, CloseOutlined } from '@ant-design/icons'
 import axios from 'axios'
@@ -40,6 +41,16 @@ function isRetryableError(error: unknown): boolean {
 
 export default function WishCreate() {
   const [form] = Form.useForm()
+
+  // ---------------- 草稿跨页保留（sessionStorage；发布成功即清） ----------------
+  const DRAFT_KEY = 'wish-create-draft'
+  useEffect(() => {
+    const draft = loadPageDraft<Record<string, unknown>>(DRAFT_KEY)
+    if (!draft) return
+    form.setFieldsValue(draft)
+    // 仅挂载恢复一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [tags, setTags] = useState<string[]>([])
@@ -291,6 +302,7 @@ export default function WishCreate() {
       })
       if (res.data.success) {
         message.success('心愿发布成功！审核通过后将展示在心愿广场')
+        clearPageDraft(DRAFT_KEY)
         await materializeAttachments(values.description, 'WISH', res.data.data.id)
         history.push(`/wish/${res.data.data.id}`)
       }
@@ -363,6 +375,7 @@ export default function WishCreate() {
         <Card className={styles.formCard}>
           <Form
             form={form}
+            onValuesChange={(_, allValues) => savePageDraft(DRAFT_KEY, allValues)}
             layout="vertical"
             onFinish={handleSubmit}
             initialValues={{ visibility: 'PUBLIC' }}

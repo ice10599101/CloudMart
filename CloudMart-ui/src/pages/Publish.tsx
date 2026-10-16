@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { clearPageDraft, loadPageDraft, savePageDraft } from '@/utils/pageDraft'
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -62,6 +63,21 @@ function PublishForm() {
   const [content, setContent] = useState('')
   const [mediaList, setMediaList] = useState<MediaItem[]>([])
   const [tags, setTags] = useState('')
+
+  // ---------------- 草稿跨页保留（sessionStorage；发布成功即清） ----------------
+  const DRAFT_KEY = 'community-publish-draft'
+  useEffect(() => {
+    const draft = loadPageDraft<{ title: string; content: string; tags: string }>(DRAFT_KEY)
+    if (!draft) return
+    if (draft.title) setTitle(draft.title)
+    if (draft.content) setContent(draft.content)
+    if (draft.tags) setTags(draft.tags)
+    // 仅挂载恢复一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    savePageDraft(DRAFT_KEY, { title, content, tags })
+  }, [title, content, tags])
   // 关联好物（真实 productId，契约对齐后端 CreatePostRequest.productId）
   const [linkProduct, setLinkProduct] = useState(false)
   const [linkedProductId, setLinkedProductId] = useState<number | null>(null)
@@ -282,10 +298,12 @@ function PublishForm() {
         await updatePost(editPostId, postData)
         await materializeAttachments(postData.content, 'POST', editPostId)
         message.success('更新成功！')
+        clearPageDraft(DRAFT_KEY)
         history.push(`/post/${editPostId}`)
       } else {
         const res = await createPost(postData)
         message.success('发布成功！')
+        clearPageDraft(DRAFT_KEY)
         const postId = res.data?.data?.id
         if (postId) {
           // 投票/问卷随正文发布幂等落库（失败不阻塞发布，编辑重存可重试）

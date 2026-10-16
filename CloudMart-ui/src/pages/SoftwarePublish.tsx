@@ -31,6 +31,11 @@ import {
   type SoftwareTag,
 } from "@/api/software";
 import { useAuthStore } from "@/stores/auth";
+import {
+  clearPageDraft,
+  loadPageDraft,
+  savePageDraft,
+} from "@/utils/pageDraft";
 import styles from "./SoftwarePublish.module.css";
 
 const LICENSE_OPTIONS: { value: SoftwareLicenseType; label: string }[] = [
@@ -111,6 +116,77 @@ export default function SoftwarePublish() {
 
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // ---------------- 草稿跨页保留（sessionStorage；提交成功即清） ----------------
+  const DRAFT_KEY = "software-publish-draft";
+
+  // 恢复：切走再回来时还原已填内容与服务端进度（含未提交完的 softwareId 链）
+  useEffect(() => {
+    const draft = loadPageDraft<{
+      name: string;
+      summary: string;
+      categoryId?: string;
+      descriptionHtml: string;
+      licenseType: SoftwareLicenseType;
+      developerName: string;
+      officialUrl: string;
+      systemRequirements: string;
+      tagIds: string[];
+      accessMode: SoftwareAccessMode;
+      minCommunityLevel: number;
+      accessContactId?: string;
+      releases: ReleaseDraft[];
+      softwareId: string | null;
+      revisionId: string | null;
+      lockVersion: number | null;
+    }>(DRAFT_KEY);
+    if (!draft) return;
+    if (draft.name) setName(draft.name);
+    if (draft.summary) setSummary(draft.summary);
+    if (draft.categoryId) setCategoryId(draft.categoryId);
+    if (draft.descriptionHtml) setDescriptionHtml(draft.descriptionHtml);
+    if (draft.licenseType) setLicenseType(draft.licenseType);
+    if (draft.developerName) setDeveloperName(draft.developerName);
+    if (draft.officialUrl) setOfficialUrl(draft.officialUrl);
+    if (draft.systemRequirements) setSystemRequirements(draft.systemRequirements);
+    if (draft.tagIds?.length) setTagIds(draft.tagIds);
+    if (draft.accessMode) setAccessMode(draft.accessMode);
+    if (draft.minCommunityLevel) setMinCommunityLevel(draft.minCommunityLevel);
+    if (draft.accessContactId) setAccessContactId(draft.accessContactId);
+    if (draft.releases?.length) setReleases(draft.releases);
+    if (draft.softwareId) setSoftwareId(draft.softwareId);
+    if (draft.revisionId) setRevisionId(draft.revisionId);
+    if (draft.lockVersion != null) setLockVersion(draft.lockVersion);
+    // 仅挂载恢复一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 保存：任一草稿字段变化即落 sessionStorage
+  useEffect(() => {
+    savePageDraft(DRAFT_KEY, {
+      name,
+      summary,
+      categoryId,
+      descriptionHtml,
+      licenseType,
+      developerName,
+      officialUrl,
+      systemRequirements,
+      tagIds,
+      accessMode,
+      minCommunityLevel,
+      accessContactId,
+      releases,
+      softwareId,
+      revisionId,
+      lockVersion,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    name, summary, categoryId, descriptionHtml, licenseType, developerName,
+    officialUrl, systemRequirements, tagIds, accessMode, minCommunityLevel,
+    accessContactId, releases, softwareId, revisionId, lockVersion,
+  ]);
 
   // 发布资格默认关闭：未开通直接拦在页面外（A31）
   useEffect(() => {
@@ -292,6 +368,7 @@ export default function SoftwarePublish() {
         },
       );
       if (!res.data.success) return;
+      clearPageDraft(DRAFT_KEY);
       message.success("已提交审核，审核通过后公开可见");
       history.push("/software/mine");
     } catch {
@@ -369,7 +446,7 @@ export default function SoftwarePublish() {
           <Input.TextArea
             placeholder="一句话说明（选填，10~160 字）"
             value={summary}
-            maxLength={200}
+            maxLength={160}
             showCount
             rows={2}
             onChange={(event) => setSummary(event.target.value)}

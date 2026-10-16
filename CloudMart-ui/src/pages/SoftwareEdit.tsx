@@ -453,7 +453,7 @@ export default function SoftwareEdit() {
             disabled={frozen}
             placeholder="一句话说明（选填，10~160 字）"
             value={summary}
-            maxLength={200}
+            maxLength={160}
             showCount
             rows={2}
             onChange={(event) => setSummary(event.target.value)}
