@@ -362,24 +362,46 @@ class InventoryServiceImplTest {
         }
 
         @Test
-        @DisplayName("should update existing inventory when already initialized")
-        void initStock_existingInventory_updatesSuccessfully() throws InterruptedException {
+        @DisplayName("TRADE-02：已有库存记录 → 初始化拒绝（不覆盖 available/reserved，不写缓存）")
+        void initStock_existingInventory_rejectedNoOverwrite() throws InterruptedException {
             mockLockAcquired();
 
             Inventory existing = new Inventory();
             existing.setId(1L);
             existing.setSkuId(SKU_ID);
             existing.setAvailable(50);
+            existing.setReserved(7);
 
             when(inventoryMapper.selectOne(any())).thenReturn(existing);
-            when(inventoryMapper.updateById(existing)).thenReturn(1);
             mockExecuteWithoutResult();
 
-            inventoryService.initStock(SKU_ID, PRODUCT_ID, 100);
+            assertThatThrownBy(() -> inventoryService.initStock(SKU_ID, PRODUCT_ID, 100))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("INVENTORY_ALREADY_INITIALIZED"));
 
-            assertThat(existing.getAvailable()).isEqualTo(100);
-            verify(inventoryMapper).updateById(existing);
-            verify(valueOperations).set(eq("inventory:product:" + SKU_ID), eq("100"), any());
+            // 原行为 setAvailable(100) 覆盖被禁止：不改行、不写 Redis、释放锁
+            assertThat(existing.getAvailable()).isEqualTo(50);
+            assertThat(existing.getReserved()).isEqualTo(7);
+            verify(inventoryMapper, never()).updateById(any(Inventory.class));
+            verify(valueOperations, never()).set(any(), any(), any());
+            verify(rLock).unlock();
+        }
+
+        @Test
+        @DisplayName("TRADE-02：并发初始化竞态（uk 冲突）→ 同码拒绝，不裸露冲突异常")
+        void initStock_concurrentRace_rejectedAsAlreadyInitialized() throws InterruptedException {
+            mockLockAcquired();
+            when(inventoryMapper.selectOne(any())).thenReturn(null);
+            when(inventoryMapper.insert(any(Inventory.class)))
+                    .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_sku_id"));
+            mockExecuteWithoutResult();
+
+            assertThatThrownBy(() -> inventoryService.initStock(SKU_ID, PRODUCT_ID, 100))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(ex -> assertThat(((BusinessException) ex).getCode())
+                            .isEqualTo("INVENTORY_ALREADY_INITIALIZED"));
+            verify(valueOperations, never()).set(any(), any(), any());
         }
     }
 

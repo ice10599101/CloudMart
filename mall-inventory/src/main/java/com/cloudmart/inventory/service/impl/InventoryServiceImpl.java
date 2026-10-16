@@ -402,21 +402,34 @@ public class InventoryServiceImpl implements InventoryService {
         return new java.util.ArrayList<>(byOrder.values());
     }
 
+    /**
+     * 库存初始化（TRADE-02）：仅允许无库存行的 SKU 建立初始库存。
+     *
+     * <p>原实现把"初始化"当补货/调整入口用——对已存在行直接 {@code setAvailable(stock)}
+     * 覆盖，既抹掉并发预留语义（reserved 不变但 available 被重置），也没有任何调整流水，
+     * 无法审计与对账。现改为：已有库存记录一律拒绝（{@code INVENTORY_ALREADY_INITIALIZED}）；
+     * 补货走入库单、盘点走调整单（记录操作者/前后值/原因/幂等键）。</p>
+     */
     private void doInitStock(Long skuId, Long productId, Integer stock) {
         Inventory existing = inventoryMapper.selectOne(
                 new LambdaQueryWrapper<Inventory>().eq(Inventory::getSkuId, skuId)
         );
 
         if (existing != null) {
-            existing.setAvailable(stock);
-            inventoryMapper.updateById(existing);
-        } else {
-            Inventory inventory = new Inventory();
-            inventory.setSkuId(skuId);
-            inventory.setProductId(productId);
-            inventory.setAvailable(stock);
-            inventory.setReserved(0);
+            throw new BusinessException("INVENTORY_ALREADY_INITIALIZED",
+                    "该 SKU 已有库存记录，禁止用初始化覆盖；补货/盘点请走受控调整流程");
+        }
+        Inventory inventory = new Inventory();
+        inventory.setSkuId(skuId);
+        inventory.setProductId(productId);
+        inventory.setAvailable(stock);
+        inventory.setReserved(0);
+        try {
             inventoryMapper.insert(inventory);
+        } catch (org.springframework.dao.DuplicateKeyException race) {
+            // 并发初始化竞态：uk_sku_id 兜底拒绝，语义与"已有库存"一致（400 而非裸露冲突异常）
+            throw new BusinessException("INVENTORY_ALREADY_INITIALIZED",
+                    "该 SKU 已有库存记录，禁止用初始化覆盖；补货/盘点请走受控调整流程");
         }
 
         String key = INVENTORY_KEY_PREFIX + skuId;
