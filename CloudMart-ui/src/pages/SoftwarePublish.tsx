@@ -320,12 +320,21 @@ export default function SoftwarePublish() {
       setLockVersion(res.data.data?.lockVersion ?? lockVersion);
       message.success("草稿已保存");
     } catch (err) {
-      // 拦截器已统一提示
+      // 本地指向的服务端草稿已被删除（如清理孤儿）：清进度重建，本地内容原样保留
+      if ((err as { code?: string } | null)?.code === "SOFTWARE_NOT_FOUND") {
+        setSoftwareId(null);
+        setRevisionId(null);
+        setLockVersion(null);
+        message.info("原草稿已不存在，已为你重新创建");
+        await doSaveFresh();
+        return;
+      }
+      // 其余错误拦截器已统一提示
     } finally {
       setSaving(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildPayload, lockVersion, message, name, revisionId, softwareId]);
+  }, [buildPayload, doSaveFresh, lockVersion, message, name, revisionId, softwareId]);
 
   /** 提交审核二次确认：提交即进入待审队列，内容冻结不可再编辑 */
   const confirmSubmit = useCallback(() => {
@@ -382,7 +391,16 @@ export default function SoftwarePublish() {
       message.success("已提交审核，审核通过后公开可见");
       history.push("/software/mine");
     } catch (err) {
-      // 拦截器已统一提示
+      // 提交链软件被删：重建草稿并落内容，提示再次点击提交
+      if ((err as { code?: string } | null)?.code === "SOFTWARE_NOT_FOUND") {
+        setSoftwareId(null);
+        setRevisionId(null);
+        setLockVersion(null);
+        await doSaveFresh();
+        message.info("原草稿已不存在，已重新创建并保存，请再次点击提交审核");
+        return;
+      }
+      // 其余错误拦截器已统一提示
     } finally {
       setSubmitting(false);
     }
