@@ -1,5 +1,6 @@
 package com.cloudmart.live.controller;
 
+import com.cloudmart.common.util.Ids;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.live.dto.GiftNoticeMessage;
@@ -77,7 +78,8 @@ public class InternalGiftNoticeController {
         return ApiResponse.ok(null);
     }
 
+    /** BASE-01：字符串/数字形态均接受（Feign 统一字符串序列化下雪花 ID 为字符串） */
     private Long asLong(Object value) {
-        return value instanceof Number number ? number.longValue() : null;
+        return Ids.parse(value);
     }
 }

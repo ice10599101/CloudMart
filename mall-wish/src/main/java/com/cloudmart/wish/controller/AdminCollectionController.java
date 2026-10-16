@@ -2,17 +2,21 @@ package com.cloudmart.wish.controller;
 
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.wish.dto.BrandPoolCreateRequest;
+import com.cloudmart.wish.dto.BrandPoolUpdateRequest;
 import com.cloudmart.wish.entity.Brand;
-import java.util.Map;
+import com.cloudmart.wish.entity.BrandPool;
 import com.cloudmart.wish.entity.VirtualAsset;
 import com.cloudmart.wish.service.CollectionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -74,37 +78,43 @@ public class AdminCollectionController {
     }
 
     @PostMapping("/admin/brand/{brandId}/pools")
-    @Operation(summary = "创建品牌许愿池", description = "brandId 须为 APPROVED 品牌")
+    @Operation(summary = "创建品牌许愿池", description = "brandId 须为 APPROVED 品牌；BASE-01：类型化 DTO，Long 由 Jackson 解析十进制字符串")
     public ApiResponse<Object> createPool(
             @PathVariable Long brandId,
-            @RequestBody Map<String, Object> body,
+            @Valid @RequestBody BrandPoolCreateRequest request,
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
-        final com.cloudmart.wish.entity.BrandPool pool = new com.cloudmart.wish.entity.BrandPool();
+        BrandPool pool = new BrandPool();
         pool.setBrandId(brandId);
-        pool.setCategoryId(((Number) body.getOrDefault("categoryId", 1)).longValue());
-        pool.setName((String) body.get("name"));
-        pool.setTargetCount(((Number) body.getOrDefault("targetCount", 0)).intValue());
-        pool.setRewardJson((String) body.get("rewardJson"));
-        pool.setEndAt(body.get("endAt") != null
-                ? java.time.LocalDateTime.parse((String) body.get("endAt"))
-                : null);
+        pool.setCategoryId(request.categoryId() == null ? 1L : request.categoryId());
+        pool.setName(request.name());
+        pool.setTargetCount(request.targetCount());
+        pool.setRewardJson(request.rewardJson());
+        pool.setEndAt(request.endAt() != null ? LocalDateTime.parse(request.endAt()) : null);
         pool.setStatus("ACTIVE");
         return ApiResponse.ok(collectionService.createPool(pool, adminUserId));
     }
 
     @PutMapping("/admin/brand/{brandId}/pools/{poolId}")
-    @Operation(summary = "更新品牌许愿池", description = "name/targetCount/rewardJson/endAt 可变")
+    @Operation(summary = "更新品牌许愿池", description = "name/targetCount/rewardJson/endAt 可变（null 不变）")
     public ApiResponse<Object> updatePool(
             @PathVariable Long brandId,
             @PathVariable Long poolId,
-            @RequestBody Map<String, Object> body,
+            @Valid @RequestBody BrandPoolUpdateRequest request,
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
-        final com.cloudmart.wish.entity.BrandPool patch = new com.cloudmart.wish.entity.BrandPool();
+        BrandPool patch = new BrandPool();
         patch.setId(poolId);
-        if (body.get("name") != null) patch.setName((String) body.get("name"));
-        if (body.get("targetCount") != null) patch.setTargetCount(((Number) body.get("targetCount")).intValue());
-        if (body.get("rewardJson") != null) patch.setRewardJson((String) body.get("rewardJson"));
-        if (body.get("endAt") != null) patch.setEndAt(java.time.LocalDateTime.parse((String) body.get("endAt")));
+        if (request.name() != null) {
+            patch.setName(request.name());
+        }
+        if (request.targetCount() != null) {
+            patch.setTargetCount(request.targetCount());
+        }
+        if (request.rewardJson() != null) {
+            patch.setRewardJson(request.rewardJson());
+        }
+        if (request.endAt() != null) {
+            patch.setEndAt(LocalDateTime.parse(request.endAt()));
+        }
         return ApiResponse.ok(collectionService.updatePool(poolId, patch, adminUserId));
     }
 

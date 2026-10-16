@@ -1,5 +1,6 @@
 package com.cloudmart.notification.mq;
 
+import com.cloudmart.common.util.Ids;
 import com.cloudmart.notification.config.RocketMQConfig;
 import com.cloudmart.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -46,14 +47,13 @@ public class CapsuleWallEventConsumer implements RocketMQListener<Map<String, Ob
             log.warn("[R17] 胶囊墙裁决事件缺少 payload，eventId={}", eventId);
             return;
         }
-        Object userIdObj = payload.get("userId");
-        Object capsuleIdObj = payload.get("capsuleId");
-        if (!(userIdObj instanceof Number) || !(capsuleIdObj instanceof Number)) {
+        // BASE-01：字符串/数字形态均接受（防字符串形态被静默丢弃）
+        Long userId = Ids.parse(payload.get("userId"));
+        Long capsuleId = Ids.parse(payload.get("capsuleId"));
+        if (userId == null || capsuleId == null) {
             log.warn("[R17] 胶囊墙裁决事件缺少 userId/capsuleId，eventId={}", eventId);
             return;
         }
-        Long userId = ((Number) userIdObj).longValue();
-        Long capsuleId = ((Number) capsuleIdObj).longValue();
         Object titleObj = payload.get("title");
         String title = titleObj == null ? "时间胶囊" : String.valueOf(titleObj);
         Object resultObj = payload.get("result");

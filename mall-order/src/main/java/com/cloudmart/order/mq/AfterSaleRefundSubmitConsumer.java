@@ -1,5 +1,6 @@
 package com.cloudmart.order.mq;
 
+import com.cloudmart.common.util.Ids;
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.inbox.InboxService;
 import com.cloudmart.common.api.ApiResponse;
@@ -63,8 +64,8 @@ public class AfterSaleRefundSubmitConsumer implements RocketMQListener<Map<Strin
         }
         @SuppressWarnings("unchecked")
         Map<String, Object> payload = (Map<String, Object>) message.get("payload");
-        Long caseId = payload == null || payload.get("caseId") == null
-                ? null : ((Number) payload.get("caseId")).longValue();
+        // BASE-01：字符串/数字形态均接受（雪花 ID 统一字符串序列化）
+        Long caseId = payload == null ? null : Ids.parse(payload.get("caseId"));
         if (caseId == null) {
             log.warn("[T04] 售后退款提交事件缺少 caseId eventId={}", eventId);
             return;

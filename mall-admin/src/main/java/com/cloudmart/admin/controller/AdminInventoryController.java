@@ -1,5 +1,6 @@
 package com.cloudmart.admin.controller;
 
+import com.cloudmart.admin.dto.InventoryInitRequest;
 import com.cloudmart.admin.dto.feign.InventoryDTO;
 import com.cloudmart.admin.feign.InventoryFeignClient;
 import com.cloudmart.common.annotation.OperLog;
@@ -7,6 +8,7 @@ import com.cloudmart.common.annotation.RequiresPermission;
 import com.cloudmart.common.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 业务管理-库存域：SKU 库存查询与初始化。
@@ -55,11 +56,8 @@ public class AdminInventoryController {
     @PostMapping("/inventory/init")
     @OperLog(title = "库存管理", businessType = 1)
     @RequiresPermission("business:inventory:init")
-    @Operation(summary = "初始化库存", description = "初始化SKU库存")
-    public ApiResponse<Void> initInventory(@RequestBody Map<String, Object> body) {
-        return inventoryFeignClient.initStock(
-                ((Number) body.get("skuId")).longValue(),
-                ((Number) body.get("productId")).longValue(),
-                ((Number) body.get("stock")).intValue());
+    @Operation(summary = "初始化库存", description = "初始化SKU库存（BASE-01：字符串 ID 由 Jackson 解析为 Long；已有库存拒绝覆盖）")
+    public ApiResponse<Void> initInventory(@Valid @RequestBody InventoryInitRequest request) {
+        return inventoryFeignClient.initStock(request.skuId(), request.productId(), request.stock());
     }
 }

@@ -74,4 +74,20 @@ class JsSafeLongSerializerTest {
         assertThat(payload.primitiveCount()).isEqualTo(200L);
         assertThat(payload.nullValue()).isNull();
     }
+
+    @Test
+    @DisplayName("BASE-01 验收：9007199254740993（2^53+1）序列化↔解析往返字节一致")
+    void unsafeBoundaryRoundTripIsByteStable() {
+        long bigId = 9_007_199_254_740_993L;
+        // 下发方向：超出安全范围 → 十进制字符串（浏览器 JSON.parse 不截断）
+        String json = jsonMapper.writeValueAsString(bigId);
+        assertThat(json).isEqualTo("\"9007199254740993\"");
+        // 提交方向：同值字符串可被解析回原 Long（按 ID 修改/再读取不因精度失真）
+        assertThat(jsonMapper.readValue(json, Long.class)).isEqualTo(bigId);
+        // 嵌套字段（列表→详情→修改→再读 全程同一字符串）
+        Payload payload = new Payload(bigId, 3L, 0L, null);
+        String payloadJson = jsonMapper.writeValueAsString(payload);
+        assertThat(payloadJson).contains("\"snowflakeId\":\"9007199254740993\"");
+        assertThat(jsonMapper.readValue(payloadJson, Payload.class).snowflakeId()).isEqualTo(bigId);
+    }
 }

@@ -44,7 +44,7 @@ class AfterSaleRefundSubmitConsumerTest {
         when(inboxService.beginConsume(anyString(), any())).thenReturn(InboxService.ConsumeDecision.PROCEED);
     }
 
-    private Map<String, Object> message(long caseId) {
+    private Map<String, Object> message(Object caseId) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("caseId", caseId);
         Map<String, Object> msg = new HashMap<>();
@@ -79,15 +79,13 @@ class AfterSaleRefundSubmitConsumerTest {
     }
 
     @Test
-    @DisplayName("正金额案 → 提交支付侧退款 Feign（渠道事实仍由 REFUND_SUCCEEDED 回填）")
-    void positiveAmount_submitsToPayment() {
-        when(caseMapper.selectById(77L)).thenReturn(approvedCase(new BigDecimal("88.00")));
-        when(refundFeignClient.createRefund(any())).thenReturn(
-                ApiResponse.ok(Map.of("status", "PROCESSING")));
+    @DisplayName("BASE-01：caseId 以字符串形态到达（统一字符串序列化）→ 同键读取案件并推进退款")
+    void stringCaseId_parsed() {
+        when(caseMapper.selectById(77L)).thenReturn(approvedCase(BigDecimal.ZERO));
 
-        consumer.onMessage(message(77L));
+        consumer.onMessage(message("77"));
 
-        verify(refundFeignClient).createRefund(any());
-        verify(orderService, never()).onAfterSaleRefundCompleted(anyString());
+        verify(orderService).onAfterSaleRefundCompleted("RFC77");
+        verify(inboxService).completeConsume(eq(AfterSaleRefundSubmitConsumer.CONSUMER), any());
     }
 }

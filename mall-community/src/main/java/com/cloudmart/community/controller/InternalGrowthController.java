@@ -1,5 +1,6 @@
 package com.cloudmart.community.controller;
 
+import com.cloudmart.common.util.Ids;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.community.service.GrowthService;
 import com.cloudmart.community.vo.UserLevelVO;
@@ -48,8 +49,14 @@ public class InternalGrowthController {
     @PostMapping("/exp")
     @Operation(summary = "发放经验", description = "由 mall-wish 每日签到调用；返回发放后最新等级信息")
     public ApiResponse<Map<String, Object>> grantExp(@RequestBody Map<String, Object> body) {
-        Long userId = ((Number) body.get("userId")).longValue();
-        int exp = ((Number) body.get("exp")).intValue();
+        // BASE-01：字符串/数字形态均接受；缺失/非法显式拒绝
+        Long userId = Ids.parse(body.get("userId"));
+        Long expValue = Ids.parse(body.get("exp"));
+        if (userId == null || expValue == null) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    "EXP_GRANT_INVALID", "缺少 userId/exp 或形态非法");
+        }
+        int exp = expValue.intValue();
         String sourceBizId = body.get("sourceBizId") == null ? null
                 : String.valueOf(body.get("sourceBizId")).trim();
         if (sourceBizId == null || sourceBizId.isBlank()) {

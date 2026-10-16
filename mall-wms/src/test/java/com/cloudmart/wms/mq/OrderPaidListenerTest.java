@@ -69,6 +69,16 @@ class OrderPaidListenerTest {
     }
 
     @Test
+    @DisplayName("BASE-01：orderId/warehouseId 以字符串形态到达（统一字符串序列化）→ 解析不丢精度")
+    void stringIds_parsed() {
+        Map<String, Object> message = envelope(Map.of(
+                "orderId", "9007199254740993", "warehouseId", "9007199254740995"));
+
+        assertThat(OrderPaidListener.extractOrderId(message)).isEqualTo(9_007_199_254_740_993L);
+        assertThat(listener.extractWarehouseIdOrDefault(message)).isEqualTo(9_007_199_254_740_995L);
+    }
+
+    @Test
     @DisplayName("事件未指定仓库且无可用仓库 → 显式失败（事件重试）")
     void noWarehouseAvailable_failsExplicitly() {
         Map<String, Object> message = envelope(Map.of("orderId", 9001L));

@@ -125,6 +125,24 @@ class AfterSaleReturnListenerTest {
     }
 
     @Test
+    @DisplayName("BASE-01：skuId 以字符串形态到达（统一字符串序列化）→ 同样建单且值无损")
+    void stringSkuId_createsInbound() {
+        Map<String, Object> payload = returnRefundPayload();
+        payload.put("skuId", "9007199254740993");
+        when(inboundOrderService.findByTypeAndReferenceNo("RETURN", "AS20261003001")).thenReturn(null);
+        Warehouse warehouse = new Warehouse();
+        warehouse.setId(7L);
+        when(warehouseMapper.selectList(any(Wrapper.class))).thenReturn(List.of(warehouse));
+
+        listener.onMessage(envelope(AfterSaleReturnListener.EVENT_TYPE, payload));
+
+        verify(inboundOrderService).createInboundOrder(argThat((CreateInboundOrderRequest r) ->
+                r.items().size() == 1
+                        && r.items().get(0).skuId().equals(9_007_199_254_740_993L)
+                        && "无线鼠标".equals(r.items().get(0).productName())));
+    }
+
+    @Test
     @DisplayName("RETURN_REFUND 但缺 SKU 明细 → 显式抛出（重试进死信，不静默丢件）")
     void missingSku_fails() {
         Map<String, Object> payload = returnRefundPayload();

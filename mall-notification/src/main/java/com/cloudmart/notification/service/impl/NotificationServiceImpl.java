@@ -1,5 +1,6 @@
 package com.cloudmart.notification.service.impl;
 
+import com.cloudmart.common.util.Ids;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -237,9 +238,10 @@ public class NotificationServiceImpl implements NotificationService {
             }
             List<Map<String, Object>> records = response.data();
             for (Map<String, Object> record : records) {
-                Object id = record.get("id");
-                if (id instanceof Number number) {
-                    userIds.add(number.longValue());
+                // BASE-01：字符串/数字形态均接受（防字符串形态被静默跳过）
+                Long id = Ids.parse(record.get("id"));
+                if (id != null) {
+                    userIds.add(id);
                 }
             }
             if (records.size() < BROADCAST_USER_PAGE_SIZE) {

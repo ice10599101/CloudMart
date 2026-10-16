@@ -1,5 +1,6 @@
 package com.cloudmart.wms.mq;
 
+import com.cloudmart.common.util.Ids;
 import com.cloudmart.wms.config.RocketMQConfig;
 import com.cloudmart.wms.dto.CreatePickOrderRequest;
 import com.cloudmart.wms.service.PickOrderService;
@@ -69,20 +70,24 @@ public class OrderPaidListener implements RocketMQListener<Map<String, Object>> 
         }
     }
 
-    /** orderId 只从 payload 提取（旧顶层分支已删）。 */
+    /** orderId 只从 payload 提取（旧顶层分支已删）；BASE-01：字符串/数字两种形态均接受。 */
     static Long extractOrderId(Map<String, Object> message) {
-        if (message.get("payload") instanceof Map<?, ?> payload
-                && payload.get("orderId") instanceof Number n) {
-            return n.longValue();
+        if (message.get("payload") instanceof Map<?, ?> payload) {
+            Long orderId = Ids.parse(payload.get("orderId"));
+            if (orderId != null) {
+                return orderId;
+            }
         }
         throw new IllegalArgumentException("ORDER_PAID 事件 payload 缺少 orderId（旧形状拒绝消费）: " + message.keySet());
     }
 
     /** 仓库分配：载荷未指定时取第一个可用仓库（业务默认），无可用仓库抛错触发重试。 */
     Long extractWarehouseIdOrDefault(Map<String, Object> message) {
-        if (message.get("payload") instanceof Map<?, ?> payload
-                && payload.get("warehouseId") instanceof Number n) {
-            return n.longValue();
+        if (message.get("payload") instanceof Map<?, ?> payload) {
+            Long warehouseId = Ids.parse(payload.get("warehouseId"));
+            if (warehouseId != null) {
+                return warehouseId;
+            }
         }
         var first = warehouseMapper.selectList(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.wms.entity.Warehouse>()

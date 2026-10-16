@@ -1,5 +1,6 @@
 package com.cloudmart.community.controller;
 
+import com.cloudmart.common.util.Ids;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.community.dto.CreatePostRequest;
 import com.cloudmart.community.entity.Tag;
@@ -54,7 +55,12 @@ public class InternalContentFlowController {
     @PostMapping("/posts")
     @Operation(summary = "生成传承帖子", description = "标签按名称解析（不存在则创建），帖子默认已发布状态")
     public ApiResponse<Map<String, Object>> createLegacyPost(@RequestBody Map<String, Object> body) {
-        Long userId = ((Number) body.get("userId")).longValue();
+        // BASE-01：字符串/数字形态均接受；缺失/非法显式拒绝
+        Long userId = Ids.parse(body.get("userId"));
+        if (userId == null) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    "CONTENT_FLOW_INVALID", "缺少 userId 或形态非法");
+        }
         String title = (String) body.get("title");
         String content = (String) body.get("content");
         String coverImage = (String) body.get("coverImage");

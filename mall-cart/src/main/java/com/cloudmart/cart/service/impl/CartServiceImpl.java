@@ -1,5 +1,6 @@
 package com.cloudmart.cart.service.impl;
 
+import com.cloudmart.common.util.Ids;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.cart.dto.AddCartItemRequest;
 import com.cloudmart.cart.dto.CartDTO;
@@ -325,8 +326,10 @@ public class CartServiceImpl implements CartService {
         }
         Map<Long, Map<String, Object>> skuMap = new java.util.HashMap<>();
         for (Map<String, Object> sku : response.data()) {
-            if (sku.get("skuId") instanceof Number n) {
-                skuMap.put(n.longValue(), sku);
+            // BASE-01：雪花 SKU ID 在统一字符串序列化下以字符串到达，两种形态均接受（防全部项被误判失效）
+            Long skuId = Ids.parse(sku.get("skuId"));
+            if (skuId != null) {
+                skuMap.put(skuId, sku);
             }
         }
         for (int i = 0; i < items.size(); i++) {

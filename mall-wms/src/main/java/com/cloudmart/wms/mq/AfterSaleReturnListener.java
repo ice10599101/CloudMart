@@ -1,5 +1,6 @@
 package com.cloudmart.wms.mq;
 
+import com.cloudmart.common.util.Ids;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.wms.config.RocketMQConfig;
 import com.cloudmart.wms.dto.CreateInboundOrderRequest;
@@ -68,9 +69,10 @@ public class AfterSaleReturnListener implements RocketMQListener<Map<String, Obj
             log.info("[T11] 售后案件 {} 退货入库单已存在（幂等跳过） eventId={}", caseNo, eventId);
             return;
         }
-        Object skuIdRaw = payload.get("skuId");
+        // BASE-01：统一字符串序列化下雪花 ID 以十进制字符串到达（安全范围内/历史数据为数字），两种形态均接受
+        Long skuId = Ids.parse(payload.get("skuId"));
         Object productNameRaw = payload.get("productName");
-        if (!(skuIdRaw instanceof Number) || productNameRaw == null
+        if (skuId == null || productNameRaw == null
                 || String.valueOf(productNameRaw).isBlank()) {
             throw new IllegalStateException("退货案件 " + caseNo
                     + " 缺少 SKU 明细（skuId/productName），拒绝建单（重试进死信人工排查）");
@@ -83,12 +85,12 @@ public class AfterSaleReturnListener implements RocketMQListener<Map<String, Obj
         CreateInboundOrderRequest request = new CreateInboundOrderRequest(
                 resolveWarehouseId(), INBOUND_TYPE_RETURN, caseNo,
                 "售后质检通过自动生成（T11 退货入库联动）",
-                List.of(new InboundItemRequest(((Number) skuIdRaw).longValue(),
+                List.of(new InboundItemRequest(skuId,
                         String.valueOf(productNameRaw), quantity, null)));
         try {
             inboundOrderService.createInboundOrder(request);
             log.info("[T11] 退货入库单已创建 caseNo={} skuId={} quantity={}",
-                    caseNo, skuIdRaw, quantity);
+                    caseNo, skuId, quantity);
         } catch (DuplicateKeyException e) {
             log.info("[T11] 售后案件 {} 退货入库单并发已建（唯一键兜底，幂等跳过）", caseNo);
         }
