@@ -140,12 +140,15 @@ describe('software API', () => {
     expect(request.get).toHaveBeenCalledWith('/software/100/access-state')
   })
 
-  it('listSoftwareReleases() 请求 /software/:id/releases', async () => {
+  it('listSoftwareReleases() 请求 /software/:id/releases 且分页带在 query（后端已支持分页）', async () => {
     vi.mocked(request.get).mockResolvedValue(ok)
 
     await listSoftwareReleases('100')
+    await listSoftwareReleases('100', 2, 20)
 
-    expect(request.get).toHaveBeenCalledWith('/software/100/releases')
+    // 默认第一页；显式第二页参数如实透传
+    expect(request.get).toHaveBeenNthCalledWith(1, '/software/100/releases?page=1&size=50')
+    expect(request.get).toHaveBeenNthCalledWith(2, '/software/100/releases?page=2&size=20')
   })
 
   it('resolveSoftwareSource() 携带幂等键时下发 Idempotency-Key 头', async () => {
@@ -262,25 +265,32 @@ describe('software API', () => {
     expect(request.get).toHaveBeenCalledWith('/software/100/editor')
   })
 
-  it('saveSoftwareDraft() 带 revisionId 保存工作副本', async () => {
+  it('saveSoftwareDraft() 带 revisionId 保存工作副本（expectedVersion 走 URL 查询参数）', async () => {
     vi.mocked(request.put).mockResolvedValue(ok)
 
     await saveSoftwareDraft('100', '7', { name: '改后', expectedVersion: 3 })
 
-    expect(request.put).toHaveBeenCalledWith('/software/100/revisions/7', {
+    expect(request.put).toHaveBeenCalledWith('/software/100/revisions/7?expectedVersion=3', {
       name: '改后',
-      expectedVersion: 3,
     })
   })
 
-  it('submitSoftwareForReview() 提交审核并携带幂等键', async () => {
+  it('saveSoftwareDraft() 未带 expectedVersion 时不拼查询参数', async () => {
+    vi.mocked(request.put).mockResolvedValue(ok)
+
+    await saveSoftwareDraft('100', '7', { name: '改后' })
+
+    expect(request.put).toHaveBeenCalledWith('/software/100/revisions/7', { name: '改后' })
+  })
+
+  it('submitSoftwareForReview() 提交审核并携带幂等键（expectedVersion 走 URL 查询参数）', async () => {
     vi.mocked(request.post).mockResolvedValue(ok)
 
     await submitSoftwareForReview('100', '7', { expectedVersion: 3 }, 'key-4')
 
     expect(request.post).toHaveBeenCalledWith(
-      '/software/100/revisions/7/submit',
-      { expectedVersion: 3 },
+      '/software/100/revisions/7/submit?expectedVersion=3',
+      {},
       { headers: { 'Idempotency-Key': 'key-4' } }
     )
   })

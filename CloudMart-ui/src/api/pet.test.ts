@@ -7,6 +7,7 @@ vi.mock('@/utils/request', () => ({
 import request from '@/utils/request'
 import {
   attackPveRun,
+  buyPetItem,
   cancelPveRun,
   claimSeasonPassTier,
   createPet,
@@ -36,12 +37,20 @@ describe('pet API', () => {
     vi.clearAllMocks()
   })
 
-  it('getMyPet() calls GET /pet/me', async () => {
+  it('getMyPet() calls GET /pet/me（未传配置时第二参数为 undefined，与可选参数约定一致）', async () => {
     vi.mocked(request.get).mockResolvedValue({ data: {} } as never)
 
     await getMyPet()
 
-    expect(request.get).toHaveBeenCalledWith('/pet/me')
+    expect(request.get).toHaveBeenCalledWith('/pet/me', undefined)
+  })
+
+  it('getMyPet({ silentError }) 透传配置——消息页/用户中心装饰性调用不弹统一错误', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as never)
+
+    await getMyPet({ silentError: true })
+
+    expect(request.get).toHaveBeenCalledWith('/pet/me', { silentError: true })
   })
 
   it('createPet() calls POST /pet/create with adoption payload', async () => {
@@ -114,6 +123,18 @@ describe('pet API', () => {
 
     // R25：聊天为权益类写操作，携带持久意图标记（断网/重启按原键查终态）
     expect(request.post).toHaveBeenCalledWith('/pet/chat', { message: '你今天怎么样？' }, { persistentIntent: true })
+  })
+
+  it('buyPetItem() 显式携带 petId 与持久意图（PET-01：服务端在业务事务内校验归属）', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as never)
+
+    await buyPetItem({ petId: '9001002', itemType: 'FOOD', itemCode: 'apple' })
+
+    expect(request.post).toHaveBeenCalledWith(
+      '/pet/purchases',
+      { petId: '9001002', itemType: 'FOOD', itemCode: 'apple' },
+      { persistentIntent: true },
+    )
   })
 
   it('getPetPublicCard() calls GET /pet/public/:userId', async () => {

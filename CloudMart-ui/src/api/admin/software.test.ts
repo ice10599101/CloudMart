@@ -114,15 +114,16 @@ describe('admin software API', () => {
     )
   })
 
-  it('评论管理：列表与处置 → /comments 路径', async () => {
+  it('评论管理：全局列表走 /comments + softwareId 过滤，处置走 /:softwareId/comments/:id/moderate', async () => {
     vi.mocked(request.get).mockResolvedValue(ok)
     vi.mocked(request.post).mockResolvedValue(ok)
 
     await listAdminSoftwareComments('100', { status: 'PENDING', page: 1, size: 20 })
     await moderateAdminSoftwareComment('100', '9', { action: 'APPROVE', reason: '合格' }, 'key-5')
 
-    expect(request.get).toHaveBeenCalledWith('/admin/software/100/comments', {
-      params: { status: 'PENDING', page: 1, size: 20 },
+    // 列表：全局路由 + softwareId 查询参数（后端 commentPage 按 softwareId/status 下推过滤）
+    expect(request.get).toHaveBeenCalledWith('/admin/software/comments', {
+      params: { status: 'PENDING', page: 1, size: 20, softwareId: '100' },
     })
     expect(request.post).toHaveBeenCalledWith(
       '/admin/software/100/comments/9/moderate',
