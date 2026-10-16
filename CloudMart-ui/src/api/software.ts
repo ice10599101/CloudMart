@@ -705,29 +705,37 @@ export function getSoftwareEditor(id: string) {
   return request.get<ApiResponse<SoftwareEditorData>>(`${BASE}/${id}/editor`);
 }
 
-/** 保存工作副本（期望乐观锁版本用于拦截两标签页并发） */
+/** 保存工作副本：expectedVersion 走 URL 查询参数（后端 @RequestParam 契约，A08 并发拦截） */
 export function saveSoftwareDraft(
   id: string,
   revisionId: string,
   payload: SoftwareSnapshotInput & { expectedVersion?: number },
 ) {
+  const { expectedVersion, ...snapshot } = payload;
+  const query =
+    expectedVersion != null ? `?expectedVersion=${expectedVersion}` : "";
   return request.put<ApiResponse<{ lockVersion: number }>>(
-    `${BASE}/${id}/revisions/${revisionId}`,
-    payload,
+    `${BASE}/${id}/revisions/${revisionId}${query}`,
+    snapshot,
   );
 }
 
+/** 提交审核：expectedVersion 走 URL 查询参数（后端 @RequestParam 契约） */
 export function submitSoftwareForReview(
   id: string,
   revisionId: string,
   payload: { expectedVersion?: number },
   idempotencyKey?: string,
 ) {
-  const url = `${BASE}/${id}/revisions/${revisionId}/submit`;
+  const query =
+    payload.expectedVersion != null
+      ? `?expectedVersion=${payload.expectedVersion}`
+      : "";
+  const url = `${BASE}/${id}/revisions/${revisionId}/submit${query}`;
   return request.post<ApiResponse<{ submitSeq: number }>>(
     url,
-    payload,
-    softwareWriteConfig("POST", url, payload, idempotencyKey),
+    {},
+    softwareWriteConfig("POST", url, {}, idempotencyKey),
   );
 }
 
