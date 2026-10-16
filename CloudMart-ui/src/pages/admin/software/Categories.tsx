@@ -78,7 +78,27 @@ export default function SoftwareCategories() {
     )
   }
 
-  const submitCategory = async () => {
+  const confirmCategory = () => {
+    Modal.confirm({
+      title: '保存分类',
+      content: '确认保存当前分类内容？保存后立即生效。',
+      okText: '确认保存',
+      cancelText: '再改改',
+      onOk: () => doSubmitCategory(),
+    })
+  }
+
+  const confirmTag = () => {
+    Modal.confirm({
+      title: '保存标签',
+      content: '确认保存当前标签内容？保存后立即生效。',
+      okText: '确认保存',
+      cancelText: '再改改',
+      onOk: () => doSubmitTag(),
+    })
+  }
+
+  const doSubmitCategory = async () => {
     const values = await categoryForm.validateFields()
     setSubmitting(true)
     try {
@@ -130,7 +150,7 @@ export default function SoftwareCategories() {
     tagForm.setFieldsValue(tag ? { name: tag.name, enabled: tag.enabled } : { name: '', enabled: true })
   }
 
-  const submitTag = async () => {
+  const doSubmitTag = async () => {
     const values = await tagForm.validateFields()
     setSubmitting(true)
     try {
@@ -294,7 +314,7 @@ export default function SoftwareCategories() {
         title={categoryModal?.categoryId ? '编辑分类' : '新增分类'}
         open={categoryModal !== undefined}
         onCancel={() => setCategoryModal(undefined)}
-        onOk={submitCategory}
+        onOk={confirmCategory}
         confirmLoading={submitting}
         okText="保存"
         destroyOnHidden
@@ -336,7 +356,7 @@ export default function SoftwareCategories() {
         title={tagModal?.tagId ? '编辑标签' : '新增标签'}
         open={tagModal !== undefined}
         onCancel={() => setTagModal(undefined)}
-        onOk={submitTag}
+        onOk={confirmTag}
         confirmLoading={submitting}
         okText="保存"
         destroyOnHidden

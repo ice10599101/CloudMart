@@ -65,7 +65,17 @@ export default function SoftwareItems() {
     }
   }
 
-  const submitFeature = async () => {
+  const confirmFeature = () => {
+    Modal.confirm({
+      title: '调整精选',
+      content: '确认调整精选排序？rank=0 表示取消精选，保存后广场推荐位立即更新。',
+      okText: '确认调整',
+      cancelText: '再改改',
+      onOk: () => doSubmitFeature(),
+    })
+  }
+
+  const doSubmitFeature = async () => {
     if (!featureTarget) return
     setSubmitting(true)
     try {
@@ -349,7 +359,7 @@ export default function SoftwareItems() {
         title={featureTarget?.featuredRank ? '调整精选排序' : '设为精选'}
         open={!!featureTarget}
         onCancel={() => setFeatureTarget(null)}
-        onOk={submitFeature}
+        onOk={confirmFeature}
         confirmLoading={submitting}
         okText="保存"
         destroyOnHidden

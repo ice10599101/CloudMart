@@ -29,7 +29,17 @@ export default function SoftwarePublishers() {
     setReason('')
   }
 
-  const submit = async () => {
+  const confirmSubmit = () => {
+    Modal.confirm({
+      title: '变更发布资格',
+      content: '确认变更该会员的发布资格？变更会写入权限审计。',
+      okText: '确认变更',
+      cancelText: '取消',
+      onOk: () => doSubmit(),
+    })
+  }
+
+  const doSubmit = async () => {
     const userId = grantOpen ? grantUserId : target?.userId
     if (!userId) {
       message.warning('请输入会员ID')
@@ -55,7 +65,16 @@ export default function SoftwarePublishers() {
   }
 
   const columns: ProColumns<AdminPublisherPermission>[] = [
-    { title: '会员ID', dataIndex: 'userId', width: 110, search: false },
+    {
+      title: '会员',
+      dataIndex: 'userId',
+      width: 150,
+      search: false,
+      render: (_, record) =>
+        record.userNickname
+          ? `${record.userNickname}（${record.userId}）`
+          : String(record.userId),
+    },
     {
       title: '发布资格',
       dataIndex: 'canPublish',
@@ -65,8 +84,14 @@ export default function SoftwarePublishers() {
         record.canPublish ? <Tag color="success">已开通</Tag> : <Tag>未开通</Tag>,
     },
     { title: '最近原因', dataIndex: 'reason', ellipsis: true, search: false },
-    { title: '操作人', dataIndex: 'updatedBy', width: 100, search: false },
-    { title: '版本', dataIndex: 'lockVersion', width: 70, search: false },
+    {
+      title: '操作人',
+      dataIndex: 'updatedBy',
+      width: 110,
+      search: false,
+      render: (_, record) =>
+        record.updatedByName ?? (record.updatedBy ? `管理员#${record.updatedBy}` : '-'),
+    },
     { title: '更新时间', dataIndex: 'updatedAt', valueType: 'dateTime', width: 170, search: false },
     {
       title: '操作',
@@ -121,7 +146,7 @@ export default function SoftwarePublishers() {
           setTarget(null)
           setGrantOpen(false)
         }}
-        onOk={submit}
+        onOk={confirmSubmit}
         confirmLoading={submitting}
         okText="确认"
         okButtonProps={{ danger: !enable }}

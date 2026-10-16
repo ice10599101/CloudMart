@@ -143,9 +143,12 @@ export interface AdminSoftwareTag {
 
 export interface AdminPublisherPermission {
   userId: string
+  userNickname?: string | null
   canPublish: boolean
   lockVersion: number
   reason: string | null
+  updatedBy: string | null
+  updatedByName?: string | null
   updatedAt: string | null
 }
 
@@ -302,6 +305,13 @@ export function setSourceState(
 }
 
 // ==================== 评论（software:comment） ====================
+
+/** 软件模块运营统计总览（Dashboard 软件区块数据源） */
+export function getAdminSoftwareStatistics() {
+  return request.get<ApiResponse<Record<string, number | string>>>(
+    `${BASE}/statistics`,
+  )
+}
 
 /** 全局评论列表（softwareId 可选筛选；后端 /comments 固定路径） */
 export function listAdminSoftwareComments(

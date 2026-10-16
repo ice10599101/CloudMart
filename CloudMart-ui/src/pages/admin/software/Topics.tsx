@@ -73,7 +73,17 @@ export default function SoftwareTopics() {
     }
   }
 
-  const submit = async () => {
+  const confirmSubmit = () => {
+    Modal.confirm({
+      title: '保存专题',
+      content: '确认保存当前专题？已上线专题保存后立即对用户生效。',
+      okText: '确认保存',
+      cancelText: '再改改',
+      onOk: () => doSubmit(),
+    })
+  }
+
+  const doSubmit = async () => {
     const values = await form.validateFields()
     const cleanItems = items
       .filter((item) => item.softwareId != null)
@@ -181,7 +191,7 @@ export default function SoftwareTopics() {
         title={editing?.topicId ? '编辑专题' : '新增专题'}
         open={editing !== null}
         onCancel={() => setEditing(null)}
-        onOk={submit}
+        onOk={confirmSubmit}
         confirmLoading={submitting}
         okText="保存"
         width={720}

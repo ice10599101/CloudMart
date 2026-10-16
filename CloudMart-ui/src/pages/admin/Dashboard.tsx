@@ -16,11 +16,14 @@ import {
   CheckCircleOutlined,
   FireOutlined,
   SendOutlined,
+  AppstoreOutlined,
+  LinkOutlined,
 } from '@ant-design/icons'
 import { getDashboardStats } from '@/api/admin/system'
 import { getAdminPosts, getCommunityStats, getCommunityTrend } from '@/api/admin/community'
 import type { AdminPostRecord } from '@/api/admin/community'
 import { getAdminWishes, getAdminWishStats, getAdminDriftBottleDashboard } from '@/api/admin/wish'
+import { getAdminSoftwareStatistics } from '@/api/admin/software'
 import type { AdminWishRecord, AdminWishStats, AdminDriftBottleDashboard } from '@/api/admin/wish'
 
 interface DashboardStats {
@@ -69,6 +72,14 @@ const WISH_CARDS = [
   { title: '已实现', key: 'fulfilledWishCount', icon: CheckCircleOutlined, accentColor: '#2ED573', to: '/admin/business/wishes' },
   { title: '今日打卡', key: 'todayCheckinCount', icon: FireOutlined, accentColor: '#FFA502', to: '/admin/business/wish-interactions' },
   { title: '今日互动', key: 'todayInteractionCount', icon: HeartOutlined, accentColor: '#FF6B6B', to: '/admin/business/wish-interactions' },
+] as const
+
+// 小答软件面板指标卡：key 对齐 GET /admin/software/statistics 字段
+const SOFTWARE_CARDS = [
+  { title: '在架软件', key: 'publishedCount', icon: AppstoreOutlined, accentColor: '#5B8FF9', to: '/admin/software/items' },
+  { title: '待审快照', key: 'pendingReviewCount', icon: AlertOutlined, accentColor: '#FFA502', to: '/admin/software/revisions' },
+  { title: '近7日获取', key: 'accessCount', icon: LinkOutlined, accentColor: '#2ED573', to: '/admin/software/access-grants' },
+  { title: '待处理反馈', key: 'pendingFeedbacks', icon: FileTextOutlined, accentColor: '#FF6B6B', to: '/admin/software/link-feedbacks' },
 ] as const
 
 // 漂流瓶面板指标卡：key 对齐 AdminDriftBottleDashboard 字段
@@ -145,6 +156,7 @@ export default function Dashboard() {
   const [communityTrend, setCommunityTrend] = useState<CommunityTrendItem[]>([])
   const [wishStats, setWishStats] = useState<AdminWishStats | null>(null)
   const [bottleStats, setBottleStats] = useState<AdminDriftBottleDashboard | null>(null)
+  const [softwareStats, setSoftwareStats] = useState<Record<string, number | string> | null>(null)
   const [latestWishes, setLatestWishes] = useState<AdminWishRecord[]>([])
   const [latestPosts, setLatestPosts] = useState<AdminPostRecord[]>([])
   const [trendDays, setTrendDays] = useState(7)
@@ -154,13 +166,14 @@ export default function Dashboard() {
     setLoading(true)
     try {
       // allSettled 容错：无对应模块权限/服务降级时对应分区显示空态，不阻塞整页
-      const [statsRes, postsRes, communityRes, wishStatsRes, wishListRes, bottleStatsRes] = await Promise.allSettled([
+      const [statsRes, postsRes, communityRes, wishStatsRes, wishListRes, bottleStatsRes, softwareStatsRes] = await Promise.allSettled([
         getDashboardStats(),
         getAdminPosts({ page: 1, pageSize: 6 }),
         getCommunityStats(),
         getAdminWishStats(),
         getAdminWishes({ page: 1, pageSize: 5 }),
         getAdminDriftBottleDashboard(),
+        getAdminSoftwareStatistics(),
       ])
 
       if (statsRes.status === 'fulfilled' && statsRes.value.data) {
@@ -171,6 +184,10 @@ export default function Dashboard() {
           todayOrderCount: resData?.todayOrderCount ?? 0,
           todayRevenue: resData?.todayRevenue ?? 0,
         })
+      }
+      if (softwareStatsRes.status === 'fulfilled' && softwareStatsRes.value.data) {
+        const resData = (softwareStatsRes.value.data as { data: Record<string, number | string> }).data
+        setSoftwareStats(resData ?? {})
       }
       if (postsRes.status === 'fulfilled' && postsRes.value.data) {
         const resData = postsRes.value.data as { data: AdminPostRecord[] }
@@ -375,6 +392,46 @@ export default function Dashboard() {
             </Row>
             <div style={{ marginTop: 12, color: 'var(--color-text-tertiary)', fontSize: 12, textAlign: 'center' }}>
               进行中 {wishStats?.activeWishCount ?? 0} 个心愿正在被守护
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 小答软件数据面板：点击进入软件管理对应页面 */}
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col span={24}>
+          <Card
+            title={<span style={{ color: 'var(--color-text-secondary)' }}>小答软件</span>}
+            hoverable
+            onClick={() => navigateTo('/admin/software/items')}
+            style={{ borderRadius: 10, border: '1px solid var(--color-border)', height: '100%' }}
+          >
+            <Row gutter={[12, 12]}>
+              {SOFTWARE_CARDS.map((card) => {
+                const IconComp = card.icon
+                const value = softwareStats?.[card.key] ?? 0
+                return (
+                  <Col span={12} key={card.key}>
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigateTo(card.to)
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 10, background: 'rgba(var(--color-primary-rgb), 0.06)', cursor: 'pointer', transition: 'background 0.2s ease' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(var(--color-primary-rgb), 0.14)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(var(--color-primary-rgb), 0.06)' }}
+                    >
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: `${card.accentColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconComp style={{ fontSize: 22, color: card.accentColor }} />
+                      </div>
+                      <Statistic title={card.title} value={value} styles={{ content: { color: card.accentColor, fontSize: 22 } }} />
+                    </div>
+                  </Col>
+                )
+              })}
+            </Row>
+            <div style={{ marginTop: 12, color: 'var(--color-text-tertiary)', fontSize: 12, textAlign: 'center' }}>
+              待处理举报 {softwareStats?.pendingReports ?? 0} 条 · 近7日新增收藏 {softwareStats?.newFavorites ?? 0} 个
             </div>
           </Card>
         </Col>

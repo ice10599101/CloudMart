@@ -17,7 +17,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map;
 
 /**
@@ -38,6 +40,7 @@ import java.util.Map;
 public class AdminSoftwareController {
 
     private final SoftwareFeignClient softwareFeignClient;
+    private final com.cloudmart.admin.service.AdminUserService adminUserService;
 
     // ---------------- 审核（software:review） ----------------
 
@@ -117,11 +120,57 @@ public class AdminSoftwareController {
 
     @GetMapping("/publisher-permissions")
     @RequiresPermission("software:publisher:list")
-    @Operation(summary = "发布资格分页", description = "前端拼装会员资料后展示")
+    @Operation(summary = "发布资格分页",
+            description = "行内 userNickname（会员资料服务）与 updatedByName（后台账号表）已回填")
     public ApiResponse<Object> permissions(
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
-        return softwareFeignClient.permissions(page, size);
+        ApiResponse<Object> response = softwareFeignClient.permissions(page, size);
+        fillOperatorNames(response);
+        return response;
+    }
+
+    /** updated_by 是后台账号（admin_user），软件服务查不到——BFF 层回填操作人用户名 */
+    @SuppressWarnings("unchecked")
+    private void fillOperatorNames(ApiResponse<Object> response) {
+        if (response == null || response.data() == null) {
+            return;
+        }
+        Object data = response.data();
+        List<Map<String, Object>> rows;
+        if (data instanceof Map<?, ?> page && page.get("records") instanceof List<?> list) {
+            rows = (List<Map<String, Object>>) list;
+        } else if (data instanceof List<?> list) {
+            rows = (List<Map<String, Object>>) list;
+        } else {
+            return;
+        }
+        Map<Long, String> nameById = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            Object raw = row.get("updatedBy");
+            if (raw == null) {
+                continue;
+            }
+            Long adminId;
+            try {
+                adminId = Long.parseLong(String.valueOf(raw));
+            } catch (NumberFormatException ignored) {
+                continue;
+            }
+            String name = nameById.computeIfAbsent(adminId, id -> {
+                try {
+                    var user = adminUserService.getById(id);
+                    return user == null ? null
+                            : (user.nickname() == null || user.nickname().isBlank()
+                                    ? user.username() : user.nickname());
+                } catch (Exception ignored) {
+                    return null;
+                }
+            });
+            if (name != null) {
+                row.put("updatedByName", name);
+            }
+        }
     }
 
     @PostMapping("/publisher-permissions/batch")

@@ -70,6 +70,12 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
 
     @Override
     public Page<Map<String, Object>> permissionPage(int page, int size) {
+        Page<Map<String, Object>> result = rawPermissionPage(page, size);
+        result.setRecords(fillUserNicknames(result.getRecords()));
+        return result;
+    }
+
+    private Page<Map<String, Object>> rawPermissionPage(int page, int size) {
         Page<SoftwarePublisherPermission> permissionPage = publisherPermissionMapper.selectPage(
                 Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 100)),
                 new LambdaQueryWrapper<SoftwarePublisherPermission>()
@@ -87,10 +93,59 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         if (userIds == null || userIds.isEmpty()) {
             return List.of();
         }
-        return publisherPermissionMapper.selectList(new LambdaQueryWrapper<SoftwarePublisherPermission>()
-                        .in(SoftwarePublisherPermission::getUserId, userIds))
+        return fillUserNicknames(publisherPermissionMapper.selectList(
+                        new LambdaQueryWrapper<SoftwarePublisherPermission>()
+                                .in(SoftwarePublisherPermission::getUserId, userIds))
                 .stream().map(this::toPermissionRow)
+                .toList());
+    }
+
+    /**
+     * 行级补用户昵称（发布资格页展示用户名而非数字 ID）。
+     * profiles 失败/降级返回空时昵称缺省，前端回落为 ID 展示。
+     */
+    private List<Map<String, Object>> fillUserNicknames(List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return rows;
+        }
+        List<Long> ids = rows.stream()
+                .map(row -> row.get("userId"))
+                .filter(java.util.Objects::nonNull)
+                .map(value -> {
+                    try {
+                        return Long.parseLong(String.valueOf(value));
+                    } catch (NumberFormatException ignored) {
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
+                .distinct()
                 .toList();
+        if (ids.isEmpty()) {
+            return rows;
+        }
+        Map<Long, String> nicknameById = new HashMap<>();
+        try {
+            for (var profile : userSupportFeignClient.profiles(
+                    Map.of("userIds", ids)).data()) {
+                nicknameById.put(profile.id(), profile.nickname());
+            }
+        } catch (Exception ignored) {
+            // 资料服务不可用：昵称留空，前端回落 ID 展示（列表主流程不受阻）
+        }
+        for (Map<String, Object> row : rows) {
+            Object raw = row.get("userId");
+            if (raw == null) {
+                continue;
+            }
+            try {
+                row.put("userNickname",
+                        nicknameById.get(Long.parseLong(String.valueOf(raw))));
+            } catch (NumberFormatException ignored) {
+                // 非法 ID 行跳过
+            }
+        }
+        return rows;
     }
 
     private Map<String, Object> toPermissionRow(SoftwarePublisherPermission permission) {

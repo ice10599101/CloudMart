@@ -5,6 +5,7 @@ import {
   Card,
   Input,
   InputNumber,
+  Modal,
   Result,
   Select,
   Space,
@@ -230,7 +231,18 @@ export default function SoftwarePublish() {
     }
   }, [buildPayload, lockVersion, message, name, revisionId, softwareId]);
 
-  const handleSubmit = useCallback(async () => {
+  /** 提交审核二次确认：提交即进入待审队列，内容冻结不可再编辑 */
+  const confirmSubmit = useCallback(() => {
+    Modal.confirm({
+      title: '提交审核',
+      content: '提交后内容冻结进入待审队列，审核期间不可再编辑（可撤回）。确认提交？',
+      okText: '确认提交',
+      cancelText: '再改改',
+      onOk: () => doSubmit(),
+    })
+  }, [])
+
+  const doSubmit = useCallback(async () => {
     if (!name.trim()) {
       message.warning("请先填写软件名称");
       return;
@@ -559,7 +571,7 @@ export default function SoftwarePublish() {
         <Button
           type="primary"
           loading={submitting}
-          onClick={() => void handleSubmit()}
+          onClick={confirmSubmit}
         >
           提交审核
         </Button>

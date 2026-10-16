@@ -54,7 +54,28 @@ export default function SoftwareAccessGrants() {
     setGrantReason('')
   }
 
-  const submitGrant = async () => {
+  const confirmGrant = () => {
+    Modal.confirm({
+      title: '授予查看授权',
+      content: '确认授予该会员查看授权？授权后其可按查看条件获取来源。',
+      okText: '确认授予',
+      cancelText: '取消',
+      onOk: () => doSubmitGrant(),
+    })
+  }
+
+  const confirmRevoke = () => {
+    Modal.confirm({
+      title: '撤销查看授权',
+      content: '确认撤销该会员的查看授权？撤销后其将无法继续获取来源。',
+      okText: '确认撤销',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: () => doSubmitRevoke(),
+    })
+  }
+
+  const doSubmitGrant = async () => {
     const softwareId = grantSoftwareId.trim()
     if (!softwareId || !grantUserId) {
       message.warning('请填写软件ID与会员ID')
@@ -84,7 +105,7 @@ export default function SoftwareAccessGrants() {
     }
   }
 
-  const submitRevoke = async () => {
+  const doSubmitRevoke = async () => {
     if (!revokeTarget) return
     if (!revokeReason.trim()) {
       message.warning('请填写撤销原因')
@@ -261,7 +282,7 @@ export default function SoftwareAccessGrants() {
         title={grantTarget?.softwareId ? '续期/重开授权' : '人工开通授权'}
         open={!!grantTarget}
         onCancel={() => setGrantTarget(null)}
-        onOk={submitGrant}
+        onOk={confirmGrant}
         confirmLoading={submitting}
         okText="确认开通/续期"
         destroyOnHidden
@@ -316,7 +337,7 @@ export default function SoftwareAccessGrants() {
         title="撤销授权"
         open={!!revokeTarget}
         onCancel={() => setRevokeTarget(null)}
-        onOk={submitRevoke}
+        onOk={confirmRevoke}
         confirmLoading={submitting}
         okText="确认撤销"
         okButtonProps={{ danger: true }}
