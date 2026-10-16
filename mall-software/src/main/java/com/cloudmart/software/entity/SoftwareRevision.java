@@ -43,7 +43,7 @@ public class SoftwareRevision {
     /** 软件名（草稿可空，提交时 2~80 字） */
     private String name;
 
-    /** 一句话简介（提交时 10~160 字） */
+    /** 一句话简介（选填：提交可空；填则 10~160 字） */
     private String summary;
 
     @TableField(updateStrategy = FieldStrategy.ALWAYS)

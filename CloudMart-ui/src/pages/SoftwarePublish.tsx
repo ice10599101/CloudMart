@@ -363,7 +363,7 @@ export default function SoftwarePublish() {
             onChange={(event) => setName(event.target.value)}
           />
           <Input.TextArea
-            placeholder="一句话说明"
+            placeholder="一句话说明（选填，10~160 字）"
             value={summary}
             maxLength={200}
             showCount

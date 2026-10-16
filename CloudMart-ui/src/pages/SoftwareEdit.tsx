@@ -451,7 +451,7 @@ export default function SoftwareEdit() {
           />
           <Input.TextArea
             disabled={frozen}
-            placeholder="一句话说明"
+            placeholder="一句话说明（选填，10~160 字）"
             value={summary}
             maxLength={200}
             showCount

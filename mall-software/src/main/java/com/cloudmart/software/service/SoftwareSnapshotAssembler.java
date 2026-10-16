@@ -435,9 +435,11 @@ public class SoftwareSnapshotAssembler {
                 || revision.getName().length() > 80) {
             throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "软件名须为 2~80 字");
         }
-        if (revision.getSummary() == null || revision.getSummary().length() < 10
-                || revision.getSummary().length() > 160) {
-            throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "简介须为 10~160 字");
+        // 一句话说明选填（2026-10-17 用户口径调整）：留空=对外不展示；填则 10~160 防垃圾
+        String summary = revision.getSummary() == null ? "" : revision.getSummary().trim();
+        if (!summary.isEmpty() && (summary.length() < 10 || summary.length() > 160)) {
+            throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE",
+                    "简介须为 10~160 字（或留空不填）");
         }
         if (revision.getCategoryId() == null) {
             throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "必须选择分类");

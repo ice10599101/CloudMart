@@ -67,7 +67,9 @@ export default function SoftwareCardGrid({ cards, rankOffset }: Props) {
               </div>
             </div>
           </div>
-          <p className={styles.summary}>{item.summary}</p>
+          {item.summary ? (
+            <p className={styles.summary}>{item.summary}</p>
+          ) : null}
           <div className={styles.footer}>
             <span>更新于 {formatUpdatedAt(item.lastReleaseAt)}</span>
             <span>收藏 {item.favoriteCount}</span>

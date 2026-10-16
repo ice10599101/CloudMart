@@ -18,7 +18,7 @@ public class SoftwareSnapshotInput {
     /** 软件名（提交时 2~80 字；草稿可空） */
     private String name;
 
-    /** 一句话简介（提交时 10~160 字；草稿可空） */
+    /** 一句话简介（选填：提交可空；填则 10~160 字） */
     private String summary;
 
     private Long categoryId;
