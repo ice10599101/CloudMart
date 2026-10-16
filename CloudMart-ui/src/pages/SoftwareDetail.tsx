@@ -18,6 +18,10 @@ import {
 import { CopyOutlined, StarFilled, StarOutlined } from "@ant-design/icons";
 import { history, useParams } from "umi";
 import {
+  handleSoftwareIconError,
+  softwareIconUrl,
+} from "@/utils/softwareIcon";
+import {
   createSoftwareComment,
   favoriteSoftware,
   getSoftwareAccessState,
@@ -51,10 +55,6 @@ const LICENSE_LABEL: Record<string, string> = {
   TRIAL: "试用",
   COMMERCIAL: "商业",
 };
-
-function iconUrl(assetId: string | null): string | undefined {
-  return assetId ? `/files/${assetId}` : undefined;
-}
 
 export default function SoftwareDetail() {
   const { id = "" } = useParams<{ id: string }>();
@@ -384,11 +384,9 @@ export default function SoftwareDetail() {
       <div className={styles.header}>
         <img
           className={styles.icon}
-          src={iconUrl(detail.iconAssetId) ?? "/default-avatar.png"}
+          src={softwareIconUrl(detail.iconAssetId)}
           alt={detail.iconAssetId ? `${detail.name} 图标` : ""}
-          onError={(event) => {
-            event.currentTarget.src = "/default-avatar.png";
-          }}
+          onError={handleSoftwareIconError}
         />
         <div style={{ minWidth: 0 }}>
           <h1 className={styles.title}>{detail.name}</h1>

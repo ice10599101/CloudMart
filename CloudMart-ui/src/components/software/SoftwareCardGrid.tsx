@@ -1,6 +1,10 @@
 import { Card, Tag } from "antd";
 import { history } from "umi";
 import type { SoftwareCard } from "@/api/software";
+import {
+  handleSoftwareIconError,
+  softwareIconUrl,
+} from "@/utils/softwareIcon";
 import styles from "./SoftwareCardGrid.module.css";
 
 const LICENSE_LABEL: Record<string, string> = {
@@ -9,14 +13,6 @@ const LICENSE_LABEL: Record<string, string> = {
   TRIAL: "试用",
   COMMERCIAL: "商业",
 };
-
-/**
- * 图标走网关静态路由 /files（与 WishBGM 的 /files/music/... 同源约定）；
- * 素材缺失或服务未配置时回退到统一占位图，不留破图。
- */
-function iconUrl(assetId: string | null): string | undefined {
-  return assetId ? `/files/${assetId}` : undefined;
-}
 
 /** 卡片不呈现"下载量"：获取链接次数不等于实际下载成功（方案 §3.2） */
 function formatUpdatedAt(value: string | null): string {
@@ -53,11 +49,9 @@ export default function SoftwareCardGrid({ cards, rankOffset }: Props) {
             ) : null}
             <img
               className={styles.icon}
-              src={iconUrl(item.iconAssetId) ?? "/default-avatar.png"}
+              src={softwareIconUrl(item.iconAssetId)}
               alt={item.iconAssetId ? `${item.name} 图标` : ""}
-              onError={(event) => {
-                event.currentTarget.src = "/default-avatar.png";
-              }}
+              onError={handleSoftwareIconError}
             />
             <div style={{ minWidth: 0, flex: 1 }}>
               <p className={styles.cardTitle} title={item.name}>
