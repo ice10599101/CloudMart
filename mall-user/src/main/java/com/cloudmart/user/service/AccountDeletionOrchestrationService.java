@@ -552,4 +552,24 @@ public class AccountDeletionOrchestrationService {
                 .set(AccountDeletionTask::getBlockReason, reason)
                 .set(AccountDeletionTask::getUpdatedAt, LocalDateTime.now(ZoneId.of("UTC"))));
     }
+
+    /**
+     * OPS-03：注销任务运维分页（脱敏事实：状态/服务进度/阻断原因/时间戳）。
+     */
+    public java.util.Map<String, Object> pageForOperations(String status, int page, int size) {
+        var result = taskMapper.selectPage(
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(Math.max(page, 1), size),
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<AccountDeletionTask>()
+                        .eq(status != null && !status.isBlank(), AccountDeletionTask::getStatus, status)
+                        .orderByDesc(AccountDeletionTask::getId));
+        var records = result.getRecords().stream().map(t -> java.util.Map.of(
+                "id", t.getId(),
+                "userId", t.getUserId(),
+                "status", t.getStatus() == null ? "" : t.getStatus(),
+                "serviceProgress", t.getServiceProgress() == null ? "" : t.getServiceProgress(),
+                "blockReason", t.getBlockReason() == null ? "" : t.getBlockReason(),
+                "requestedAt", t.getRequestedAt() == null ? "" : t.getRequestedAt().toString(),
+                "executedAt", t.getExecutedAt() == null ? "" : t.getExecutedAt().toString())).toList();
+        return java.util.Map.of("records", records, "total", result.getTotal());
+    }
 }

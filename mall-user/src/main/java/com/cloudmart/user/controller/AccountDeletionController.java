@@ -107,4 +107,19 @@ public class AccountDeletionController {
 
     public record RetryRequest(String reason) {
     }
+
+    /**
+     * OPS-03：注销任务运维分页（SEC-04：仅服务令牌，mall-admin 运营代理调用）。
+     * 展示任务台账事实（状态/服务进度/阻断原因），供异常处理中心定位与跳转。
+     */
+    @GetMapping("/internal/tasks")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "注销任务运维分页", description = "OPS-03：状态过滤；含服务进度与阻断原因（运营处置依据）")
+    public ApiResponse<java.util.Map<String, Object>> internalTasks(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        var result = orchestrationService.pageForOperations(status, page, Math.min(size, 100));
+        return ApiResponse.ok(result);
+    }
 }

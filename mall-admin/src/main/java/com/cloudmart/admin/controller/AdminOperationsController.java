@@ -2,6 +2,8 @@ package com.cloudmart.admin.controller;
 
 import com.cloudmart.admin.feign.OperationsClients.OrderOperationsClient;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.exception.BusinessException;
+import org.springframework.web.bind.annotation.RequestBody;
 import com.cloudmart.admin.feign.OperationsClients.WishOperationsClient;
 import com.cloudmart.common.annotation.OperLog;
 import com.cloudmart.common.annotation.RequiresPermission;
@@ -39,6 +41,8 @@ public class AdminOperationsController {
 
     private final OrderOperationsClient orderOperationsClient;
     private final WishOperationsClient wishOperationsClient;
+    private final com.cloudmart.admin.feign.OperationsClients.UserOperationsClient userOperationsClient;
+    private final com.cloudmart.admin.feign.OperationsClients.ExportOperationsClient exportOperationsClient;
 
     @GetMapping("/outbox")
     @RequiresPermission("operations:read")
@@ -91,5 +95,55 @@ public class AdminOperationsController {
                     "OPERATIONS_SERVICE_UNSUPPORTED",
                     "异常处理中心未接入该域: " + service + "（现已接入 mall-order/mall-wish）");
         };
+    }
+
+    // ===== OPS-03：账号注销任务（mall-user）/ 心愿数据导出（mall-wish）运维处置 =====
+
+    @GetMapping("/deletion")
+    @RequiresPermission("operations:read")
+    @Operation(summary = "注销任务分页", description = "OPS-03：任务台账事实（状态/服务进度/阻断原因）")
+    public ApiResponse<Object> deletionTasks(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") Integer pageSize) {
+        return userOperationsClient.listTasks(status, page, pageSize);
+    }
+
+    @PostMapping("/deletion/{taskId}/retry")
+    @OperLog(title = "异常处理中心-注销", businessType = 2)
+    @RequiresPermission("operations:retry")
+    @Operation(summary = "重试注销失败步骤", description = "OPS-03：按步骤台账立即重试（reason 必填随审计留痕）；不提供跳过资金检查能力")
+    public ApiResponse<Object> retryDeletion(
+            @PathVariable long taskId,
+            @RequestBody java.util.Map<String, String> body) {
+        String reason = body == null ? null : body.get("reason");
+        if (reason == null || reason.isBlank()) {
+            throw new com.cloudmart.common.exception.BusinessException("VALIDATION_ERROR", "重试必须填写运营原因（审计）");
+        }
+        return userOperationsClient.retryTask(taskId, body);
+    }
+
+    @GetMapping("/exports")
+    @RequiresPermission("operations:read")
+    @Operation(summary = "心愿数据导出任务分页", description = "OPS-03：状态过滤；脱敏视图（不含密文/正文）")
+    public ApiResponse<Object> exportTasks(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") Integer pageSize) {
+        return exportOperationsClient.listTasks(status, page, pageSize);
+    }
+
+    @PostMapping("/exports/{id}/retry")
+    @OperLog(title = "异常处理中心-导出", businessType = 2)
+    @RequiresPermission("operations:retry")
+    @Operation(summary = "受控重试失败导出", description = "OPS-03：FAILED→PENDING 重排（reason 必填随审计留痕）；由持续 worker 认领执行，不跳过校验")
+    public ApiResponse<Object> retryExport(
+            @PathVariable long id,
+            @RequestBody java.util.Map<String, String> body) {
+        String reason = body == null ? null : body.get("reason");
+        if (reason == null || reason.isBlank()) {
+            throw new com.cloudmart.common.exception.BusinessException("VALIDATION_ERROR", "重试必须填写运营原因（审计）");
+        }
+        return exportOperationsClient.retryTask(id, body);
     }
 }

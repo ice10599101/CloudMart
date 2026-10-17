@@ -8,6 +8,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -39,6 +40,74 @@ public interface OperationsClients {
 
         @PostMapping("/outbox/{eventId}/retry")
         ApiResponse<Object> retryOutbox(@PathVariable("eventId") String eventId);
+    }
+
+    // ===== OPS-03：账号注销（mall-user）/ 心愿数据导出（mall-wish）运维处置 =====
+
+    @FeignClient(contextId = "userOperationsFeignClient", name = "mall-user", path = "/users/account-deletion",
+            fallbackFactory = UserOperationsFallback.class)
+    interface UserOperationsClient {
+        @GetMapping("/internal/tasks")
+        ApiResponse<Object> listTasks(@RequestParam("status") String status,
+                                      @RequestParam("page") int page,
+                                      @RequestParam("size") int size);
+
+        @PostMapping("/internal/tasks/{taskId}/retry")
+        ApiResponse<Object> retryTask(@PathVariable("taskId") long taskId,
+                                      @RequestBody java.util.Map<String, String> body);
+    }
+
+    @FeignClient(contextId = "exportOperationsFeignClient", name = "mall-wish", path = "/admin/exports",
+            fallbackFactory = ExportOperationsFallback.class)
+    interface ExportOperationsClient {
+        @GetMapping
+        ApiResponse<Object> listTasks(@RequestParam("status") String status,
+                                      @RequestParam("page") int page,
+                                      @RequestParam("size") int size);
+
+        @PostMapping("/{id}/retry")
+        ApiResponse<Object> retryTask(@PathVariable("id") long id,
+                                      @RequestBody java.util.Map<String, String> body);
+    }
+
+    @Component
+    class UserOperationsFallback implements FallbackFactory<UserOperationsClient> {
+        @Override
+        public UserOperationsClient create(Throwable cause) {
+            return new UserOperationsClient() {
+                @Override
+                public ApiResponse<Object> listTasks(String status, int page, int size) {
+                    throw com.cloudmart.common.feign.FeignBusinessErrors.parse(cause,
+                            "USER_SERVICE_UNAVAILABLE", "用户服务不可用，请稍后重试");
+                }
+
+                @Override
+                public ApiResponse<Object> retryTask(long taskId, java.util.Map<String, String> body) {
+                    throw com.cloudmart.common.feign.FeignBusinessErrors.parse(cause,
+                            "USER_SERVICE_UNAVAILABLE", "用户服务不可用，请稍后重试");
+                }
+            };
+        }
+    }
+
+    @Component
+    class ExportOperationsFallback implements FallbackFactory<ExportOperationsClient> {
+        @Override
+        public ExportOperationsClient create(Throwable cause) {
+            return new ExportOperationsClient() {
+                @Override
+                public ApiResponse<Object> listTasks(String status, int page, int size) {
+                    throw com.cloudmart.common.feign.FeignBusinessErrors.parse(cause,
+                            "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+                }
+
+                @Override
+                public ApiResponse<Object> retryTask(long id, java.util.Map<String, String> body) {
+                    throw com.cloudmart.common.feign.FeignBusinessErrors.parse(cause,
+                            "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+                }
+            };
+        }
     }
 
     @Component

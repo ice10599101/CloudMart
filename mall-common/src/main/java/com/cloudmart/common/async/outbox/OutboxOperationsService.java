@@ -30,10 +30,14 @@ public class OutboxOperationsService {
         return mapper;
     }
 
-    /** 脱敏视图行（不含 payload） */
+    /**
+     * 脱敏视图行（不含 payload——可能携带业务正文/敏感字段）。
+     * OPS-03：补 requestId（业务关联键）/nextRetryAt（下一次重试时间）运营列。
+     */
     public record OutboxTaskView(String eventId, String eventType, String aggregateId,
                                  String status, Integer attempts, String lastError,
-                                 String createdAt, String updatedAt) {
+                                 String createdAt, String updatedAt,
+                                 String requestId, String nextRetryAt) {
     }
 
     /** 分页结果：total 为同过滤条件全集计数，供分页器正确渲染页数 */
@@ -82,6 +86,8 @@ public class OutboxOperationsService {
                 e.getEventId(), e.getEventType(), e.getAggregateId(),
                 e.getStatus(), e.getAttempts(), e.getLastError(),
                 e.getCreatedAt() == null ? null : e.getCreatedAt().toString(),
-                e.getUpdatedAt() == null ? null : e.getUpdatedAt().toString());
+                e.getUpdatedAt() == null ? null : e.getUpdatedAt().toString(),
+                e.getRequestId(),
+                e.getNextRetryAt() == null ? null : e.getNextRetryAt().toString());
     }
 }
