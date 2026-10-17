@@ -265,6 +265,17 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
         detail.put("submitSeq", revision.getSubmitSeq());
         detail.put("lockVersion", revision.getLockVersion());
         detail.put("editorId", String.valueOf(revision.getEditorId()));
+        // 发布者昵称（profiles 失败时留空，前端回落 ID 展示）
+        try {
+            for (var profile : userSupportFeignClient.profiles(
+                    Map.of("userIds", List.of(revision.getEditorId()))).data()) {
+                if (profile.nickname() != null && !profile.nickname().isBlank()) {
+                    detail.put("editorNickname", profile.nickname());
+                }
+            }
+        } catch (Exception ignored) {
+            // 资料服务不可用：昵称留空
+        }
         detail.put("lifecycle", software.getLifecycle().name());
         // 审核决策的 expectedVersion 语义是软件主体 lockVersion（requireVersion(software)）
         detail.put("softwareLockVersion", software.getLockVersion());

@@ -3,7 +3,14 @@ import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
 import { Button, Drawer, Input, Radio, Space, Table, Tag, Typography } from 'antd'
 import DOMPurify from 'dompurify'
-import { decideReview, getReviewDetail, listPendingReviews } from '@/api/admin/software'
+import {
+  decideReview,
+  getAdminSoftwareDetail,
+  getReviewDetail,
+  listPendingReviews,
+  type AdminSoftwareDetail,
+} from '@/api/admin/software'
+import SoftwareDetailModal from '@/components/admin/SoftwareDetailModal'
 import type { AdminReviewDetail, AdminRevisionSnapshot } from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
@@ -86,6 +93,8 @@ export default function SoftwareReviews() {
   const message = useMessage()
   const actionRef = useRef<ActionType>(null)
   const [detail, setDetail] = useState<AdminReviewDetail | null>(null)
+  const [cardDetail, setCardDetail] = useState<AdminSoftwareDetail | null>(null)
+  const [cardDetailOpen, setCardDetailOpen] = useState(false)
   const [approve, setApprove] = useState(true)
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -126,10 +135,37 @@ export default function SoftwareReviews() {
     }
   }
 
+  const openDetail = async (softwareId: string) => {
+    try {
+      const res = await getAdminSoftwareDetail(softwareId)
+      if (res.data.success) {
+        setCardDetail(res.data.data)
+        setCardDetailOpen(true)
+      }
+    } catch {
+      // 拦截器已统一提示
+    }
+  }
+
   const columns: ProColumns<PendingRow>[] = [
     { title: '软件ID', dataIndex: 'softwareId', width: 90, search: false },
-    { title: '快照ID', dataIndex: 'revisionId', width: 90, search: false },
-    { title: '名称', dataIndex: 'name', width: 220, ellipsis: true, search: false },
+    
+    {
+      title: '名称',
+      dataIndex: 'name',
+      width: 220,
+      ellipsis: true,
+      search: false,
+      render: (_, record) => (
+        <Button
+          type="link"
+          style={{ padding: 0 }}
+          onClick={() => void openDetail(record.softwareId)}
+        >
+          {record.name || '(未命名)'}
+        </Button>
+      ),
+    },
     { title: '提交批次', dataIndex: 'submitSeq', width: 90, search: false },
     {
       title: '发布者',
@@ -154,11 +190,22 @@ export default function SoftwareReviews() {
     {
       title: '操作',
       valueType: 'option',
-      width: 90,
+      width: 130,
       render: (_, record) => [
-        <a key="review" onClick={() => openReview(record.revisionId)}>
+        <Button
+          key="detail"
+          type="link"
+          onClick={() => void openDetail(record.softwareId)}
+        >
+          详情
+        </Button>,
+        <Button
+          key="review"
+          type="link"
+          onClick={() => void openReview(record.revisionId)}
+        >
           审核
-        </a>,
+        </Button>,
       ],
     },
   ]

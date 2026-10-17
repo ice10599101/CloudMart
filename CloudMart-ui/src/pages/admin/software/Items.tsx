@@ -14,6 +14,7 @@ import {
   Tag,
   Typography,
 } from 'antd'
+import SoftwareDetailModal from '@/components/admin/SoftwareDetailModal'
 import {
   banAdminSoftware,
   deleteAdminSoftware,
@@ -33,64 +34,6 @@ const LIFECYCLE_MAP: Record<string, { label: string; color: string }> = {
   UNLISTED: { label: '已下架', color: 'warning' },
   BANNED: { label: '已封禁', color: 'error' },
 }
-
-const REVIEW_LABEL: Record<string, string> = {
-  DRAFT: '草稿',
-  PENDING: '待审核',
-  APPROVED: '已通过',
-  REJECTED: '已退回',
-}
-
-const TRAIL_LABEL: Record<string, string> = {
-  CREATE: '创建软件',
-  SAVE_DRAFT: '保存了草稿',
-  SUBMIT: '提交审核',
-  APPROVE: '审核通过',
-  REJECT: '审核退回',
-  WITHDRAW: '撤回待审',
-  UNLIST: '下架',
-  RELIST: '重新上架',
-  BAN: '封禁',
-  UNBAN: '解除封禁',
-  DELETE: '删除软件',
-  FEATURE: '设为精选',
-}
-
-const TRAIL_COLOR: Record<string, string> = {
-  CREATE: 'gray',
-  SAVE_DRAFT: 'gray',
-  SUBMIT: 'blue',
-  APPROVE: 'green',
-  REJECT: 'red',
-  WITHDRAW: 'orange',
-  BAN: 'red',
-  DELETE: 'red',
-}
-
-const PLATFORM_LABEL: Record<string, string> = {
-  WINDOWS: 'Windows',
-  MACOS: 'macOS',
-  LINUX: 'Linux',
-  ANDROID: 'Android',
-  IOS: 'iOS',
-  CROSS_PLATFORM: '跨平台',
-}
-
-/** 处置轨迹 reason 人话化：剥离 contentHash 等技术参数，仅保留可读原因 */
-const trailReason = (action: string, reason: string) => {
-  if (reason.includes('contentHash=')) {
-    const approved = /approved=true/.test(reason)
-    if (action === 'APPROVE') return approved ? '审核结论：通过' : '审核完成'
-    if (action === 'REJECT') return '审核结论：退回'
-    return ''
-  }
-  return `原因：${reason}`
-}
-
-/** 时间去技术格式：2026-10-17T13:11:11.586 → 2026-10-17 13:11 */
-const formatTrailTime = (value: string) =>
-  (value || '').replace('T', ' ').replace(/.\d+$/, '').slice(0, 16)
-
 const LICENSE_MAP: Record<string, string> = {
   FREE: '免费',
   OPEN_SOURCE: '开源',
@@ -195,7 +138,13 @@ export default function SoftwareItems() {
     { title: '软件ID', dataIndex: 'softwareId', width: 90, search: false },
     { title: '名称', dataIndex: 'name', width: 200, ellipsis: true, search: false },
     { title: '关键词', dataIndex: 'keyword', hideInTable: true, fieldProps: { placeholder: '名称/简介' } },
-    { title: '分享者ID', dataIndex: 'ownerId', width: 110, search: false },
+    {
+        title: '发布者',
+        dataIndex: 'ownerNickname',
+        width: 110,
+        search: false,
+        render: (_, record) => record.ownerNickname || `用户${record.ownerId}`,
+      },
     {
       title: '分享者',
       dataIndex: 'ownerIdFilter',
@@ -341,126 +290,12 @@ export default function SoftwareItems() {
         pagination={{ defaultPageSize: 20, showSizeChanger: true }}
       />
 
-      {/* 详情：帖子预览 + 人话化处置轨迹（仅管理员可见） */}
-      <Modal
-        title={`软件详情${detail?.name ? ` · ${detail.name}` : ''}`}
+      {/* 详情：帖子预览 + 处置轨迹（共享组件） */}
+      <SoftwareDetailModal
+        detail={detail}
         open={!!detail}
-        onCancel={() => setDetail(null)}
-        footer={[
-          <Button key="close" onClick={() => setDetail(null)}>
-            关闭
-          </Button>,
-        ]}
-        width={720}
-        centered
-        destroyOnHidden
-      >
-        {detail && (
-          <>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-              {detail.iconAssetId ? (
-                <img
-                  src={`/files/${detail.iconAssetId}`}
-                  alt="软件图标"
-                  style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover' }}
-                />
-              ) : null}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Typography.Text strong style={{ fontSize: 16 }}>
-                    {detail.name || '(未命名)'}
-                  </Typography.Text>
-                  <Tag color={detail.reviewStatus === 'APPROVED' ? 'success' : 'processing'}>
-                    {REVIEW_LABEL[detail.reviewStatus ?? ''] ?? detail.reviewStatus ?? '-'}
-                  </Tag>
-                  <Tag>{LIFECYCLE_MAP[detail.lifecycle]?.label ?? detail.lifecycle}</Tag>
-                </div>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  发布者 {detail.editorNickname || `用户${detail.editorId}`} · 提交批次 {detail.submitSeq ?? '-'}
-                </Typography.Text>
-              </div>
-            </div>
-            {detail.summary ? (
-              <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-                {detail.summary}
-              </Typography.Paragraph>
-            ) : null}
-            {detail.descriptionHtml ? (
-              <div
-                style={{ lineHeight: 1.7, wordBreak: 'break-word' }}
-                dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(detail.descriptionHtml),
-                }}
-              />
-            ) : (
-              <Typography.Text type="secondary">（介绍为空）</Typography.Text>
-            )}
-            {(detail.releases ?? []).length > 0 ? (
-              <>
-                <Typography.Title level={5} style={{ marginTop: 16 }}>
-                  版本与下载来源
-                </Typography.Title>
-                {(detail.releases ?? []).map((release, rIndex) => (
-                  <Card key={rIndex} size="small" style={{ marginBottom: 8 }}>
-                    <Typography.Text strong>
-                      {release.versionName}
-                      {release.recommended ? '（推荐）' : ''}
-                    </Typography.Text>
-                    {release.changelog ? (
-                      <Typography.Paragraph type="secondary" style={{ whiteSpace: 'pre-wrap', marginBottom: 4, marginTop: 4 }}>
-                        {release.changelog}
-                      </Typography.Paragraph>
-                    ) : null}
-                    {(release.sources ?? []).map((source, sIndex) => (
-                      <div key={sIndex} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', padding: '2px 0' }}>
-                        <Tag>{source.label}</Tag>
-                        <Tag>{PLATFORM_LABEL[source.platform] ?? source.platform}</Tag>
-                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                          {source.url}
-                        </Typography.Text>
-                        {source.extractionCode ? (
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                            提取码 {source.extractionCode}
-                          </Typography.Text>
-                        ) : null}
-                      </div>
-                    ))}
-                  </Card>
-                ))}
-              </>
-            ) : null}
-            <Typography.Title level={5} style={{ marginTop: 16 }}>
-              处置轨迹
-            </Typography.Title>
-            {(detail.auditTrail ?? []).length === 0 ? (
-              <Typography.Text type="secondary">暂无记录</Typography.Text>
-            ) : (
-              <Timeline
-                items={(detail.auditTrail ?? []).map((entry) => ({
-                  color: TRAIL_COLOR[entry.action] ?? 'gray',
-                  children: (
-                    <div style={{ paddingBottom: 4 }}>
-                      <Typography.Text>
-                        {TRAIL_LABEL[entry.action] ?? entry.action}
-                      </Typography.Text>
-                      <Typography.Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
-                        {formatTrailTime(entry.createdAt)}
-                      </Typography.Text>
-                      {entry.reason ? (
-                        <div>
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                            {trailReason(entry.action, entry.reason)}
-                          </Typography.Text>
-                        </div>
-                      ) : null}
-                    </div>
-                  ),
-                }))}
-              />
-            )}
-          </>
-        )}
-      </Modal>
+        onClose={() => setDetail(null)}
+      />
 
       {/* 精选排序（featuredRank=0 取消精选；expectedVersion 防并发覆盖） */}
       <Modal

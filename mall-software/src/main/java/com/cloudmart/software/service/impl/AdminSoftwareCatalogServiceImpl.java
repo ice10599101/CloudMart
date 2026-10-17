@@ -55,6 +55,7 @@ public class AdminSoftwareCatalogServiceImpl implements AdminSoftwareCatalogServ
     private static final Pattern SLUG_PATTERN = Pattern.compile("[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?");
 
     private final AdminSoftwareCatalogMapper catalogMapper;
+    private final com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
     private final SoftwareMapper softwareMapper;
     private final SoftwareCategoryMapper categoryMapper;
     private final SoftwareTagMapper tagMapper;
@@ -83,8 +84,60 @@ public class AdminSoftwareCatalogServiceImpl implements AdminSoftwareCatalogServ
                 Page.of(query.safePage(), query.safeSize()), query);
         Page<Map<String, Object>> result = new Page<>(rowPage.getCurrent(),
                 rowPage.getSize(), rowPage.getTotal());
-        result.setRecords(rowPage.getRecords().stream().map(this::toItemRow).toList());
+        List<Map<String, Object>> rows = rowPage.getRecords().stream()
+                .map(this::toItemRow).toList();
+        fillOwnerNicknames(rows);
+        result.setRecords(rows);
         return result;
+    }
+
+    /**
+     * 目录列表行级补发布者昵称（展示用户名而非数字 ID；同发布资格页先例）。
+     * profiles 失败/降级返回空时昵称缺省，前端回落为 ID 展示。
+     */
+    private void fillOwnerNicknames(List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        List<Long> ids = rows.stream()
+                .map(row -> row.get("ownerId"))
+                .filter(java.util.Objects::nonNull)
+                .map(value -> {
+                    try {
+                        return Long.parseLong(String.valueOf(value));
+                    } catch (NumberFormatException ignored) {
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<Long, String> nicknameById = new HashMap<>();
+        try {
+            for (var profile : userSupportFeignClient.profiles(
+                    Map.of("userIds", ids)).data()) {
+                nicknameById.put(profile.id(), profile.nickname());
+            }
+        } catch (Exception ignored) {
+            // 资料服务不可用：昵称留空，前端回落 ID 展示（列表主流程不受阻）
+        }
+        for (Map<String, Object> row : rows) {
+            Object raw = row.get("ownerId");
+            if (raw == null) {
+                continue;
+            }
+            try {
+                String nickname = nicknameById.get(Long.parseLong(String.valueOf(raw)));
+                if (nickname != null && !nickname.isBlank()) {
+                    row.put("ownerNickname", nickname);
+                }
+            } catch (NumberFormatException ignored) {
+                // 非数字 ownerId：留空
+            }
+        }
     }
 
     private Map<String, Object> toItemRow(AdminSoftwareCatalogMapper.ItemRow row) {
