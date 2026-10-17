@@ -41,7 +41,7 @@ import {
 } from '@ant-design/icons'
 import { Tooltip, Input, Modal, Popover, InputNumber, Segmented } from 'antd'
 import { message } from '@/utils/appMessage'
-import { uploadFile } from '@/api/file'
+import { deleteFileAsset, uploadFile } from '@/api/file'
 import { FontSize } from './extensions/fontSize'
 import { FontFamily } from './extensions/fontFamily'
 import { MediaAudio } from './extensions/mediaAudio'
@@ -171,6 +171,9 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
   const [fontColorVisible, setFontColorVisible] = useState(false)
   const [highlightColorVisible, setHighlightColorVisible] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+
+  // 本会话上传的资产登记（url → fileId）：正文移除图片时联动删除+退还配额
+  const uploadedAssetsRef = useRef<Map<string, string>>(new Map())
   const [isMediaUploading, setIsMediaUploading] = useState(false)
   const [showFontPanel, setShowFontPanel] = useState(false)
   const [fontFamilyValue, setFontFamilyValue] = useState('')
@@ -218,6 +221,17 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
     ],
     content: value ?? '',
     onUpdate: ({ editor: e }) => {
+      // 本会话上传的图片被从正文移除时，联动删除文件资产并退还上传配额：
+      // 计数语义 = 最终留在内容里的文件（跨会话的既有图片不在此列，不受影响）
+      const currentSrcs = new Set(
+        Array.from(e.getHTML().matchAll(/<img[^>]+src="([^"]+)"/g)).map((m) => m[1]),
+      )
+      for (const [src, fileId] of uploadedAssetsRef.current) {
+        if (!currentSrcs.has(src)) {
+          uploadedAssetsRef.current.delete(src)
+          void deleteFileAsset(fileId).catch(() => undefined)
+        }
+      }
       onChange?.(e.getHTML())
     },
     onSelectionUpdate: ({ editor: e }) => {
@@ -290,7 +304,8 @@ export default function TiptapEditor({ value, onChange, placeholder }: TiptapEdi
     setIsUploading(true)
     try {
       const { data: response } = await uploadFile(file)
-      if (response.data?.url) {
+      if (response.data?.url && response.data.fileId) {
+        uploadedAssetsRef.current.set(response.data.url, response.data.fileId)
         editor.chain().focus().setImage({ src: response.data.url }).run()
       }
     } catch {

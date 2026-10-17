@@ -32,7 +32,7 @@ import {
   type SoftwareTag,
   getSoftwareEditor,
 } from "@/api/software";
-import { uploadFileAsset } from "@/api/file";
+import { deleteFileAsset, uploadFileAsset } from "@/api/file";
 import { useAuthStore } from "@/stores/auth";
 import {
   clearPageDraft,
@@ -523,6 +523,12 @@ export default function SoftwarePublish() {
                 try {
                   const res = await uploadFileAsset(options.file as File, "PUBLIC");
                   if (res.data.success && res.data.data?.fileId) {
+                    // 替换图标：旧资产联动删除并退还配额（删除接口含引用检查，被引用时保留）
+                    if (iconAssetId && iconAssetId !== res.data.data.fileId) {
+                      void import('@/api/file').then((mod) =>
+                        mod.deleteFileAsset(iconAssetId).catch(() => undefined),
+                      )
+                    }
                     setIconAssetId(res.data.data.fileId);
                     options.onSuccess?.(res.data.data);
                     message.success("图标已上传");
