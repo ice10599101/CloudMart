@@ -62,7 +62,8 @@
 
 .heroLine {
   position: absolute;
-  top: 30%;
+  /* 贴 hero 底边作装饰分界线：此前 top:30% 会横穿昵称/邮箱行，文字层无背景导致视觉叠加 */
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 80%;
