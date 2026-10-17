@@ -1,9 +1,19 @@
 import { defineConfig } from 'umi';
 
-// 网关基址（协议+主机+端口）：优先读环境变量 GATEWAY_ORIGIN，默认指向远程服务器 Gateway。
-// 微服务/Docker 全部部署在远程服务器时，本机 dev 前端也必须把请求转发到该服务器，
-// 否则上传/接口会落到本机。修改服务器地址只需改 .env 里的 GATEWAY_ORIGIN。
-const GATEWAY_ORIGIN = process.env.GATEWAY_ORIGIN || 'http://129.204.152.168:8090'
+// 网关基址（协议+主机+端口）——DELIVERY-01 构建校验：
+// - dev（umi dev）：默认本地 http://localhost:8090，防开发页面误连远程环境；
+//   微服务全部部署在远程服务器时在 .env 显式设置 GATEWAY_ORIGIN 即可（现有工作流不变）。
+// - build（umi build，NODE_ENV=production）：必须显式设置 GATEWAY_ORIGIN
+//   （.env 或 shell），否则构建失败——禁止产物静默指向硬编码地址。
+const isProductionBuild = process.env.NODE_ENV === 'production'
+const GATEWAY_ORIGIN = process.env.GATEWAY_ORIGIN
+  ?? (isProductionBuild
+    ? (() => {
+        throw new Error(
+          '[GATEWAY_ORIGIN] 生产构建必须显式设置 GATEWAY_ORIGIN（CloudMart-ui/.env 或 shell 环境变量），防止产物误连其他环境',
+        )
+      })()
+    : 'http://localhost:8090')
 const GATEWAY_WS_ORIGIN = GATEWAY_ORIGIN.replace(/^http/, 'ws')
 
 // WebRTC ICE 服务器（直播观看端/推流端打洞用）：环境变量注入 RTCIceServer 数组 JSON，
@@ -262,5 +272,6 @@ export default defineConfig({
   cssMinifier: 'cssnano',
   define: {
     'process.env.WEBRTC_ICE_SERVERS': JSON.stringify(WEBRTC_ICE_SERVERS),
+    'process.env.GATEWAY_ORIGIN': JSON.stringify(GATEWAY_ORIGIN),
   },
 });
