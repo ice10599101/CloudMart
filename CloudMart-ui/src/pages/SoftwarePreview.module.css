@@ -1,29 +1,81 @@
 .page {
   max-width: 960px;
   margin: 0 auto;
-  padding: 24px 16px 48px;
+  padding: 24px 24px 48px;
 }
 
 .section {
   margin-bottom: 16px;
-  border-radius: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.section :global(.ant-card-head) {
+  border-bottom: 1px solid var(--color-border);
+  font-weight: 600;
+}
+
+.section :global(.ant-card-head-title) {
+  color: var(--color-text);
 }
 
 .head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.iconWrap {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  padding: 2px;
+  background: var(--color-gradient-primary);
+  box-shadow: 0 6px 18px rgba(var(--color-primary-rgb), 0.22);
+}
+
+.icon {
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  object-fit: cover;
+  background: var(--color-bg-elevated);
+  display: block;
+}
+
+.headInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-text);
+  word-break: break-word;
+}
+
+.head :global(.ant-tag) {
+  border-radius: 6px;
 }
 
 .summary {
+  margin: 0 0 12px;
   color: var(--color-text-secondary);
   font-size: 15px;
 }
 
 .meta {
   margin-top: 8px;
+}
+
+.meta :global(.ant-descriptions-item-label) {
+  color: var(--color-text-tertiary);
 }
 
 .description {
@@ -46,7 +98,8 @@
 }
 
 .releaseCard {
-  border-radius: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
 }
 
 .sourceRow {
@@ -55,6 +108,12 @@
   gap: 8px;
   flex-wrap: wrap;
   padding: 4px 0;
+}
+
+.sourceRow :global(.ant-tag) {
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
 }
 
 .sourceType {
@@ -71,4 +130,22 @@
   gap: 12px;
   justify-content: flex-end;
   margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 16px 16px 40px;
+  }
+  .iconWrap {
+    flex: 0 0 56px;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
+  .icon {
+    border-radius: 12px;
+  }
+  .title {
+    font-size: 19px;
+  }
 }

@@ -3,6 +3,7 @@
   --color-primary-rgb: 0, 212, 255;
   --color-primary-dark: #09C;
   --color-primary-glow: rgba(0, 212, 255, 50%);
+  --color-on-primary: #0B1220;
   --color-bg-base: #0B1220;
   --color-bg-container: #152038;
   --color-bg-elevated: #1A2845;
@@ -155,6 +156,8 @@ html, body, #root {
 
 .ant-btn-primary {
   background: var(--gradient-accent) !important;
+  /* 主色为高亮度色（亮青/樱粉），白字对比度不足 ~1.8:1，统一深色字（--color-on-primary 随主题切换） */
+  color: var(--color-on-primary) !important;
   border: none !important;
   border-radius: var(--radius-sm) !important;
   font-weight: 600 !important;

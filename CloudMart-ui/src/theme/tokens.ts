@@ -5,6 +5,8 @@ export interface ThemeTokens {
   colorPrimaryRgb: string
   colorPrimaryDark: string
   colorPrimaryGlow: string
+  /** 主色（实心按钮/渐变胶囊）之上的文字色：两套主色均为高亮度色，必须配深色字才可读 */
+  colorOnPrimary: string
   colorBgBase: string
   colorBgContainer: string
   colorBgElevated: string
@@ -45,6 +47,7 @@ const OCEAN_THEME: ThemeTokens = {
   colorPrimaryRgb: '0, 212, 255',
   colorPrimaryDark: '#0099CC',
   colorPrimaryGlow: 'rgba(0, 212, 255, 0.5)',
+  colorOnPrimary: '#0B1220',
   colorBgBase: '#0B1220',
   colorBgContainer: '#152038',
   colorBgElevated: '#1A2845',
@@ -85,6 +88,7 @@ const SAKURA_THEME: ThemeTokens = {
   colorPrimaryRgb: '255, 126, 179',
   colorPrimaryDark: '#E8609A',
   colorPrimaryGlow: 'rgba(255, 126, 179, 0.4)',
+  colorOnPrimary: '#2D1B2E',
   colorBgBase: '#FFF5F8',
   colorBgContainer: '#FFFFFF',
   colorBgElevated: '#FFF0F5',
@@ -139,6 +143,7 @@ export function applyCssVariables(tokens: ThemeTokens, mode?: ThemeMode): void {
   root.style.setProperty('--color-primary-rgb', tokens.colorPrimaryRgb)
   root.style.setProperty('--color-primary-dark', tokens.colorPrimaryDark)
   root.style.setProperty('--color-primary-glow', tokens.colorPrimaryGlow)
+  root.style.setProperty('--color-on-primary', tokens.colorOnPrimary)
   root.style.setProperty('--color-bg-base', tokens.colorBgBase)
   root.style.setProperty('--color-bg-container', tokens.colorBgContainer)
   root.style.setProperty('--color-bg-elevated', tokens.colorBgElevated)

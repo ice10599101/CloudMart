@@ -1,5 +1,59 @@
 .page {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 20px 16px 48px;
+  padding: 24px 16px 48px;
+}
+
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding: 28px 28px 24px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  background:
+    radial-gradient(700px 220px at 12% -10%, rgba(var(--color-primary-rgb), 0.12), transparent 60%),
+    var(--color-bg-container);
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.25;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent-purple), var(--color-accent-gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 16px rgba(var(--color-primary-rgb), 0.3));
+}
+
+.summary {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  max-width: 720px;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 16px 12px 40px;
+  }
+  .hero {
+    padding: 22px 18px 20px;
+    border-radius: 14px;
+  }
+  .title {
+    font-size: 22px;
+  }
 }

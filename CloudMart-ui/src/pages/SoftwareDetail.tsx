@@ -60,6 +60,13 @@ const LICENSE_LABEL: Record<string, string> = {
   COMMERCIAL: "商业",
 };
 
+const LICENSE_COLOR: Record<string, string> = {
+  FREE: "var(--color-accent-green)",
+  OPEN_SOURCE: "var(--color-accent-purple)",
+  TRIAL: "var(--color-accent-orange)",
+  COMMERCIAL: "var(--color-accent-gold)",
+};
+
 export default function SoftwareDetail() {
   const { id = "" } = useParams<{ id: string }>();
   const { message } = App.useApp();
@@ -481,25 +488,54 @@ export default function SoftwareDetail() {
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <img
-          className={styles.icon}
-          src={softwareIconUrl(detail.iconAssetId)}
-          alt={detail.iconAssetId ? `${detail.name} 图标` : ""}
-          onError={handleSoftwareIconError}
-        />
-        <div style={{ minWidth: 0 }}>
+        <div className={styles.iconWrap}>
+          <img
+            className={styles.icon}
+            src={softwareIconUrl(detail.iconAssetId)}
+            alt={detail.iconAssetId ? `${detail.name} 图标` : ""}
+            onError={handleSoftwareIconError}
+          />
+        </div>
+        <div className={styles.headInfo}>
           <h1 className={styles.title}>{detail.name}</h1>
           <p className={styles.summary}>{detail.summary}</p>
           <div className={styles.metaRow}>
-            {detail.categoryName ? <Tag>{detail.categoryName}</Tag> : null}
             {detail.licenseType ? (
-              <Tag>
+              <span
+                className={`${styles.tag} ${styles.licenseTag}`}
+                style={{
+                  color: LICENSE_COLOR[detail.licenseType],
+                  borderColor: LICENSE_COLOR[detail.licenseType],
+                }}
+              >
                 {LICENSE_LABEL[detail.licenseType] ?? detail.licenseType}
-              </Tag>
+              </span>
+            ) : null}
+            {detail.categoryName ? (
+              <span className={styles.tag}>{detail.categoryName}</span>
             ) : null}
             {detail.tags.map((tag) => (
-              <Tag key={tag.id}>{tag.name}</Tag>
+              <span key={tag.id} className={styles.tag}>
+                {tag.name}
+              </span>
             ))}
+          </div>
+          <div className={styles.stats}>
+            {detail.ratingAvg != null && detail.ratingAvg > 0 ? (
+              <span className={styles.statRating}>
+                <StarFilled />
+                {detail.ratingAvg.toFixed(1)}
+                <span
+                  style={{ color: "var(--color-text-tertiary)", fontWeight: 400 }}
+                >
+                  {detail.ratingCount > 0
+                    ? `${detail.ratingCount} 人评分`
+                    : "暂无评分"}
+                </span>
+              </span>
+            ) : null}
+            <span>收藏 {detail.favoriteCount}</span>
+            <span>评论 {detail.commentCount}</span>
           </div>
         </div>
       </div>
@@ -641,8 +677,8 @@ export default function SoftwareDetail() {
                             bottom: "100%",
                             left: 0,
                             right: 0,
-                            background: "var(--color-bg-elevated, #fff)",
-                            border: "1px solid var(--color-border, #eee)",
+                            background: "var(--color-bg-elevated)",
+                            border: "1px solid var(--color-border)",
                             borderRadius: 8,
                             maxHeight: 180,
                             overflowY: "auto",

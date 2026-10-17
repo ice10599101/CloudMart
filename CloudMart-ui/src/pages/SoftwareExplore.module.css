@@ -1,25 +1,102 @@
 .page {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 0 24px 48px;
+  padding: 24px 24px 48px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
 .title {
-  margin: 32px 0 16px;
-  font-size: 22px;
-  font-weight: 700;
+  position: relative;
+  margin: 0;
+  padding-left: 14px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--color-text);
+}
+
+.title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 22px;
+  border-radius: 2px;
+  background: var(--color-gradient-primary);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.5);
+}
+
+.resultCount {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
 }
 
 .keyword {
-  max-width: 420px;
+  max-width: 480px;
+  margin-bottom: 14px;
+}
+
+.keyword :global(.ant-input-affix-wrapper) {
+  height: 44px;
+  border-radius: 12px;
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.keyword :global(.ant-input-affix-wrapper:hover),
+.keyword :global(.ant-input-affix-wrapper-focused) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.12);
+}
+
+.keyword :global(.ant-input) {
+  background: transparent;
+  color: var(--color-text);
+}
+
+.filterPanel {
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  background: var(--color-bg-container);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.filterLabel {
   margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
 }
 
 .filters {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+}
+
+.filters :global(.ant-select-selector) {
+  border-radius: 10px !important;
+  background: var(--color-bg-input) !important;
+  border-color: var(--color-border) !important;
+  transition: border-color 0.25s ease;
+}
+
+.filters :global(.ant-select:hover .ant-select-selector),
+.filters :global(.ant-select-focused .ant-select-selector) {
+  border-color: var(--color-primary) !important;
 }
 
 .activeFilters {
@@ -27,20 +104,43 @@
   gap: 8px;
   flex-wrap: wrap;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+}
+
+.activeFilters :global(.ant-tag) {
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-container);
+}
+
+.clearAll {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.clearAll:hover {
+  color: var(--color-primary);
 }
 
 .pagination {
   display: flex;
   justify-content: center;
-  margin-top: 28px;
+  margin-top: 32px;
 }
 
 @media (max-width: 768px) {
   .page {
-    padding: 0 16px 40px;
+    padding: 16px 16px 40px;
+  }
+  .title {
+    font-size: 20px;
   }
   .keyword {
     max-width: none;
+  }
+  .filterPanel {
+    padding: 14px;
   }
 }

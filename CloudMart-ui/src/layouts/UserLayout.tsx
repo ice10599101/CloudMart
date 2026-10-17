@@ -445,6 +445,8 @@ export default function UserLayout() {
         algorithm: tokens.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {
           colorPrimary: tokens.colorPrimary,
+          // 主色为高亮度色（亮青/樱粉），实心按钮白字对比度不足 → 统一深色字
+          colorTextLightSolid: tokens.colorOnPrimary,
           colorBgContainer: tokens.colorBgContainer,
           colorBgElevated: tokens.colorBgElevated,
           colorBgLayout: tokens.colorBgBase,
@@ -457,6 +459,7 @@ export default function UserLayout() {
           fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif",
         },
         components: {
+          Button: { primaryColor: tokens.colorOnPrimary },
           Card: { colorBgContainer: tokens.colorBgContainer, colorBorderSecondary: tokens.isDark ? 'var(--color-border)' : 'rgba(0,0,0,0.06)' },
           Table: { colorBgContainer: tokens.colorBgContainer, headerBg: tokens.colorBgFooter, rowHoverBg: tokens.colorBgElevated },
           Input: { colorBgContainer: tokens.colorBgInput, activeBorderColor: tokens.colorPrimary, hoverBorderColor: tokens.colorPrimary },

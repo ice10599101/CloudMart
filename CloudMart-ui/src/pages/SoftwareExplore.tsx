@@ -167,7 +167,7 @@ export default function SoftwareExplore() {
           {tags.find((item) => item.id === tagId)?.name ?? "标签"}
         </Tag>
       ) : null}
-      <Button type="link" size="small" onClick={clearFilters}>
+      <Button type="link" size="small" className={styles.clearAll} onClick={clearFilters}>
         清空全部
       </Button>
     </>
@@ -175,7 +175,10 @@ export default function SoftwareExplore() {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>筛选软件</h1>
+      <div className={styles.head}>
+        <h1 className={styles.title}>筛选软件</h1>
+        <span className={styles.resultCount}>共 {total} 款</span>
+      </div>
 
       <Input.Search
         allowClear
@@ -188,7 +191,9 @@ export default function SoftwareExplore() {
         }
       />
 
-      <Space wrap className={styles.filters}>
+      <div className={styles.filterPanel}>
+        <div className={styles.filterLabel}>筛选条件</div>
+        <Space wrap className={styles.filters}>
         <Select
           style={{ width: 200 }}
           placeholder="分类"
@@ -238,7 +243,8 @@ export default function SoftwareExplore() {
           onChange={(value: string) => updateParams({ sort: value })}
           options={SORT_OPTIONS}
         />
-      </Space>
+        </Space>
+      </div>
 
       {hasFilter ? (
         <div className={styles.activeFilters}>{activeTags}</div>

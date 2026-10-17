@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { App, Empty, Pagination, Segmented, Spin, Typography } from "antd";
+import { App, Empty, Pagination, Segmented, Spin } from "antd";
 import {
   listSoftwareRankings,
   type SoftwareCard,
@@ -52,9 +52,7 @@ export default function SoftwareRankings() {
   return (
     <div className={styles.page}>
       <div className={styles.head}>
-        <Typography.Title level={4} style={{ margin: 0 }}>
-          排行榜
-        </Typography.Title>
+        <h1 className={styles.title}>排行榜</h1>
         <Segmented
           value={type}
           onChange={(value) => {
@@ -64,9 +62,7 @@ export default function SoftwareRankings() {
           options={Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }))}
         />
       </div>
-      <Typography.Paragraph type="secondary" className={styles.note}>
-        {TYPE_NOTE[type]}
-      </Typography.Paragraph>
+      <p className={styles.note}>{TYPE_NOTE[type]}</p>
 
       <Spin spinning={loading}>
         {items.length === 0 && !loading ? (

@@ -144,23 +144,20 @@ export default function SoftwarePreview() {
       <Card className={styles.section}>
         <div className={styles.head}>
           {editor.iconAssetId ? (
-            <img
-              src={`/files/by-id/${editor.iconAssetId}`}
-              alt="软件图标"
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 12,
-                objectFit: "cover",
-              }}
-            />
+            <div className={styles.iconWrap}>
+              <img
+                className={styles.icon}
+                src={`/files/by-id/${editor.iconAssetId}`}
+                alt="软件图标"
+              />
+            </div>
           ) : null}
-          <Typography.Title level={3} style={{ marginBottom: 0 }}>
-            {editor.name}
-          </Typography.Title>
-          <Tag color="processing">
-            {statusLabel[editor.reviewStatus] ?? editor.reviewStatus}
-          </Tag>
+          <div className={styles.headInfo}>
+            <h1 className={styles.title}>{editor.name}</h1>
+            <Tag color="processing">
+              {statusLabel[editor.reviewStatus] ?? editor.reviewStatus}
+            </Tag>
+          </div>
         </div>
         {editor.summary ? (
           <Typography.Paragraph className={styles.summary}>

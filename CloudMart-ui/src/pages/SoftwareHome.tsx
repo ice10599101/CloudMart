@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
-import { Button, Empty, Input, Spin, Tag, Typography } from "antd";
-import { SearchOutlined } from "@ant-design/icons";
+import { Empty, Input, Spin } from "antd";
+import {
+  CloudUploadOutlined,
+  FolderOpenOutlined,
+  RocketOutlined,
+  SearchOutlined,
+  TrophyOutlined,
+} from "@ant-design/icons";
 import { history } from "umi";
 import {
   listSoftware,
@@ -23,6 +29,22 @@ function goExplore(params: Record<string, string>) {
   history.push(search ? `/software/explore?${search}` : "/software/explore");
 }
 
+/** 分类胶囊装饰图标：按分类名关键词匹配 emoji（纯展示装饰，非业务数据；未命中兜底 📦） */
+const CATEGORY_EMOJI_RULES: [RegExp, string][] = [
+  [/办公|效率|文档/, "💼"],
+  [/开发|编程|代码/, "🛠️"],
+  [/图像|设计|图片|绘画/, "🎨"],
+  [/影音|视频|音频|媒体|音乐|播放/, "🎬"],
+  [/学习|教育|课程/, "📚"],
+  [/游戏|娱乐/, "🎮"],
+  [/网络|浏览器|下载/, "🌐"],
+  [/系统|驱动|安全|清理/, "⚙️"],
+];
+
+function categoryEmoji(name: string): string {
+  return CATEGORY_EMOJI_RULES.find(([re]) => re.test(name))?.[1] ?? "📦";
+}
+
 export default function SoftwareHome() {
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState("");
@@ -31,6 +53,8 @@ export default function SoftwareHome() {
   const [topics, setTopics] = useState<SoftwareTopicSummary[]>([]);
   const [recommended, setRecommended] = useState<SoftwareCard[]>([]);
   const [latest, setLatest] = useState<SoftwareCard[]>([]);
+  /** 已收录软件总数（推荐列表接口返回的真实 total，用于 hero 统计条） */
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     listSoftwareCategories()
@@ -55,8 +79,10 @@ export default function SoftwareHome() {
       listSoftware({ sort: "latest", page: 1, size: LATEST_FETCH_SIZE }),
     ])
       .then(([recommendRes, latestRes]) => {
-        if (recommendRes.data.success)
+        if (recommendRes.data.success) {
           setRecommended(recommendRes.data.data?.records ?? []);
+          setTotalCount(recommendRes.data.data?.total ?? 0);
+        }
         if (latestRes.data.success)
           setLatest(latestRes.data.data?.records ?? []);
       })
@@ -75,51 +101,87 @@ export default function SoftwareHome() {
   return (
     <div className={styles.page}>
       <div className={styles.hero}>
-        <Typography.Title level={2} className={styles.title}>
-          小答软件
-        </Typography.Title>
-        <Typography.Paragraph className={styles.subtitle}>
-          发现好用的软件：分类浏览、关键词搜索，满足条件后获取下载来源
-        </Typography.Paragraph>
-        <div className={styles.searchRow}>
-          <Input
-            allowClear
-            className={styles.searchInput}
-            size="large"
-            prefix={<SearchOutlined />}
-            placeholder="搜索软件名称、用途、标签……"
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-            onPressEnter={() => {
-              const trimmed = keyword.trim();
-              goExplore(trimmed ? { keyword: trimmed } : {});
-            }}
-          />
-        </div>
-        <div className={styles.quickLinks}>
-          <Button type="link" onClick={() => history.push("/software/rankings")}>
-            排行榜（获取热榜 / 收藏榜 / 评分榜）
-          </Button>
-          <Button type="link" onClick={() => history.push("/software/publish")}>
-            发布软件
-          </Button>
-          <Button type="link" onClick={() => history.push("/software/mine")}>
-            我的软件
-          </Button>
-        </div>
-        <div className={styles.categories}>
-          <Tag style={{ cursor: "pointer" }} onClick={() => goExplore({})}>
-            全部
-          </Tag>
-          {categories.map((item) => (
-            <Tag
-              key={item.id}
-              style={{ cursor: "pointer" }}
-              onClick={() => goExplore({ categoryId: item.id })}
+        <div className={styles.heroContent}>
+          <div className={styles.eyebrow}>
+            <RocketOutlined className={styles.eyebrowIcon} />
+            软件广场
+          </div>
+          <h1 className={styles.title}>小答软件</h1>
+          <p className={styles.subtitle}>
+            发现好用的软件：分类浏览、关键词搜索，满足条件后获取下载来源
+          </p>
+          {totalCount > 0 ? (
+            <div className={styles.heroStats}>
+              已收录
+              <span className={styles.heroStatsStrong}>{totalCount}</span>
+              款软件 · {categories.length} 个分类
+            </div>
+          ) : null}
+          <div className={styles.searchWrap}>
+            <Input
+              allowClear
+              size="large"
+              prefix={<SearchOutlined />}
+              placeholder="搜索软件名称、用途、标签……"
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              onPressEnter={() => {
+                const trimmed = keyword.trim();
+                goExplore(trimmed ? { keyword: trimmed } : {});
+              }}
+            />
+          </div>
+          <div className={styles.categories}>
+            <button
+              type="button"
+              className={`${styles.categoryPill} ${styles.categoryPillPrimary}`}
+              onClick={() => goExplore({})}
             >
-              {item.name}
-            </Tag>
-          ))}
+              <span className={styles.categoryEmoji} aria-hidden>
+                ✨
+              </span>
+              全部
+            </button>
+            {categories.map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className={styles.categoryPill}
+                onClick={() => goExplore({ categoryId: item.id })}
+              >
+                <span className={styles.categoryEmoji} aria-hidden>
+                  {categoryEmoji(item.name)}
+                </span>
+                {item.name}
+              </button>
+            ))}
+          </div>
+          <div className={styles.actions}>
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={() => history.push("/software/rankings")}
+            >
+              <TrophyOutlined className={styles.actionBtnIcon} />
+              排行榜
+            </button>
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={() => history.push("/software/publish")}
+            >
+              <CloudUploadOutlined className={styles.actionBtnIcon} />
+              发布软件
+            </button>
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={() => history.push("/software/mine")}
+            >
+              <FolderOpenOutlined className={styles.actionBtnIcon} />
+              我的软件
+            </button>
+          </div>
         </div>
       </div>
 
@@ -130,28 +192,52 @@ export default function SoftwareHome() {
           <>
             <section>
               <div className={styles.sectionHead}>
-                <h2 className={styles.sectionTitle}>推荐</h2>
-                <Button
-                  type="link"
-                  size="small"
+                <h2 className={styles.sectionTitle}>
+                  <span className={styles.sectionIcon} aria-hidden>
+                    🔥
+                  </span>
+                  推荐
+                </h2>
+                <span
+                  className={styles.moreLink}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => goExplore({ sort: "featured" })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      goExplore({ sort: "featured" });
+                    }
+                  }}
                 >
                   查看全部
-                </Button>
+                </span>
               </div>
               <SoftwareCardGrid cards={recommended} />
             </section>
 
             <section>
               <div className={styles.sectionHead}>
-                <h2 className={styles.sectionTitle}>最新更新</h2>
-                <Button
-                  type="link"
-                  size="small"
+                <h2 className={styles.sectionTitle}>
+                  <span className={styles.sectionIcon} aria-hidden>
+                    ⚡
+                  </span>
+                  最新更新
+                </h2>
+                <span
+                  className={styles.moreLink}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => goExplore({ sort: "latest" })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      goExplore({ sort: "latest" });
+                    }
+                  }}
                 >
                   查看全部
-                </Button>
+                </span>
               </div>
               <SoftwareCardGrid cards={latestVisible} />
             </section>
@@ -160,17 +246,30 @@ export default function SoftwareHome() {
             {topics.length > 0 ? (
               <section>
                 <div className={styles.sectionHead}>
-                  <h2 className={styles.sectionTitle}>专题合集</h2>
+                  <h2 className={styles.sectionTitle}>
+                    <span className={styles.sectionIcon} aria-hidden>
+                      ⭐
+                    </span>
+                    专题合集
+                  </h2>
                 </div>
                 <div className={styles.topicList}>
                   {topics.map((topic) => (
-                    <Tag
+                    <span
                       key={topic.topicId}
-                      className={styles.topicTag}
+                      className={styles.topicPill}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => history.push(`/software/topics/${topic.slug}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          history.push(`/software/topics/${topic.slug}`);
+                        }
+                      }}
                     >
                       {topic.title}
-                    </Tag>
+                    </span>
                   ))}
                 </div>
               </section>

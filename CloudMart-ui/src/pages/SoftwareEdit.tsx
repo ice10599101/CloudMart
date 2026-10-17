@@ -636,13 +636,13 @@ export default function SoftwareEdit() {
                     width: 72,
                     height: 72,
                     borderRadius: 12,
-                    border: "1px dashed var(--color-border, #444)",
+                    border: "1px dashed var(--color-border)",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
                     cursor: frozen ? "default" : "pointer",
-                    color: "var(--color-text-secondary, #999)",
+                    color: "var(--color-text-secondary)",
                     gap: 2,
                   }}
                 >

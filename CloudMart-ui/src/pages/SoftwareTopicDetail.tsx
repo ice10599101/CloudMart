@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { App, Empty, Spin, Typography } from "antd";
+import { App, Empty, Spin } from "antd";
 import { history, useParams } from "umi";
 import { getSoftwareTopic, type SoftwareTopicDetail } from "@/api/software";
 import SoftwareCardGrid from "@/components/software/SoftwareCardGrid";
@@ -43,12 +43,13 @@ export default function SoftwareTopicDetailPage() {
       <Spin spinning={loading}>
         {topic ? (
           <>
-            <Typography.Title level={3} style={{ marginBottom: 4 }}>
-              {topic.title}
-            </Typography.Title>
-            {topic.summary ? (
-              <Typography.Paragraph type="secondary">{topic.summary}</Typography.Paragraph>
-            ) : null}
+            <div className={styles.hero}>
+              <p className={styles.eyebrow}>专题合集</p>
+              <h1 className={styles.title}>{topic.title}</h1>
+              {topic.summary ? (
+                <p className={styles.summary}>{topic.summary}</p>
+              ) : null}
+            </div>
             {topic.items.length === 0 ? (
               <Empty description="专题内暂无可见软件" />
             ) : (

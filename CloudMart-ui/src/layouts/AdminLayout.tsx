@@ -206,6 +206,7 @@ export default function AdminLayout() {
         algorithm: tokens.isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {
           colorPrimary: tokens.colorPrimary,
+          colorTextLightSolid: tokens.colorOnPrimary,
           colorBgContainer: tokens.colorBgContainer,
           colorBgElevated: tokens.colorBgElevated,
           colorBgLayout: tokens.colorBgBase,
@@ -218,6 +219,7 @@ export default function AdminLayout() {
           fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif",
         },
         components: {
+          Button: { primaryColor: tokens.colorOnPrimary },
           Card: { colorBgContainer: tokens.colorBgContainer, colorBorderSecondary: tokens.colorBorder },
           Table: { colorBgContainer: tokens.colorBgContainer, headerBg: tokens.colorBgFooter, rowHoverBg: tokens.colorBgElevated },
           Input: { colorBgContainer: tokens.colorBgInput, activeBorderColor: tokens.colorPrimary, hoverBorderColor: tokens.colorPrimary },
