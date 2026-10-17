@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "umi";
 import { App, Button, Empty, List, Popconfirm, Space, Spin, Switch, Tabs, Tag } from "antd";
 import { history } from "umi";
 import {
@@ -11,6 +12,15 @@ import {
 } from "@/api/software";
 import { useAuthStore } from "@/stores/auth";
 import styles from "./SoftwareMine.module.css";
+
+const TAB_KEYS = [
+  "published",
+  "draft",
+  "pending",
+  "rejected",
+  "favorites",
+  "subscriptions",
+] as const;
 
 type TabKey =
   | "published"
@@ -31,7 +41,18 @@ export default function SoftwareMine() {
   const { message } = App.useApp();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  const [tab, setTab] = useState<TabKey>("published");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get("tab") as TabKey | null;
+  const [tab, setTabState] = useState<TabKey>(
+    urlTab && TAB_KEYS.includes(urlTab) ? urlTab : "published",
+  );
+  const setTab = (next: TabKey) => {
+    setTabState(next);
+    // tab 写入 URL：每次切换成为一条浏览器历史，后退/前进可还原
+    const params = new URLSearchParams();
+    if (next !== "published") params.set("tab", next);
+    setSearchParams(params);
+  };
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<SoftwareMineItem[]>([]);
   /** P1 更新提醒总开关（缺省开启；与订阅关系相互独立） */
