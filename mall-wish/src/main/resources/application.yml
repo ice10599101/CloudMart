@@ -266,3 +266,6 @@ cloudmart:
       mall-community: community:internal
       # 心愿关联商品闭环（§6）：还愿购买凭证校验（/internal/orders/purchase-evidence）
       mall-order: order:internal
+      # WISH-04：邀请资格回调（/invites/internal/eligibility-check，签到事务提交后）
+      # 缺失时回调无签名 → mall-user 拒绝 → 资格判定静默延后
+      mall-user: user:internal
