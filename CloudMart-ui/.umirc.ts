@@ -157,7 +157,6 @@ export default defineConfig({
         { path: '/admin/business/categories', component: '@/pages/admin/business/Categories' },
         { path: '/admin/business/orders', component: '@/pages/admin/business/Orders' },
         // 会员管理已迁至 系统管理→用户管理（/admin/system/users），老路径重定向兜底
-        { path: '/admin/business/members', redirect: '/admin/system/users' },
         { path: '/admin/business/coupons', component: '@/pages/admin/business/Coupons' },
         { path: '/admin/business/seckill', component: '@/pages/admin/business/Seckill' },
         { path: '/admin/business/cart', component: '@/pages/admin/business/Cart' },
