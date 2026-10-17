@@ -182,6 +182,7 @@ export default function SoftwarePublish() {
       revisionId: string | null;
       lockVersion: number | null;
     }>(DRAFT_KEY);
+    restoredRef.current = true; // 无档也置位：否则保存 effect 永不启用，内容从不落档
     if (!draft) return;
     if (draft.name) setName(draft.name);
     if (draft.summary) setSummary(draft.summary);
@@ -199,7 +200,6 @@ export default function SoftwarePublish() {
     if (draft.softwareId) setSoftwareId(draft.softwareId);
     if (draft.revisionId) setRevisionId(draft.revisionId);
     if (draft.lockVersion != null) setLockVersion(draft.lockVersion);
-    restoredRef.current = true;
     // 仅挂载恢复一次；置位后保存 effect 才开始写档（防挂载初始值覆盖存档）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

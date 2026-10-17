@@ -169,6 +169,7 @@ export default function SoftwareEdit() {
       officialUrl?: string;
       systemRequirements?: string;
     }>(EDIT_DRAFT_KEY);
+    editRestoredRef.current = true; // 无档也置位：否则保存 effect 永不启用
     if (!draft) return;
     if (draft.name) setName(draft.name);
     if (draft.summary) setSummary(draft.summary);
