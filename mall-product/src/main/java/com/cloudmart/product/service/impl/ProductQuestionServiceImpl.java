@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.outbox.OutboxService;
+import org.springframework.beans.factory.ObjectProvider;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.product.entity.ProductAnswer;
 import com.cloudmart.product.entity.ProductQuestion;
@@ -53,7 +54,13 @@ public class ProductQuestionServiceImpl implements ProductQuestionService {
     private final ProductMapper productMapper;
     private final OrderPurchaseFeignClient orderPurchaseFeignClient;
     private final com.cloudmart.product.feign.UserFeignClient userFeignClient;
-    private final OutboxService outboxService;
+    /**
+     * PRODUCT-01：回答通知事件走 Outbox（事实先行），但 mall-product 未配置
+     * cloudmart.async.enabled（outbox 三表/MapperScan/投递器均为 order 等模块的装配），
+     * 故用 ObjectProvider 条件注入——未装配时优雅跳过（通知是 best-effort 增强，
+     * 事实已在 answer 表），不阻塞服务启动。
+     */
+    private final ObjectProvider<OutboxService> outboxServiceProvider;
 
     @Override
     @Transactional
@@ -192,7 +199,13 @@ public class ProductQuestionServiceImpl implements ProductQuestionService {
                     + ",\"askerUserId\":" + question.getUserId()
                     + ",\"authorUserId\":" + answer.getAuthorUserId()
                     + ",\"preview\":\"" + content.replace("\\", "\\\\").replace("\"", "\\\"") + "\"}";
-            outboxService.record(EventEnvelope.of(
+            OutboxService outbox = outboxServiceProvider.getIfAvailable();
+            if (outbox == null) {
+                // outbox 未装配：跳过事件（通知增强缺失，回答事实不受影响）
+                log.debug("[PRODUCT01] outbox 未装配，跳过 QUESTION_ANSWERED 事件: answerId={}", answer.getId());
+                return;
+            }
+            outbox.record(EventEnvelope.of(
                     "QUESTION_ANSWERED", 1, String.valueOf(answer.getId()), 1, null, payload));
         } catch (Exception e) {
             // 通知事件失败不阻断回答主流程（事实已在 answer 表；补偿可由对账重建）

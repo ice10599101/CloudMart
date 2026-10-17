@@ -90,9 +90,12 @@ class ProductQuestionServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        org.springframework.beans.factory.ObjectProvider<com.cloudmart.common.async.outbox.OutboxService>
+                outboxProvider = org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class);
+        lenient().when(outboxProvider.getIfAvailable()).thenReturn(outboxService);
         service = new ProductQuestionServiceImpl(
                 questionMapper, answerMapper, productMapper, orderPurchaseFeignClient,
-                userFeignClient, outboxService);
+                userFeignClient, outboxProvider);
         lenient().when(productMapper.selectById(PRODUCT_ID)).thenReturn(new com.cloudmart.product.entity.Product());
         lenient().when(userFeignClient.batchGetUsers(anyList()))
                 .thenReturn(ApiResponse.ok(List.of(
