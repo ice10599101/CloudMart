@@ -41,8 +41,7 @@ class AdminProfileControllerTest {
     @BeforeEach
     void setSecurityContext() {
         AdminSecurityContext.set(new AdminSecurityContext(
-                1L, "admin", "admin", java.util.Set.of("*:*:*"), 1L
-        ));
+                1L, "admin", "admin", java.util.Set.of("*:*:*")));
     }
 
     @AfterEach

@@ -24,17 +24,11 @@ public interface AdminConverter {
 
     List<AdminMenuResponse> toMenuResponseList(List<AdminMenu> entities);
 
-    AdminDictTypeResponse toDictTypeResponse(AdminDictType entity);
 
-    List<AdminDictTypeResponse> toDictTypeResponseList(List<AdminDictType> entities);
 
-    AdminDictDataResponse toDictDataResponse(AdminDictData entity);
 
-    List<AdminDictDataResponse> toDictDataResponseList(List<AdminDictData> entities);
 
-    AdminConfigResponse toConfigResponse(AdminConfig entity);
 
-    List<AdminConfigResponse> toConfigResponseList(List<AdminConfig> entities);
 
     @Mapping(target = "readCount", ignore = true)
     @Mapping(target = "isRead", ignore = true)

@@ -317,7 +317,6 @@ class UserJwtAuthenticationFilterTest {
                 .claim("subjectType", "admin")
                 .claim("perms", "monitor:job:list,monitor:job:run")
                 .claim("username", "ops")
-                .claim("deptId", "3")
                 .build());
 
         filter.doFilter(request(adminToken), new MockHttpServletResponse(), capturingChain);
@@ -330,7 +329,6 @@ class UserJwtAuthenticationFilterTest {
         assertThat(context.userId()).isEqualTo(7L);
         assertThat(context.username()).isEqualTo("ops");
         assertThat(context.role()).isEqualTo("admin");
-        assertThat(context.deptId()).isEqualTo(3L);
         assertThat(context.hasPermission("monitor:job:list")).isTrue();
         assertThat(context.hasPermission("other:perm")).isFalse();
     }

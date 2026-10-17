@@ -145,8 +145,6 @@ export default defineConfig({
         // 账号设置 = 唯一管理员自己的资料与密码（单管理员后台，无 RBAC 组织架构）
         { path: '/admin/system/account', component: '@/pages/admin/system/AccountSettings' },
         { path: '/admin/system/menus', component: '@/pages/admin/system/Menus' },
-        { path: '/admin/system/dict', component: '@/pages/admin/system/Dict' },
-        { path: '/admin/system/config', component: '@/pages/admin/system/Config' },
         { path: '/admin/system/notices', component: '@/pages/admin/system/Notices' },
         { path: '/admin/system/oper-log', component: '@/pages/admin/system/OperLog' },
         { path: '/admin/system/login-log', component: '@/pages/admin/system/LoginLog' },

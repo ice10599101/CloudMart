@@ -325,7 +325,6 @@
         <module>mall-admin</module>
         <module>mall-file</module>
         <module>mall-job</module>
-        <module>mall-gen</module>
         <module>mall-community</module>
         <module>mall-wish</module>
         <module>mall-pet</module>

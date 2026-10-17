@@ -70,7 +70,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             SecurityConstants.INTERNAL_CALL_HEADER,
             SecurityConstants.ADMIN_ROLE_HEADER,
             SecurityConstants.ADMIN_PERMISSIONS_HEADER,
-            SecurityConstants.ADMIN_DEPT_ID_HEADER,
             SecurityConstants.ADMIN_USERNAME_HEADER
     };
 
@@ -127,7 +126,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         String scope = null;
         String perms = null;
         String username = null;
-        String deptId = null;
 
         if (authorization == null || !authorization.startsWith(SecurityConstants.BEARER_PREFIX)) {
             return chain.filter(sanitizedExchange);
@@ -164,7 +162,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             scope = claims.getStringClaim("scope");
             perms = claims.getStringClaim("perms");
             username = claims.getStringClaim("username");
-            deptId = claims.getStringClaim("deptId");
         } catch (ParseException e) {
             log.warn("[AUTH REJECT] JWT 解析失败 for path {}: {}", path, e.getMessage());
             return chain.filter(sanitizedExchange);
@@ -176,7 +173,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
         final String fScope = scope;
         final String fPerms = perms;
         final String fUsername = username;
-        final String fDeptId = deptId;
 
         return sessionValidator.isSessionValid(fScope, fUserId, fSid, fAuthVersion)
                 .flatMap(valid -> {
@@ -197,9 +193,6 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
                                         }
                                         if (fUsername != null) {
                                             headers.add(SecurityConstants.ADMIN_USERNAME_HEADER, fUsername);
-                                        }
-                                        if (fDeptId != null) {
-                                            headers.add(SecurityConstants.ADMIN_DEPT_ID_HEADER, fDeptId);
                                         }
                                     }))
                             .build();

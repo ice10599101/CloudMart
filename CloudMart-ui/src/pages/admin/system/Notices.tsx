@@ -15,7 +15,6 @@ import {
   deleteNotice,
   updateNoticeStatus,
   pushNotice,
-  getDictData,
 } from '@/api/admin/system'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
@@ -38,17 +37,8 @@ interface NoticeTypeOption {
 }
 
 // 字典 listClass（RuoYi 风格）→ antd Tag color
-const LIST_CLASS_TO_TAG: Record<string, string> = {
-  default: 'default',
-  primary: 'blue',
-  success: 'success',
-  info: 'blue',
-  warning: 'warning',
-  danger: 'error',
-}
-
-// 公告类型兜底：admin_notice_type 字典不可用时保底（与字典种子数据一致）
-const FALLBACK_TYPE_OPTIONS: NoticeTypeOption[] = [
+// ADMIN-01：公告类型共享枚举（原 admin_notice_type 字典退役——字典管理模块已删）
+const NOTICE_TYPE_OPTIONS: NoticeTypeOption[] = [
   { label: '通知', value: 1, tagColor: 'warning' },
   { label: '公告', value: 2, tagColor: 'success' },
 ]
@@ -59,26 +49,8 @@ export default function Notices() {
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
   const [modalVisible, setModalVisible] = useState(false)
   const [editingRecord, setEditingRecord] = useState<NoticeRecord | null>(null)
-  const [typeOptions, setTypeOptions] = useState<NoticeTypeOption[]>(FALLBACK_TYPE_OPTIONS)
+  const [typeOptions, setTypeOptions] = useState<NoticeTypeOption[]>(NOTICE_TYPE_OPTIONS)
 
-  // 公告类型从 admin_notice_type 字典加载，字典管理新增类型后此处自动生效
-  useEffect(() => {
-    getDictData('admin_notice_type')
-      .then(({ data: res }) => {
-        const rows = ((res as { data?: Array<{ dictLabel: string; dictValue: string; listClass?: string; status: number }> }).data ?? [])
-          .filter((row) => Number(row.status) === 1)
-        if (rows.length > 0) {
-          setTypeOptions(rows.map((row) => ({
-            label: row.dictLabel,
-            value: Number(row.dictValue),
-            tagColor: LIST_CLASS_TO_TAG[row.listClass ?? 'default'] ?? 'default',
-          })))
-        }
-      })
-      .catch(() => {
-        // 保持兜底选项，不打断页面
-      })
-  }, [])
 
   const typeLabel = (value: number) => typeOptions.find((option) => option.value === Number(value))
 

@@ -73,7 +73,7 @@ class AdminAuthorizationPolicyTest {
 
     private void asNonSuperOperator(long userId) {
         AdminSecurityContext.set(new AdminSecurityContext(userId, "manager", "common",
-                Set.of("system:user:list"), null));
+                Set.of("system:user:list")));
     }
 
     private void stubSuperRoleFor(Long targetUserId) {

@@ -279,7 +279,7 @@ class AdminUserServiceTest {
 
         com.cloudmart.common.context.AdminSecurityContext.set(
                 new com.cloudmart.common.context.AdminSecurityContext(
-                        100L, "operator", "admin", java.util.Set.of("system:user:list"), null));
+                        100L, "operator", "admin", java.util.Set.of("system:user:list")));
 
         try {
             when(adminUserMapper.selectById(userId)).thenReturn(user);

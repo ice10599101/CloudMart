@@ -6,8 +6,7 @@ public record AdminSecurityContext(
     Long userId,
     String username,
     String role,
-    Set<String> permissions,
-    Long deptId
+    Set<String> permissions
 ) {
     private static final ThreadLocal<AdminSecurityContext> CONTEXT = new ThreadLocal<>();
 

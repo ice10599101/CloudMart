@@ -178,12 +178,6 @@ spring:
               predicates:
                 - Path=/files/**
                 - Method=GET
-            - id: mall-gen
-              uri: lb://mall-gen
-              predicates:
-                - Path=/api/gen/**
-              filters:
-                - StripPrefix=2
             - id: mall-ai
               uri: lb://mall-ai
               predicates:

@@ -70,7 +70,7 @@ class AdminPermissionInterceptorTest {
     }
 
     private void loginAdmin(long userId, Set<String> permissions) {
-        AdminSecurityContext.set(new AdminSecurityContext(userId, "ops", "admin", permissions, 3L));
+        AdminSecurityContext.set(new AdminSecurityContext(userId, "ops", "admin", permissions));
     }
 
     @Test
@@ -103,7 +103,7 @@ class AdminPermissionInterceptorTest {
     @DisplayName("带 @RequiresAdmin 的方法：普通用户上下文 → FORBIDDEN")
     void adminMethodWithUserRole_forbidden() throws Exception {
         // USER 令牌即使错误地携带了管理员上下文，role != admin 也必须拒绝
-        AdminSecurityContext.set(new AdminSecurityContext(42L, "alice", "user", Set.of(), null));
+        AdminSecurityContext.set(new AdminSecurityContext(42L, "alice", "user", Set.of()));
 
         assertThatThrownBy(() -> interceptor.preHandle(request(), new MockHttpServletResponse(),
                 handler(SampleController.class, "adminOnly")))

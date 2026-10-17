@@ -68,7 +68,7 @@ class AdminRoleServiceImplTest {
         adminRoleService = new AdminRoleServiceImpl(adminRoleMapper, adminRoleMenuMapper,
                 adminUserRoleMapper, adminConverter, authRevocationFeignClient, authorizationPolicy);
         com.cloudmart.common.context.AdminSecurityContext.set(new com.cloudmart.common.context.AdminSecurityContext(
-                1L, "super", "admin", java.util.Set.of("*:*:*"), null));
+                1L, "super", "admin", java.util.Set.of("*:*:*")));
         org.mockito.Mockito.lenient().when(adminRoleMapper.updateById(org.mockito.ArgumentMatchers.any(com.cloudmart.admin.entity.AdminRole.class)))
                 .thenReturn(1);
     }
@@ -128,7 +128,7 @@ class AdminRoleServiceImplTest {
     void delete_builtinProtected() {
         // 非超管操作者触碰内置超管角色 → FORBIDDEN
         com.cloudmart.common.context.AdminSecurityContext.set(new com.cloudmart.common.context.AdminSecurityContext(
-                9L, "ops", "common", java.util.Set.of("admin:role:remove"), null));
+                9L, "ops", "common", java.util.Set.of("admin:role:remove")));
         when(adminRoleMapper.selectById(1L)).thenReturn(buildRole(1L, "admin"));
 
         assertThatThrownBy(() -> adminRoleService.delete(1L))

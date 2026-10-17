@@ -18,7 +18,6 @@ public class InternalHeaderStripFilter implements GlobalFilter, Ordered {
             SecurityConstants.USER_ID_HEADER,
             SecurityConstants.ADMIN_ROLE_HEADER,
             SecurityConstants.ADMIN_PERMISSIONS_HEADER,
-            SecurityConstants.ADMIN_DEPT_ID_HEADER,
             SecurityConstants.ADMIN_USERNAME_HEADER,
             SecurityConstants.X_REQUEST_ID_HEADER
     };

@@ -55,7 +55,7 @@ import java.util.Set;
  * <ul>
  *   <li>{@code user} → ROLE_USER；</li>
  *   <li>{@code admin} → ROLE_ADMIN，并按令牌声明填充 {@link AdminSecurityContext}
- *       （userId/username/deptId/permissions），使 @RequiresPermission 注解在
+ *       （userId/username/permissions），使 @RequiresPermission 注解在
  *       管理员上下文缺失的模块（如 mall-job/mall-gen）真正生效；</li>
  *   <li>其他取值或缺失 → 拒绝建立身份（未知身份域不允许冒充用户）。</li>
  * </ul>
@@ -258,13 +258,12 @@ public class UserJwtAuthenticationFilter extends OncePerRequestFilter {
                 ? Set.of()
                 : new HashSet<>(Arrays.asList(perms.split(",")));
         String username = claims.getStringClaim("username");
-        String deptId = claims.getStringClaim("deptId");
         return new AdminSecurityContext(
                 Long.valueOf(subject),
                 username,
                 SCOPE_ADMIN,
-                permissions,
-                deptId == null || deptId.isBlank() ? null : Long.valueOf(deptId));
+                permissions
+                );
     }
 
     private record VerifiedIdentity(String subject, String authority, AdminSecurityContext adminContext) {

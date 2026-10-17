@@ -10,16 +10,6 @@ import {
   createMenu,
   updateMenu,
   deleteMenu,
-  getDictTypes,
-  createDictType,
-  deleteDictType,
-  refreshDictCache,
-  getDictData,
-  createDictData,
-  getConfigs,
-  createConfig,
-  deleteConfig,
-  refreshConfigCache,
   getNotices,
   createNotice,
   getOperLogs,
@@ -56,74 +46,6 @@ describe('admin system API - Menu Management', () => {
     vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
     await deleteMenu(1)
     expect(request.delete).toHaveBeenCalledWith('/admin/menus/1')
-  })
-})
-
-describe('admin system API - Dict Management', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-
-  it('getDictTypes() calls GET /admin/dict/types', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-    await getDictTypes()
-    expect(request.get).toHaveBeenCalledWith('/admin/dict/types', { params: undefined })
-  })
-
-  it('createDictType() calls POST /admin/dict/types', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-    await createDictType({ name: 'status' })
-    expect(request.post).toHaveBeenCalledWith('/admin/dict/types', { name: 'status' })
-  })
-
-  it('deleteDictType() calls DELETE /admin/dict/types/:id', async () => {
-    vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
-    await deleteDictType(1)
-    expect(request.delete).toHaveBeenCalledWith('/admin/dict/types/1')
-  })
-
-  it('refreshDictCache() calls PUT /admin/dict/types/cache/refresh', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await refreshDictCache()
-    expect(request.put).toHaveBeenCalledWith('/admin/dict/types/cache/refresh')
-  })
-
-  it('getDictData() calls GET /admin/dict/data/type/:type', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-    await getDictData('status')
-    expect(request.get).toHaveBeenCalledWith('/admin/dict/data/type/status', { params: undefined })
-  })
-
-  it('createDictData() calls POST /admin/dict/data', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-    await createDictData({ label: 'Active', value: '1' })
-    expect(request.post).toHaveBeenCalledWith('/admin/dict/data', { label: 'Active', value: '1' })
-  })
-})
-
-describe('admin system API - Config Management', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-
-  it('getConfigs() calls GET /admin/configs', async () => {
-    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
-    await getConfigs()
-    expect(request.get).toHaveBeenCalledWith('/admin/configs', { params: undefined })
-  })
-
-  it('createConfig() calls POST /admin/configs', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-    await createConfig({ key: 'site.name', value: 'CloudMart' })
-    expect(request.post).toHaveBeenCalledWith('/admin/configs', { key: 'site.name', value: 'CloudMart' })
-  })
-
-  it('deleteConfig() calls DELETE /admin/configs/:id', async () => {
-    vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
-    await deleteConfig(1)
-    expect(request.delete).toHaveBeenCalledWith('/admin/configs/1')
-  })
-
-  it('refreshConfigCache() calls PUT /admin/configs/cache/refresh', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await refreshConfigCache()
-    expect(request.put).toHaveBeenCalledWith('/admin/configs/cache/refresh')
   })
 })
 
