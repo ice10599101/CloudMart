@@ -18,8 +18,10 @@ public interface WmsFeignClient {
     @GetMapping("/pick-orders/{id}")
     ApiResponse<Object> getPickOrder(@PathVariable("id") Long id);
 
+    /** TRADE-03：assignedUserId 可空——mall-wms 缺省取透传的管理员身份 */
     @PutMapping("/pick-orders/{id}/start")
-    ApiResponse<Object> startPick(@PathVariable("id") Long id, @RequestParam Long assignedUserId);
+    ApiResponse<Object> startPick(@PathVariable("id") Long id,
+                                  @RequestBody(required = false) java.util.Map<String, Object> body);
 
     @PutMapping("/pick-orders/{id}/picked")
     ApiResponse<Object> confirmPicked(@PathVariable("id") Long id);
@@ -42,6 +44,7 @@ public interface WmsFeignClient {
     @GetMapping("/shipping")
     ApiResponse<Object> listShipping(@RequestParam(value = "status", required = false) String status,
                                      @RequestParam(value = "warehouseId", required = false) Long warehouseId,
+                                     @RequestParam(value = "orderId", required = false) Long orderId,
                                      @RequestParam("page") Integer page,
                                      @RequestParam("size") Integer size);
 

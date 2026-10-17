@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { ProTable, ModalForm, ProFormText, ProFormDigit, ProFormSelect, ProFormTextArea, ProFormList } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Tag, Popconfirm, Button, Tabs, Modal, Descriptions, InputNumber, Select, Space } from 'antd'
+import { Tag, Popconfirm, Button, Tabs, Modal, Descriptions, InputNumber, Select, Space, Alert, Table } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
   getPickOrders,
@@ -19,29 +19,37 @@ import {
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 
+/** BASE-01：订单/仓库/SKU ID 均为雪花 ID，按字符串贯通（number | string 兼容小整数种子数据） */
 interface PickOrderRecord {
-  id: number
-  orderId: string
-  warehouseCode: string
+  id: number | string
+  orderId: number | string
+  warehouseId: number | string
+  warehouseName: string | null
   status: string
-  pickerName: string
-  totalItems: number
-  pickedItems: number
+  assignedUserId: number | string | null
   createdAt: string
-  startedAt: string
-  pickedAt: string
-  packedAt: string
+}
+
+interface InboundItem {
+  id: number | string
+  skuId: number | string
+  productName: string | null
+  expectedQuantity: number
+  receivedQuantity: number
+  locationCode: string | null
 }
 
 interface InboundOrderRecord {
-  id: number
-  inboundNo: string
-  supplierName: string
-  warehouseCode: string
-  totalQty: number
+  id: number | string
+  warehouseId: number | string
+  warehouseName: string | null
+  referenceNo: string | null
   status: string
+  totalQuantity: number
+  receivedQuantity: number
+  operatorUserId: number | string | null
+  completedTime: string | null
   createdAt: string
-  completedAt: string
 }
 
 const PICK_STATUS_MAP: Record<string, { text: string; color: string }> = {
@@ -51,11 +59,11 @@ const PICK_STATUS_MAP: Record<string, { text: string; color: string }> = {
   PACKED: { text: '已打包', color: 'green' },
 }
 
+// TRADE-03：状态契约统一 PENDING→RECEIVING→COMPLETED（页面此前误写 INBOUND）
 const INBOUND_STATUS_MAP: Record<string, { text: string; color: string }> = {
-  PENDING: { text: '待入库', color: 'default' },
-  INBOUND: { text: '入库中', color: 'processing' },
+  PENDING: { text: '待收货', color: 'default' },
+  RECEIVING: { text: '收货中', color: 'processing' },
   COMPLETED: { text: '已完成', color: 'green' },
-  CANCELLED: { text: '已取消', color: 'red' },
 }
 
 export default function Wms() {
@@ -68,15 +76,16 @@ export default function Wms() {
   // 拣货单/入库单创建与收货（对齐下游 AdminWmsController 写端点）
   const [pickCreateOpen, setPickCreateOpen] = useState(false)
   const [inboundCreateOpen, setInboundCreateOpen] = useState(false)
-  const [receiveTargetId, setReceiveTargetId] = useState<number | null>(null)
-  const [receiveItemId, setReceiveItemId] = useState<number | null>(null)
+  const [receiveTargetId, setReceiveTargetId] = useState<number | string | null>(null)
+  const [receiveItems, setReceiveItems] = useState<InboundItem[]>([])
+  const [receiveItemId, setReceiveItemId] = useState<number | string | null>(null)
   const [receiveQuantity, setReceiveQuantity] = useState<number | null>(null)
   // C19：弹窗打开即生成稳定 receiptId，确认/重试原样回传（幂等收敛）
   const [receiveReceiptId, setReceiveReceiptId] = useState<string | null>(null)
   const [receiveQuality, setReceiveQuality] = useState<'PASSED' | 'QUARANTINE'>('PASSED')
   const [receiveSubmitting, setReceiveSubmitting] = useState(false)
 
-  const fetchInboundDetail = async (id: number) => {
+  const fetchInboundDetail = async (id: number | string) => {
     setInboundDetailLoading(true)
     try {
       const { data: res } = await getInboundOrder(id)
@@ -92,22 +101,43 @@ export default function Wms() {
     setInboundDetail(null)
   }
 
-  const handleStartPick = async (id: number) => {
+  // TRADE-03：开始拣货不带 assignedUserId——服务端缺省分配给当前已认证管理员
+  const handleStartPick = async (id: number | string) => {
     await startPick(id)
-    message.success('拣货已开始')
+    message.success('拣货已开始（默认分配给当前操作管理员）')
     pickActionRef.current?.reload()
   }
 
-  const handleConfirmPicked = async (id: number) => {
+  const handleConfirmPicked = async (id: number | string) => {
     await confirmPicked(id)
     message.success('已确认拣货完成')
     pickActionRef.current?.reload()
   }
 
-  const handleConfirmPacked = async (id: number) => {
+  const handleConfirmPacked = async (id: number | string) => {
     await confirmPacked(id)
     message.success('已确认打包完成')
     pickActionRef.current?.reload()
+  }
+
+  // TRADE-03：收货明细从入库单详情 items 选择（不再手输明细 ID）
+  const openReceive = async (record: InboundOrderRecord) => {
+    setReceiveTargetId(record.id)
+    setReceiveItems([])
+    setReceiveItemId(null)
+    setReceiveQuantity(null)
+    setReceiveQuality('PASSED')
+    setReceiveReceiptId(newInboundReceiptId())
+    try {
+      const { data: res } = await getInboundOrder(record.id)
+      const detail = (res as any)?.data ?? res
+      setReceiveItems(
+        (detail?.items ?? []).filter((item: InboundItem) => item.receivedQuantity < item.expectedQuantity),
+      )
+    } catch {
+      message.error('入库单明细加载失败，请重试')
+      setReceiveTargetId(null)
+    }
   }
 
   const handleReceive = async () => {
@@ -132,28 +162,40 @@ export default function Wms() {
     }
   }
 
-  const handleCompleteInbound = async (id: number) => {
+  const handleCompleteInbound = async (id: number | string) => {
     await completeInboundOrder(id)
     message.success('入库单已完成')
     inboundActionRef.current?.reload()
   }
 
   const pickColumns: ProColumns<PickOrderRecord>[] = [
-    { title: 'ID', dataIndex: 'id', width: 70, search: false },
-    { title: '订单号', dataIndex: 'orderId', width: 180 },
-    { title: '仓库编码', dataIndex: 'warehouseCode', width: 120, search: false },
+    { title: 'ID', dataIndex: 'id', width: 90, search: false },
+    { title: '订单号', dataIndex: 'orderId', width: 170 },
+    {
+      title: '仓库',
+      dataIndex: 'warehouseName',
+      width: 130,
+      search: false,
+      render: (_, record) => record.warehouseName ?? `仓库 ${record.warehouseId}`,
+    },
     {
       title: '状态',
       dataIndex: 'status',
       width: 100,
+      search: false,
       render: (_, record) => {
         const statusInfo = PICK_STATUS_MAP[record.status]
         return <Tag color={statusInfo?.color ?? 'default'}>{statusInfo?.text ?? record.status}</Tag>
       },
     },
-    { title: '拣货员', dataIndex: 'pickerName', width: 100, search: false },
-    { title: '商品总数', dataIndex: 'totalItems', width: 90, search: false },
-    { title: '已拣数量', dataIndex: 'pickedItems', width: 90, search: false },
+    // TRADE-03：拣货员只有 assignedUserId（无 pickerName 字段）
+    {
+      title: '拣货员 ID',
+      dataIndex: 'assignedUserId',
+      width: 120,
+      search: false,
+      render: (_, record) => record.assignedUserId ?? '-',
+    },
     { title: '创建时间', dataIndex: 'createdAt', width: 170, valueType: 'dateTime', search: false },
     {
       title: '操作',
@@ -165,6 +207,7 @@ export default function Wms() {
           <Popconfirm
             key="start"
             title="确认开始拣货？"
+            description="默认分配给当前操作管理员"
             onConfirm={() => handleStartPick(record.id)}
           >
             <Button type="link" size="small">开始拣货</Button>
@@ -193,11 +236,22 @@ export default function Wms() {
   ]
 
   const inboundColumns: ProColumns<InboundOrderRecord>[] = [
-    { title: 'ID', dataIndex: 'id', width: 70, search: false },
-    { title: '入库单号', dataIndex: 'inboundNo', width: 180 },
-    { title: '供应商', dataIndex: 'supplierName', width: 140, search: false },
-    { title: '仓库编码', dataIndex: 'warehouseCode', width: 120, search: false },
-    { title: '总数量', dataIndex: 'totalQty', width: 90, search: false },
+    { title: 'ID', dataIndex: 'id', width: 90, search: false },
+    { title: '关联单号', dataIndex: 'referenceNo', width: 160, render: (_, r) => r.referenceNo ?? '-' },
+    {
+      title: '仓库',
+      dataIndex: 'warehouseName',
+      width: 130,
+      search: false,
+      render: (_, record) => record.warehouseName ?? `仓库 ${record.warehouseId}`,
+    },
+    {
+      title: '计划/已收',
+      key: 'progress',
+      width: 110,
+      search: false,
+      render: (_, record) => `${record.totalQuantity} / ${record.receivedQuantity}`,
+    },
     {
       title: '状态',
       dataIndex: 'status',
@@ -208,7 +262,14 @@ export default function Wms() {
       },
     },
     { title: '创建时间', dataIndex: 'createdAt', width: 170, valueType: 'dateTime', search: false },
-    { title: '完成时间', dataIndex: 'completedAt', width: 170, valueType: 'dateTime', search: false },
+    {
+      title: '完成时间',
+      dataIndex: 'completedTime',
+      width: 170,
+      valueType: 'dateTime',
+      search: false,
+      render: (_, r) => r.completedTime ?? '-',
+    },
     {
       title: '操作',
       valueType: 'option',
@@ -218,24 +279,14 @@ export default function Wms() {
         <Button key="detail" type="link" size="small" onClick={() => fetchInboundDetail(record.id)}>
           详情
         </Button>,
-        (record.status === 'PENDING' || record.status === 'INBOUND') && (
-          <Button
-            key="receive"
-            type="link"
-            size="small"
-            onClick={() => {
-              setReceiveTargetId(record.id)
-              setReceiveItemId(null)
-              setReceiveQuantity(null)
-              setReceiveQuality('PASSED')
-              setReceiveReceiptId(newInboundReceiptId())
-            }}
-          >
+        // TRADE-03：状态统一 RECEIVING（页面此前误写 INBOUND 导致收货入口状态失配）
+        (record.status === 'PENDING' || record.status === 'RECEIVING') && (
+          <Button key="receive" type="link" size="small" onClick={() => openReceive(record)}>
             收货
           </Button>
         ),
-        record.status === 'INBOUND' && (
-          <Popconfirm key="complete" title="确认完成入库？完成后入库单关闭。" onConfirm={() => handleCompleteInbound(record.id)}>
+        record.status === 'RECEIVING' && (
+          <Popconfirm key="complete" title="确认完成入库？未收齐将被拒绝（需差异审批）。" onConfirm={() => handleCompleteInbound(record.id)}>
             <Button type="link" size="small">完成入库</Button>
           </Popconfirm>
         ),
@@ -268,7 +319,6 @@ export default function Wms() {
                   getPickOrders({
                     page: params.current,
                     pageSize: params.pageSize,
-                    orderId: params.orderId,
                     status: params.status,
                   })
                 )
@@ -297,7 +347,6 @@ export default function Wms() {
                   getInboundOrders({
                     page: params.current,
                     pageSize: params.pageSize,
-                    inboundNo: params.inboundNo,
                     status: params.status,
                   })
                 )
@@ -315,24 +364,52 @@ export default function Wms() {
       open={!!inboundDetail}
       onCancel={handleInboundDetailClose}
       footer={null}
-      width={640}
+      width={820}
       loading={inboundDetailLoading}
     >
       {inboundDetail && (
-        <Descriptions column={1} bordered size="small">
-          <Descriptions.Item label="ID">{inboundDetail.id}</Descriptions.Item>
-          <Descriptions.Item label="入库单号">{inboundDetail.inboundNo}</Descriptions.Item>
-          <Descriptions.Item label="供应商">{inboundDetail.supplierName}</Descriptions.Item>
-          <Descriptions.Item label="仓库编码">{inboundDetail.warehouseCode}</Descriptions.Item>
-          <Descriptions.Item label="总数量">{inboundDetail.totalQty}</Descriptions.Item>
-          <Descriptions.Item label="状态">
-            <Tag color={INBOUND_STATUS_MAP[inboundDetail.status]?.color ?? 'default'}>
-              {INBOUND_STATUS_MAP[inboundDetail.status]?.text ?? inboundDetail.status}
-            </Tag>
-          </Descriptions.Item>
-          <Descriptions.Item label="创建时间">{inboundDetail.createdAt}</Descriptions.Item>
-          <Descriptions.Item label="完成时间">{inboundDetail.completedAt ?? '-'}</Descriptions.Item>
-        </Descriptions>
+        <>
+          <Descriptions column={2} bordered size="small">
+            <Descriptions.Item label="ID">{inboundDetail.id}</Descriptions.Item>
+            <Descriptions.Item label="关联单号">{inboundDetail.referenceNo ?? '-'}</Descriptions.Item>
+            <Descriptions.Item label="仓库">
+              {inboundDetail.warehouseName ?? `仓库 ${inboundDetail.warehouseId}`}
+            </Descriptions.Item>
+            <Descriptions.Item label="类型">{inboundDetail.type}</Descriptions.Item>
+            <Descriptions.Item label="状态">
+              <Tag color={INBOUND_STATUS_MAP[inboundDetail.status]?.color ?? 'default'}>
+                {INBOUND_STATUS_MAP[inboundDetail.status]?.text ?? inboundDetail.status}
+              </Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="计划/已收">
+              {inboundDetail.totalQuantity} / {inboundDetail.receivedQuantity}
+            </Descriptions.Item>
+            <Descriptions.Item label="创建时间">{inboundDetail.createdAt}</Descriptions.Item>
+            <Descriptions.Item label="完成时间">{inboundDetail.completedTime ?? '-'}</Descriptions.Item>
+          </Descriptions>
+          <div style={{ margin: '16px 0 8px', fontWeight: 600 }}>入库明细</div>
+          <Table<InboundItem>
+            rowKey="id"
+            size="small"
+            dataSource={inboundDetail.items ?? []}
+            pagination={false}
+            scroll={{ y: 240 }}
+            columns={[
+              { title: '明细 ID', dataIndex: 'id', width: 90 },
+              { title: 'SKU ID', dataIndex: 'skuId', width: 120 },
+              { title: '商品', dataIndex: 'productName', ellipsis: true, render: (v: string | null) => v ?? '-' },
+              { title: '库位', dataIndex: 'locationCode', width: 90, render: (v: string | null) => v ?? '-' },
+              { title: '计划', dataIndex: 'expectedQuantity', width: 70 },
+              { title: '已收', dataIndex: 'receivedQuantity', width: 70 },
+              {
+                title: '剩余',
+                key: 'remaining',
+                width: 70,
+                render: (_, item) => item.expectedQuantity - item.receivedQuantity,
+              },
+            ]}
+          />
+        </>
       )}
     </Modal>
 
@@ -353,17 +430,29 @@ export default function Wms() {
       modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
       width={480}
     >
-      <ProFormDigit
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message="订单 ID 为雪花数字串，按字符串原样提交（防精度损失）"
+      />
+      <ProFormText
         name="orderId"
         label="订单 ID"
-        rules={[{ required: true, message: '请输入订单 ID' }]}
-        fieldProps={{ precision: 0 }}
+        placeholder="订单 ID（1-19 位数字）"
+        rules={[
+          { required: true, message: '请输入订单 ID' },
+          { pattern: /^\d{1,19}$/, message: '订单 ID 应为 1-19 位数字' },
+        ]}
       />
-      <ProFormDigit
+      <ProFormText
         name="warehouseId"
         label="仓库 ID"
-        rules={[{ required: true, message: '请输入仓库 ID' }]}
-        fieldProps={{ precision: 0 }}
+        placeholder="仓库 ID（1-19 位数字）"
+        rules={[
+          { required: true, message: '请输入仓库 ID' },
+          { pattern: /^\d{1,19}$/, message: '仓库 ID 应为 1-19 位数字' },
+        ]}
       />
       <ProFormTextArea name="remark" label="备注" placeholder="选填" />
     </ModalForm>
@@ -392,11 +481,14 @@ export default function Wms() {
       modalProps={{ destroyOnHidden: true, mask: { closable: false }, keyboard: false }}
       width={640}
     >
-      <ProFormDigit
+      <ProFormText
         name="warehouseId"
         label="仓库 ID"
-        rules={[{ required: true, message: '请输入仓库 ID' }]}
-        fieldProps={{ precision: 0 }}
+        placeholder="仓库 ID（1-19 位数字）"
+        rules={[
+          { required: true, message: '请输入仓库 ID' },
+          { pattern: /^\d{1,19}$/, message: '仓库 ID 应为 1-19 位数字' },
+        ]}
       />
       <ProFormSelect
         name="type"
@@ -417,7 +509,7 @@ export default function Wms() {
         creatorButtonProps={{ creatorButtonText: '添加明细' }}
       >
         <Space align="baseline" wrap>
-          <ProFormDigit name="skuId" label="SKU ID" rules={[{ required: true, message: '必填' }]} fieldProps={{ precision: 0 }} />
+          <ProFormText name="skuId" label="SKU ID" rules={[{ required: true, message: '必填' }, { pattern: /^\d{1,19}$/, message: '1-19 位数字' }]} />
           <ProFormText name="productName" label="商品名称" rules={[{ required: true, message: '必填' }]} />
           <ProFormDigit name="expectedQuantity" label="预期数量" rules={[{ required: true, message: '必填' }]} fieldProps={{ precision: 0 }} min={1} />
           <ProFormText name="locationCode" label="库位编码" />
@@ -435,21 +527,33 @@ export default function Wms() {
       onOk={handleReceive}
       confirmLoading={receiveSubmitting}
       okText="确认收货"
-      width={420}
+      width={460}
     >
       <Space direction="vertical" style={{ width: '100%' }} size={12}>
         <div>
-          <div style={{ marginBottom: 4 }}>明细 ID</div>
-          <InputNumber
-            value={receiveItemId}
-            onChange={(v) => setReceiveItemId(v)}
-            precision={0}
+          <div style={{ marginBottom: 4 }}>入库明细（仅列未收满项）</div>
+          {/* TRADE-03：明细从详情接口加载（itemId/skuId/商品名/剩余量），不再手输明细 ID */}
+          <Select<number | string>
+            value={receiveItemId ?? undefined}
+            onChange={(v) => {
+              setReceiveItemId(v)
+              const item = receiveItems.find((i) => String(i.id) === String(v))
+              if (item) {
+                setReceiveQuantity(item.expectedQuantity - item.receivedQuantity)
+              }
+            }}
             style={{ width: '100%' }}
-            placeholder="入库单明细 ID"
+            placeholder="选择入库明细"
+            options={receiveItems.map((item) => ({
+              value: item.id,
+              label: `#${item.id} ${item.productName ?? `SKU ${item.skuId}`}（剩余 ${
+                item.expectedQuantity - item.receivedQuantity
+              }）`,
+            }))}
           />
         </div>
         <div>
-          <div style={{ marginBottom: 4 }}>实收数量</div>
+          <div style={{ marginBottom: 4 }}>实收数量（超收将被拒绝）</div>
           <InputNumber
             value={receiveQuantity}
             onChange={(v) => setReceiveQuantity(v)}
@@ -471,9 +575,11 @@ export default function Wms() {
             ]}
           />
         </div>
-        <div style={{ color: 'var(--ant-color-text-tertiary)', fontSize: 12 }}>
-          收货流水号：{receiveReceiptId ?? '-'}（网络异常时请勿关弹窗，重试会按此号幂等收敛）
-        </div>
+        <Alert
+          type="info"
+          showIcon
+          message={`收货流水号：${receiveReceiptId ?? '-'}（网络异常时请勿关弹窗，重试按此号幂等收敛）`}
+        />
       </Space>
     </Modal>
   </>

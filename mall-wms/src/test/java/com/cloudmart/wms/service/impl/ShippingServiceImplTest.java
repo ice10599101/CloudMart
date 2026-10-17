@@ -76,7 +76,7 @@ class ShippingServiceImplTest {
                     ORDER_ID, null, "顺丰", "SF1234567890", "张三", "13800138000", "北京市朝阳区");
 
             ShippingOrderVO expectedVO = new ShippingOrderVO(
-                    SHIPPING_ORDER_ID, ORDER_ID, "SF123456", "顺丰", "PENDING", null);
+                    SHIPPING_ORDER_ID, ORDER_ID, 1L, "SF123456", null, "顺丰", "PENDING", null, null);
 
             when(shippingOrderMapper.insert(any(ShippingOrder.class))).thenReturn(1);
             when(wmsConverter.fromShippingOrderDTO(any(ShippingOrderDTO.class))).thenReturn(expectedVO);
@@ -106,7 +106,7 @@ class ShippingServiceImplTest {
             order.setStatus("SHIPPED");
 
             ShippingOrderVO expectedVO = new ShippingOrderVO(
-                    SHIPPING_ORDER_ID, ORDER_ID, "SF123456", "顺丰", "SHIPPED", null);
+                    SHIPPING_ORDER_ID, ORDER_ID, 1L, "SF123456", "SF1234567890", "顺丰", "SHIPPED", null, null);
 
             when(shippingOrderMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(order);
             when(shippingTrackingMapper.selectList(any(LambdaQueryWrapper.class)))
@@ -146,7 +146,7 @@ class ShippingServiceImplTest {
             order.setTrackingNo("SF1234567890");
 
             ShippingOrderVO expectedVO = new ShippingOrderVO(
-                    SHIPPING_ORDER_ID, ORDER_ID, "SF123456", "顺丰", "PICKING", null);
+                    SHIPPING_ORDER_ID, ORDER_ID, 1L, "SF123456", null, "顺丰", "PICKING", null, null);
 
             // WMS-01：CAS 更新后 service 会回查刷新（两次 selectById）
             when(shippingOrderMapper.selectById(SHIPPING_ORDER_ID)).thenReturn(order);

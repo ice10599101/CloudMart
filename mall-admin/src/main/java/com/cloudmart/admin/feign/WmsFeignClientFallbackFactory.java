@@ -28,7 +28,7 @@ public class WmsFeignClientFallbackFactory implements FallbackFactory<WmsFeignCl
             }
 
             @Override
-            public ApiResponse<Object> startPick(Long id, Long assignedUserId) {
+            public ApiResponse<Object> startPick(Long id, java.util.Map<String, Object> body) {
                 throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 
@@ -58,7 +58,8 @@ public class WmsFeignClientFallbackFactory implements FallbackFactory<WmsFeignCl
             }
 
             @Override
-            public ApiResponse<Object> listShipping(String status, Long warehouseId, Integer page, Integer size) {
+            public ApiResponse<Object> listShipping(String status, Long warehouseId, Long orderId,
+                                                    Integer page, Integer size) {
                 throw FeignBusinessErrors.parse(cause, "WMS_SERVICE_UNAVAILABLE", "仓储服务不可用，请稍后重试");
             }
 

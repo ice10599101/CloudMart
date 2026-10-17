@@ -9,7 +9,9 @@ import com.cloudmart.wms.dto.UpdateWarehouseRequest;
 import com.cloudmart.wms.service.InboundOrderService;
 import com.cloudmart.wms.service.PickOrderService;
 import com.cloudmart.wms.service.WarehouseService;
+import com.cloudmart.wms.vo.InboundOrderDetailVO;
 import com.cloudmart.wms.vo.InboundOrderVO;
+import com.cloudmart.wms.vo.PickOrderDetailVO;
 import com.cloudmart.wms.vo.PickOrderVO;
 import com.cloudmart.wms.vo.WarehouseVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -77,13 +79,13 @@ public class WarehouseController {
 
     @PostMapping("/pick-orders")
     @Operation(summary = "创建拣货单")
-    public ApiResponse<PickOrderVO> createPickOrder(@Valid @RequestBody CreatePickOrderRequest request) {
-        return ApiResponse.ok(wmsConverter.fromPickOrderDTO(pickOrderService.createPickOrder(request)));
+    public ApiResponse<PickOrderDetailVO> createPickOrder(@Valid @RequestBody CreatePickOrderRequest request) {
+        return ApiResponse.ok(wmsConverter.toPickOrderDetailVO(pickOrderService.createPickOrder(request)));
     }
 
     @PostMapping("/inbound-orders")
     @Operation(summary = "创建入库单")
-    public ApiResponse<InboundOrderVO> createInboundOrder(@Valid @RequestBody CreateInboundOrderRequest request) {
-        return ApiResponse.ok(wmsConverter.fromInboundOrderDTO(inboundOrderService.createInboundOrder(request)));
+    public ApiResponse<InboundOrderDetailVO> createInboundOrder(@Valid @RequestBody CreateInboundOrderRequest request) {
+        return ApiResponse.ok(wmsConverter.toInboundOrderDetailVO(inboundOrderService.createInboundOrder(request)));
     }
 }

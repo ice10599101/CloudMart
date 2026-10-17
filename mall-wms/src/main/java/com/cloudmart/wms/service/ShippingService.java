@@ -19,7 +19,7 @@ public interface ShippingService {
 
     ShippingOrderVO updateStatus(Long id, String status);
 
-    IPage<ShippingOrderVO> listShipping(String status, Long warehouseId, int page, int size);
+    IPage<ShippingOrderVO> listShipping(String status, Long warehouseId, Long orderId, int page, int size);
 
     ShippingTrackingDTO addTracking(Long shippingOrderId, String location, String description, LocalDateTime happenedAt);
 }

@@ -12,7 +12,9 @@ import com.cloudmart.wms.dto.UpdateWarehouseRequest;
 import com.cloudmart.wms.service.InboundOrderService;
 import com.cloudmart.wms.service.PickOrderService;
 import com.cloudmart.wms.service.WarehouseService;
+import com.cloudmart.wms.vo.InboundOrderDetailVO;
 import com.cloudmart.wms.vo.InboundOrderVO;
+import com.cloudmart.wms.vo.PickOrderDetailVO;
 import com.cloudmart.wms.vo.PickOrderVO;
 import com.cloudmart.wms.vo.WarehouseVO;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,7 +59,7 @@ class WarehouseControllerTest {
     @Test
     @DisplayName("创建仓库 - 成功返回信封")
     void createWarehouse_ShouldReturnEnvelope() throws Exception {
-        WarehouseVO vo = new WarehouseVO(1L, "主仓", "WH001", "北京市", "010-12345678", 0);
+        WarehouseVO vo = new WarehouseVO(1L, "主仓", "北京市", "010-12345678", 0, null);
 
         given(warehouseService.createWarehouse(Mockito.any(CreateWarehouseRequest.class))).willReturn(vo);
 
@@ -84,7 +86,7 @@ class WarehouseControllerTest {
     @Test
     @DisplayName("查询仓库列表 - 成功返回信封")
     void listWarehouses_ShouldReturnEnvelope() throws Exception {
-        WarehouseVO vo = new WarehouseVO(1L, "主仓", "WH001", "北京市", "010-12345678", 0);
+        WarehouseVO vo = new WarehouseVO(1L, "主仓", "北京市", "010-12345678", 0, null);
 
         given(warehouseService.listWarehouses()).willReturn(List.of(vo));
 
@@ -98,7 +100,7 @@ class WarehouseControllerTest {
     @Test
     @DisplayName("查询仓库详情 - 成功返回信封")
     void getWarehouse_ShouldReturnEnvelope() throws Exception {
-        WarehouseVO vo = new WarehouseVO(1L, "主仓", "WH001", "北京市", "010-12345678", 0);
+        WarehouseVO vo = new WarehouseVO(1L, "主仓", "北京市", "010-12345678", 0, null);
 
         given(warehouseService.getWarehouse(1L)).willReturn(vo);
 
@@ -112,7 +114,7 @@ class WarehouseControllerTest {
     @Test
     @DisplayName("更新仓库 - 成功返回信封")
     void updateWarehouse_ShouldReturnEnvelope() throws Exception {
-        WarehouseVO vo = new WarehouseVO(1L, "主仓-更新", "WH001", "上海市", "021-12345678", 0);
+        WarehouseVO vo = new WarehouseVO(1L, "主仓-更新", "上海市", "021-12345678", 0, null);
 
         given(warehouseService.updateWarehouse(Mockito.eq(1L), Mockito.any(UpdateWarehouseRequest.class))).willReturn(vo);
 
@@ -138,10 +140,11 @@ class WarehouseControllerTest {
     @DisplayName("创建拣货单 - 成功返回信封")
     void createPickOrder_ShouldReturnEnvelope() throws Exception {
         PickOrderDTO dto = new PickOrderDTO(1L, 100L, 1L, "PENDING", null, null, null, null, FIXED_TIME, List.of());
-        PickOrderVO vo = new PickOrderVO(1L, 100L, "主仓", "PENDING", FIXED_TIME);
+        PickOrderDetailVO vo = new PickOrderDetailVO(1L, 100L, 1L, "主仓", "PENDING", null,
+                null, null, null, FIXED_TIME, List.of());
 
         given(pickOrderService.createPickOrder(Mockito.any(CreatePickOrderRequest.class))).willReturn(dto);
-        given(wmsConverter.fromPickOrderDTO(dto)).willReturn(vo);
+        given(wmsConverter.toPickOrderDetailVO(dto)).willReturn(vo);
 
         mockMvc.perform(post("/warehouses/pick-orders")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -157,10 +160,11 @@ class WarehouseControllerTest {
     void createInboundOrder_ShouldReturnEnvelope() throws Exception {
         InboundOrderDTO dto = new InboundOrderDTO(1L, 1L, "PURCHASE", "PO-001", "PENDING",
                 100, 0, null, null, null, FIXED_TIME, List.of());
-        InboundOrderVO vo = new InboundOrderVO(1L, "主仓", "供应商A", "PENDING", 100, FIXED_TIME);
+        InboundOrderDetailVO vo = new InboundOrderDetailVO(1L, 1L, "主仓", "PURCHASE", "PO-001",
+                "PENDING", 100, 0, null, null, null, FIXED_TIME, List.of());
 
         given(inboundOrderService.createInboundOrder(Mockito.any(CreateInboundOrderRequest.class))).willReturn(dto);
-        given(wmsConverter.fromInboundOrderDTO(dto)).willReturn(vo);
+        given(wmsConverter.toInboundOrderDetailVO(dto)).willReturn(vo);
 
         mockMvc.perform(post("/warehouses/inbound-orders")
                         .contentType(MediaType.APPLICATION_JSON)

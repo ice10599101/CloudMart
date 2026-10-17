@@ -5,6 +5,9 @@ import com.cloudmart.wms.converter.WmsConverter;
 import com.cloudmart.wms.dto.CreateWarehouseRequest;
 import com.cloudmart.wms.dto.UpdateWarehouseRequest;
 import com.cloudmart.wms.entity.Warehouse;
+import com.cloudmart.wms.repository.InboundOrderMapper;
+import com.cloudmart.wms.repository.PickOrderMapper;
+import com.cloudmart.wms.repository.ShippingOrderMapper;
 import com.cloudmart.wms.repository.WarehouseMapper;
 import com.cloudmart.wms.vo.WarehouseVO;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +33,15 @@ class WarehouseServiceImplTest {
     private WarehouseMapper warehouseMapper;
 
     @Mock
+    private InboundOrderMapper inboundOrderMapper;
+
+    @Mock
+    private PickOrderMapper pickOrderMapper;
+
+    @Mock
+    private ShippingOrderMapper shippingOrderMapper;
+
+    @Mock
     private WmsConverter wmsConverter;
 
     private WarehouseServiceImpl warehouseService;
@@ -38,7 +50,13 @@ class WarehouseServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        warehouseService = new WarehouseServiceImpl(warehouseMapper, wmsConverter);
+        warehouseService = new WarehouseServiceImpl(warehouseMapper, inboundOrderMapper,
+                pickOrderMapper, shippingOrderMapper, wmsConverter);
+    }
+
+    /** 新 VO 形状：(id, name, address, contactPhone, status, createdAt) */
+    private WarehouseVO vo(String name, String address, String phone, Integer status) {
+        return new WarehouseVO(WAREHOUSE_ID, name, address, phone, status, null);
     }
 
     @Nested
@@ -49,7 +67,7 @@ class WarehouseServiceImplTest {
         @DisplayName("should create warehouse and return VO")
         void createWarehouse_success_returnsVO() {
             CreateWarehouseRequest request = new CreateWarehouseRequest("主仓", "北京市朝阳区", "010-12345678", 0);
-            WarehouseVO expectedVO = new WarehouseVO(WAREHOUSE_ID, "主仓", null, "北京市朝阳区", "010-12345678", 0);
+            WarehouseVO expectedVO = vo("主仓", "北京市朝阳区", "010-12345678", 0);
 
             when(warehouseMapper.insert(any(Warehouse.class))).thenReturn(1);
             when(wmsConverter.toWarehouseVO(any(Warehouse.class))).thenReturn(expectedVO);
@@ -66,7 +84,7 @@ class WarehouseServiceImplTest {
         @DisplayName("should default status to 0 when null")
         void createWarehouse_nullStatus_defaultsToZero() {
             CreateWarehouseRequest request = new CreateWarehouseRequest("主仓", "北京市朝阳区", "010-12345678", null);
-            WarehouseVO expectedVO = new WarehouseVO(WAREHOUSE_ID, "主仓", null, "北京市朝阳区", "010-12345678", 0);
+            WarehouseVO expectedVO = vo("主仓", "北京市朝阳区", "010-12345678", 0);
 
             when(warehouseMapper.insert(any(Warehouse.class))).thenReturn(1);
             when(wmsConverter.toWarehouseVO(any(Warehouse.class))).thenReturn(expectedVO);
@@ -88,7 +106,7 @@ class WarehouseServiceImplTest {
             warehouse.setId(WAREHOUSE_ID);
             warehouse.setName("主仓");
 
-            WarehouseVO expectedVO = new WarehouseVO(WAREHOUSE_ID, "主仓", null, "北京市朝阳区", "010-12345678", 0);
+            WarehouseVO expectedVO = vo("主仓", "北京市朝阳区", "010-12345678", 0);
 
             when(warehouseMapper.selectById(WAREHOUSE_ID)).thenReturn(warehouse);
             when(wmsConverter.toWarehouseVO(warehouse)).thenReturn(expectedVO);
@@ -125,8 +143,8 @@ class WarehouseServiceImplTest {
             warehouse2.setId(2L);
             warehouse2.setName("分仓");
 
-            WarehouseVO vo1 = new WarehouseVO(1L, "主仓", null, "北京", "010-11111111", 0);
-            WarehouseVO vo2 = new WarehouseVO(2L, "分仓", null, "上海", "021-22222222", 0);
+            WarehouseVO vo1 = new WarehouseVO(1L, "主仓", "北京", "010-11111111", 0, null);
+            WarehouseVO vo2 = new WarehouseVO(2L, "分仓", "上海", "021-22222222", 0, null);
 
             when(warehouseMapper.selectList(null)).thenReturn(List.of(warehouse1, warehouse2));
             when(wmsConverter.toWarehouseVOList(List.of(warehouse1, warehouse2)))
@@ -155,7 +173,7 @@ class WarehouseServiceImplTest {
             existing.setContactPhone("旧电话");
             existing.setStatus(0);
 
-            WarehouseVO expectedVO = new WarehouseVO(WAREHOUSE_ID, "新名称", null, "新地址", "新电话", 1);
+            WarehouseVO expectedVO = vo("新名称", "新地址", "新电话", 1);
 
             when(warehouseMapper.selectById(WAREHOUSE_ID)).thenReturn(existing);
             when(warehouseMapper.updateById(existing)).thenReturn(1);
@@ -181,7 +199,7 @@ class WarehouseServiceImplTest {
             existing.setContactPhone("旧电话");
             existing.setStatus(0);
 
-            WarehouseVO expectedVO = new WarehouseVO(WAREHOUSE_ID, "新名称", null, "旧地址", "旧电话", 0);
+            WarehouseVO expectedVO = vo("新名称", "旧地址", "旧电话", 0);
 
             when(warehouseMapper.selectById(WAREHOUSE_ID)).thenReturn(existing);
             when(warehouseMapper.updateById(existing)).thenReturn(1);
@@ -206,6 +224,25 @@ class WarehouseServiceImplTest {
                     .extracting("code")
                     .isEqualTo("WAREHOUSE_NOT_FOUND");
         }
+
+        @Test
+        @DisplayName("TRADE-03：停用有未完成单据的仓库 → 拒绝（WAREHOUSE_HAS_OPEN_DOCUMENTS）")
+        void updateWarehouse_disableWithOpenDocuments_rejected() {
+            UpdateWarehouseRequest request = new UpdateWarehouseRequest(null, null, null, 0);
+            Warehouse existing = new Warehouse();
+            existing.setId(WAREHOUSE_ID);
+            existing.setName("主仓");
+            existing.setStatus(1);
+
+            when(warehouseMapper.selectById(WAREHOUSE_ID)).thenReturn(existing);
+            when(inboundOrderMapper.selectCount(any())).thenReturn(1L);
+
+            assertThatThrownBy(() -> warehouseService.updateWarehouse(WAREHOUSE_ID, request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code")
+                    .isEqualTo("WAREHOUSE_HAS_OPEN_DOCUMENTS");
+            verify(warehouseMapper, org.mockito.Mockito.never()).updateById(any(Warehouse.class));
+        }
     }
 
     @Nested
@@ -213,17 +250,37 @@ class WarehouseServiceImplTest {
     class DeleteWarehouseTests {
 
         @Test
-        @DisplayName("should delete warehouse when found")
+        @DisplayName("TRADE-03：零引用仓库可删除（无未完成单据）")
         void deleteWarehouse_existing_deletesWarehouse() {
             Warehouse existing = new Warehouse();
             existing.setId(WAREHOUSE_ID);
 
             when(warehouseMapper.selectById(WAREHOUSE_ID)).thenReturn(existing);
+            // 守卫：三类单据计数均为 0（mock 默认 null 按无单据处理，显式 0 更清晰）
+            when(inboundOrderMapper.selectCount(any())).thenReturn(0L);
+            when(pickOrderMapper.selectCount(any())).thenReturn(0L);
+            when(shippingOrderMapper.selectCount(any())).thenReturn(0L);
             when(warehouseMapper.deleteById(WAREHOUSE_ID)).thenReturn(1);
 
             warehouseService.deleteWarehouse(WAREHOUSE_ID);
 
             verify(warehouseMapper).deleteById(WAREHOUSE_ID);
+        }
+
+        @Test
+        @DisplayName("TRADE-03：有未完成单据 → 拒绝删除并提示改停用")
+        void deleteWarehouse_withOpenDocuments_rejected() {
+            Warehouse existing = new Warehouse();
+            existing.setId(WAREHOUSE_ID);
+
+            when(warehouseMapper.selectById(WAREHOUSE_ID)).thenReturn(existing);
+            when(inboundOrderMapper.selectCount(any())).thenReturn(1L);
+
+            assertThatThrownBy(() -> warehouseService.deleteWarehouse(WAREHOUSE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code")
+                    .isEqualTo("WAREHOUSE_HAS_OPEN_DOCUMENTS");
+            verify(warehouseMapper, org.mockito.Mockito.never()).deleteById(WAREHOUSE_ID);
         }
 
         @Test

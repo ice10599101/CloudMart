@@ -10,7 +10,8 @@ public record ShippingOrderDTO(
     @Schema(description = "物流订单ID") Long id,
     @Schema(description = "订单ID") Long orderId,
     @Schema(description = "仓库ID") Long warehouseId,
-    @Schema(description = "物流单号") String shippingNo,
+    @Schema(description = "内部出库单号（SF 前缀）") String shippingNo,
+    @Schema(description = "承运商运单号") String trackingNo,
     @Schema(description = "承运商") String carrier,
     @Schema(description = "状态: PENDING/SHIPPED/IN_TRANSIT/DELIVERED") String status,
     @Schema(description = "收件人姓名") String receiverName,
@@ -18,5 +19,6 @@ public record ShippingOrderDTO(
     @Schema(description = "收件人地址") String receiverAddress,
     @Schema(description = "创建时间") LocalDateTime createdAt,
     @Schema(description = "更新时间") LocalDateTime updatedAt,
+    @Schema(description = "发货时间") LocalDateTime shippedAt,
     @Schema(description = "物流轨迹") List<ShippingTrackingDTO> trackings
 ) {}

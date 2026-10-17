@@ -166,13 +166,17 @@ public class ShippingServiceImpl implements ShippingService {
     }
 
     @Override
-    public IPage<ShippingOrderVO> listShipping(String status, Long warehouseId, int page, int size) {
+    public IPage<ShippingOrderVO> listShipping(String status, Long warehouseId, Long orderId, int page, int size) {
         LambdaQueryWrapper<ShippingOrder> wrapper = new LambdaQueryWrapper<>();
         if (status != null) {
             wrapper.eq(ShippingOrder::getStatus, status);
         }
         if (warehouseId != null) {
             wrapper.eq(ShippingOrder::getWarehouseId, warehouseId);
+        }
+        // TRADE-03：订单维度筛选全链透传（管理页按订单查物流）
+        if (orderId != null) {
+            wrapper.eq(ShippingOrder::getOrderId, orderId);
         }
         wrapper.orderByDesc(ShippingOrder::getCreatedAt);
         Page<ShippingOrder> orderPage = shippingOrderMapper.selectPage(new Page<>(page, size), wrapper);
@@ -211,6 +215,7 @@ public class ShippingServiceImpl implements ShippingService {
                 entity.getOrderId(),
                 entity.getWarehouseId(),
                 entity.getShippingNo(),
+                entity.getTrackingNo(),
                 entity.getCarrier(),
                 entity.getStatus(),
                 entity.getReceiverName(),
@@ -218,6 +223,7 @@ public class ShippingServiceImpl implements ShippingService {
                 entity.getReceiverAddress(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
+                entity.getShippedAt(),
                 trackings
         );
     }

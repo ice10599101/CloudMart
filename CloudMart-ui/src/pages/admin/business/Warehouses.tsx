@@ -19,15 +19,14 @@ import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
 
+/** TRADE-03：与 WarehouseVO 对齐——无 code/contactName 列，不凭空展示；ID 字符串贯通 */
 interface WarehouseRecord {
-  id: number
+  id: number | string
   name: string
-  address: string
-  contact: string
-  phone: string
+  address: string | null
+  contactPhone: string | null
   status: number
   createdAt: string
-  updatedAt: string
 }
 
 export default function Warehouses() {
@@ -52,10 +51,18 @@ export default function Warehouses() {
     })
   }
 
-  const handleDelete = async (id: number) => {
-    await deleteWarehouse(id)
-    message.success('删除成功')
-    actionRef.current?.reload()
+  const handleDelete = async (id: number | string) => {
+    try {
+      await deleteWarehouse(id)
+      message.success('删除成功')
+      actionRef.current?.reload()
+    } catch (error) {
+      // TRADE-03：有未完成单据/历史引用时服务端拒绝删除，如实提示改用停用
+      const msg =
+        (error as { response?: { data?: { error?: { message?: string } } } })
+          ?.response?.data?.error?.message
+      message.error(msg ?? '删除失败（有历史引用的仓库请改用停用）')
+    }
   }
 
   const columns: ProColumns<WarehouseRecord>[] = [
@@ -68,8 +75,7 @@ export default function Warehouses() {
       search: false,
       ellipsis: true,
     },
-    { title: '联系人', dataIndex: 'contact', width: 100, search: false },
-    { title: '联系电话', dataIndex: 'phone', width: 140, search: false },
+    { title: '联系电话', dataIndex: 'contactPhone', width: 140, search: false, render: (_, r) => r.contactPhone ?? '-' },
     {
       title: '状态',
       dataIndex: 'status',
@@ -184,19 +190,14 @@ export default function Warehouses() {
           rules={[{ required: true, message: '请输入仓库地址' }]}
           fieldProps={{ rows: 2, maxLength: 200, showCount: true }}
         />
+        {/* TRADE-03：服务端契约只有 contactPhone（无联系人列），座机/手机均可 */}
         <ProFormText
-          name="contact"
-          label="联系人"
-          placeholder="请输入联系人"
-          rules={[{ required: true, message: '请输入联系人' }]}
-        />
-        <ProFormText
-          name="phone"
+          name="contactPhone"
           label="联系电话"
-          placeholder="请输入联系电话"
+          placeholder="手机或座机号码"
           rules={[
             { required: true, message: '请输入联系电话' },
-            { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号码' },
+            { pattern: /^[0-9+\-]{5,20}$/, message: '请输入有效的联系电话' },
           ]}
         />
         <ProFormSelect

@@ -63,8 +63,10 @@ public class AdminWmsController {
     @OperLog(title = "仓储管理", businessType = 2)
     @RequiresPermission("business:wms:edit")
     @Operation(summary = "开始拣货", description = "分配拣货员并开始拣货")
-    public ApiResponse<Object> startPick(@PathVariable Long id, @RequestParam Long assignedUserId) {
-        return wmsFeignClient.startPick(id, assignedUserId);
+    public ApiResponse<Object> startPick(@PathVariable Long id,
+                                         @RequestBody(required = false) Map<String, Object> body) {
+        // TRADE-03：assignedUserId 可空——mall-wms 缺省取透传的管理员身份（不要求前端手填人员 ID）
+        return wmsFeignClient.startPick(id, body);
     }
 
     @PutMapping("/wms/pick-orders/{id}/picked")
@@ -164,9 +166,11 @@ public class AdminWmsController {
     public ApiResponse<Object> listShipping(
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "warehouseId", required = false) Long warehouseId,
+            @RequestParam(value = "orderId", required = false) Long orderId,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
-        return wmsFeignClient.listShipping(status, warehouseId, page, pageSize);
+        // TRADE-03：订单维度筛选全链透传
+        return wmsFeignClient.listShipping(status, warehouseId, orderId, page, pageSize);
     }
 
     @PutMapping("/wms/shipping/{id}/status")

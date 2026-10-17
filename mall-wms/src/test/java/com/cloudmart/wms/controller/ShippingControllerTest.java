@@ -40,7 +40,7 @@ class ShippingControllerTest {
     @Test
     @DisplayName("创建物流订单 - 成功返回信封")
     void createShippingOrder_ShouldReturnEnvelope() throws Exception {
-        ShippingOrderVO vo = new ShippingOrderVO(1L, 100L, "SF123456", "顺丰", "PENDING", null);
+        ShippingOrderVO vo = new ShippingOrderVO(1L, 100L, 1L, "SF123456", null, "顺丰", "PENDING", null, null);
 
         given(shippingService.createShipping(Mockito.any(CreateShippingRequest.class))).willReturn(vo);
 
@@ -57,7 +57,7 @@ class ShippingControllerTest {
     @Test
     @DisplayName("根据订单ID查询物流 - 成功返回信封")
     void getByOrderId_ShouldReturnEnvelope() throws Exception {
-        ShippingOrderVO vo = new ShippingOrderVO(1L, 100L, "SF123456", "顺丰", "SHIPPED", FIXED_TIME);
+        ShippingOrderVO vo = new ShippingOrderVO(1L, 100L, 1L, "SF123456", null, "顺丰", "SHIPPED", FIXED_TIME, FIXED_TIME);
 
         given(shippingService.getByOrderId(100L, 42L)).willReturn(vo);
         setUserAuthentication("42");
@@ -83,7 +83,7 @@ class ShippingControllerTest {
     @Test
     @DisplayName("更新物流状态 - 成功返回信封")
     void updateStatus_ShouldReturnEnvelope() throws Exception {
-        ShippingOrderVO vo = new ShippingOrderVO(1L, 100L, "SF123456", "顺丰", "DELIVERED", FIXED_TIME);
+        ShippingOrderVO vo = new ShippingOrderVO(1L, 100L, 1L, "SF123456", null, "顺丰", "DELIVERED", FIXED_TIME, FIXED_TIME);
 
         given(shippingService.updateStatus(1L, "DELIVERED")).willReturn(vo);
 

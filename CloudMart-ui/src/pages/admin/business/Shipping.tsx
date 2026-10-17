@@ -6,14 +6,19 @@ import { getShipping, updateShippingStatus } from '@/api/admin/business'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 
+/** BASE-01：订单/仓库 ID 字符串贯通 */
 interface ShippingRecord {
-  id: number
-  orderId: string
+  id: number | string
+  orderId: number | string
+  warehouseId: number | string
+  /** 内部出库单号（SF 前缀，系统生成） */
   shippingNo: string
+  /** 承运商运单号（TRADE-03：与出库单号分列，不混用） */
+  trackingNo: string | null
   carrier: string
   status: string
+  shippedAt: string | null
   createdAt: string
-  updatedAt: string
 }
 
 const SHIPPING_STATUS_MAP: Record<string, { text: string; color: string }> = {
@@ -45,9 +50,9 @@ const STATUS_TRANSITIONS: Record<string, string[]> = {
 export default function Shipping() {
   const message = useMessage()
   const actionRef = useRef<ActionType>(null)
-  const [updatingId, setUpdatingId] = useState<number | null>(null)
+  const [updatingId, setUpdatingId] = useState<number | string | null>(null)
 
-  const handleUpdateStatus = async (id: number, newStatus: string) => {
+  const handleUpdateStatus = async (id: number | string, newStatus: string) => {
     setUpdatingId(id)
     try {
       await updateShippingStatus(id, { status: newStatus })
@@ -61,7 +66,16 @@ export default function Shipping() {
   const columns: ProColumns<ShippingRecord>[] = [
     { title: 'ID', dataIndex: 'id', width: 70, search: false },
     { title: '订单号', dataIndex: 'orderId', width: 180 },
-    { title: '物流单号', dataIndex: 'shippingNo', width: 200, search: false, ellipsis: true },
+    // TRADE-03：内部出库单号与承运商运单号分别展示
+    { title: '出库单号', dataIndex: 'shippingNo', width: 170, search: false, ellipsis: true },
+    {
+      title: '运单号',
+      dataIndex: 'trackingNo',
+      width: 170,
+      search: false,
+      ellipsis: true,
+      render: (_, record) => record.trackingNo ?? '-',
+    },
     {
       title: '承运商',
       dataIndex: 'carrier',
@@ -77,6 +91,14 @@ export default function Shipping() {
         const statusInfo = SHIPPING_STATUS_MAP[record.status]
         return <Tag color={statusInfo?.color ?? 'default'}>{statusInfo?.text ?? record.status}</Tag>
       },
+    },
+    {
+      title: '发货时间',
+      dataIndex: 'shippedAt',
+      width: 170,
+      valueType: 'dateTime',
+      search: false,
+      render: (_, r) => r.shippedAt ?? '-',
     },
     { title: '创建时间', dataIndex: 'createdAt', width: 180, valueType: 'dateTime', search: false },
     {
