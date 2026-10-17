@@ -24,6 +24,8 @@ public class UserRewardObligation {
     public static final String STATUS_PENDING = "PENDING";
     public static final String STATUS_SETTLED = "SETTLED";
     public static final String STATUS_REJECTED = "REJECTED";
+    /** WISH-04：异常设备/受限账号待审核（不自动投递） */
+    public static final String STATUS_HOLD = "HOLD";
 
     public static final String TYPE_STARLIGHT = "STARLIGHT";
 

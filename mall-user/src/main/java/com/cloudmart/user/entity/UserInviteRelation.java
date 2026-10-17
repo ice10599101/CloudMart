@@ -25,6 +25,18 @@ public class UserInviteRelation {
 
     private Long inviteeId;
 
+    /** WISH-04：奖励状态 PENDING_ELIGIBILITY/ELIGIBLE/HOLD/REJECTED_LIMIT/GRANTED */
+    private String rewardStatus;
+
+    /** WISH-04：限制/拒绝原因（后台可查） */
+    private String rewardReason;
+
+    /** WISH-04：达到资格时间 */
+    private java.time.LocalDateTime eligibleAt;
+
+    /** WISH-04：规则版本（页面展示） */
+    private Integer ruleVersion;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 }

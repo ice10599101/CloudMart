@@ -21,6 +21,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -69,6 +71,7 @@ public class DailySigninServiceImpl implements DailySigninService {
     private final UserStatService userStatService;
     private final CommunityFeignClient communityFeignClient;
     private final WishRewardObligationService rewardObligationService;
+    private final com.cloudmart.wish.feign.UserFeignClient userFeignClient;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -112,6 +115,26 @@ public class DailySigninServiceImpl implements DailySigninService {
 
         log.info("每日签到成功, userId={}, date={}, consecutive={}, credited={}, expGranted={}, levelUp={}",
                 userId, today, consecutiveDays, credited, expGranted, levelUp != null);
+
+        // WISH-04：邀请资格回调（事务提交后执行，Feign 失败不阻断签到——
+        // 下一次签到会再次触发资格检查，最终一致）
+        final int distinctDays = wishDailySigninMapper.countDistinctSigninDays(userId);
+        // 无事务上下文（单测/边缘路径）跳过注册——下次签到自然重试
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        userFeignClient.inviteEligibilityCheck(
+                                java.util.Map.of("userId", userId, "distinctSigninDays", distinctDays));
+                    } catch (Exception ex) {
+                        log.warn("[WISH04] 邀请资格回调失败（下次签到重试）: userId={}, err={}",
+                                userId, ex.getMessage());
+                    }
+                }
+            });
+        }
+
         return new DailySigninVO(true, consecutiveDays, credited, SIGNIN_REWARD + levelBonus,
                 SIGNIN_EXP_REWARD, expGranted, levelUp, levelBonus);
     }

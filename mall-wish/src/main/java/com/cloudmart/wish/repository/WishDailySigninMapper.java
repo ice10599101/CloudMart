@@ -31,4 +31,9 @@ public interface WishDailySigninMapper extends BaseMapper<WishDailySignin> {
             WHERE DATE_ADD(t.signin_date, INTERVAL t.rn DAY) = DATE_ADD(#{anchor}, INTERVAL 1 DAY)
             """)
     int countConsecutiveDays(@Param("userId") Long userId, @Param("anchor") LocalDate anchor);
+
+    /** WISH-04：受邀人不同业务日正常签到天数（邀请资格事实，跨日由 uk 保证） */
+    @org.apache.ibatis.annotations.Select(
+            "SELECT COUNT(DISTINCT signin_date) FROM wish_daily_signin WHERE user_id = #{userId}")
+    int countDistinctSigninDays(@org.apache.ibatis.annotations.Param("userId") Long userId);
 }

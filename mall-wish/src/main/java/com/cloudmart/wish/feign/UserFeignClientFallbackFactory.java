@@ -68,6 +68,13 @@ public class UserFeignClientFallbackFactory implements FallbackFactory<UserFeign
                 // Fail-Open：编排进度查询失败返回 NONE（状态聚合降级）
                 return ApiResponse.ok(Map.of("status", "NONE"));
             }
+
+            @Override
+            public ApiResponse<java.util.Map<String, Object>> inviteEligibilityCheck(
+                    java.util.Map<String, Object> body) {
+                throw com.cloudmart.common.feign.FeignBusinessErrors.parse(cause,
+                        "USER_SERVICE_UNAVAILABLE", "用户服务不可用，请稍后重试");
+            }
         };
     }
 }

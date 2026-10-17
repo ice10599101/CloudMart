@@ -68,7 +68,7 @@ class DailySigninServiceImplTest {
     void setUp() {
         dailySigninService = new DailySigninServiceImpl(
                 wishDailySigninMapper, wishSigninMilestoneClaimMapper, userStatService, communityFeignClient,
-                mock(WishRewardObligationService.class));
+                mock(WishRewardObligationService.class), mock(com.cloudmart.wish.feign.UserFeignClient.class));
         when(userStatService.economicBusinessZone()).thenReturn(java.time.ZoneId.of("Asia/Shanghai"));
     }
 

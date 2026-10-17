@@ -41,4 +41,9 @@ public interface UserFeignClient {
     /** B20：查询 mall-user 注销编排的真实进度（wish 旧入口兼容聚合用） */
     @GetMapping("/users/account-deletion/status")
     ApiResponse<Map<String, Object>> getAccountDeletionStatus(@RequestParam("userId") Long userId);
+
+    /** WISH-04：邀请资格检查回调（签到事务提交后调用；达到资格仅发一次） */
+    @org.springframework.web.bind.annotation.PostMapping("/users/invite/internal/eligibility-check")
+    ApiResponse<java.util.Map<String, Object>> inviteEligibilityCheck(
+            @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
 }

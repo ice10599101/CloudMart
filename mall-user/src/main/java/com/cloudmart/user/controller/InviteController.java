@@ -45,4 +45,27 @@ public class InviteController {
         Long relationId = inviteService.bind(userId, request.code());
         return ApiResponse.ok(Map.of("relationId", relationId));
     }
+
+    /** WISH-04：资格检查回调（SEC-04：仅服务令牌，mall-wish 签到事务提交后调用） */
+    @org.springframework.web.bind.annotation.PostMapping("/invite/internal/eligibility-check")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "WISH-04：邀请资格检查", description = "受邀人签到达标回调；达到资格仅发一次（GRANTED 幂等）")
+    public ApiResponse<java.util.Map<String, Object>> eligibilityCheck(
+            @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        final Long userId = Long.valueOf(String.valueOf(body.get("userId")));
+        final int days = Integer.parseInt(String.valueOf(body.getOrDefault("distinctSigninDays", "0")));
+        return ApiResponse.ok(inviteService.eligibilityCheck(userId, days));
+    }
+
+    /** WISH-04：邀请关系台账（SEC-04：仅服务令牌——后台查询邀请关系/资格/奖励状态/限制原因） */
+    @GetMapping("/invite/internal/relations")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "WISH-04：邀请关系台账", description = "资格状态/限制原因/规则版本（后台不直接编辑累计邀请数）")
+    public ApiResponse<java.util.Map<String, Object>> relations(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String rewardStatus,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "1") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") int size) {
+        var result = inviteService.pageRelationsForOps(rewardStatus, page, Math.min(size, 100));
+        return ApiResponse.ok(result);
+    }
 }

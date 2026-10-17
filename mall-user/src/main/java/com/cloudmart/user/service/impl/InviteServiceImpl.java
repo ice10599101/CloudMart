@@ -8,6 +8,8 @@ import com.cloudmart.user.entity.UserInviteRelation;
 import com.cloudmart.user.entity.UserRewardObligation;
 import com.cloudmart.user.repository.UserInviteCodeMapper;
 import com.cloudmart.user.repository.UserInviteRelationMapper;
+import com.cloudmart.user.repository.UserMapper;
+import com.cloudmart.user.config.UserInviteProperties;
 import com.cloudmart.user.service.InviteService;
 import com.cloudmart.user.vo.InviteInfoVO;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.Map;
 import java.util.List;
 
 /**
@@ -43,6 +49,8 @@ public class InviteServiceImpl implements InviteService {
     private final UserInviteCodeMapper inviteCodeMapper;
     private final UserInviteRelationMapper inviteRelationMapper;
     private final UserRewardObligationService rewardObligationService;
+    private final UserMapper userMapper;
+    private final UserInviteProperties inviteProperties;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${invite.reward-inviter:" + INVITER_REWARD + "}")
@@ -56,7 +64,17 @@ public class InviteServiceImpl implements InviteService {
         UserInviteCode code = requireCode(userId);
         Long invited = inviteRelationMapper.selectCount(
                 new LambdaQueryWrapper<UserInviteRelation>().eq(UserInviteRelation::getInviterId, userId));
-        return new InviteInfoVO(code.getCode(), invited == null ? 0 : invited.intValue(), rewardInviter);
+        // WISH-04：展示规则版本与本人资格进度（my-joins 口径一致：状态/原因）
+        final var myRelation = inviteRelationMapper.selectOne(
+                new LambdaQueryWrapper<UserInviteRelation>()
+                        .eq(UserInviteRelation::getInviteeId, userId)
+                        .last("LIMIT 1"));
+        return new InviteInfoVO(code.getCode(), invited == null ? 0 : invited.intValue(), rewardInviter,
+                inviteProperties.getRuleVersion(),
+                myRelation == null ? "NO_RELATION"
+                        : (myRelation.getRewardStatus() == null ? "PENDING_ELIGIBILITY" : myRelation.getRewardStatus()),
+                myRelation == null ? "未绑定邀请人"
+                        : (myRelation.getRewardReason() == null ? "" : myRelation.getRewardReason()));
     }
 
     @Override
@@ -88,20 +106,107 @@ public class InviteServiceImpl implements InviteService {
             throw new BusinessException("INVITE_ALREADY_BOUND", "你已绑定过邀请人");
         }
 
-        // R07：奖励交付义务与绑定关系同事务落库（提交后即送/失败退避补发）——
-        // 修复"绑定事务回滚留下已发远端奖励/远端失败永久漏发"；
-        // uk biz_key 保证每个邀请关系每个受益人至多一次
-        rewardObligationService.enqueueWithCommitDelivery(
-                SOURCE_INVITE + ":" + relation.getId() + ":" + inviteCode.getUserId(),
-                SOURCE_INVITE, String.valueOf(relation.getId()), inviteCode.getUserId(),
-                UserRewardObligation.TYPE_STARLIGHT, rewardInviter, "邀请好友奖励（邀请人）");
-        rewardObligationService.enqueueWithCommitDelivery(
-                SOURCE_INVITE + ":" + relation.getId() + ":" + userId,
-                SOURCE_INVITE, String.valueOf(relation.getId()), userId,
-                UserRewardObligation.TYPE_STARLIGHT, rewardInvitee, "受邀奖励（受邀人）");
-        log.info("N-3 邀请绑定成功: inviter={}, invitee={}, relationId={}",
-                inviteCode.getUserId(), userId, relation.getId());
+        // WISH-04：绑定不即发——关系登记 PENDING_ELIGIBILITY；受邀人完成
+        // requiredDistinctSigninDays 个不同业务日正常签到且账号满 24h 后，
+        // 由签到回调 eligibilityCheck 触发资格判定与一次性发奖（防批量注册薅奖励）。
+        relation.setRewardStatus("PENDING_ELIGIBILITY");
+        relation.setRuleVersion(inviteProperties.getRuleVersion());
+        inviteRelationMapper.updateById(relation);
+        log.info("[WISH04] 邀请绑定成功（待资格）: inviter={}, invitee={}, relationId={}, ruleV={}",
+                inviteCode.getUserId(), userId, relation.getId(), inviteProperties.getRuleVersion());
         return relation.getId();
+    }
+
+    /**
+     * WISH-04：资格检查与一次性发奖（由 mall-wish 签到事务提交后回调）。
+     * 资格 = requiredDistinctSigninDays 个不同业务日正常签到 + 账号满 24h；
+     * 异常/受限账号 → HOLD；额度超限 → REJECTED_LIMIT（原因台账可查）；
+     * 达到资格仅发一次（GRANTED 幂等）。
+     */
+    @Override
+    @Transactional
+    public Map<String, Object> eligibilityCheck(Long inviteeId, int distinctSigninDays) {
+        final UserInviteRelation relation = inviteRelationMapper.selectOne(
+                new LambdaQueryWrapper<UserInviteRelation>()
+                        .eq(UserInviteRelation::getInviteeId, inviteeId)
+                        .last("LIMIT 1"));
+        if (relation == null) {
+            return Map.of("result", "skipped", "reason", "NO_RELATION");
+        }
+        final String status = relation.getRewardStatus() == null ? "PENDING_ELIGIBILITY" : relation.getRewardStatus();
+        if (!"PENDING_ELIGIBILITY".equals(status) && !"ELIGIBLE".equals(status)) {
+            return Map.of("result", "skipped", "reason", "ALREADY_" + status);
+        }
+
+        final var invitee = userMapper.selectById(inviteeId);
+        if (invitee == null) {
+            return Map.of("result", "skipped", "reason", "USER_NOT_FOUND");
+        }
+        if (invitee.getStatus() != null && invitee.getStatus() != 1) {
+            relation.setRewardStatus("HOLD");
+            relation.setRewardReason("账号状态受限（status=" + invitee.getStatus() + "），待运营审核");
+            inviteRelationMapper.updateById(relation);
+            return Map.of("result", "hold", "reason", relation.getRewardReason());
+        }
+        final LocalDateTime now = LocalDateTime.now(java.time.ZoneOffset.UTC);
+        if (invitee.getCreatedAt() != null
+                && invitee.getCreatedAt().isAfter(now.minusHours(inviteProperties.getAccountAgeHours()))) {
+            relation.setRewardStatus("PENDING_ELIGIBILITY");
+            relation.setRewardReason("账号注册未满 " + inviteProperties.getAccountAgeHours() + " 小时");
+            inviteRelationMapper.updateById(relation);
+            return Map.of("result", "pending", "reason", "ACCOUNT_TOO_YOUNG");
+        }
+        if (distinctSigninDays < inviteProperties.getRequiredDistinctSigninDays()) {
+            relation.setRewardStatus("PENDING_ELIGIBILITY");
+            relation.setRewardReason("有效签到 " + distinctSigninDays + "/"
+                    + inviteProperties.getRequiredDistinctSigninDays() + " 个不同业务日");
+            inviteRelationMapper.updateById(relation);
+            return Map.of("result", "pending", "reason", "SIGNIN_NOT_ENOUGH");
+        }
+
+        relation.setRewardStatus("ELIGIBLE");
+        relation.setEligibleAt(now);
+        relation.setRewardReason(null);
+        inviteRelationMapper.updateById(relation);
+
+        final var grantedList = inviteRelationMapper.selectList(
+                new LambdaQueryWrapper<UserInviteRelation>()
+                        .eq(UserInviteRelation::getInviterId, relation.getInviterId())
+                        .eq(UserInviteRelation::getRewardStatus, "GRANTED"));
+        final var shanghai = java.time.ZoneId.of("Asia/Shanghai");
+        long dailyGranted = grantedList.stream()
+                .filter(r -> r.getEligibleAt() != null
+                        && LocalDate.now(shanghai).equals(r.getEligibleAt().atZone(shanghai).toLocalDate()))
+                .count();
+        long monthlyGranted = grantedList.stream()
+                .filter(r -> r.getEligibleAt() != null
+                        && YearMonth.from(r.getEligibleAt().atZone(shanghai)).equals(YearMonth.now(shanghai)))
+                .count();
+        if (dailyGranted >= inviteProperties.getDailyLimit()
+                || monthlyGranted >= inviteProperties.getMonthlyLimit()) {
+            relation.setRewardStatus("REJECTED_LIMIT");
+            relation.setRewardReason("邀请人当日/当月额度已满（日 " + dailyGranted + "/"
+                    + inviteProperties.getDailyLimit() + "，月 " + monthlyGranted + "/"
+                    + inviteProperties.getMonthlyLimit() + "）");
+            inviteRelationMapper.updateById(relation);
+            return Map.of("result", "rejected", "reason", "QUOTA_EXCEEDED");
+        }
+
+        rewardObligationService.enqueueWithCommitDelivery(
+                SOURCE_INVITE + ":" + relation.getId() + ":" + relation.getInviterId(),
+                SOURCE_INVITE, String.valueOf(relation.getId()), relation.getInviterId(),
+                UserRewardObligation.TYPE_STARLIGHT, rewardInviter, "邀请好友奖励（邀请人，资格达标 v"
+                        + relation.getRuleVersion() + "）");
+        rewardObligationService.enqueueWithCommitDelivery(
+                SOURCE_INVITE + ":" + relation.getId() + ":" + inviteeId,
+                SOURCE_INVITE, String.valueOf(relation.getId()), inviteeId,
+                UserRewardObligation.TYPE_STARLIGHT, rewardInvitee, "受邀奖励（资格达标）");
+        relation.setRewardStatus("GRANTED");
+        inviteRelationMapper.updateById(relation);
+        log.info("[WISH04] 邀请奖励发放: relationId={}, inviter={}, invitee={}, daily={}/{}",
+                relation.getId(), relation.getInviterId(), inviteeId, dailyGranted,
+                inviteProperties.getDailyLimit());
+        return Map.of("result", "granted", "relationId", relation.getId());
     }
 
     /** 我的邀请码（不存在则生成；生成撞码重试最多 3 次） */
@@ -138,4 +243,24 @@ public class InviteServiceImpl implements InviteService {
         return sb.toString();
     }
 
+
+    /** WISH-04：邀请关系台账分页（脱敏事实视图） */
+    @Override
+    public Map<String, Object> pageRelationsForOps(String rewardStatus, int page, int size) {
+        var result = inviteRelationMapper.selectPage(
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(Math.max(page, 1), size),
+                new LambdaQueryWrapper<UserInviteRelation>()
+                        .eq(rewardStatus != null && !rewardStatus.isBlank(),
+                                UserInviteRelation::getRewardStatus, rewardStatus)
+                        .orderByDesc(UserInviteRelation::getId));
+        var records = result.getRecords().stream().map(r -> java.util.Map.<String, Object>of(
+                "id", r.getId(),
+                "inviterId", r.getInviterId(),
+                "inviteeId", r.getInviteeId(),
+                "rewardStatus", r.getRewardStatus() == null ? "PENDING_ELIGIBILITY" : r.getRewardStatus(),
+                "rewardReason", r.getRewardReason() == null ? "" : r.getRewardReason(),
+                "eligibleAt", r.getEligibleAt() == null ? "" : r.getEligibleAt().toString(),
+                "ruleVersion", r.getRuleVersion() == null ? 1 : r.getRuleVersion())).toList();
+        return Map.of("records", records, "total", result.getTotal());
+    }
 }
