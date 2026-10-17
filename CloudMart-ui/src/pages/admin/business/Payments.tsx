@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Descriptions, Modal, Tag, Popconfirm, Input, Tabs, InputNumber, Select, Space } from 'antd'
+import { Button, Descriptions, Modal, Tag, Input, Tabs, InputNumber, Select, Space } from 'antd'
 import { ThunderboltOutlined } from '@ant-design/icons'
 import {
   getPayments,
   getPaymentByOrder,
-  refundPayment,
   listReconciliationRuns,
   listReconciliationDifferences,
   executeReconciliationRun,
@@ -85,14 +85,11 @@ const RECON_SEVERITY_COLOR: Record<string, string> = {
 
 export default function Payments() {
   const message = useMessage()
+  const navigate = useNavigate()
   const actionRef = useRef<ActionType>(null)
   const [detailVisible, setDetailVisible] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [currentDetail, setCurrentDetail] = useState<PaymentDetail | null>(null)
-  const [refundVisible, setRefundVisible] = useState(false)
-  const [refundRecord, setRefundRecord] = useState<PaymentRecord | null>(null)
-  const [refundReason, setRefundReason] = useState('')
-  const [refundLoading, setRefundLoading] = useState(false)
 
   // ==================== 对账工作台（OPS-01） ====================
   const reconActionRef = useRef<ActionType>(null)
@@ -149,21 +146,6 @@ export default function Payments() {
     }
   }
 
-  const handleRefund = async () => {
-    if (!refundRecord) return
-    setRefundLoading(true)
-    try {
-      await refundPayment(refundRecord.id, { reason: refundReason })
-      message.success('退款申请已提交')
-      setRefundVisible(false)
-      setRefundRecord(null)
-      setRefundReason('')
-      actionRef.current?.reload()
-    } finally {
-      setRefundLoading(false)
-    }
-  }
-
   const columns: ProColumns<PaymentRecord>[] = [
     { title: '支付ID', dataIndex: 'id', width: 80, search: false },
     { title: '订单号', dataIndex: 'orderId', width: 180 },
@@ -208,18 +190,16 @@ export default function Payments() {
         <Button key="detail" type="link" size="small" onClick={() => handleViewDetail(record.orderId)}>
           详情
         </Button>,
-        record.status === 'PAID' && (
-          <Popconfirm
-            key="refund"
-            title="确认对该笔支付发起退款？"
-            onConfirm={() => {
-              setRefundRecord(record)
-              setRefundVisible(true)
-            }}
-          >
-            <Button type="link" size="small" danger>退款</Button>
-          </Popconfirm>
-        ),
+        // ADMIN-02：支付后台不提供直接退款入口（旧代理路由已删除）；退款一律经售后案件审批，
+        // 此处仅跳转按订单过滤的售后处置页，权限归 business:order:refund
+        <Button
+          key="after-sale"
+          type="link"
+          size="small"
+          onClick={() => navigate(`/admin/business/after-sale-cases?orderId=${record.orderId}`)}
+        >
+          查看售后
+        </Button>,
       ],
     },
   ]
@@ -408,48 +388,17 @@ export default function Payments() {
               {currentDetail.refundAmount > 0 ? `¥${Number(currentDetail.refundAmount).toFixed(2)}` : '-'}
             </Descriptions.Item>
             <Descriptions.Item label="退款状态">{currentDetail.refundStatus || '-'}</Descriptions.Item>
+            <Descriptions.Item label="售后案件">
+              <Button type="link" size="small" style={{ padding: 0 }}
+                onClick={() => navigate(`/admin/business/after-sale-cases?orderId=${currentDetail.orderId}`)}>
+                查看该订单售后案件
+              </Button>
+            </Descriptions.Item>
             <Descriptions.Item label="支付时间">{currentDetail.paidAt || '-'}</Descriptions.Item>
             <Descriptions.Item label="创建时间">{currentDetail.createdAt}</Descriptions.Item>
             <Descriptions.Item label="更新时间">{currentDetail.updatedAt}</Descriptions.Item>
           </Descriptions>
         )}
-      </Modal>
-
-      <Modal
-        title="退款操作"
-        open={refundVisible}
-        onCancel={() => {
-          setRefundVisible(false)
-          setRefundRecord(null)
-          setRefundReason('')
-        }}
-        onOk={handleRefund}
-        confirmLoading={refundLoading}
-        okText="确认退款"
-        width={480}
-      >
-        {refundRecord && (
-          <div style={{ marginBottom: 16 }}>
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="支付ID">{refundRecord.id}</Descriptions.Item>
-              <Descriptions.Item label="订单号">{refundRecord.orderId}</Descriptions.Item>
-              <Descriptions.Item label="退款金额">
-                <span style={{ color: '#FF4757', fontWeight: 600 }}>
-                  ¥{Number(refundRecord.amount).toFixed(2)}
-                </span>
-              </Descriptions.Item>
-            </Descriptions>
-          </div>
-        )}
-        <div style={{ marginBottom: 8 }}>退款原因：</div>
-        <Input.TextArea
-          value={refundReason}
-          onChange={(e) => setRefundReason(e.target.value)}
-          placeholder="请输入退款原因"
-          rows={3}
-          maxLength={200}
-          showCount
-        />
       </Modal>
 
       <Modal

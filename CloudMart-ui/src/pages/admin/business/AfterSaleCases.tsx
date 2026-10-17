@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button, Modal, Table, Tag, Tabs, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -27,6 +28,9 @@ const TYPE_LABELS: Record<string, string> = {
  * 受理必须关联 T02 退款单号；退货退款案件质检 PASSED 后自动流转退款。
  */
 export default function AfterSaleCasesPage() {
+  // ADMIN-02：支持从支付页按订单深链进入（orderId 由 URL 指定）
+  const [searchParams, setSearchParams] = useSearchParams()
+  const orderIdFilter = searchParams.get('orderId') ?? undefined
   const [cases, setCases] = useState<AfterSaleCase[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -38,13 +42,13 @@ export default function AfterSaleCasesPage() {
   const fetchCases = useCallback(async () => {
     setLoading(true)
     try {
-      const { data: res } = await pageAfterSaleCases({ page, pageSize, status: statusFilter })
+      const { data: res } = await pageAfterSaleCases({ page, pageSize, status: statusFilter, orderId: orderIdFilter })
       setCases(res.data ?? [])
       setTotal(res.meta?.total ?? res.data?.length ?? 0)
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, statusFilter])
+  }, [page, pageSize, statusFilter, orderIdFilter])
 
   useEffect(() => {
     fetchCases()
@@ -202,6 +206,19 @@ export default function AfterSaleCasesPage() {
           { key: 'CLOSED', label: '已关闭' },
         ]}
       />
+      {orderIdFilter && (
+        <div style={{ marginBottom: 12 }}>
+          <Tag color="blue">按订单过滤：{orderIdFilter}</Tag>
+          <Button type="link" size="small" onClick={() => {
+            const next = new URLSearchParams(searchParams)
+            next.delete('orderId')
+            setSearchParams(next)
+            setPage(1)
+          }}>
+            清除过滤
+          </Button>
+        </div>
+      )}
       <Table
         rowKey="id"
         loading={loading}

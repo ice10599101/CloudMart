@@ -63,7 +63,8 @@ export function pageAfterSaleCases(params: {
   page?: number
   pageSize?: number
   status?: string
-  orderId?: number
+  /** BASE-01：订单 ID 保持字符串联合（雪花/大整数防精度损失） */
+  orderId?: number | string
 }) {
   return request.get<ApiResponse<AfterSaleCase[]>>('/admin/business/orders/after-sale', { params })
 }

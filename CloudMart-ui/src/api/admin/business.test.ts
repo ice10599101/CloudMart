@@ -49,7 +49,6 @@ import {
   initInventory,
   getPayments,
   getPaymentByOrder,
-  refundPayment,
   getNotifications,
   sendNotification,
   getGroupActivities,
@@ -396,12 +395,6 @@ describe('admin business API - Payment Management', () => {
     vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
     await getPaymentByOrder(1)
     expect(request.get).toHaveBeenCalledWith('/admin/business/payments/order/1')
-  })
-
-  it('refundPayment() calls POST /admin/business/payments/:id/refund', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-    await refundPayment(1, { amount: 50 })
-    expect(request.post).toHaveBeenCalledWith('/admin/business/payments/1/refund', { amount: 50 })
   })
 })
 

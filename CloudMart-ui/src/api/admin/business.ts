@@ -203,10 +203,6 @@ export function getPaymentByOrder(orderId: number | string) {
   return request.get(`/admin/business/payments/order/${orderId}`)
 }
 
-export function refundPayment(id: number | string, data?: Record<string, any>) {
-  return request.post(`/admin/business/payments/${id}/refund`, data)
-}
-
 export function getNotifications(params?: Record<string, any>) {
   return request.get('/admin/business/notifications', { params })
 }
