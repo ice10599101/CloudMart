@@ -109,6 +109,12 @@ public interface CollectionService {
     /** 许愿池奖励记录（脱敏，暂返回空——品牌奖励发放后续迭代） */
     List<Map<String, Object>> poolRewards(Long poolId);
 
+    /** WISH-03：我的参加记录（本人维度：参加的池 + 进度） */
+    List<Map<String, Object>> myPoolJoins(Long userId);
+
+    /** WISH-03：我的奖励结果（本人维度：义务状态/承诺/实际入账） */
+    List<Map<String, Object>> myPoolRewards(Long userId);
+
     /** 品牌数据访问审计日志（暂返回空——审计埋点后续迭代） */
     List<Map<String, Object>> brandAuditLogs(Long brandId);
 }

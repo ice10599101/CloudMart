@@ -147,4 +147,18 @@ public class CollectionController {
             @Parameter(description = "品牌 ID", required = true) @PathVariable Long brandId) {
         return ApiResponse.ok(collectionService.brandAuditLogs(brandId));
     }
+
+    @GetMapping("/brands/pools/my-joins")
+    @Operation(summary = "WISH-03：我的参加记录", description = "本人参加的池与进度（归属过滤）")
+    public ApiResponse<Object> myJoins(
+            @Parameter(hidden = true) @org.springframework.web.bind.annotation.RequestHeader(com.cloudmart.common.constant.SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(collectionService.myPoolJoins(userId));
+    }
+
+    @GetMapping("/brands/pools/my-rewards")
+    @Operation(summary = "WISH-03：我的奖励结果", description = "本人奖励义务状态/承诺/实际入账（部分到账如实可见）")
+    public ApiResponse<Object> myRewards(
+            @Parameter(hidden = true) @org.springframework.web.bind.annotation.RequestHeader(com.cloudmart.common.constant.SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(collectionService.myPoolRewards(userId));
+    }
 }

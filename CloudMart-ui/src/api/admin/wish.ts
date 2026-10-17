@@ -1060,8 +1060,9 @@ export function deleteAdminWishAsset(id: number) {
 }
 
 export interface AdminWishBrand {
-  brandId: number
-  brandName: string
+  /** WISH-03：对齐后端 Brand 实体（id/name）——原 brandId/brandName 取不到值 */
+  id: number
+  name: string
   logo: string | null
   description: string | null
   status: 'PENDING' | 'APPROVED' | 'REJECTED'

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Card, Empty, Image, Modal, Progress, Segmented, Spin, Tag, App } from 'antd'
+import { Button, Card, Empty, Image, Modal, Progress, Segmented, Space, Spin, Tag, App } from 'antd'
 import {
   ArrowLeftOutlined,
   GiftOutlined,
@@ -12,6 +12,8 @@ import { history } from 'umi'
 import AssetIcon from '@/components/AssetIcon'
 import {
   getWorkshopAssets,
+  getMyPoolJoins,
+  getMyPoolRewards,
   exchangeAsset,
   getCollections,
   getAssetDetail,
@@ -73,6 +75,22 @@ export default function WishWorkshop() {
   const [brands, setBrands] = useState<BrandItem[]>([])
   const [poolsByBrand, setPoolsByBrand] = useState<Record<number, BrandPoolItem[]>>({})
   const [joiningPool, setJoiningPool] = useState<string | null>(null)
+  // WISH-03：我的参加与奖励（品牌池用户闭环——部分到账如实可见）
+  const [myJoinsOpen, setMyJoinsOpen] = useState(false)
+  const [myJoins, setMyJoins] = useState<Array<Record<string, unknown>>>([])
+  const [myRewards, setMyRewards] = useState<Array<Record<string, unknown>>>([])
+  const [myPoolLoading, setMyPoolLoading] = useState(false)
+
+  const loadMyPools = useCallback(async () => {
+    setMyPoolLoading(true)
+    try {
+      const [joins, rewards] = await Promise.all([getMyPoolJoins(), getMyPoolRewards()])
+      if (joins.data.success) setMyJoins(joins.data.data ?? [])
+      if (rewards.data.success) setMyRewards(rewards.data.data ?? [])
+    } finally {
+      setMyPoolLoading(false)
+    }
+  }, [])
 
   const loadWorkshop = useCallback(async () => {
     const res = await getWorkshopAssets()
@@ -171,13 +189,13 @@ export default function WishWorkshop() {
   }
 
   const handleJoin = async (brand: BrandItem, pool: BrandPoolItem) => {
-    const key = `${brand.brandId}:${pool.poolId}`
+    const key = `${brand.id}:${pool.id}`
     setJoiningPool(key)
     try {
-      const res = await joinBrandPool(brand.brandId, pool.poolId)
+      const res = await joinBrandPool(brand.id, pool.id)
       if (res.data.success) {
-        message.success(`已加入「${pool.poolName}」，达成后可获品牌奖励`)
-        await loadPools(brand.brandId)
+        message.success(`已加入「${pool.name}」，达成后可获品牌奖励`)
+        await loadPools(brand.id)
       }
     } catch {
       // 409 重复加入等由拦截器提示
@@ -255,6 +273,7 @@ export default function WishWorkshop() {
                     </Button>
                   </div>
                 </Card>
+
               ))}
             </div>
           )
@@ -307,24 +326,34 @@ export default function WishWorkshop() {
         ) : (
           brands.map((brand) => (
             <Card
-              key={brand.brandId}
+              key={brand.id}
               size="small"
-              title={<span><CrownOutlined style={{ color: '#FFD700' }} /> {brand.brandName}</span>}
+              title={<span><CrownOutlined style={{ color: '#FFD700' }} /> {brand.name}</span>}
               style={{ marginBottom: 16 }}
-              extra={<Tag color="gold">{brand.status}</Tag>}
+              extra={
+                <Space>
+                  <Tag color="gold">{brand.status}</Tag>
+                  {brand.id === brands[0]?.id && (
+                    <Button size="small" type="link" style={{ padding: 0 }}
+                      onClick={() => { setMyJoinsOpen(true); void loadMyPools() }}>
+                      我的参加与奖励
+                    </Button>
+                  )}
+                </Space>
+              }
             >
               <div style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginBottom: 12 }}>
                 {brand.description ?? '—'}
               </div>
-              {(poolsByBrand[brand.brandId] ?? []).length === 0 ? (
-                <Button size="small" onClick={() => loadPools(brand.brandId)}>
+              {(poolsByBrand[brand.id] ?? []).length === 0 ? (
+                <Button size="small" onClick={() => loadPools(brand.id)}>
                   查看许愿池
                 </Button>
               ) : (
-                (poolsByBrand[brand.brandId] ?? []).map((pool) => (
-                  <div key={pool.poolId} style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12, marginTop: 12 }}>
+                (poolsByBrand[brand.id] ?? []).map((pool) => (
+                  <div key={pool.id} style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12, marginTop: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <span style={{ fontWeight: 500 }}>{pool.poolName}</span>
+                      <span style={{ fontWeight: 500 }}>{pool.name}</span>
                       <Tag>{pool.status}</Tag>
                     </div>
                     <Progress
@@ -339,7 +368,7 @@ export default function WishWorkshop() {
                         size="small"
                         type="primary"
                         icon={<StarOutlined />}
-                        loading={joiningPool === `${brand.brandId}:${pool.poolId}`}
+                        loading={joiningPool === `${brand.id}:${pool.id}`}
                         onClick={() => handleJoin(brand, pool)}
                       >
                         加入
@@ -411,6 +440,38 @@ export default function WishWorkshop() {
             </div>
           </div>
         )}
+      </Modal>
+      <Modal
+        title="我的品牌池参加与奖励"
+        open={myJoinsOpen}
+        onCancel={() => setMyJoinsOpen(false)}
+        footer={null}
+        width={560}
+      >
+        <Spin spinning={myPoolLoading}>
+          <h4 style={{ margin: '8px 0' }}>我的参加</h4>
+          {myJoins.length === 0 ? (
+            <div style={{ color: 'var(--color-text-tertiary)', fontSize: 13 }}>暂未参加任何许愿池</div>
+          ) : (
+            myJoins.map((j) => (
+              <div key={String(j.poolId)} style={{ fontSize: 13, marginBottom: 4 }}>
+                {String(j.poolName)} · {String(j.currentCount)}/{String(j.targetCount)} 人 · {String(j.poolStatus)}
+              </div>
+            ))
+          )}
+          <h4 style={{ margin: '12px 0 8px' }}>我的奖励结果</h4>
+          {myRewards.length === 0 ? (
+            <div style={{ color: 'var(--color-text-tertiary)', fontSize: 13 }}>暂无奖励记录</div>
+          ) : (
+            myRewards.map((r) => (
+              <div key={String(r.poolId)} style={{ fontSize: 13, marginBottom: 4 }}>
+                {String(r.poolName)} · {r.status === 'CREDITED'
+                  ? `已到账 ${String(r.creditedAmount)}`
+                  : `承诺 ${String(r.promisedAmount)}（${String(r.status)}）`}
+              </div>
+            ))
+          )}
+        </Spin>
       </Modal>
     </div>
   )

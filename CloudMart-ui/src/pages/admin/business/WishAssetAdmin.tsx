@@ -65,9 +65,9 @@ export default function WishAssetAdmin() {
   }, [])
 
   const handleAudit = async (brand: AdminWishBrand, status: 'APPROVED' | 'REJECTED') => {
-    const res = await auditAdminWishBrand(brand.brandId, status)
+    const res = await auditAdminWishBrand(brand.id, status)
     if (res.data.success) {
-      message.success(`品牌「${brand.brandName}」已${status === 'APPROVED' ? '通过' : '驳回'}`)
+      message.success(`品牌「${brand.name}」已${status === 'APPROVED' ? '通过' : '驳回'}`)
       loadBrands()
     }
   }
@@ -206,14 +206,14 @@ export default function WishAssetAdmin() {
       ) : (
         <ProTable<AdminWishBrand>
           headerTitle="品牌入驻审核"
-          rowKey="brandId"
+          rowKey="id"
           search={false}
           loading={brandsLoading}
           dataSource={brands}
           pagination={false}
           columns={[
-            { title: 'ID', dataIndex: 'brandId', width: 150, ellipsis: true },
-            { title: '品牌名称', dataIndex: 'brandName', width: 180 },
+            { title: 'ID', dataIndex: 'id', width: 150, ellipsis: true },
+            { title: '品牌名称', dataIndex: 'name', width: 180 },
             { title: '简介', dataIndex: 'description', ellipsis: true, render: (v) => v || '-' },
             {
               title: '状态',

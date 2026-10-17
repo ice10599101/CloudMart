@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+
+  <title>Cocos Creator | pet-game</title>
+
+  <meta name="viewport"
+        content="width=device-width,user-scalable=no,initial-scale=1,minimum-scale=1,maximum-scale=1,minimal-ui=true"/>
+
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+
+  <meta name="renderer" content="webkit"/>
+  <meta name="force-rendering" content="webkit"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+  <meta name="msapplication-tap-highlight" content="no">
+
+  <meta name="full-screen" content="yes"/>
+  <meta name="x5-fullscreen" content="true"/>
+  <meta name="360-fullscreen" content="true">
+
+  <meta name="x5-page-mode" content="app">
+
+  <!-- 法式奶油风：页面底色与宿主舞台卡同色，任何画布适配误差都隐形。
+       覆盖模板 style.css 的 body#333 深底与 flex 布局（flex-column + height:100%
+       会把 GameDiv 算短，底部露出一条 #333）。 -->
+  <style>
+    html,
+    body {
+      background: #FDF6EC !important;
+      height: 100%;
+      /* 画布 CSS 高度按 aspect-ratio 算出小数、引擎取整后会有零点几像素溢出，
+         不禁滚动就会在 iframe 底部出现一条深色横向滚动条 */
+      overflow: hidden !important;
+    }
+
+    body {
+      display: block !important;
+    }
+
+    #GameDiv,
+    #Cocos3dGameContainer,
+    #GameCanvas {
+      background: #FDF6EC !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+  </style>
+
+  <link rel="stylesheet" type="text/css" href="style.css"/>
+
+</head>
+<body style="background:#FDF6EC">
+  <div id="GameDiv" cc_exact_fit_screen="true">
+      <div id="Cocos3dGameContainer">
+        <canvas id="GameCanvas" oncontextmenu="event.preventDefault()" tabindex="99"></canvas>
+      </div>
+    </div>
+
+
+<!-- Polyfills bundle. -->
+
+<script src="src/polyfills.bundle.js" charset="utf-8"> </script>
+
+
+<!-- SystemJS support. -->
+<script src="src/system.bundle.js" charset="utf-8"> </script>
+
+<!-- Import map -->
+<script src="src/import-map.json" type="systemjs-importmap" charset="utf-8"> </script>
+
+<script>
+    System.import('./index.js').catch(function(err) { console.error(err) })
+</script>
+
+</body>
+</html>

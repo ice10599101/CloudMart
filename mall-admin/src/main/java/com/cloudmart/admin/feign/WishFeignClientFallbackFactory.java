@@ -383,6 +383,28 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
                 throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
 
+            // ===== WISH-03：品牌许愿池运营（fallback 直接抛服务不可用） =====
+
+            @Override
+            public ApiResponse<Object> publishBrandPool(Long brandId, Long poolId) {
+                throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> retryBrandPoolSettlement(Long brandId, Long poolId) {
+                throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listBrandPoolRewards(Long brandId, Long poolId) {
+                throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> listBrandAuditLogs(Long brandId) {
+                throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
             @Override
             public ApiResponse<Object> createBrandPool(Long brandId, Map<String, Object> body) {
                 throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");

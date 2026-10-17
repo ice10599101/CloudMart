@@ -755,4 +755,36 @@ public class AdminWishController {
                                                @RequestParam(value = "pageSize", required = false) Integer pageSize) {
         return wishFeignClient.listGiftRecords(senderId, receiverId, targetType, targetId, page, pageSize);
     }
+
+    // ===== WISH-03：品牌许愿池运营 =====
+
+    @PostMapping("/wish/brand/{brandId}/pools/{poolId}/publish")
+    @OperLog(title = "品牌奖池", businessType = 2)
+    @RequiresPermission("business:wishBrand:audit")
+    @Operation(summary = "WISH-03：发布品牌许愿池", description = "DRAFT→ACTIVE；品牌必须已批准；冻结规则版本")
+    public ApiResponse<Object> publishBrandPool(@PathVariable Long brandId, @PathVariable Long poolId) {
+        return wishFeignClient.publishBrandPool(brandId, poolId);
+    }
+
+    @PostMapping("/wish/brand/{brandId}/pools/{poolId}/settlement-retry")
+    @OperLog(title = "品牌奖池", businessType = 2)
+    @RequiresPermission("business:wishBrand:audit")
+    @Operation(summary = "WISH-03：CONFIG_ERROR 结算重试", description = "rewardSpec 修复确认后重入结算（审计留痕）")
+    public ApiResponse<Object> retryBrandPoolSettlement(@PathVariable Long brandId, @PathVariable Long poolId) {
+        return wishFeignClient.retryBrandPoolSettlement(brandId, poolId);
+    }
+
+    @GetMapping("/wish/brand/{brandId}/pools/{poolId}/rewards")
+    @RequiresPermission("business:wishBrand:audit")
+    @Operation(summary = "WISH-03：池奖励记录", description = "结算状态/承诺/实际入账/重试次数")
+    public ApiResponse<Object> listBrandPoolRewards(@PathVariable Long brandId, @PathVariable Long poolId) {
+        return wishFeignClient.listBrandPoolRewards(brandId, poolId);
+    }
+
+    @GetMapping("/wish/brand/{brandId}/audit-logs")
+    @RequiresPermission("business:wishBrand:audit")
+    @Operation(summary = "WISH-03：品牌审计日志", description = "审批/池变更/结算动作留痕")
+    public ApiResponse<Object> listBrandAuditLogs(@PathVariable Long brandId) {
+        return wishFeignClient.listBrandAuditLogs(brandId);
+    }
 }

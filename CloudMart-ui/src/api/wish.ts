@@ -1461,22 +1461,42 @@ export function setActiveBgm(assetId: number) {
 // ========== 品牌许愿池（Sprint 3.6 / 2.16，四AB B4 用户侧） ==========
 
 export interface BrandItem {
-  brandId: number
-  brandName: string
+  /** WISH-03：对齐后端 Brand 实体（id/name） */
+  id: number
+  name: string
   logo: string | null
   description: string | null
   status: string
 }
 
 export interface BrandPoolItem {
-  poolId: number
+  id: number
   brandId: number
-  poolName: string
+  name: string
   targetCount: number
   currentCount: number
   rewardDescription: string | null
   status: string
   endTime: string | null
+}
+
+/** WISH-03：我的品牌池参加记录/奖励结果行 */
+export interface MyPoolJoinItem {
+  poolId: number
+  joinedAt: string
+  poolName: string
+  poolStatus: string
+  targetCount: number
+  currentCount: number
+}
+
+export interface MyPoolRewardItem {
+  poolId: number
+  rewardType: string
+  status: string
+  promisedAmount: number
+  creditedAmount: number
+  poolName: string
 }
 
 export function listBrands() {
@@ -1923,4 +1943,14 @@ export function listWishGrowthTimeline(
   params: { cursor?: string; pageSize?: number } = {},
 ) {
   return request.get<ApiResponse<WishGrowthTimelineItem[]>>(`/wish/wishes/${wishId}/growth-records`, { params })
+}
+
+/** WISH-03：我的品牌池参加记录（本人维度） */
+export function getMyPoolJoins() {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>('/wish/brands/pools/my-joins')
+}
+
+/** WISH-03：我的品牌池奖励结果（部分到账如实可见） */
+export function getMyPoolRewards() {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>('/wish/brands/pools/my-rewards')
 }

@@ -321,6 +321,23 @@ public interface WishFeignClient {
     ApiResponse<Object> auditWishBrand(@PathVariable("id") Long id,
                                        @RequestParam("status") String status);
 
+    // ===== WISH-03：品牌许愿池运营（发布/结算重试/奖励记录/审计） =====
+
+    @org.springframework.web.bind.annotation.PostMapping("/wish/brand/{brandId}/pools/{poolId}/publish")
+    ApiResponse<Object> publishBrandPool(@org.springframework.web.bind.annotation.PathVariable("brandId") Long brandId,
+                                          @org.springframework.web.bind.annotation.PathVariable("poolId") Long poolId);
+
+    @org.springframework.web.bind.annotation.PostMapping("/wish/brand/{brandId}/pools/{poolId}/settlement-retry")
+    ApiResponse<Object> retryBrandPoolSettlement(@org.springframework.web.bind.annotation.PathVariable("brandId") Long brandId,
+                                                  @org.springframework.web.bind.annotation.PathVariable("poolId") Long poolId);
+
+    @org.springframework.web.bind.annotation.GetMapping("/wish/brand/{brandId}/pools/{poolId}/rewards")
+    ApiResponse<Object> listBrandPoolRewards(@org.springframework.web.bind.annotation.PathVariable("brandId") Long brandId,
+                                             @org.springframework.web.bind.annotation.PathVariable("poolId") Long poolId);
+
+    @org.springframework.web.bind.annotation.GetMapping("/wish/brand/{brandId}/audit-logs")
+    ApiResponse<Object> listBrandAuditLogs(@org.springframework.web.bind.annotation.PathVariable("brandId") Long brandId);
+
     /** T23：创建品牌奖池（预算/奖项库存/规则版本由 wish 服务端校验） */
     @PostMapping("/brand/{brandId}/pools")
     ApiResponse<Object> createBrandPool(@PathVariable("brandId") Long brandId,

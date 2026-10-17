@@ -771,6 +771,44 @@ public class CollectionServiceImpl implements CollectionService {
                 }).toList();
     }
 
+    /** WISH-03：我的参加记录（本人维度） */
+    @Override
+    public List<Map<String, Object>> myPoolJoins(Long userId) {
+        return poolMemberMapper.selectList(new LambdaQueryWrapper<com.cloudmart.wish.entity.BrandPoolMember>()
+                        .eq(com.cloudmart.wish.entity.BrandPoolMember::getUserId, userId)
+                        .orderByDesc(com.cloudmart.wish.entity.BrandPoolMember::getId))
+                .stream().map(m -> {
+                    final Map<String, Object> view = new java.util.LinkedHashMap<String, Object>();
+                    view.put("poolId", m.getPoolId());
+                    view.put("joinedAt", m.getJoinedAt() == null ? "" : m.getJoinedAt().toString());
+                    final BrandPool pool = poolMapper.selectById(m.getPoolId());
+                    view.put("poolName", pool == null ? "" : pool.getName());
+                    view.put("poolStatus", pool == null ? "" : pool.getStatus());
+                    view.put("targetCount", pool == null ? 0 : pool.getTargetCount());
+                    view.put("currentCount", pool == null ? 0 : pool.getCurrentCount());
+                    return view;
+                }).toList();
+    }
+
+    /** WISH-03：我的奖励结果（本人维度：义务状态/承诺/实际入账——部分到账如实可见） */
+    @Override
+    public List<Map<String, Object>> myPoolRewards(Long userId) {
+        return brandRewardLogMapper.selectList(new LambdaQueryWrapper<com.cloudmart.wish.entity.BrandRewardLog>()
+                        .eq(com.cloudmart.wish.entity.BrandRewardLog::getUserId, userId)
+                        .orderByDesc(com.cloudmart.wish.entity.BrandRewardLog::getId))
+                .stream().map(r -> {
+                    final Map<String, Object> view = new java.util.LinkedHashMap<String, Object>();
+                    view.put("poolId", r.getPoolId());
+                    view.put("rewardType", r.getRewardType());
+                    view.put("status", r.getStatus());
+                    view.put("promisedAmount", r.getPromisedAmount());
+                    view.put("creditedAmount", r.getCreditedAmount());
+                    final BrandPool pool = poolMapper.selectById(r.getPoolId());
+                    view.put("poolName", pool == null ? "" : pool.getName());
+                    return view;
+                }).toList();
+    }
+
     @Override
     @Transactional
     public void joinPool(Long userId, Long poolId) {
