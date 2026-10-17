@@ -24,7 +24,7 @@ import {
 } from "@/utils/softwareIcon";
 import CommentToolbar, { insertAtCursor } from "@/components/CommentToolbar";
 import CommentContent from "@/components/CommentContent";
-import { searchUsers } from "@/api/community";
+import { searchUsers, recordBrowseHistory} from "@/api/community";
 import {
   createSoftwareComment,
   favoriteSoftware,
@@ -129,6 +129,15 @@ export default function SoftwareDetail() {
           setRatingCount(detailRes.data.data.ratingCount ?? 0);
           setRatingAvg(detailRes.data.data.ratingAvg ?? null);
           setSubscribed(Boolean(detailRes.data.data.isSubscribed));
+          // 浏览足迹上报（静默）：同一软件重复浏览仅由后端刷新时间
+          void recordBrowseHistory({
+            targetType: "SOFTWARE",
+            targetId: id,
+            title: detailRes.data.data.name ?? undefined,
+            cover: detailRes.data.data.iconAssetId
+              ? `/files/by-id/${detailRes.data.data.iconAssetId}`
+              : undefined,
+          }).catch(() => undefined);
         }
         if (releaseRes.data.success)
           setReleases(releaseRes.data.data?.records ?? []);

@@ -994,19 +994,21 @@ function MyRepliesTab() {
   )
 }
 
-type BrowseKind = 'wish' | 'post' | 'product'
+type BrowseKind = 'wish' | 'post' | 'product' | 'software'
 
 /** 浏览足迹类型元信息：标签、图标与主题色 */
 const BROWSE_KIND_META: Record<BrowseKind, { label: string; emoji: string; color: string; bg: string }> = {
   wish: { label: '心愿', emoji: '🌟', color: 'var(--color-accent-purple)', bg: 'rgba(156, 108, 255, 0.14)' },
   post: { label: '帖子', emoji: '📝', color: 'var(--color-primary)', bg: 'rgba(var(--color-primary-rgb), 0.12)' },
   product: { label: '商品', emoji: '🛍️', color: 'var(--color-accent-orange)', bg: 'rgba(255, 165, 0, 0.14)' },
+  software: { label: '软件', emoji: '🧩', color: 'var(--color-accent-blue, #378ADD)', bg: 'rgba(55, 138, 221, 0.14)' },
 }
 
 /** 足迹 targetType → 展示类型 */
 function browseKindOf(targetType: BrowseHistoryItem['targetType']): BrowseKind {
   if (targetType === 'PRODUCT') return 'product'
   if (targetType === 'POST') return 'post'
+  if (targetType === 'SOFTWARE') return 'software'
   return 'wish'
 }
 
@@ -1015,6 +1017,7 @@ function browseDetailRoute(item: BrowseHistoryItem): string {
   const kind = browseKindOf(item.targetType)
   if (kind === 'product') return `/products/${item.targetId}`
   if (kind === 'post') return `/post/${item.targetId}`
+  if (kind === 'software') return `/software/${item.targetId}`
   return `/wish/${item.targetId}`
 }
 
