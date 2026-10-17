@@ -45,6 +45,7 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
     private static final Set<String> MODERATE_ACTIONS = Set.of("APPROVE", "HIDE", "RESTORE", "REJECT");
 
     private final SoftwareMapper softwareMapper;
+    private final com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
     private final SoftwareRevisionMapper revisionMapper;
     private final SoftwareCommentMapper commentMapper;
     private final SoftwareAuditLogMapper auditLogMapper;
@@ -63,7 +64,7 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                         .orderByAsc(SoftwareRevision::getSubmittedAt));
         Page<Map<String, Object>> result = new Page<>(revisionPage.getCurrent(),
                 revisionPage.getSize(), revisionPage.getTotal());
-        result.setRecords(revisionPage.getRecords().stream()
+        List<Map<String, Object>> rows = revisionPage.getRecords().stream()
                 .map(revision -> {
                     Map<String, Object> row = new HashMap<>();
                     row.put("softwareId", String.valueOf(revision.getSoftwareId()));
@@ -78,8 +79,60 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                     row.put("lifecycle", software == null ? null : software.getLifecycle().name());
                     return row;
                 })
-                .toList());
+                .toList();
+        // 发布者昵称行级补全（profiles 失败时留空，前端回落 ID 展示）
+        fillEditorNicknames(rows);
+        result.setRecords(rows);
         return result;
+    }
+
+    /**
+     * 审核列表行级补发布者昵称（展示用户名而非数字 ID）。
+     * profiles 失败/降级返回空时昵称缺省，前端回落为 ID 展示。
+     */
+    private void fillEditorNicknames(List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        List<Long> ids = rows.stream()
+                .map(row -> row.get("editorId"))
+                .filter(java.util.Objects::nonNull)
+                .map(value -> {
+                    try {
+                        return Long.parseLong(String.valueOf(value));
+                    } catch (NumberFormatException ignored) {
+                        return null;
+                    }
+                })
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<Long, String> nicknameById = new HashMap<>();
+        try {
+            for (var profile : userSupportFeignClient.profiles(
+                    Map.of("userIds", ids)).data()) {
+                nicknameById.put(profile.id(), profile.nickname());
+            }
+        } catch (Exception ignored) {
+            // 资料服务不可用：昵称留空，前端回落 ID 展示（列表主流程不受阻）
+        }
+        for (Map<String, Object> row : rows) {
+            Object raw = row.get("editorId");
+            if (raw == null) {
+                continue;
+            }
+            try {
+                String nickname = nicknameById.get(Long.parseLong(String.valueOf(raw)));
+                if (nickname != null && !nickname.isBlank()) {
+                    row.put("editorNickname", nickname);
+                }
+            } catch (NumberFormatException ignored) {
+                // 非数字 editorId：留空
+            }
+        }
     }
 
     @Override

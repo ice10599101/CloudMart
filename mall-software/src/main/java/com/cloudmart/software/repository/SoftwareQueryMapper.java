@@ -49,6 +49,10 @@ public interface SoftwareQueryMapper {
                           WHERE rel.revision_id = r.id AND src.platform = #{q.platform})
             </if>
             <choose>
+              <when test="q.sort == 'featured'">
+                AND s.featured_rank &gt; 0
+                ORDER BY s.featured_rank DESC, s.last_release_at DESC, s.id DESC
+              </when>
               <when test="q.sort == 'latest'">
                 ORDER BY s.last_release_at DESC, s.id DESC
               </when>

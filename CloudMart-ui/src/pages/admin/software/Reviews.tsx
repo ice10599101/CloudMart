@@ -16,6 +16,7 @@ interface PendingRow {
   name: string | null
   summary: string | null
   editorId: string
+  editorNickname?: string
   submittedAt: string
   lifecycle: string
 }
@@ -130,7 +131,13 @@ export default function SoftwareReviews() {
     { title: '快照ID', dataIndex: 'revisionId', width: 90, search: false },
     { title: '名称', dataIndex: 'name', width: 220, ellipsis: true, search: false },
     { title: '提交批次', dataIndex: 'submitSeq', width: 90, search: false },
-    { title: '署名者', dataIndex: 'editorId', width: 100, search: false },
+    {
+      title: '发布者',
+      dataIndex: 'editorNickname',
+      width: 110,
+      search: false,
+      render: (_, record) => record.editorNickname || `用户${record.editorId}`,
+    },
     {
       title: '当前状态',
       dataIndex: 'lifecycle',

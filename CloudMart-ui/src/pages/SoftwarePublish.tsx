@@ -11,8 +11,9 @@ import {
   Space,
   Switch,
   Typography,
+  Upload,
 } from "antd";
-import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import { DeleteOutlined, InboxOutlined, PlusOutlined } from "@ant-design/icons";
 import { history } from "umi";
 import TiptapEditor from "@/components/TiptapEditor";
 import {
@@ -31,6 +32,7 @@ import {
   type SoftwareTag,
   getSoftwareEditor,
 } from "@/api/software";
+import { uploadFileAsset } from "@/api/file";
 import { useAuthStore } from "@/stores/auth";
 import {
   clearPageDraft,
@@ -140,6 +142,7 @@ export default function SoftwarePublish() {
   const [descriptionHtml, setDescriptionHtml] = useState("");
   const [licenseType, setLicenseType] = useState<SoftwareLicenseType>("FREE");
   const [attributionType, setAttributionType] = useState<string>("ORIGINAL");
+  const [iconAssetId, setIconAssetId] = useState<string | undefined>(undefined);
   const [developerName, setDeveloperName] = useState("");
   const [officialUrl, setOfficialUrl] = useState("");
   const [systemRequirements, setSystemRequirements] = useState("");
@@ -298,6 +301,7 @@ export default function SoftwarePublish() {
     return {
       name,
       summary,
+      iconAssetId: iconAssetId || undefined,
       categoryId,
       descriptionHtml,
       licenseType,
@@ -323,6 +327,7 @@ export default function SoftwarePublish() {
   }, [
     accessContactId,
     attributionType,
+    iconAssetId,
     accessMode,
     categoryId,
     descriptionHtml,
@@ -510,6 +515,62 @@ export default function SoftwarePublish() {
 
       <Card className={styles.section} title="基础信息">
         <Space direction="vertical" style={{ width: "100%" }} size="middle">
+          <div style={{ marginBottom: 12 }}>
+            <Upload
+              accept="image/*"
+              showUploadList={false}
+              customRequest={async (options) => {
+                try {
+                  const res = await uploadFileAsset(options.file as File, "PUBLIC");
+                  if (res.data.success && res.data.data?.fileId) {
+                    setIconAssetId(res.data.data.fileId);
+                    options.onSuccess?.(res.data.data);
+                    message.success("图标已上传");
+                  } else {
+                    options.onError?.(new Error("upload failed"));
+                    message.error(
+                      res.data.error?.message || "图标上传失败，请使用常见图片格式",
+                    );
+                  }
+                } catch (error) {
+                  options.onError?.(error as Error);
+                }
+              }}
+            >
+              {iconAssetId ? (
+                <img
+                  src={`/files/${iconAssetId}`}
+                  alt="软件图标"
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 12,
+                    objectFit: "cover",
+                    cursor: "pointer",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 12,
+                    border: "1px dashed var(--color-border, #444)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    color: "var(--color-text-secondary, #999)",
+                    gap: 2,
+                  }}
+                >
+                  <InboxOutlined />
+                  <span style={{ fontSize: 12 }}>软件图标</span>
+                </div>
+              )}
+            </Upload>
+          </div>
           <Input
             placeholder="软件名称"
             value={name}

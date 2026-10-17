@@ -81,7 +81,7 @@ export interface SoftwareListQuery {
   license?: string;
   tagId?: string;
   /** recommend=推荐位优先、latest=最近更新、popular=获取链接与收藏热度 */
-  sort?: "recommend" | "latest" | "popular" | "rating";
+  sort?: "recommend" | "featured" | "latest" | "popular" | "rating";
   page?: number;
   size?: number;
 }

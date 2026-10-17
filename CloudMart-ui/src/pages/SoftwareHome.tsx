@@ -51,7 +51,7 @@ export default function SoftwareHome() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      listSoftware({ sort: "recommend", page: 1, size: SECTION_SIZE }),
+      listSoftware({ sort: "featured", page: 1, size: SECTION_SIZE }),
       listSoftware({ sort: "latest", page: 1, size: LATEST_FETCH_SIZE }),
     ])
       .then(([recommendRes, latestRes]) => {

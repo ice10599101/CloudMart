@@ -11,8 +11,9 @@ import {
   Spin,
   Switch,
   Tag,
+  Upload,
 } from "antd";
-import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
+import { DeleteOutlined, InboxOutlined, PlusOutlined } from "@ant-design/icons";
 import { history, useParams } from "umi";
 import TiptapEditor from "@/components/TiptapEditor";
 import {
@@ -32,6 +33,7 @@ import {
   type SoftwareSourceType,
   type SoftwareTag,
 } from "@/api/software";
+import { uploadFileAsset } from "@/api/file";
 import { useAuthStore } from "@/stores/auth";
 import styles from "./SoftwareEdit.module.css";
 
@@ -134,6 +136,7 @@ export default function SoftwareEdit() {
   const [descriptionHtml, setDescriptionHtml] = useState("");
   const [licenseType, setLicenseType] = useState<SoftwareLicenseType>("FREE");
   const [attributionType, setAttributionType] = useState<string>("ORIGINAL");
+  const [iconAssetId, setIconAssetId] = useState<string | undefined>(undefined);
   const [developerName, setDeveloperName] = useState("");
   const [officialUrl, setOfficialUrl] = useState("");
   const [systemRequirements, setSystemRequirements] = useState("");
@@ -163,6 +166,7 @@ export default function SoftwareEdit() {
       setDescriptionHtml(data.descriptionHtml ?? "");
       setLicenseType(data.licenseType ?? "FREE");
       setAttributionType(data.attributionType ?? "ORIGINAL");
+      setIconAssetId(data.iconAssetId ?? undefined);
       setDeveloperName(data.developerName ?? "");
       setOfficialUrl(data.officialUrl ?? "");
       setSystemRequirements(data.systemRequirements ?? "");
@@ -279,6 +283,7 @@ export default function SoftwareEdit() {
     return {
       name,
       summary,
+      iconAssetId: iconAssetId || undefined,
       categoryId,
       descriptionHtml,
       licenseType,
@@ -529,6 +534,63 @@ export default function SoftwareEdit() {
 
       <Card className={styles.section} title="基础信息">
         <Space direction="vertical" style={{ width: "100%" }} size="middle">
+          <div style={{ marginBottom: 12 }}>
+            <Upload
+              accept="image/*"
+              showUploadList={false}
+              disabled={frozen}
+              customRequest={async (options) => {
+                try {
+                  const res = await uploadFileAsset(options.file as File, "PUBLIC");
+                  if (res.data.success && res.data.data?.fileId) {
+                    setIconAssetId(res.data.data.fileId);
+                    options.onSuccess?.(res.data.data);
+                    message.success("图标已上传");
+                  } else {
+                    options.onError?.(new Error("upload failed"));
+                    message.error(
+                      res.data.error?.message || "图标上传失败，请使用常见图片格式",
+                    );
+                  }
+                } catch (error) {
+                  options.onError?.(error as Error);
+                }
+              }}
+            >
+              {iconAssetId ? (
+                <img
+                  src={`/files/${iconAssetId}`}
+                  alt="软件图标"
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 12,
+                    objectFit: "cover",
+                    cursor: frozen ? "default" : "pointer",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: 72,
+                    height: 72,
+                    borderRadius: 12,
+                    border: "1px dashed var(--color-border, #444)",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: frozen ? "default" : "pointer",
+                    color: "var(--color-text-secondary, #999)",
+                    gap: 2,
+                  }}
+                >
+                  <InboxOutlined />
+                  <span style={{ fontSize: 12 }}>软件图标</span>
+                </div>
+              )}
+            </Upload>
+          </div>
           <Input
             disabled={frozen}
             placeholder="软件名称"

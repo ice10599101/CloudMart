@@ -143,6 +143,18 @@ export default function SoftwarePreview() {
     <div className={styles.page}>
       <Card className={styles.section}>
         <div className={styles.head}>
+          {editor.iconAssetId ? (
+            <img
+              src={`/files/${editor.iconAssetId}`}
+              alt="软件图标"
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 12,
+                objectFit: "cover",
+              }}
+            />
+          ) : null}
           <Typography.Title level={3} style={{ marginBottom: 0 }}>
             {editor.name}
           </Typography.Title>
