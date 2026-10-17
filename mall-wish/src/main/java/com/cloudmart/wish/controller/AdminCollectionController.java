@@ -90,7 +90,7 @@ public class AdminCollectionController {
         pool.setTargetCount(request.targetCount());
         pool.setRewardJson(request.rewardJson());
         pool.setEndAt(request.endAt() != null ? LocalDateTime.parse(request.endAt()) : null);
-        pool.setStatus("ACTIVE");
+        // WISH-03：创建为 DRAFT（发布走 /publish，冻结规则版本）
         return ApiResponse.ok(collectionService.createPool(pool, adminUserId));
     }
 
@@ -125,5 +125,35 @@ public class AdminCollectionController {
             @PathVariable Long poolId) {
         collectionService.endPool(poolId);
         return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/admin/brand/{brandId}/pools/{poolId}/publish")
+    @Operation(summary = "WISH-03：发布品牌许愿池", description = "DRAFT→ACTIVE；品牌必须已批准；冻结规则版本")
+    public ApiResponse<Object> publishPool(
+            @PathVariable Long brandId,
+            @PathVariable Long poolId,
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
+        return ApiResponse.ok(collectionService.publishPool(poolId, adminUserId));
+    }
+
+    @PostMapping("/admin/brand/{brandId}/pools/{poolId}/settlement-retry")
+    @Operation(summary = "WISH-03：CONFIG_ERROR 结算重试", description = "rewardSpec 修复确认后重入结算流程（审计留痕）")
+    public ApiResponse<Object> retrySettlement(
+            @PathVariable Long brandId,
+            @PathVariable Long poolId,
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId) {
+        return ApiResponse.ok(collectionService.retrySettlement(poolId, adminUserId));
+    }
+
+    @GetMapping("/admin/brand/{brandId}/pools/{poolId}/rewards")
+    @Operation(summary = "WISH-03：池奖励记录", description = "结算状态/承诺/实际入账/重试次数（真实查询，不再空列表）")
+    public ApiResponse<Object> poolRewards(@PathVariable Long brandId, @PathVariable Long poolId) {
+        return ApiResponse.ok(collectionService.poolRewards(poolId));
+    }
+
+    @GetMapping("/admin/brand/{brandId}/audit-logs")
+    @Operation(summary = "WISH-03：品牌审计日志", description = "审批/池变更/结算动作留痕（真实查询）")
+    public ApiResponse<Object> brandAuditLogs(@PathVariable Long brandId) {
+        return ApiResponse.ok(collectionService.brandAuditLogs(brandId));
     }
 }

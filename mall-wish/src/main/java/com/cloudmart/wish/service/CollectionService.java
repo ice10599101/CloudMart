@@ -86,8 +86,14 @@ public interface CollectionService {
     List<BrandPool> listPools(Long brandId);
 
     BrandPool createPool(BrandPool pool, Long adminUserId);
-    /** 池更新（管理端；仅 name/targetCount/rewardJson/endAt 可变） */
+    /** 池更新（管理端；WISH-03：仅 DRAFT 可改——ACTIVE 后规则冻结） */
     BrandPool updatePool(Long poolId, BrandPool patch, Long adminUserId);
+
+    /** WISH-03：发布（DRAFT→ACTIVE）——品牌必须已批准，冻结 ruleVersion */
+    BrandPool publishPool(Long poolId, Long adminUserId);
+
+    /** WISH-03：CONFIG_ERROR 池修复后的审计重试 */
+    Map<String, Object> retrySettlement(Long poolId, Long adminUserId);
 
     /** 池终止（管理端；ACTIVE → ENDED，不再接受加入） */
     void endPool(Long poolId);

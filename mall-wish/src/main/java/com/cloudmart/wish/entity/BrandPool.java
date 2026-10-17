@@ -29,6 +29,8 @@ public class BrandPool {
 
     /** 达成奖励 JSON（如 {"starlight":50}） */
     private String rewardJson;
+    /** WISH-03：发布时冻结的规则版本 */
+    private Integer ruleVersion;
 
     private LocalDateTime endAt;
 

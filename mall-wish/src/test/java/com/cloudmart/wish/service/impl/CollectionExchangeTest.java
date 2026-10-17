@@ -35,10 +35,12 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -97,7 +99,9 @@ class CollectionExchangeTest {
                         .doInTransaction(mock(TransactionStatus.class)));
         WishOperationExecutor executor = new WishOperationExecutor(operationMapper, txTemplate);
         collectionService = new CollectionServiceImpl(assetMapper, userAssetMapper, brandMapper,
-                poolMapper, brandRewardLogMapper, poolMemberMapper, userStatService,
+                poolMapper, brandRewardLogMapper, poolMemberMapper,
+                org.mockito.Mockito.mock(com.cloudmart.wish.repository.BrandAuditLogMapper.class),
+                userStatService,
                 badgeMapper, userBadgeMapper, wishMapper, redisTemplate,
                 new com.cloudmart.wish.policy.WishAccessPolicy(), executor, brandPoolProperties);
 
@@ -266,22 +270,111 @@ class CollectionExchangeTest {
         assertThat(result).containsEntry("disabled", true).containsEntry("rewarded", 0);
         verify(poolMapper, never()).selectList(any());
         verify(brandRewardLogMapper, never()).insert(any(com.cloudmart.wish.entity.BrandRewardLog.class));
-        verify(userStatService, never()).earnStarlight(any(), org.mockito.ArgumentMatchers.anyInt(), any(), any());
+        verify(userStatService, never()).earnStarlightIdempotent(any(),
+                org.mockito.ArgumentMatchers.anyInt(), any(), any(), any());
     }
 
     @Test
-    @DisplayName("WISH-03：开关打开后参加仍走原流程（关闭仅是风险缓解，不改业务语义）")
-    void joinPoolEnabled_keepsFlow() {
+    @DisplayName("WISH-03：开关打开后参加走完整校验（ACTIVE+截止+品牌APPROVED+容量CAS）")
+    void joinPoolEnabled_fullChecks() {
         brandPoolProperties.setEnabled(true);
         com.cloudmart.wish.entity.BrandPool pool = new com.cloudmart.wish.entity.BrandPool();
         pool.setId(1L);
+        pool.setBrandId(7L);
         pool.setStatus("ACTIVE");
+        pool.setEndAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusDays(3));
         when(poolMapper.selectById(1L)).thenReturn(pool);
+        com.cloudmart.wish.entity.Brand brand = new com.cloudmart.wish.entity.Brand();
+        brand.setId(7L);
+        brand.setStatus("APPROVED");
+        when(brandMapper.selectById(7L)).thenReturn(brand);
+        when(poolMapper.incrementWithinTarget(1L)).thenReturn(1);
         when(poolMemberMapper.insert(any(com.cloudmart.wish.entity.BrandPoolMember.class))).thenReturn(1);
 
         collectionService.joinPool(USER, 1L);
 
         verify(poolMemberMapper).insert(any(com.cloudmart.wish.entity.BrandPoolMember.class));
-        verify(poolMapper).update(any(), any());
+        verify(poolMapper).incrementWithinTarget(1L);
+    }
+
+    @Test
+    @DisplayName("WISH-03：容量满（CAS 返回 0）→ WISH_STATUS_CONFLICT 不插成员")
+    void joinPool_full_rejected() {
+        brandPoolProperties.setEnabled(true);
+        com.cloudmart.wish.entity.BrandPool pool = new com.cloudmart.wish.entity.BrandPool();
+        pool.setId(1L);
+        pool.setBrandId(7L);
+        pool.setStatus("ACTIVE");
+        pool.setEndAt(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusDays(3));
+        when(poolMapper.selectById(1L)).thenReturn(pool);
+        com.cloudmart.wish.entity.Brand brand = new com.cloudmart.wish.entity.Brand();
+        brand.setId(7L);
+        brand.setStatus("APPROVED");
+        when(brandMapper.selectById(7L)).thenReturn(brand);
+        when(poolMapper.incrementWithinTarget(1L)).thenReturn(0);
+
+        assertThatThrownBy(() -> collectionService.joinPool(USER, 1L))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getCode()).isEqualTo(WishErrorCodes.WISH_STATUS_CONFLICT));
+        verify(poolMemberMapper, never()).insert(any(com.cloudmart.wish.entity.BrandPoolMember.class));
+    }
+
+    @Test
+    @DisplayName("WISH-03 结算闭环：CAS 后唯一结算者登记义务→幂等入账→ENDED；重复结算沿用义务不重复入账")
+    void brandRewardCheck_settlementClosedLoop() {
+        brandPoolProperties.setEnabled(true);
+        com.cloudmart.wish.entity.BrandPool pool = new com.cloudmart.wish.entity.BrandPool();
+        pool.setId(1L);
+        pool.setBrandId(7L);
+        pool.setStatus("ACTIVE");
+        pool.setTargetCount(2);
+        pool.setCurrentCount(2);
+        pool.setRewardJson("{\"starlight\": 50}");
+        pool.setRuleVersion(1);
+        when(poolMapper.selectList(any())).thenReturn(List.of(pool));
+        when(poolMapper.casActiveToSettling(1L)).thenReturn(1); // 本实例赢得结算
+        when(poolMapper.casSettlingToEnded(1L)).thenReturn(1);
+        com.cloudmart.wish.entity.BrandPoolMember member =
+                new com.cloudmart.wish.entity.BrandPoolMember();
+        member.setPoolId(1L);
+        member.setUserId(USER);
+        when(poolMemberMapper.selectList(any())).thenReturn(List.of(member));
+        when(brandRewardLogMapper.selectOne(any())).thenReturn(null); // 无既有义务
+        when(brandRewardLogMapper.insert(any(com.cloudmart.wish.entity.BrandRewardLog.class))).thenReturn(1);
+        com.cloudmart.wish.vo.StarlightOperationVO op = new com.cloudmart.wish.vo.StarlightOperationVO(
+                "op-key", "EARN", 50, 50, 1050, "ACTIVITY_REWARD", 1L, "SUCCESS", false);
+        when(userStatService.earnStarlightIdempotent(eq(USER), eq(50), any(), eq(1L), anyString()))
+                .thenReturn(op);
+
+        java.util.Map<String, Object> result = collectionService.brandRewardCheck();
+
+        assertThat(result).containsEntry("rewarded", 1);
+        verify(userStatService).earnStarlightIdempotent(eq(USER), eq(50), any(), eq(1L), anyString());
+        org.mockito.ArgumentCaptor<com.cloudmart.wish.entity.BrandRewardLog> captor =
+                org.mockito.ArgumentCaptor.forClass(com.cloudmart.wish.entity.BrandRewardLog.class);
+        verify(brandRewardLogMapper).updateById(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo("CREDITED");
+        assertThat(captor.getValue().getCreditedAmount()).isEqualTo(50);
+        verify(poolMapper).casSettlingToEnded(1L);
+    }
+
+    @Test
+    @DisplayName("WISH-03：第二实例 CAS 失败 → skip（双实例不重复入账）")
+    void brandRewardCheck_secondInstanceSkips() {
+        brandPoolProperties.setEnabled(true);
+        com.cloudmart.wish.entity.BrandPool pool = new com.cloudmart.wish.entity.BrandPool();
+        pool.setId(1L);
+        pool.setStatus("ACTIVE");
+        pool.setTargetCount(2);
+        pool.setCurrentCount(2);
+        when(poolMapper.selectList(any())).thenReturn(List.of(pool));
+        when(poolMapper.casActiveToSettling(1L)).thenReturn(0); // 另一实例已赢得结算
+
+        java.util.Map<String, Object> result = collectionService.brandRewardCheck();
+
+        assertThat(result).containsEntry("rewarded", 0).containsEntry("skipped", 1);
+        verify(brandRewardLogMapper, never()).insert(any(com.cloudmart.wish.entity.BrandRewardLog.class));
+        verify(userStatService, never()).earnStarlightIdempotent(any(),
+                org.mockito.ArgumentMatchers.anyInt(), any(), any(), any());
     }
 }
