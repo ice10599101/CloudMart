@@ -116,7 +116,7 @@ export default defineConfig({
         { path: '/community/checkin', component: '@/pages/GrowthCheckIn' },
         { path: '/community/growth', component: '@/pages/GrowthCenter' },
         { path: '/community/rankings', component: '@/pages/CommunityRankings' },
-        // 宠物家园（法式奶油风版；面板从旧版 PetHome 逐个迁入，迁完删除 PetHome.tsx）
+        // 宠物家园（法式奶油风版；PET-05：旧版 PetHome.tsx 已迁完删除）
         { path: '/pet', component: '@/pages/PetCream' },
         { path: '/pet/wallet', component: '@/pages/PetWallet' },
         { path: '/wish/notification-prefs', component: '@/pages/WishNotificationPrefs' },
