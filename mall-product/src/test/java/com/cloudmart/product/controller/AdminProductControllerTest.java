@@ -42,7 +42,8 @@ class AdminProductControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new AdminProductController(productService, productConverter))
+        mockMvc = MockMvcBuilders.standaloneSetup(new AdminProductController(productService, productConverter,
+                        org.mockito.Mockito.mock(com.cloudmart.product.service.ProductQuestionService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }

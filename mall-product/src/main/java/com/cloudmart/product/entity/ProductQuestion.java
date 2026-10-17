@@ -10,8 +10,8 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * 商品问答（N-5 问大家）：购前决策辅助。
- * 任意登录用户可提问；任意登录用户可回答（前端标注"已购"身份，购买快照落库）。
+ * 商品问答问题（PRODUCT-01 两表模型）：productId/author/status；
+ * 答案在 product_answer（一问多答）。
  */
 @Getter
 @Setter
@@ -28,18 +28,10 @@ public class ProductQuestion {
 
     private String question;
 
-    private String answer;
-
-    private Long answerUserId;
-
-    private Boolean answerPurchased;
-
     /** 0 正常 / 1 隐藏 */
     private Integer status;
 
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
-
-    private LocalDateTime answeredAt;
 }

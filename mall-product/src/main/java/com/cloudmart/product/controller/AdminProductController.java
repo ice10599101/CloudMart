@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +33,7 @@ public class AdminProductController {
 
     private final ProductService productService;
     private final ProductConverter productConverter;
+    private final com.cloudmart.product.service.ProductQuestionService questionService;
 
     @GetMapping("/count")
     @PreAuthorize("hasRole('INTERNAL')")
@@ -96,6 +98,55 @@ public class AdminProductController {
     public ApiResponse<Void> deleteProduct(
             @Parameter(description = "商品ID", required = true) @PathVariable("id") Long id) {
         productService.deleteProduct(id);
+        return ApiResponse.ok(null);
+    }
+
+    // ===== PRODUCT-01：商品问答管理（商城→商品问答；隐藏/恢复处置） =====
+
+    @GetMapping("/questions")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "问答管理分页", description = "PRODUCT-01：按商品/状态筛选（含隐藏项与全部答案）")
+    public ApiResponse<Page<com.cloudmart.product.vo.ProductQuestionVO>> adminQuestions(
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResponse.ok(questionService.adminPage(productId, status, page, Math.min(size, 50)));
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/questions/{questionId}/hide")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "隐藏问题", description = "运营处置；隐藏后所有端不可见")
+    public ApiResponse<Void> hideQuestion(
+            @PathVariable Long questionId,
+            @RequestBody(required = false) Map<String, String> body) {
+        questionService.adminHideQuestion(questionId, body == null ? null : body.get("reason"));
+        return ApiResponse.ok(null);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/questions/{questionId}/restore")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "恢复问题")
+    public ApiResponse<Void> restoreQuestion(@PathVariable Long questionId) {
+        questionService.adminRestoreQuestion(questionId);
+        return ApiResponse.ok(null);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/answers/{answerId}/hide")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "隐藏答案")
+    public ApiResponse<Void> hideAnswer(
+            @PathVariable Long answerId,
+            @RequestBody(required = false) Map<String, String> body) {
+        questionService.adminHideAnswer(answerId, body == null ? null : body.get("reason"));
+        return ApiResponse.ok(null);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/answers/{answerId}/restore")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "恢复答案")
+    public ApiResponse<Void> restoreAnswer(@PathVariable Long answerId) {
+        questionService.adminRestoreAnswer(answerId);
         return ApiResponse.ok(null);
     }
 }

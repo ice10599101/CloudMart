@@ -6,6 +6,7 @@ import { history, useParams } from 'umi'
 import { getProductById, listCategories } from '@/api/product'
 import { recordBrowseHistory } from '@/api/community'
 import { getProductReviews, getReviewStats } from '@/api/review'
+import ProductQaSection from '@/components/ProductQaSection'
 import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
 import type { Product, Category, Sku } from '@/types'
@@ -124,7 +125,7 @@ export default function ProductDetail() {
   const [reviews, setReviews] = useState<ReviewItem[]>([])
   const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'detail' | 'reviews'>('detail')
+  const [activeTab, setActiveTab] = useState<'detail' | 'reviews' | 'qa'>('detail')
   const [mainImage, setMainImage] = useState<string>('')
 
   const addItem = useCartStore((s) => s.addItem)
@@ -611,6 +612,20 @@ export default function ProductDetail() {
               商品详情
             </div>
             <div
+              onClick={() => setActiveTab('qa')}
+              style={{
+                padding: '16px 32px',
+                cursor: 'pointer',
+                fontSize: 15,
+                fontWeight: activeTab === 'qa' ? 600 : 400,
+                color: activeTab === 'qa' ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                borderBottom: activeTab === 'qa' ? '2px solid var(--color-primary)' : '2px solid transparent',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              问大家
+            </div>
+            <div
               onClick={() => setActiveTab('reviews')}
               style={{
                 padding: '16px 32px',
@@ -654,6 +669,7 @@ export default function ProductDetail() {
               </>
             )}
 
+            {activeTab === 'qa' && <ProductQaSection productId={String(id ?? '')} />}
             {activeTab === 'reviews' && (
               <>
                 {reviewStats && reviewStats.totalReviews > 0 && (

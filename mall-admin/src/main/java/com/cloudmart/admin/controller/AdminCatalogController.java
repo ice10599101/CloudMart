@@ -214,4 +214,51 @@ public class AdminCatalogController {
     public ApiResponse<Map<String, Object>> esIndexFullRebuild() {
         return productEsFeignClient.fullRebuild();
     }
+
+    // ===== PRODUCT-01：商品问答管理（商城→商品问答） =====
+
+    @GetMapping("/products/questions")
+    @RequiresPermission("business:product:question")
+    @Operation(summary = "问答管理分页", description = "PRODUCT-01：按商品/状态筛选（含隐藏项与全部答案）")
+    public ApiResponse<Object> listQuestions(
+            @RequestParam(value = "productId", required = false) Long productId,
+            @RequestParam(value = "status", required = false) Integer status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "pageSize", defaultValue = "10") int pageSize) {
+        return productFeignClient.adminQuestions(productId, status, page, pageSize);
+    }
+
+    @PostMapping("/products/questions/{questionId}/hide")
+    @OperLog(title = "商品问答", businessType = 2)
+    @RequiresPermission("business:product:question")
+    @Operation(summary = "隐藏问题", description = "运营处置；隐藏后所有端不可见")
+    public ApiResponse<Void> hideQuestion(@PathVariable Long questionId,
+                                          @RequestBody(required = false) java.util.Map<String, String> body) {
+        return productFeignClient.hideQuestion(questionId, body);
+    }
+
+    @PostMapping("/products/questions/{questionId}/restore")
+    @OperLog(title = "商品问答", businessType = 2)
+    @RequiresPermission("business:product:question")
+    @Operation(summary = "恢复问题")
+    public ApiResponse<Void> restoreQuestion(@PathVariable Long questionId) {
+        return productFeignClient.restoreQuestion(questionId);
+    }
+
+    @PostMapping("/products/answers/{answerId}/hide")
+    @OperLog(title = "商品问答", businessType = 2)
+    @RequiresPermission("business:product:question")
+    @Operation(summary = "隐藏答案")
+    public ApiResponse<Void> hideAnswer(@PathVariable Long answerId,
+                                        @RequestBody(required = false) java.util.Map<String, String> body) {
+        return productFeignClient.hideAnswer(answerId, body);
+    }
+
+    @PostMapping("/products/answers/{answerId}/restore")
+    @OperLog(title = "商品问答", businessType = 2)
+    @RequiresPermission("business:product:question")
+    @Operation(summary = "恢复答案")
+    public ApiResponse<Void> restoreAnswer(@PathVariable Long answerId) {
+        return productFeignClient.restoreAnswer(answerId);
+    }
 }

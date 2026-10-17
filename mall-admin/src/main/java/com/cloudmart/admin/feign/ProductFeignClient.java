@@ -38,4 +38,26 @@ public interface ProductFeignClient {
     /** TRADE-02：按 SKU ID 批量取商品名/规格（库存列表补齐展示字段，单次调用避免 N+1） */
     @GetMapping("/skus/batch")
     ApiResponse<List<SkuBatchDTO>> getSkusBatch(@RequestParam("ids") List<Long> ids);
+
+    // ===== PRODUCT-01：商品问答管理 =====
+
+    @GetMapping("/questions")
+    ApiResponse<Object> adminQuestions(@RequestParam(value = "productId", required = false) Long productId,
+                                       @RequestParam(value = "status", required = false) Integer status,
+                                       @RequestParam("page") Integer page,
+                                       @RequestParam("size") Integer size);
+
+    @PostMapping("/questions/{questionId}/hide")
+    ApiResponse<Void> hideQuestion(@PathVariable("questionId") Long questionId,
+                                   @RequestBody java.util.Map<String, String> body);
+
+    @PostMapping("/questions/{questionId}/restore")
+    ApiResponse<Void> restoreQuestion(@PathVariable("questionId") Long questionId);
+
+    @PostMapping("/answers/{answerId}/hide")
+    ApiResponse<Void> hideAnswer(@PathVariable("answerId") Long answerId,
+                                 @RequestBody java.util.Map<String, String> body);
+
+    @PostMapping("/answers/{answerId}/restore")
+    ApiResponse<Void> restoreAnswer(@PathVariable("answerId") Long answerId);
 }

@@ -30,8 +30,10 @@ public class ProductQuestionController {
 
     private final ProductQuestionService questionService;
 
+    @jakarta.validation.constraints.Size(max = 500, message = "问题内容不能超过 500 字")
     public record AskRequest(@NotBlank(message = "问题内容不能为空") String question) {}
 
+    @jakarta.validation.constraints.Size(max = 500, message = "回答内容不能超过 500 字")
     public record AnswerRequest(@NotBlank(message = "回答内容不能为空") String answer) {}
 
     // N-5：@Operation 置于 @Mapping 之前——route-inventory 扫描器对无参
@@ -41,12 +43,12 @@ public class ProductQuestionController {
     public ApiResponse<ProductQuestionVO> ask(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable Long productId,
-            @RequestBody AskRequest request) {
+            @jakarta.validation.Valid @RequestBody AskRequest request) {
         return ApiResponse.ok(questionService.ask(userId, productId, request.question()));
     }
 
     @GetMapping
-    @Operation(summary = "问答列表", description = "仅返回已回答的问题（未答问题不出列，防垃圾占位）")
+    @Operation(summary = "问答列表", description = "PRODUCT-01：一问多答；未回答的问题也可见（answers 为空数组）")
     public ApiResponse<Page<ProductQuestionVO>> list(
             @PathVariable Long productId,
             @RequestParam(defaultValue = "1") int page,
@@ -60,7 +62,17 @@ public class ProductQuestionController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable Long productId,
             @PathVariable Long questionId,
-            @RequestBody AnswerRequest request) {
-        return ApiResponse.ok(questionService.answer(userId, questionId, request.answer()));
+            @jakarta.validation.Valid @RequestBody AnswerRequest request) {
+        // PRODUCT-01：归属校验在 service（question.productId 必须等于路径 productId）
+        return ApiResponse.ok(questionService.answer(userId, productId, questionId, request.answer()));
+    }
+
+    @GetMapping("/my")
+    @Operation(summary = "我的问答", description = "PRODUCT-01：本人提问的问题（含回答进度）")
+    public ApiResponse<Page<ProductQuestionVO>> myQuestions(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResponse.ok(questionService.myQuestions(userId, page, Math.min(size, 50)));
     }
 }

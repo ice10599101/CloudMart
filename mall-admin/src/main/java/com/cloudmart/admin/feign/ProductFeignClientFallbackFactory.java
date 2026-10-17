@@ -50,6 +50,33 @@ public class ProductFeignClientFallbackFactory implements FallbackFactory<Produc
             public ApiResponse<java.util.List<com.cloudmart.admin.dto.feign.SkuBatchDTO>> getSkusBatch(java.util.List<Long> ids) {
                 throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
+
+            // ===== PRODUCT-01：商品问答管理（全部直接抛服务不可用，无静默假成功） =====
+
+            @Override
+            public ApiResponse<Object> adminQuestions(Long productId, Integer status, Integer page, Integer size) {
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Void> hideQuestion(Long questionId, java.util.Map<String, String> body) {
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Void> restoreQuestion(Long questionId) {
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Void> hideAnswer(Long answerId, java.util.Map<String, String> body) {
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Void> restoreAnswer(Long answerId) {
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+            }
         };
     }
 }

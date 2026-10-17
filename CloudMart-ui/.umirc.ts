@@ -167,6 +167,8 @@ export default defineConfig({
         // T11：售后案件处置页（V14 菜单挂载 /admin/business/after-sale-cases；
         // 此前误注释为"文件路由自动注册"——本项目为 config 路由，漏注册会导致 404）
         { path: '/admin/business/after-sale-cases', component: '@/pages/admin/business/AfterSaleCases' },
+        // PRODUCT-01：商品问答管理（商城→商品问答；business:product:question）
+        { path: '/admin/business/product-questions', component: '@/pages/admin/business/ProductQuestions' },
         { path: '/admin/business/notifications', component: '@/pages/admin/business/Notifications' },
         { path: '/admin/business/group-activity', component: '@/pages/admin/business/GroupActivity' },
         { path: '/admin/business/tiered-promotion', component: '@/pages/admin/business/TieredPromotion' },
