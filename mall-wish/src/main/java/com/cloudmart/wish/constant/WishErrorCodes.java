@@ -41,6 +41,8 @@ public final class WishErrorCodes {
     public static final String WISH_STATUS_CONFLICT = "WISH_STATUS_CONFLICT";
     public static final String WISH_ALREADY_INTERACTED = "WISH_ALREADY_INTERACTED";
     public static final String WISH_ALREADY_CHECKIN_TODAY = "WISH_ALREADY_CHECKIN_TODAY";
+    /** WISH-02：离线补传意图日期已过——跨日不补记不发奖励，客户端转 EXPIRED 供用户重确认 */
+    public static final String WISH_CHECKIN_DATE_PASSED = "WISH_CHECKIN_DATE_PASSED";
     /** 每日签到今日已完成（文档 2.6 errors：409 WISH_ALREADY_SIGNED_IN） */
     public static final String WISH_ALREADY_SIGNED_IN = "WISH_ALREADY_SIGNED_IN";
     /** 连续签到里程碑天数非法 */

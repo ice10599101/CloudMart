@@ -104,11 +104,17 @@ export default function WishDetailScreen() {
     const unsub = NetInfo.addEventListener((state) => {
       if (state.isConnected && state.isInternetReachable && user?.id) {
         // T17：仅冲洗当前账号队列（切账号不提交原账号意图）
-        void flushQueue(user.id, (wId, ok) => {
-          if (ok && wId === wishId) {
-            // 打卡补传成功后刷新对应详情
-          }
-        })
+        // WISH-02：会话守卫——切账号/退出登录中止旧批次（不串写其他账号队列）
+        void flushQueue(
+          user.id,
+          (wId, ok) => {
+            if (ok && wId === wishId) {
+              // 打卡补传成功后刷新对应详情
+            }
+          },
+          // WISH-02：会话守卫——切账号/退出登录立即中止旧批次
+          () => useAuthStore.getState().user?.id !== user.id,
+        )
       }
     })
     return () => unsub()

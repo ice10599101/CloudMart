@@ -36,6 +36,9 @@ public class WishCheckin {
 
     private Boolean starlightGranted;
 
+    /** WISH-02：打卡原发生时刻（UTC；离线补传为入队时刻，在线打卡为空→created_at） */
+    private LocalDateTime occurredAtUtc;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

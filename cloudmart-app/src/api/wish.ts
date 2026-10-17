@@ -397,11 +397,18 @@ export const wishApi = {
     getFulfillmentDetail: (wishId: number | string) =>
         request<WishFulfillmentDetail>({ url: `/wish/wishes/${wishId}/fulfillment` }),
     /** 心愿每日打卡（仅作者 + ACTIVE；每日一次幂等，星光 +2） */
-    checkinWish: (wishId: number | string, content?: string, intentId?: string) =>
+    checkinWish: (
+        wishId: number | string,
+        content?: string,
+        intentId?: string,
+        // WISH-02：离线补传意图业务日与原发生时刻——服务端核验（跨日拒绝不补记）
+        intendedBusinessDate?: string,
+        occurredAt?: string,
+    ) =>
         request<CheckinResult>({
             url: `/wish/wishes/${wishId}/checkin`,
             method: 'POST',
-            data: { content },
+            data: { content, intendedBusinessDate, occurredAt },
             // T17：离线补传复用稳定 intentId——服务端按身份+键去重，重试不重复打卡
             header: intentId ? { 'X-Idempotency-Key': intentId } : undefined,
         }),

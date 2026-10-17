@@ -862,7 +862,8 @@ public class WishServiceImpl implements WishService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CheckinResultVO checkinWish(Long userId, Long wishId, String content, String mood,
-                                       String idempotencyKey) {
+                                       String idempotencyKey, String intendedBusinessDate,
+                                       String occurredAt) {
         Wish wish = wishMapper.selectById(wishId);
         if (wish == null || !wish.getUserId().equals(userId)) {
             throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "心愿不存在");
@@ -876,12 +877,20 @@ public class WishServiceImpl implements WishService {
                 java.util.Map.of("wishId", wishId, "content", content == null ? "" : content,
                         "mood", mood == null ? "" : mood),
                 CheckinResultVO.class,
-                () -> doCheckin(userId, wishId, content, mood));
+                () -> doCheckin(userId, wishId, content, mood, intendedBusinessDate, occurredAt));
     }
 
-    private CheckinResultVO doCheckin(Long userId, Long wishId, String content, String mood) {
-        // 打卡日按用户时区计算（与每日签到一致）：硬编码 UTC 会导致东八区用户 0:00-7:59 打卡被记为前一天
+    private CheckinResultVO doCheckin(Long userId, Long wishId, String content, String mood,
+                                      String intendedBusinessDate, String occurredAt) {
+        // WISH-01/WISH-02：业务日固定经济业务区（Asia/Shanghai）；客户端意图日期只用于
+        // "拒绝"（跨日不补记），不得授予补签权益——与服务端业务日不一致即拒绝
         LocalDate today = com.cloudmart.common.time.UserBusinessCalendar.today(userStatService.economicBusinessZone());
+        if (intendedBusinessDate != null && !intendedBusinessDate.isBlank()
+                && !intendedBusinessDate.trim().equals(today.toString())) {
+            throw new BusinessException(WishErrorCodes.WISH_CHECKIN_DATE_PASSED,
+                    "打卡意图日期（" + intendedBusinessDate.trim() + "）已过业务日（" + today
+                            + "），不补记；请以今天为新记录重新提交");
+        }
         // uk_checkin_daily 幂等
         Long existing = wishCheckinMapper.selectCount(new LambdaQueryWrapper<WishCheckin>()
                 .eq(WishCheckin::getWishId, wishId)
@@ -902,6 +911,16 @@ public class WishServiceImpl implements WishService {
         checkin.setMood(mood);
         checkin.setIsMakeup(false);
         checkin.setStarlightGranted(true);
+        // WISH-02：奖励事实含 occurredAtUtc（离线打卡为原发生时刻，在线打卡为空→created_at）
+        if (occurredAt != null && !occurredAt.isBlank()) {
+            try {
+                checkin.setOccurredAtUtc(java.time.OffsetDateTime.parse(occurredAt.trim())
+                        .withOffsetSameInstant(java.time.ZoneOffset.UTC).toLocalDateTime());
+            } catch (java.time.format.DateTimeParseException malformed) {
+                throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
+                        "occurredAt 须为 ISO-8601 带时区时间戳");
+            }
+        }
         wishCheckinMapper.insert(checkin);
 
         // B09 修复：连续天数按"昨天是否打卡"判定（昨天→+1，否则重置为 1），不再盲目 +1

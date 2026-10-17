@@ -193,7 +193,11 @@ public class WishController {
             @RequestHeader(value = "X-Idempotency-Key", required = false) String idempotencyKey) {
         String content = body != null ? body.get("content") : null;
         String mood = body != null ? body.get("mood") : null;
-        return ApiResponse.ok(wishService.checkinWish(userId, wishId, content, mood, idempotencyKey));
+        // WISH-02：离线补传携带意图业务日与原发生时刻——服务端核验（跨日拒绝，不授予补签）
+        String intendedBusinessDate = body != null ? body.get("intendedBusinessDate") : null;
+        String occurredAt = body != null ? body.get("occurredAt") : null;
+        return ApiResponse.ok(wishService.checkinWish(userId, wishId, content, mood,
+                idempotencyKey, intendedBusinessDate, occurredAt));
     }
 
     @PostMapping("/{id}/growth")
