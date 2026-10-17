@@ -1,4 +1,5 @@
-import { Button, Card, Modal, Tag, Timeline, Typography } from 'antd'
+import { Button, Card, Modal, Pagination, Tag, Timeline, Typography } from 'antd'
+import { useEffect, useState } from 'react'
 import DOMPurify from 'dompurify'
 import type { AdminSoftwareDetail } from '@/api/admin/software'
 
@@ -87,6 +88,12 @@ export default function SoftwareDetailModal({
   open: boolean
   onClose: () => void
 }) {
+  const TRAIL_PAGE_SIZE = 5
+  const [trailPage, setTrailPage] = useState(1)
+  useEffect(() => {
+    setTrailPage(1)
+  }, [detail])
+
   return (
     <Modal
       title={`软件详情${detail?.name ? ` · ${detail.name}` : ''}`}
@@ -207,26 +214,43 @@ export default function SoftwareDetailModal({
           {(detail.auditTrail ?? []).length === 0 ? (
             <Typography.Text type="secondary">暂无记录</Typography.Text>
           ) : (
-            <Timeline
-              items={(detail.auditTrail ?? []).map((entry) => ({
-                color: TRAIL_COLOR[entry.action] ?? 'gray',
-                children: (
-                  <div style={{ paddingBottom: 4 }}>
-                    <Typography.Text>{TRAIL_LABEL[entry.action] ?? entry.action}</Typography.Text>
-                    <Typography.Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
-                      {formatTrailTime(entry.createdAt)}
-                    </Typography.Text>
-                    {entry.reason ? (
-                      <div>
-                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                          {trailReason(entry.action, entry.reason)}
+            <>
+              <Timeline
+                items={(detail.auditTrail ?? [])
+                  .slice(
+                    (trailPage - 1) * TRAIL_PAGE_SIZE,
+                    trailPage * TRAIL_PAGE_SIZE,
+                  )
+                  .map((entry) => ({
+                    color: TRAIL_COLOR[entry.action] ?? 'gray',
+                    children: (
+                      <div style={{ paddingBottom: 4 }}>
+                        <Typography.Text>{TRAIL_LABEL[entry.action] ?? entry.action}</Typography.Text>
+                        <Typography.Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                          {formatTrailTime(entry.createdAt)}
                         </Typography.Text>
+                        {entry.reason ? (
+                          <div>
+                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                              {trailReason(entry.action, entry.reason)}
+                            </Typography.Text>
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
-                  </div>
-                ),
-              }))}
-            />
+                    ),
+                  }))}
+              />
+              {(detail.auditTrail ?? []).length > TRAIL_PAGE_SIZE ? (
+                <Pagination
+                  size="small"
+                  current={trailPage}
+                  pageSize={TRAIL_PAGE_SIZE}
+                  total={(detail.auditTrail ?? []).length}
+                  onChange={setTrailPage}
+                  style={{ marginTop: 8, textAlign: 'right' }}
+                />
+              ) : null}
+            </>
           )}
         </>
       )}

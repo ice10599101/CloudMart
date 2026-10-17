@@ -639,7 +639,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         softwareMapper.updateById(locked);
         auditService.record(softwareId, null, null, userId, "USER",
                 "DELETE", "BANNED".equals(fromStatus) ? "BANNED" : null,
-                "DELETED", "作者删除（软删，审计保留）", null);
+                "DELETED", "作者删除（不可恢复，操作留有审计记录）", null);
     }
 
     // ------------------------------------------------------------------

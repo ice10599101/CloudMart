@@ -34,7 +34,7 @@ public class AdminSoftwarePublishController {
     private final com.cloudmart.software.service.AdminSoftwareSourceService adminSoftwareSourceService;
 
     @org.springframework.web.bind.annotation.DeleteMapping("/items/{softwareId}")
-    @Operation(summary = "管理员删除软件", description = "软删 lifecycle=DELETED，幂等；公开面即时隐藏（A10 同口径）")
+    @Operation(summary = "管理员删除软件", description = "删除后前台立即不可见且无法恢复（数据留有审计记录），幂等")
     public ApiResponse<Boolean> delete(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @org.springframework.web.bind.annotation.PathVariable("softwareId") Long softwareId,
