@@ -249,7 +249,9 @@ export function listAdminSoftware(params?: {
 }
 
 export function getAdminSoftwareDetail(softwareId: string) {
-  return request.get<ApiResponse<AdminSoftwareDetail>>(`${BASE}/${softwareId}/admin-detail`)
+  return request.get<ApiResponse<AdminSoftwareDetail>>(
+    `/admin/software/${softwareId}/admin-detail`,
+  )
 }
 
 /** 独立封禁：必须原因与 expectedVersion */

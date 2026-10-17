@@ -138,22 +138,7 @@ export default function SoftwareReviews() {
   const columns: ProColumns<PendingRow>[] = [
     { title: '软件ID', dataIndex: 'softwareId', width: 90, search: false },
     
-    {
-      title: '名称',
-      dataIndex: 'name',
-      width: 220,
-      ellipsis: true,
-      search: false,
-      render: (_, record) => (
-        <Button
-          type="link"
-          style={{ padding: 0 }}
-          onClick={() => openDetail(record)}
-        >
-          {record.name || '(未命名)'}
-        </Button>
-      ),
-    },
+    { title: '名称', dataIndex: 'name', width: 220, ellipsis: true, search: false },
     { title: '提交批次', dataIndex: 'submitSeq', width: 90, search: false },
     {
       title: '发布者',
