@@ -72,7 +72,7 @@ function ProductCard({ product }: { product: SearchResult }) {
 }
 
 export default function AiChatPage() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const [messages, setMessages] = useState<ChatMessageItem[]>([])
   const [inputValue, setInputValue] = useState('')
   const [sending, setSending] = useState(false)
@@ -336,10 +336,18 @@ export default function AiChatPage() {
                     : 'rgba(var(--color-primary-rgb), 0.1)',
                 }}>
                   {msg.role === 'user' ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
+                    user?.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt=""
+                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    )
                   ) : (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2">
                       <path d="M12 2a10 10 0 0 1 10 10c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2z" />
