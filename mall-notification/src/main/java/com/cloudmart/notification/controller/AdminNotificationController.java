@@ -1,10 +1,14 @@
 package com.cloudmart.notification.controller;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.common.util.Ids;
 import com.cloudmart.notification.converter.NotificationConverter;
+import com.cloudmart.notification.dto.BroadcastJobRequest;
 import com.cloudmart.notification.dto.BroadcastNotificationRequest;
 import com.cloudmart.notification.dto.NotificationDTO;
 import com.cloudmart.notification.dto.SendNotificationRequest;
+import com.cloudmart.notification.service.BroadcastJobService;
 import com.cloudmart.notification.service.NotificationService;
 import com.cloudmart.notification.vo.NotificationVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +28,7 @@ import java.util.List;
 public class AdminNotificationController {
 
     private final NotificationService notificationService;
+    private final BroadcastJobService broadcastJobService;
     private final NotificationConverter notificationConverter;
 
     @GetMapping
@@ -75,5 +80,43 @@ public class AdminNotificationController {
             @Parameter(description = "通知ID") @PathVariable Long notificationId) {
         notificationService.deleteNotification(notificationId);
         return ApiResponse.ok(null);
+    }
+
+    // ==================== ADMIN-03：群发批次任务 ====================
+
+    @PostMapping("/broadcast-jobs")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "提交群发批次", description = "requestId 幂等：同键重复提交返回原批次；"
+            + "返回批次号与目标/成功/失败/跳过计数；禁用账号记 SKIPPED")
+    public ApiResponse<BroadcastJobService.BroadcastJobSummary> createBroadcastJob(
+            @Valid @RequestBody BroadcastJobRequest request,
+            @Parameter(hidden = true) @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false)
+            String operatorId) {
+        return ApiResponse.ok(broadcastJobService.start(request, Ids.parse(operatorId)));
+    }
+
+    @GetMapping("/broadcast-jobs")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "群发批次列表", description = "时间倒序，offset 分页（size ≤ 100）")
+    public ApiResponse<List<BroadcastJobService.BroadcastJobSummary>> listBroadcastJobs(
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "size", defaultValue = "20") Integer size) {
+        return ApiResponse.ok(broadcastJobService.list(page == null ? 1 : page, size == null ? 20 : size));
+    }
+
+    @GetMapping("/broadcast-jobs/{jobNo}")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "群发批次详情", description = "批次 + 明细（上限 500 行）")
+    public ApiResponse<BroadcastJobService.BroadcastJobDetail> broadcastJobDetail(
+            @PathVariable String jobNo) {
+        return ApiResponse.ok(broadcastJobService.detail(jobNo));
+    }
+
+    @PostMapping("/broadcast-jobs/{jobNo}/retry")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "重试失败项", description = "仅补 FAILED 项（notification_id 幂等），重复重试不重复投递")
+    public ApiResponse<BroadcastJobService.BroadcastJobSummary> retryBroadcastJob(
+            @PathVariable String jobNo) {
+        return ApiResponse.ok(broadcastJobService.retry(jobNo));
     }
 }

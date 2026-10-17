@@ -202,7 +202,6 @@ export default defineConfig({
         { path: '/admin/community/reports', component: '@/pages/admin/community/Reports' },
         { path: '/admin/community/badges', component: '@/pages/admin/community/Badges' },
         { path: '/admin/community/growth', component: '@/pages/admin/community/Growth' },
-        { path: '/admin/community/notifications', component: '@/pages/admin/community/Notifications' },
         { path: '/admin/community/review', component: '@/pages/admin/community/Review' },
         { path: '/admin/community/chat', component: '@/pages/admin/community/Chat' },
         // T23/P0-4：排行榜赛季（当期榜单+赛季归档启停，community:ranking:read/manage）

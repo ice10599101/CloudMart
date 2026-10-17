@@ -1,5 +1,6 @@
 package com.cloudmart.admin.feign;
 
+import com.cloudmart.admin.dto.feign.BroadcastJobCreateRequest;
 import com.cloudmart.admin.dto.feign.BroadcastNotificationRequest;
 import com.cloudmart.admin.dto.feign.SendNotificationRequest;
 import com.cloudmart.common.api.ApiResponse;
@@ -44,6 +45,26 @@ public class NotificationFeignClientFallbackFactory implements FallbackFactory<N
 
             @Override
             public ApiResponse<Void> deleteNotification(Long notificationId) {
+                throw translate(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> createBroadcastJob(BroadcastJobCreateRequest request) {
+                throw translate(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> listBroadcastJobs(Integer page, Integer size) {
+                throw translate(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> broadcastJobDetail(String jobNo) {
+                throw translate(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> retryBroadcastJob(String jobNo) {
                 throw translate(cause);
             }
         };

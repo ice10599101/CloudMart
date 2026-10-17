@@ -4,6 +4,7 @@ import com.cloudmart.admin.dto.feign.SendNotificationRequest;
 import com.cloudmart.admin.feign.NotificationFeignClient;
 import com.cloudmart.admin.feign.NotificationQueryFeignClient;
 import com.cloudmart.common.annotation.OperLog;
+import com.cloudmart.admin.dto.feign.BroadcastJobCreateRequest;
 import com.cloudmart.common.annotation.RequiresPermission;
 import com.cloudmart.common.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -64,5 +65,40 @@ public class AdminBusinessNotificationController {
     @Operation(summary = "发送通知", description = "发送通知给用户")
     public ApiResponse<Object> sendNotification(@Valid @RequestBody SendNotificationRequest request) {
         return notificationFeignClient.sendNotification(request);
+    }
+
+    // ==================== ADMIN-03：群发批次（受众固定全站，禁用账号跳过） ====================
+
+    @PostMapping("/notifications/broadcast-jobs")
+    @OperLog(title = "通知群发", businessType = 1)
+    @RequiresPermission("business:notification:send")
+    @Operation(summary = "提交群发批次", description = "requestId 幂等：同键重复提交返回原批次；"
+            + "返回批次号与目标/成功/失败/跳过计数")
+    public ApiResponse<Object> createBroadcastJob(@Valid @RequestBody BroadcastJobCreateRequest request) {
+        return notificationFeignClient.createBroadcastJob(request);
+    }
+
+    @GetMapping("/notifications/broadcast-jobs")
+    @RequiresPermission("business:notification:batch:list")
+    @Operation(summary = "群发批次列表", description = "独立批次查看权限（与发送权限分离）")
+    public ApiResponse<Object> listBroadcastJobs(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer size) {
+        return notificationFeignClient.listBroadcastJobs(page, size);
+    }
+
+    @GetMapping("/notifications/broadcast-jobs/{jobNo}")
+    @RequiresPermission("business:notification:batch:list")
+    @Operation(summary = "群发批次详情", description = "批次 + 明细（上限 500 行）")
+    public ApiResponse<Object> broadcastJobDetail(@PathVariable String jobNo) {
+        return notificationFeignClient.broadcastJobDetail(jobNo);
+    }
+
+    @PostMapping("/notifications/broadcast-jobs/{jobNo}/retry")
+    @OperLog(title = "通知群发重试", businessType = 2)
+    @RequiresPermission("business:notification:send")
+    @Operation(summary = "重试失败项", description = "仅补 FAILED 项；notification_id 幂等，不重复投递")
+    public ApiResponse<Object> retryBroadcastJob(@PathVariable String jobNo) {
+        return notificationFeignClient.retryBroadcastJob(jobNo);
     }
 }

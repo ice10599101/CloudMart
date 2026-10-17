@@ -1,5 +1,6 @@
 package com.cloudmart.admin.feign;
 
+import com.cloudmart.admin.dto.feign.BroadcastJobCreateRequest;
 import com.cloudmart.admin.dto.feign.BroadcastNotificationRequest;
 import com.cloudmart.admin.dto.feign.SendNotificationRequest;
 import com.cloudmart.common.api.ApiResponse;
@@ -19,4 +20,21 @@ public interface NotificationFeignClient {
     /** 管理端删除指定通知（撤回误发内容） */
     @DeleteMapping("/{notificationId}")
     ApiResponse<Void> deleteNotification(@PathVariable("notificationId") Long notificationId);
+
+    // ---- ADMIN-03：群发批次任务 ----
+
+    /** 提交群发批次（requestId 幂等；返回批次号与目标/成功/失败/跳过计数） */
+    @PostMapping("/broadcast-jobs")
+    ApiResponse<Object> createBroadcastJob(@RequestBody BroadcastJobCreateRequest request);
+
+    @GetMapping("/broadcast-jobs")
+    ApiResponse<Object> listBroadcastJobs(@RequestParam("page") Integer page,
+                                          @RequestParam("size") Integer size);
+
+    @GetMapping("/broadcast-jobs/{jobNo}")
+    ApiResponse<Object> broadcastJobDetail(@PathVariable("jobNo") String jobNo);
+
+    /** 重试失败项（notification_id 幂等，不重复投递） */
+    @PostMapping("/broadcast-jobs/{jobNo}/retry")
+    ApiResponse<Object> retryBroadcastJob(@PathVariable("jobNo") String jobNo);
 }

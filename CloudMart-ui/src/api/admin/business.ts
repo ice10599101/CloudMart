@@ -203,6 +203,50 @@ export function getPaymentByOrder(orderId: number | string) {
   return request.get(`/admin/business/payments/order/${orderId}`)
 }
 
+// ==================== ADMIN-03：通知群发批次 ====================
+
+/** 群发批次任务（requestId 幂等；受众固定全站用户，禁用账号跳过） */
+export interface BroadcastJobSummary {
+  jobNo: string
+  type: string
+  title: string
+  target: number
+  delivered: number
+  failed: number
+  skipped: number
+  status: 'RUNNING' | 'COMPLETED' | 'PARTIAL' | 'FAILED' | string
+  /** BASE-01：操作管理员 ID 保持字符串联合 */
+  createdBy: number | string | null
+  createdAt: string
+}
+
+/** 提交群发批次：同 requestId 重复提交返回原批次，不重复投递 */
+export function createBroadcastJob(data: {
+  type: string
+  title: string
+  content: string
+  requestId: string
+}) {
+  return request.post<ApiResponse<BroadcastJobSummary>>(
+    '/admin/business/notifications/broadcast-jobs',
+    data,
+  )
+}
+
+export function listBroadcastJobs(params: { page?: number; size?: number } = {}) {
+  return request.get<ApiResponse<BroadcastJobSummary[]>>(
+    '/admin/business/notifications/broadcast-jobs',
+    { params },
+  )
+}
+
+/** 重试失败项：服务端以 notification_id 幂等，重复重试不重复投递 */
+export function retryBroadcastJob(jobNo: string) {
+  return request.post<ApiResponse<BroadcastJobSummary>>(
+    `/admin/business/notifications/broadcast-jobs/${jobNo}/retry`,
+  )
+}
+
 export function getNotifications(params?: Record<string, any>) {
   return request.get('/admin/business/notifications', { params })
 }

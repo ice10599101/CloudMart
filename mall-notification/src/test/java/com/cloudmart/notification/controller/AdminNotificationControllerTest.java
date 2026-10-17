@@ -30,12 +30,14 @@ class AdminNotificationControllerTest {
 
     private final NotificationService notificationService = Mockito.mock(NotificationService.class);
     private final NotificationConverter notificationConverter = Mockito.mock(NotificationConverter.class);
+    private final com.cloudmart.notification.service.BroadcastJobService broadcastJobService =
+            Mockito.mock(com.cloudmart.notification.service.BroadcastJobService.class);
 
     private static final LocalDateTime FIXED_TIME = LocalDateTime.of(2026, 5, 29, 10, 0);
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new AdminNotificationController(notificationService, notificationConverter))
+        mockMvc = MockMvcBuilders.standaloneSetup(new AdminNotificationController(notificationService, broadcastJobService, notificationConverter))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
