@@ -10,7 +10,6 @@ public record AdminProfileResponse(
     String email,
     String phone,
     String avatar,
-    Long deptId,
     Integer status,
     LocalDateTime createdAt,
     Set<String> permissions,

@@ -55,7 +55,6 @@ class AdminAuthControllerTest {
             adminUser.setId(1L);
             adminUser.setUsername("admin");
             adminUser.setNickname("Admin");
-            adminUser.setDeptId(1L);
             given(adminAuthService.validateCredentials("admin", "pass123")).willReturn(adminUser);
             given(adminAuthService.resolvePermissions(1L)).willReturn(Set.of("*:*:*"));
             given(adminAuthService.checkSuperAdmin(1L)).willReturn(true);
@@ -107,7 +106,6 @@ class AdminAuthControllerTest {
             adminUser.setId(1L);
             adminUser.setUsername("admin");
             adminUser.setNickname("Admin");
-            adminUser.setDeptId(1L);
             given(adminAuthService.getUserById(1L)).willReturn(adminUser);
             given(adminAuthService.resolvePermissions(1L)).willReturn(Set.of("admin:user:list", "admin:role:list"));
             given(adminAuthService.checkSuperAdmin(1L)).willReturn(false);

@@ -8,9 +8,7 @@ public record AdminUserUpdateRequest(
     String phone,
     Integer sex,
     String avatar,
-    Long deptId,
     List<Long> roleIds,
-    List<Long> postIds,
     Integer status,
     String remark
 ) {}

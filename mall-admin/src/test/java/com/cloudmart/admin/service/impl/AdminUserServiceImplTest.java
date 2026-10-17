@@ -35,10 +35,7 @@ class AdminUserServiceImplTest {
 
     private AdminUserMapper adminUserMapper;
     private AdminUserRoleMapper adminUserRoleMapper;
-    private AdminUserPostMapper adminUserPostMapper;
     private AdminRoleMapper adminRoleMapper;
-    private AdminPostMapper adminPostMapper;
-    private AdminDeptMapper adminDeptMapper;
     private PasswordEncoder passwordEncoder;
     private DataScopeService dataScopeService;
     private AuthRevocationFeignClient authRevocationFeignClient;
@@ -50,7 +47,7 @@ class AdminUserServiceImplTest {
 
     @BeforeAll
     static void initMybatisPlusLambdaCache() {
-        for (Class<?> clazz : new Class<?>[]{AdminUser.class, AdminRole.class, AdminMenu.class, AdminDept.class, AdminPost.class, AdminUserRole.class, AdminUserPost.class}) {
+        for (Class<?> clazz : new Class<?>[]{AdminUser.class, AdminRole.class, AdminMenu.class, AdminUserRole.class}) {
             if (TableInfoHelper.getTableInfo(clazz) == null) {
                 MybatisConfiguration configuration = new MybatisConfiguration();
                 MapperBuilderAssistant assistant = new MapperBuilderAssistant(configuration, "");
@@ -64,10 +61,7 @@ class AdminUserServiceImplTest {
     void setUp() {
         adminUserMapper = mock(AdminUserMapper.class);
         adminUserRoleMapper = mock(AdminUserRoleMapper.class);
-        adminUserPostMapper = mock(AdminUserPostMapper.class);
         adminRoleMapper = mock(AdminRoleMapper.class);
-        adminPostMapper = mock(AdminPostMapper.class);
-        adminDeptMapper = mock(AdminDeptMapper.class);
         passwordEncoder = mock(PasswordEncoder.class);
         dataScopeService = mock(DataScopeService.class);
         adminConverter = mock(AdminConverter.class);
@@ -79,8 +73,8 @@ class AdminUserServiceImplTest {
         authorizationPolicy = new AdminAuthorizationPolicy(
                 dataScopeService, adminUserMapper, adminRoleMapper, adminUserRoleMapper, adminRoleMenuMapper);
         adminUserService = new AdminUserServiceImpl(
-                adminUserMapper, adminUserRoleMapper, adminUserPostMapper,
-                adminRoleMapper, adminPostMapper, adminDeptMapper,
+                adminUserMapper, adminUserRoleMapper,
+                adminRoleMapper,
                 passwordEncoder, dataScopeService, adminConverter, authRevocationFeignClient,
                 authorizationPolicy);
     }
@@ -92,7 +86,6 @@ class AdminUserServiceImplTest {
         user.setNickname("Test User");
         user.setPassword("encodedPwd");
         user.setStatus(1);
-        user.setDeptId(1L);
         return user;
     }
 
@@ -100,9 +93,9 @@ class AdminUserServiceImplTest {
         return new AdminUserResponse(
                 user.getId(), user.getUsername(), user.getNickname(),
                 "test@test.com", "13800000000", 1, null,
-                user.getDeptId(), "Test Dept", user.getStatus(), null,
+                user.getStatus(), null,
                 null, null, null, null,
-                List.of(), List.of()
+                List.of()
         );
     }
 
@@ -117,7 +110,6 @@ class AdminUserServiceImplTest {
             when(adminUserMapper.selectById(1L)).thenReturn(user);
             when(adminConverter.toUserResponse(user)).thenReturn(buildUserResponse(user));
             when(adminUserRoleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
-            when(adminUserPostMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
 
             var response = adminUserService.getById(1L);
 
@@ -148,12 +140,11 @@ class AdminUserServiceImplTest {
             when(passwordEncoder.encode("password123")).thenReturn("encodedPwd");
             when(adminUserMapper.insert(any(AdminUser.class))).thenReturn(1);
 
-            AdminUserRequest request = new AdminUserRequest("newuser", "Nick", "e@t.com", "138", 1, null, "password123", 1L, List.of(1L), List.of(1L), 1, null);
+            AdminUserRequest request = new AdminUserRequest("newuser", "Nick", "e@t.com", "138", 1, null, "password123", List.of(1L), 1, null);
             adminUserService.create(request);
 
             verify(adminUserMapper).insert(any(AdminUser.class));
             verify(adminUserRoleMapper).insert(any(AdminUserRole.class));
-            verify(adminUserPostMapper).insert(any(AdminUserPost.class));
         }
 
         @Test
@@ -162,7 +153,7 @@ class AdminUserServiceImplTest {
             AdminUser existing = buildUser(2L, "admin");
             when(adminUserMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(existing);
 
-            AdminUserRequest request = new AdminUserRequest("admin", "Nick", "e@t.com", "138", 1, null, "password123", 1L, null, null, 1, null);
+            AdminUserRequest request = new AdminUserRequest("admin", "Nick", "e@t.com", "138", 1, null, "password123", null, 1, null);
 
             assertThatThrownBy(() -> adminUserService.create(request))
                     .isInstanceOf(BusinessException.class)
@@ -182,12 +173,11 @@ class AdminUserServiceImplTest {
             when(adminUserMapper.selectById(1L)).thenReturn(user);
             when(adminUserMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
-            AdminUserUpdateRequest request = new AdminUserUpdateRequest("NewNick", "e@t.com", "138", 1, null, 1L, List.of(1L), List.of(1L), 1, null);
+            AdminUserUpdateRequest request = new AdminUserUpdateRequest("NewNick", "e@t.com", "138", 1, null, List.of(1L), 1, null);
             adminUserService.update(1L, request);
 
             verify(adminUserMapper).updateById(user);
             verify(adminUserRoleMapper).delete(any(LambdaQueryWrapper.class));
-            verify(adminUserPostMapper).delete(any(LambdaQueryWrapper.class));
         }
 
         @Test
@@ -195,7 +185,7 @@ class AdminUserServiceImplTest {
         void update_NotFound_ShouldThrowBusinessException() {
             when(adminUserMapper.selectById(999L)).thenReturn(null);
 
-            AdminUserUpdateRequest request = new AdminUserUpdateRequest("Nick", null, null, null, null, null, null, null, null, null);
+            AdminUserUpdateRequest request = new AdminUserUpdateRequest("Nick", null, null, null, null, null, null, null);
 
             assertThatThrownBy(() -> adminUserService.update(999L, request))
                     .isInstanceOf(BusinessException.class)
@@ -217,7 +207,6 @@ class AdminUserServiceImplTest {
 
             verify(adminUserMapper).deleteById(anyLong());
             verify(adminUserRoleMapper).delete(any(LambdaQueryWrapper.class));
-            verify(adminUserPostMapper).delete(any(LambdaQueryWrapper.class));
         }
 
         @Test

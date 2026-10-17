@@ -81,7 +81,6 @@ class AdminProfileServiceImplTest {
         user.setEmail("test@example.com");
         user.setPhone("13800000000");
         user.setAvatar("avatar.png");
-        user.setDeptId(1L);
         user.setStatus(1);
         user.setPassword("encodedPwd");
         user.setCreatedAt(LocalDateTime.of(2025, 1, 1, 0, 0));

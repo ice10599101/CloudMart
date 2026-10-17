@@ -53,7 +53,7 @@ class AdminProfileControllerTest {
     @Test
     void getProfile_returnsProfileInfo() throws Exception {
         AdminProfileResponse profile = new AdminProfileResponse(
-                1L, "admin", "Admin", "admin@test.com", "13800000001", null, 1L, 0, LocalDateTime.now(), Set.of("*:*:*"), Set.of("admin")
+                1L, "admin", "Admin", "admin@test.com", "13800000001", null, 0, LocalDateTime.now(), Set.of("*:*:*"), Set.of("admin")
         );
         given(adminProfileService.getProfile(1L)).willReturn(profile);
 

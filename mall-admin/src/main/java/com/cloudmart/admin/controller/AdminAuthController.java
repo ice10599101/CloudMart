@@ -49,7 +49,6 @@ public class AdminAuthController {
                 adminUser.getId(),
                 adminUser.getUsername(),
                 adminUser.getNickname(),
-                adminUser.getDeptId(),
                 permissions,
                 isSuperAdmin
         );
@@ -69,7 +68,6 @@ public class AdminAuthController {
                 userId,
                 adminUser.getUsername(),
                 adminUser.getNickname(),
-                adminUser.getDeptId(),
                 permissions,
                 isSuperAdmin
         ));

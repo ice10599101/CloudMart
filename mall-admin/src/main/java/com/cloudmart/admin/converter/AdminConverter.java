@@ -10,9 +10,7 @@ import java.util.List;
 @Mapper(componentModel = "spring")
 public interface AdminConverter {
 
-    @Mapping(target = "deptName", ignore = true)
     @Mapping(target = "roles", ignore = true)
-    @Mapping(target = "posts", ignore = true)
     AdminUserResponse toUserResponse(AdminUser entity);
 
     List<AdminUserResponse> toUserResponseList(List<AdminUser> entities);
@@ -25,15 +23,6 @@ public interface AdminConverter {
     AdminMenuResponse toMenuResponse(AdminMenu entity);
 
     List<AdminMenuResponse> toMenuResponseList(List<AdminMenu> entities);
-
-    @Mapping(target = "children", ignore = true)
-    AdminDeptResponse toDeptResponse(AdminDept entity);
-
-    List<AdminDeptResponse> toDeptResponseList(List<AdminDept> entities);
-
-    AdminPostResponse toPostResponse(AdminPost entity);
-
-    List<AdminPostResponse> toPostResponseList(List<AdminPost> entities);
 
     AdminDictTypeResponse toDictTypeResponse(AdminDictType entity);
 

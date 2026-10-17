@@ -1,7 +1,5 @@
 package com.cloudmart.admin.controller;
 
-import com.cloudmart.admin.dto.AdminRoleDataScopeRequest;
-import com.cloudmart.admin.dto.AdminRoleDeptRequest;
 import com.cloudmart.admin.dto.AdminRoleMenuRequest;
 import com.cloudmart.admin.dto.AdminRoleRequest;
 import com.cloudmart.admin.dto.AdminRoleResponse;
@@ -79,30 +77,11 @@ public class AdminRoleController {
         return ApiResponse.ok(null);
     }
 
-    @PutMapping("/depts")
-    @RequiresPermission("admin:role:edit")
-    @OperLog(title = "角色管理", businessType = 4)
-    @Operation(summary = "分配部门权限", description = "为角色分配数据权限部门")
-    public ApiResponse<Void> assignDepts(@Valid @RequestBody AdminRoleDeptRequest request) {
-        adminRoleService.assignDepts(request);
-        return ApiResponse.ok(null);
-    }
-
     @GetMapping("/{id}/menus")
     @RequiresPermission("admin:role:query")
     @Operation(summary = "获取角色菜单ID列表", description = "查询角色已分配的菜单ID列表")
     public ApiResponse<List<Long>> getRoleMenuIds(@PathVariable("id") Long id) {
         return ApiResponse.ok(adminRoleService.getMenuIdsByRoleId(id));
-    }
-
-    @PutMapping("/{id}/data-scope")
-    @RequiresPermission("admin:role:edit")
-    @OperLog(title = "角色管理", businessType = 2)
-    @Operation(summary = "设置数据权限范围", description = "设置角色数据权限范围及关联部门")
-    public ApiResponse<Void> updateDataScope(@PathVariable("id") Long id,
-                                             @Valid @RequestBody AdminRoleDataScopeRequest request) {
-        adminRoleService.updateDataScope(id, request);
-        return ApiResponse.ok(null);
     }
 
     @PutMapping("/{id}/status")

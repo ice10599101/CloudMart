@@ -27,8 +27,6 @@ public class AdminUserExcelDTO {
     @ExcelProperty("性别")
     private Integer sex;
 
-    @ExcelProperty("部门ID")
-    private Long deptId;
 
     @ExcelProperty("状态")
     private Integer status;

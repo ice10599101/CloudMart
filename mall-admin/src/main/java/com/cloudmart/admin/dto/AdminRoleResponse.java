@@ -7,7 +7,6 @@ public record AdminRoleResponse(
     String roleName,
     String roleKey,
     Integer roleSort,
-    Integer dataScope,
     Integer menuCheckStrictly,
     Integer deptCheckStrictly,
     Integer status,

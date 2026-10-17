@@ -4,7 +4,6 @@ import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.admin.converter.AdminConverter;
-import com.cloudmart.admin.dto.AdminPostResponse;
 import com.cloudmart.admin.dto.AdminResetPwdRequest;
 import com.cloudmart.admin.dto.AdminRoleResponse;
 import com.cloudmart.admin.dto.AdminUserExcelDTO;
@@ -13,17 +12,12 @@ import com.cloudmart.admin.dto.AdminUserQueryRequest;
 import com.cloudmart.admin.dto.AdminUserRequest;
 import com.cloudmart.admin.dto.AdminUserResponse;
 import com.cloudmart.admin.dto.AdminUserUpdateRequest;
-import com.cloudmart.admin.entity.AdminDept;
-import com.cloudmart.admin.entity.AdminPost;
 import com.cloudmart.admin.entity.AdminRole;
 import com.cloudmart.admin.entity.AdminUser;
 import com.cloudmart.admin.entity.AdminUserPost;
 import com.cloudmart.admin.entity.AdminUserRole;
-import com.cloudmart.admin.repository.AdminDeptMapper;
-import com.cloudmart.admin.repository.AdminPostMapper;
 import com.cloudmart.admin.repository.AdminRoleMapper;
 import com.cloudmart.admin.repository.AdminUserMapper;
-import com.cloudmart.admin.repository.AdminUserPostMapper;
 import com.cloudmart.admin.repository.AdminUserRoleMapper;
 import com.cloudmart.admin.service.AdminUserService;
 import com.cloudmart.admin.service.DataScopeService;
@@ -51,10 +45,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     private final AdminUserMapper adminUserMapper;
     private final AdminUserRoleMapper adminUserRoleMapper;
-    private final AdminUserPostMapper adminUserPostMapper;
     private final AdminRoleMapper adminRoleMapper;
-    private final AdminPostMapper adminPostMapper;
-    private final AdminDeptMapper adminDeptMapper;
     private final PasswordEncoder passwordEncoder;
     private final DataScopeService dataScopeService;
     private final AdminConverter adminConverter;
@@ -63,10 +54,7 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     public AdminUserServiceImpl(AdminUserMapper adminUserMapper,
                                 AdminUserRoleMapper adminUserRoleMapper,
-                                AdminUserPostMapper adminUserPostMapper,
                                 AdminRoleMapper adminRoleMapper,
-                                AdminPostMapper adminPostMapper,
-                                AdminDeptMapper adminDeptMapper,
                                 PasswordEncoder passwordEncoder,
                                 DataScopeService dataScopeService,
                                 AdminConverter adminConverter,
@@ -74,10 +62,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                                 AdminAuthorizationPolicy authorizationPolicy) {
         this.adminUserMapper = adminUserMapper;
         this.adminUserRoleMapper = adminUserRoleMapper;
-        this.adminUserPostMapper = adminUserPostMapper;
         this.adminRoleMapper = adminRoleMapper;
-        this.adminPostMapper = adminPostMapper;
-        this.adminDeptMapper = adminDeptMapper;
         this.passwordEncoder = passwordEncoder;
         this.dataScopeService = dataScopeService;
         this.adminConverter = adminConverter;
@@ -92,7 +77,6 @@ public class AdminUserServiceImpl implements AdminUserService {
                 .like(request.username() != null && !request.username().isBlank(), AdminUser::getUsername, request.username())
                 .like(request.phone() != null && !request.phone().isBlank(), AdminUser::getPhone, request.phone())
                 .eq(request.status() != null, AdminUser::getStatus, request.status())
-                .eq(request.deptId() != null, AdminUser::getDeptId, request.deptId())
                 .orderByDesc(AdminUser::getCreatedAt);
 
         applyDataScope(wrapper);
@@ -128,13 +112,11 @@ public class AdminUserServiceImpl implements AdminUserService {
         user.setSex(request.sex());
         user.setAvatar(request.avatar());
         user.setPassword(passwordEncoder.encode(request.password()));
-        user.setDeptId(request.deptId());
         user.setStatus(request.status() != null ? request.status() : 0);
         user.setRemark(request.remark());
         adminUserMapper.insert(user);
 
         saveUserRoles(user.getId(), request.roleIds());
-        saveUserPosts(user.getId(), request.postIds());
     }
 
     @Override
@@ -155,15 +137,12 @@ public class AdminUserServiceImpl implements AdminUserService {
         user.setPhone(request.phone());
         user.setSex(request.sex());
         user.setAvatar(request.avatar());
-        user.setDeptId(request.deptId());
         user.setStatus(request.status());
         user.setRemark(request.remark());
         adminUserMapper.updateById(user);
 
         adminUserRoleMapper.delete(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, id));
-        adminUserPostMapper.delete(new LambdaQueryWrapper<AdminUserPost>().eq(AdminUserPost::getUserId, id));
         saveUserRoles(id, request.roleIds());
-        saveUserPosts(id, request.postIds());
 
         // SEC-03：角色/状态变更统一触发认证失效——禁用硬失效（令牌立即不可用），
         // 其余变更软失效（刷新后拿新权限集）；失败向上抛出保证管理员可感知
@@ -191,7 +170,6 @@ public class AdminUserServiceImpl implements AdminUserService {
                 AuthRevocationFeignClient.adminHardInvalidate(id));
         adminUserMapper.deleteById(id);
         adminUserRoleMapper.delete(new LambdaQueryWrapper<AdminUserRole>().eq(AdminUserRole::getUserId, id));
-        adminUserPostMapper.delete(new LambdaQueryWrapper<AdminUserPost>().eq(AdminUserPost::getUserId, id));
     }
 
     @Override
@@ -279,8 +257,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                     .like(request.username() != null && !request.username().isBlank(), AdminUser::getUsername, request.username())
                     .like(request.phone() != null && !request.phone().isBlank(), AdminUser::getPhone, request.phone())
                     .eq(request.status() != null, AdminUser::getStatus, request.status())
-                    .eq(request.deptId() != null, AdminUser::getDeptId, request.deptId())
-                    .orderByDesc(AdminUser::getCreatedAt);
+                        .orderByDesc(AdminUser::getCreatedAt);
 
             // SEC-03：导出与分页同一数据范围约束，防止绕过分页直接全量导出
             applyDataScope(wrapper);
@@ -335,7 +312,6 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.setEmail(dto.getEmail());
                 user.setPhone(dto.getPhone());
                 user.setSex(dto.getSex());
-                user.setDeptId(dto.getDeptId());
                 user.setStatus(dto.getStatus() != null ? dto.getStatus() : 0);
                 user.setRemark(dto.getRemark());
                 // SEC-03：每人独立随机初始密码（一次性展示给操作者分发），
@@ -430,29 +406,8 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
     }
 
-    private void saveUserPosts(Long userId, List<Long> postIds) {
-        if (postIds == null || postIds.isEmpty()) {
-            return;
-        }
-        for (Long postId : postIds) {
-            AdminUserPost userPost = new AdminUserPost();
-            userPost.setUserId(userId);
-            userPost.setPostId(postId);
-            adminUserPostMapper.insert(userPost);
-        }
-    }
-
     private AdminUserResponse toResponse(AdminUser user) {
-        String deptName = null;
-        if (user.getDeptId() != null) {
-            AdminDept dept = adminDeptMapper.selectById(user.getDeptId());
-            if (dept != null) {
-                deptName = dept.getDeptName();
-            }
-        }
-
         List<AdminRoleResponse> roles = getRolesByUserId(user.getId());
-        List<AdminPostResponse> posts = getPostsByUserId(user.getId());
 
         AdminUserResponse response = adminConverter.toUserResponse(user);
         return new AdminUserResponse(
@@ -463,16 +418,13 @@ public class AdminUserServiceImpl implements AdminUserService {
                 response.phone(),
                 response.sex(),
                 response.avatar(),
-                response.deptId(),
-                deptName,
                 response.status(),
                 response.remark(),
                 response.loginIp(),
                 response.loginDate(),
                 response.pwdUpdateDate(),
                 response.createdAt(),
-                roles,
-                posts
+                roles
         );
     }
 
@@ -483,7 +435,6 @@ public class AdminUserServiceImpl implements AdminUserService {
                 user.getEmail(),
                 user.getPhone(),
                 user.getSex(),
-                user.getDeptId(),
                 user.getStatus(),
                 user.getRemark()
         );
@@ -502,24 +453,8 @@ public class AdminUserServiceImpl implements AdminUserService {
                 .toList();
     }
 
-    private List<AdminPostResponse> getPostsByUserId(Long userId) {
-        List<AdminUserPost> userPosts = adminUserPostMapper.selectList(
-                new LambdaQueryWrapper<AdminUserPost>().eq(AdminUserPost::getUserId, userId)
-        );
-        if (userPosts.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<Long> postIds = userPosts.stream().map(AdminUserPost::getPostId).toList();
-        return adminPostMapper.selectByIds(postIds).stream()
-                .map(this::toPostResponse)
-                .toList();
-    }
-
     private AdminRoleResponse toRoleResponse(AdminRole role) {
         return adminConverter.toRoleResponse(role);
     }
 
-    private AdminPostResponse toPostResponse(AdminPost post) {
-        return adminConverter.toPostResponse(post);
-    }
 }

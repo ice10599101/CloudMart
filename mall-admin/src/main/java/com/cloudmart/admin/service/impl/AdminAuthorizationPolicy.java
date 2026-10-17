@@ -26,7 +26,7 @@ import java.util.Set;
  *   <li>{@link #assertCanManage}：数据范围 + 超管目标保护——范围外/超管目标一律拒绝；</li>
  *   <li>{@link #assertNotBuiltInSuperAdmin}：删除/禁用类无条件保护（与既有 delete 语义一致）；</li>
  *   <li>{@link #assertNotLastEnabledSuperAdmin}：禁用时至少保留一名可用内置超管；</li>
- *   <li>{@link #assertGrantableMenus}/{@link #assertGrantableDataScope}：授权上限——
+ *   <li>{@link #assertGrantableMenus}：授权上限——
  *       普通管理员只能授予自身权限集范围内的菜单，不能创建/赋予 ALL 数据范围的角色
  *       （越级授权/自我提权路径关闭，QA21）。</li>
  * </ul>
@@ -153,13 +153,6 @@ public class AdminAuthorizationPolicy {
     }
 
     /** S03 授权上限：普通管理员不能创建/更新为 ALL 数据范围的角色 */
-    public void assertGrantableDataScope(Integer requestedDataScope) {
-        if (!isSuperAdminOperator() && requestedDataScope != null
-                && requestedDataScope == DATA_SCOPE_ALL) {
-            throw new BusinessException("FORBIDDEN", "全部数据范围仅超级管理员可授予");
-        }
-    }
-
     public AdminRole findBuiltInSuperAdminRole() {
         return adminRoleMapper.selectOne(new LambdaQueryWrapper<AdminRole>()
                 .eq(AdminRole::getRoleKey, BUILT_IN_SUPER_ROLE_KEY)

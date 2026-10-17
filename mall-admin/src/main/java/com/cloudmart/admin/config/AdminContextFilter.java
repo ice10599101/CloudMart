@@ -71,7 +71,7 @@ public class AdminContextFilter implements Filter {
                     // 重建上下文：令牌未携带权限声明时按 DB 权威补全
                     AdminSecurityContext.set(new AdminSecurityContext(
                             context.userId(), context.username(), context.role(),
-                            permissions, context.deptId()));
+                            permissions, null));
                 }
             }
             chain.doFilter(request, response);

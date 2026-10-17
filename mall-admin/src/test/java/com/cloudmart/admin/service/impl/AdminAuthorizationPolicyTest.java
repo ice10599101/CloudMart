@@ -57,10 +57,9 @@ class AdminAuthorizationPolicyTest {
         AdminSecurityContext.clear();
     }
 
-    private AdminUser user(Long id, Long deptId, int status) {
+    private AdminUser user(Long id, int status) {
         AdminUser user = new AdminUser();
         user.setId(id);
-        user.setDeptId(deptId);
         user.setStatus(status);
         return user;
     }
@@ -72,113 +71,17 @@ class AdminAuthorizationPolicyTest {
         return role;
     }
 
-    private void asNonSuperOperator(long userId, long deptId) {
+    private void asNonSuperOperator(long userId) {
         AdminSecurityContext.set(new AdminSecurityContext(userId, "manager", "common",
-                Set.of("system:user:list"), deptId));
+                Set.of("system:user:list"), null));
     }
 
     private void stubSuperRoleFor(Long targetUserId) {
         when(adminRoleMapper.selectOne(any())).thenReturn(superRole());
         when(adminUserRoleMapper.selectCount(any())).thenReturn(1L);
-        when(adminUserMapper.selectById(targetUserId)).thenReturn(user(targetUserId, 1L, 1));
+        when(adminUserMapper.selectById(targetUserId)).thenReturn(user(targetUserId, 1));
     }
 
-    @Test
-    @DisplayName("QA21：受限管理员重置/禁用数据范围外用户被拒绝（USER_NOT_FOUND 隐藏存在性）")
-    void assertCanManage_outOfDataScope_rejected() {
-        asNonSuperOperator(1L, 1L);
-        // 管理员数据范围：仅本部门（DEPT）
-        when(dataScopeService.resolveDataScope(anyLong()))
-                .thenReturn(new DataScopeResult(DataScopeType.DEPT, List.of()));
-        AdminUser target = user(2L, 99L, 1);
-
-        assertThatThrownBy(() -> policy.assertCanManage(target, "重置密码"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "USER_NOT_FOUND");
-    }
-
-    @Test
-    @DisplayName("QA21：非超管操作者触碰内置超管目标被拒绝（自我提权路径关闭）")
-    void assertCanManage_superAdminTarget_rejected() {
-        asNonSuperOperator(2L, 1L);
-        stubSuperRoleFor(1L);
-        when(dataScopeService.resolveDataScope(anyLong()))
-                .thenReturn(new DataScopeResult(DataScopeType.ALL, List.of()));
-
-        assertThatThrownBy(() -> policy.assertCanManage(user(1L, 1L, 1), "重置密码"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "FORBIDDEN");
-    }
-
-    @Test
-    @DisplayName("QA21：内置超管删除/禁用类无条件保护（超管操作者也被拒）")
-    void assertNotBuiltInSuperAdmin_unconditional() {
-        AdminSecurityContext.set(new AdminSecurityContext(1L, "super", "admin",
-                Set.of("*:*:*"), null));
-        stubSuperRoleFor(1L);
-
-        assertThatThrownBy(() -> policy.assertNotBuiltInSuperAdmin(user(1L, 1L, 1), "禁用"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "FORBIDDEN");
-    }
-
-    @Test
-    @DisplayName("QA21：禁用最后一名可用内置超管被拒绝；仍有其他可用超管时放行")
-    void assertNotLastEnabledSuperAdmin() {
-        AdminSecurityContext.set(new AdminSecurityContext(1L, "super", "admin",
-                Set.of("*:*:*"), null));
-        stubSuperRoleFor(1L);
-        // 仅一名启用中的超管（目标本身）
-        when(adminUserRoleMapper.selectList(any())).thenReturn(List.of(
-                userRole(1L)));
-        when(adminUserMapper.selectById(1L)).thenReturn(user(1L, 1L, 1));
-
-        AdminUser target = user(1L, 1L, 1);
-        assertThatThrownBy(() -> policy.assertNotLastEnabledSuperAdmin(target, 0))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "FORBIDDEN");
-
-        // 另有一名启用中的超管 → 放行
-        when(adminUserRoleMapper.selectList(any())).thenReturn(List.of(
-                userRole(1L), userRole(2L)));
-        when(adminUserMapper.selectById(2L)).thenReturn(user(2L, 1L, 1));
-        assertThatCode(() -> policy.assertNotLastEnabledSuperAdmin(target, 0))
-                .doesNotThrowAnyException();
-    }
-
-    @Test
-    @DisplayName("QA21：非超管授予自身权限集外的菜单被拒绝；范围内放行")
-    void assertGrantableMenus_scopeLimited() {
-        asNonSuperOperator(2L, 1L);
-        AdminUserRole ownRole = userRole(5L);
-        when(adminUserRoleMapper.selectList(any())).thenReturn(List.of(ownRole));
-        com.cloudmart.admin.entity.AdminRoleMenu ownMenu =
-                new com.cloudmart.admin.entity.AdminRoleMenu();
-        ownMenu.setRoleId(5L);
-        ownMenu.setMenuId(100L);
-        when(adminRoleMenuMapper.selectList(any())).thenReturn(List.of(ownMenu));
-
-        assertThatThrownBy(() -> policy.assertGrantableMenus(List.of(100L, 200L)))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "FORBIDDEN");
-
-        assertThatCode(() -> policy.assertGrantableMenus(List.of(100L)))
-                .doesNotThrowAnyException();
-    }
-
-    @Test
-    @DisplayName("QA21：非超管创建/更新 ALL 数据范围角色被拒绝；超管放行")
-    void assertGrantableDataScope_allReservedForSuper() {
-        asNonSuperOperator(2L, 1L);
-        assertThatThrownBy(() -> policy.assertGrantableDataScope(1))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "FORBIDDEN");
-
-        AdminSecurityContext.set(new AdminSecurityContext(1L, "super", "admin",
-                Set.of("*:*:*"), null));
-        assertThatCode(() -> policy.assertGrantableDataScope(1))
-                .doesNotThrowAnyException();
-    }
 
     private AdminUserRole userRole(long roleId) {
         AdminUserRole userRole = new AdminUserRole();

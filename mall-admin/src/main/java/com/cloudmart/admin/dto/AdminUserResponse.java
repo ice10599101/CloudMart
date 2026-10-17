@@ -11,14 +11,11 @@ public record AdminUserResponse(
     String phone,
     Integer sex,
     String avatar,
-    Long deptId,
-    String deptName,
     Integer status,
     String remark,
     String loginIp,
     LocalDateTime loginDate,
     LocalDateTime pwdUpdateDate,
     LocalDateTime createdAt,
-    List<AdminRoleResponse> roles,
-    List<AdminPostResponse> posts
+    List<AdminRoleResponse> roles
 ) {}

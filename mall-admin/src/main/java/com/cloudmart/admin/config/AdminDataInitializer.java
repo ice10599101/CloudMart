@@ -1,10 +1,8 @@
 package com.cloudmart.admin.config;
 
-import com.cloudmart.admin.entity.AdminDept;
 import com.cloudmart.admin.entity.AdminRole;
 import com.cloudmart.admin.entity.AdminUser;
 import com.cloudmart.admin.entity.AdminUserRole;
-import com.cloudmart.admin.repository.AdminDeptMapper;
 import com.cloudmart.admin.repository.AdminRoleMapper;
 import com.cloudmart.admin.repository.AdminUserMapper;
 import com.cloudmart.admin.repository.AdminUserRoleMapper;
@@ -25,22 +23,18 @@ public class AdminDataInitializer implements CommandLineRunner {
     private static final String DEFAULT_ADMIN_NICKNAME = "超级管理员";
     private static final String SUPER_ADMIN_ROLE_KEY = "admin";
     private static final String SUPER_ADMIN_ROLE_NAME = "超级管理员";
-    private static final String DEFAULT_DEPT_NAME = "总公司";
 
     private final AdminUserMapper adminUserMapper;
     private final AdminRoleMapper adminRoleMapper;
-    private final AdminDeptMapper adminDeptMapper;
     private final AdminUserRoleMapper adminUserRoleMapper;
     private final PasswordEncoder passwordEncoder;
 
     public AdminDataInitializer(AdminUserMapper adminUserMapper,
                                 AdminRoleMapper adminRoleMapper,
-                                AdminDeptMapper adminDeptMapper,
                                 AdminUserRoleMapper adminUserRoleMapper,
                                 PasswordEncoder passwordEncoder) {
         this.adminUserMapper = adminUserMapper;
         this.adminRoleMapper = adminRoleMapper;
-        this.adminDeptMapper = adminDeptMapper;
         this.adminUserRoleMapper = adminUserRoleMapper;
         this.passwordEncoder = passwordEncoder;
     }
@@ -55,31 +49,11 @@ public class AdminDataInitializer implements CommandLineRunner {
 
         log.info("No admin users found, initializing default admin data...");
 
-        Long deptId = ensureDefaultDept();
         Long roleId = ensureSuperAdminRole();
-        Long userId = createAdminUser(deptId);
+        Long userId = createAdminUser();
         assignRole(userId, roleId);
 
         log.info("Default admin initialized - username: {}, password: {}", DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD);
-    }
-
-    private Long ensureDefaultDept() {
-        AdminDept existing = adminDeptMapper.selectOne(
-                new LambdaQueryWrapper<AdminDept>().eq(AdminDept::getDeptName, DEFAULT_DEPT_NAME)
-        );
-        if (existing != null) {
-            return existing.getId();
-        }
-
-        AdminDept dept = new AdminDept();
-        dept.setParentId(0L);
-        dept.setAncestors("0");
-        dept.setDeptName(DEFAULT_DEPT_NAME);
-        dept.setOrderNum(1);
-        dept.setStatus(1);
-        adminDeptMapper.insert(dept);
-        log.info("Created default department: {}", DEFAULT_DEPT_NAME);
-        return dept.getId();
     }
 
     private Long ensureSuperAdminRole() {
@@ -94,7 +68,6 @@ public class AdminDataInitializer implements CommandLineRunner {
         role.setRoleName(SUPER_ADMIN_ROLE_NAME);
         role.setRoleKey(SUPER_ADMIN_ROLE_KEY);
         role.setRoleSort(1);
-        role.setDataScope(1);
         role.setMenuCheckStrictly(1);
         role.setDeptCheckStrictly(1);
         role.setStatus(1);
@@ -104,12 +77,11 @@ public class AdminDataInitializer implements CommandLineRunner {
         return role.getId();
     }
 
-    private Long createAdminUser(Long deptId) {
+    private Long createAdminUser() {
         AdminUser user = new AdminUser();
         user.setUsername(DEFAULT_ADMIN_USERNAME);
         user.setNickname(DEFAULT_ADMIN_NICKNAME);
         user.setPassword(passwordEncoder.encode(DEFAULT_ADMIN_PASSWORD));
-        user.setDeptId(deptId);
         user.setStatus(1);
         user.setSex(2);
         user.setRemark("系统内置超级管理员");

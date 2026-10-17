@@ -43,9 +43,9 @@ class AdminUserControllerTest {
         Page<AdminUserResponse> page = new Page<>(1, 10, 1);
         AdminUserResponse userResponse = new AdminUserResponse(
                 1L, "admin", "Admin", "admin@test.com", "13800000001",
-                0, null, 1L, "技术部", 0, null, "127.0.0.1",
+                0, null, 0, null, "127.0.0.1",
                 LocalDateTime.now(), null, LocalDateTime.now(),
-                List.of(), List.of()
+                List.of()
         );
         page.setRecords(List.of(userResponse));
         given(adminUserService.page(any(AdminUserQueryRequest.class))).willReturn(page);
@@ -61,8 +61,8 @@ class AdminUserControllerTest {
     void getById_returnsUserDetail() throws Exception {
         AdminUserResponse userResponse = new AdminUserResponse(
                 1L, "admin", "Admin", "admin@test.com", "13800000001",
-                0, null, 1L, "技术部", 0, null, null,
-                null, null, null, List.of(), List.of()
+                0, null, 0, null, null, null,
+                null, null, List.of()
         );
         given(adminUserService.getById(1L)).willReturn(userResponse);
 

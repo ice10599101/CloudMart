@@ -13,9 +13,7 @@ public record AdminUserRequest(
     Integer sex,
     String avatar,
     @NotBlank @Size(min = 6, max = 100) String password,
-    Long deptId,
     List<Long> roleIds,
-    List<Long> postIds,
     Integer status,
     String remark
 ) {}

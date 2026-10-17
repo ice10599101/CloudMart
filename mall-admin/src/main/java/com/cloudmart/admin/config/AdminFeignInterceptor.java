@@ -21,8 +21,5 @@ public class AdminFeignInterceptor implements RequestInterceptor {
         if (ctx.username() != null) {
             template.header(SecurityConstants.ADMIN_USERNAME_HEADER, ctx.username());
         }
-        if (ctx.deptId() != null) {
-            template.header(SecurityConstants.ADMIN_DEPT_ID_HEADER, ctx.deptId().toString());
-        }
     }
 }

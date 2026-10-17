@@ -64,7 +64,6 @@ public class AdminProfileServiceImpl implements AdminProfileService {
                 user.getEmail(),
                 user.getPhone(),
                 user.getAvatar(),
-                user.getDeptId(),
                 user.getStatus(),
                 user.getCreatedAt(),
                 permissions,

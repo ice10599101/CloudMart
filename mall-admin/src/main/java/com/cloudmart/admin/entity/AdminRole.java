@@ -22,7 +22,7 @@ public class AdminRole {
 
     private Integer roleSort;
 
-    private Integer dataScope;
+
 
     private Integer menuCheckStrictly;
 

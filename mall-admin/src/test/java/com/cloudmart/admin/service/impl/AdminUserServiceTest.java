@@ -8,11 +8,8 @@ import com.cloudmart.admin.dto.AdminUserUpdateRequest;
 import com.cloudmart.admin.entity.AdminUser;
 import com.cloudmart.admin.entity.AdminUserPost;
 import com.cloudmart.admin.entity.AdminUserRole;
-import com.cloudmart.admin.repository.AdminDeptMapper;
-import com.cloudmart.admin.repository.AdminPostMapper;
 import com.cloudmart.admin.repository.AdminRoleMapper;
 import com.cloudmart.admin.repository.AdminUserMapper;
-import com.cloudmart.admin.repository.AdminUserPostMapper;
 import com.cloudmart.admin.repository.AdminUserRoleMapper;
 import com.cloudmart.admin.service.DataScopeService;
 import com.cloudmart.common.exception.BusinessException;
@@ -43,13 +40,7 @@ class AdminUserServiceTest {
     @Mock
     private AdminUserRoleMapper adminUserRoleMapper;
     @Mock
-    private AdminUserPostMapper adminUserPostMapper;
-    @Mock
     private AdminRoleMapper adminRoleMapper;
-    @Mock
-    private AdminPostMapper adminPostMapper;
-    @Mock
-    private AdminDeptMapper adminDeptMapper;
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
@@ -69,8 +60,8 @@ class AdminUserServiceTest {
         authorizationPolicy = new AdminAuthorizationPolicy(
                 dataScopeService, adminUserMapper, adminRoleMapper, adminUserRoleMapper, adminRoleMenuMapper);
         adminUserService = new AdminUserServiceImpl(
-                adminUserMapper, adminUserRoleMapper, adminUserPostMapper,
-                adminRoleMapper, adminPostMapper, adminDeptMapper,
+                adminUserMapper, adminUserRoleMapper,
+                adminRoleMapper,
                 passwordEncoder, dataScopeService, adminConverter,
                 authRevocationFeignClient,
                 authorizationPolicy);
@@ -86,13 +77,12 @@ class AdminUserServiceTest {
 
         AdminUserResponse converterResponse = new AdminUserResponse(
                 1L, "admin", "Admin", null, null, null, null,
-                null, null, 0, null, null, null, null, null,
-                List.of(), List.of()
+                0, null, null, null, null, null,
+                List.of()
         );
 
         when(adminUserMapper.selectById(1L)).thenReturn(user);
         when(adminUserRoleMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
-        when(adminUserPostMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
         when(adminConverter.toUserResponse(user)).thenReturn(converterResponse);
 
         AdminUserResponse response = adminUserService.getById(1L);
@@ -115,8 +105,7 @@ class AdminUserServiceTest {
     void createUser_success() {
         AdminUserRequest request = new AdminUserRequest(
                 "newuser", "New User", "new@test.com", "13800000000",
-                0, null, "password123", 1L,
-                List.of(1L, 2L), List.of(1L), 0, null
+                0, null, "password123", List.of(1L, 2L), 0, null
         );
 
         when(adminUserMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
@@ -138,14 +127,13 @@ class AdminUserServiceTest {
         assertThat(captured.getEmail()).isEqualTo("new@test.com");
         assertThat(captured.getStatus()).isEqualTo(0);
         verify(adminUserRoleMapper, times(2)).insert(any(AdminUserRole.class));
-        verify(adminUserPostMapper).insert(any(AdminUserPost.class));
     }
 
     @Test
     void createUser_duplicateUsername_throwsException() {
         AdminUserRequest request = new AdminUserRequest(
                 "admin", "Admin", "admin@test.com", "13800000001",
-                0, null, "password123", 1L, null, null, 0, null
+                0, null, "password123", List.of(1L), 0, null
         );
 
         AdminUser existing = new AdminUser();
@@ -170,7 +158,7 @@ class AdminUserServiceTest {
 
         AdminUserUpdateRequest request = new AdminUserUpdateRequest(
                 "New Nick", "new@test.com", "13800000000",
-                0, null, 1L, List.of(1L), List.of(1L), 0, null
+                0, null, List.of(1L), 0, null
         );
 
         when(adminUserMapper.selectById(userId)).thenReturn(user);
@@ -184,9 +172,7 @@ class AdminUserServiceTest {
         assertThat(user.getPhone()).isEqualTo("13800000000");
         verify(adminUserMapper).updateById(user);
         verify(adminUserRoleMapper).delete(any(LambdaQueryWrapper.class));
-        verify(adminUserPostMapper).delete(any(LambdaQueryWrapper.class));
         verify(adminUserRoleMapper).insert(any(AdminUserRole.class));
-        verify(adminUserPostMapper).insert(any(AdminUserPost.class));
     }
 
     @Test
@@ -203,7 +189,6 @@ class AdminUserServiceTest {
 
         verify(adminUserMapper).deleteById(userId);
         verify(adminUserRoleMapper).delete(any(LambdaQueryWrapper.class));
-        verify(adminUserPostMapper).delete(any(LambdaQueryWrapper.class));
     }
 
     @Test
@@ -238,7 +223,7 @@ class AdminUserServiceTest {
         user.setStatus(0);
 
         AdminUserUpdateRequest request = new AdminUserUpdateRequest(
-                "user1", null, null, 0, null, 1L, List.of(), List.of(), 1, null);
+                "user1", null, null, 0, null, List.of(1L), 1, null);
 
         when(adminUserMapper.selectById(userId)).thenReturn(user);
         when(adminUserMapper.updateById(user)).thenReturn(1);

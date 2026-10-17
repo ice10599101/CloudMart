@@ -9,7 +9,6 @@ public record AdminRoleRequest(
     @NotBlank String roleName,
     @NotBlank String roleKey,
     @NotNull Integer roleSort,
-    Integer dataScope,
     Integer menuCheckStrictly,
     Integer deptCheckStrictly,
     Integer status,

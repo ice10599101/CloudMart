@@ -7,7 +7,6 @@ public record AdminUserQueryRequest(
     String username,
     String phone,
     Integer status,
-    Long deptId,
     @Min(1) Integer page,
     @Min(1) @Max(100) Integer pageSize
 ) {
