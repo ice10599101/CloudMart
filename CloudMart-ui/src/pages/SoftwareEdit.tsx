@@ -419,49 +419,28 @@ export default function SoftwareEdit() {
     ]);
   }, []);
 
-  /** 保存失败若是版本冲突：保留已填内容并提示，绝不静默丢弃（A08） */
-  const handleSave = useCallback(async () => {
-    if (!editor) return;
-    setSaving(true);
-    try {
-      const res = await saveSoftwareDraft(id, editor.revisionId, {
-        ...buildPayload(),
-        expectedVersion: editor.lockVersion,
-      });
-      if (!res.data.success) return;
-      await loadEditor();
-      message.success("已保存");
-    } catch (error) {
-      const code = (
-        error as { response?: { data?: { error?: { code?: string } } } }
-      )?.response?.data?.error?.code;
-      if (
-        code === "SOFTWARE_OPERATION_CONFLICT" ||
-        code === "SOFTWARE_VERSION_CONFLICT"
-      ) {
-        setConflict(true);
-        message.warning(
-          "内容已被其他地方更新，已保留你填写的内容，请刷新后重试",
-        );
-        return;
+      /** 保存草稿：原样保存，版本号机制已移除 */
+    const handleSave = useCallback(async () => {
+      if (!editor) return;
+      setSaving(true);
+      try {
+        const res = await saveSoftwareDraft(id, editor.revisionId, buildPayload());
+        if (!res.data.success) return;
+        await loadEditor();
+        message.success("已保存");
+      } catch {
+        message.error("保存失败，请稍后重试");
+      } finally {
+        setSaving(false);
       }
-      message.error("保存失败，请稍后重试");
-    } finally {
-      setSaving(false);
-    }
-  }, [buildPayload, editor, id, loadEditor, message]);
+    }, [buildPayload, editor, id, loadEditor, message]);
 
   const handleSubmit = useCallback(async () => {
     if (!editor) return;
     setSubmitting(true);
     try {
-      await saveSoftwareDraft(id, editor.revisionId, {
-        ...buildPayload(),
-        expectedVersion: editor.lockVersion,
-      });
-      const res = await submitSoftwareForReview(id, editor.revisionId, {
-        expectedVersion: editor.lockVersion,
-      });
+      await saveSoftwareDraft(id, editor.revisionId, buildPayload());
+      const res = await submitSoftwareForReview(id, editor.revisionId);
       if (!res.data.success) return;
       message.success("已提交审核");
       history.push("/software/mine");

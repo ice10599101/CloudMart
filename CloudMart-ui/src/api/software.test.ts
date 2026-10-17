@@ -265,31 +265,23 @@ describe('software API', () => {
     expect(request.get).toHaveBeenCalledWith('/software/100/editor')
   })
 
-  it('saveSoftwareDraft() 带 revisionId 保存工作副本（expectedVersion 走 URL 查询参数）', async () => {
-    vi.mocked(request.put).mockResolvedValue(ok)
-
-    await saveSoftwareDraft('100', '7', { name: '改后', expectedVersion: 3 })
-
-    expect(request.put).toHaveBeenCalledWith('/software/100/revisions/7?expectedVersion=3', {
-      name: '改后',
-    })
-  })
-
-  it('saveSoftwareDraft() 未带 expectedVersion 时不拼查询参数', async () => {
+  it('saveSoftwareDraft() 带 revisionId 保存工作副本（原样保存，版本号机制已移除）', async () => {
     vi.mocked(request.put).mockResolvedValue(ok)
 
     await saveSoftwareDraft('100', '7', { name: '改后' })
 
-    expect(request.put).toHaveBeenCalledWith('/software/100/revisions/7', { name: '改后' })
+    expect(request.put).toHaveBeenCalledWith('/software/100/revisions/7', {
+      name: '改后',
+    })
   })
 
-  it('submitSoftwareForReview() 提交审核并携带幂等键（expectedVersion 走 URL 查询参数）', async () => {
+  it('submitSoftwareForReview() 提交审核并携带幂等键', async () => {
     vi.mocked(request.post).mockResolvedValue(ok)
 
-    await submitSoftwareForReview('100', '7', { expectedVersion: 3 }, 'key-4')
+    await submitSoftwareForReview('100', '7', 'key-4')
 
     expect(request.post).toHaveBeenCalledWith(
-      '/software/100/revisions/7/submit?expectedVersion=3',
+      '/software/100/revisions/7/submit',
       {},
       { headers: { 'Idempotency-Key': 'key-4' } }
     )

@@ -358,12 +358,12 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     }
 
     // ------------------------------------------------------------------
-    // 保存草稿（资格矩阵：是；expectedVersion CAS；全量替换）
+    // 保存草稿（资格矩阵：是；全量替换；版本号机制已按用户决定移除，保存即生效）
     // ------------------------------------------------------------------
 
     @Override
     public SoftwareEditorVO saveDraft(Long userId, Long softwareId, Long revisionId,
-                                      Integer expectedVersion, SoftwareSnapshotInput input) {
+                                      SoftwareSnapshotInput input) {
         publisherPolicy.requireForRestrictedWrite(userId);
         Software software = ownedSoftware(userId, softwareId);
         SoftwareRevision precheck = revisionOfSoftware(software, revisionId);
@@ -389,7 +389,6 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
             }
             requireEditableStatus(revision);
-            requireVersion(revision, expectedVersion);
             assembler.applyInput(revision, input);
             revision.setLockVersion(revision.getLockVersion() + 1);
             revisionMapper.updateById(revision);
@@ -434,7 +433,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
 
     @Override
     public SoftwareSubmittedVO submit(Long userId, Long softwareId, Long revisionId,
-                                      Integer expectedVersion, String idempotencyKey) {
+                                      String idempotencyKey) {
         // 幂等重试返回旧结果前也要检查资格与开关（4.0/11.2）
         publisherPolicy.requireForRestrictedWrite(userId);
         if (!softwareProperties.isPublishEnabled()) {
@@ -470,7 +469,6 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         Map<String, Object> submitHashPayload = new HashMap<>();
         submitHashPayload.put("softwareId", softwareId);
         submitHashPayload.put("revisionId", revisionId);
-        submitHashPayload.put("expectedVersion", expectedVersion);
         submitHashPayload.put("contentHash", contentHash);
         submitHashPayload.put("checkedAt", String.valueOf(outcome.checkedAt()));
         String operationHash = operationService.requestHash(submitHashPayload);
@@ -478,13 +476,13 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         // 此处锁资格行→软件→快照复核并冻结；operation 结果记录同事务提交
         return transactionTemplate.execute(status -> operationService.execute("USER", userId,
                 SoftwareOperationService.OP_SUBMIT, idempotencyKey, operationHash, softwareId,
-                () -> doSubmitLocked(userId, softwareId, revisionId, expectedVersion, contentHash, outcome),
+                () -> doSubmitLocked(userId, softwareId, revisionId, contentHash, outcome),
                 json -> objectMapper.readValue(json, SoftwareSubmittedVO.class)));
     }
 
     /** 提交锁定阶段：仅在 TransactionTemplate 事务内执行（不加 @Transactional 避免自调用失效） */
     private SoftwareSubmittedVO doSubmitLocked(Long userId, Long softwareId, Long revisionId,
-                                               Integer expectedVersion, String contentHash,
+                                               String contentHash,
                                                SoftwareReviewOutcomeVO outcome) {
         // 短本地事务（9.7）：锁资格行→软件主行→快照行，复核归属/状态/版本
         SoftwarePublisherPermission permission = lockMapper.lockPublisherByUser(userId);
@@ -500,7 +498,6 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         }
         SoftwareRevision lockedRevision = lockMapper.lockRevision(revisionId);
         requireEditableStatus(lockedRevision);
-        requireVersion(lockedRevision, expectedVersion);
 
         // 冻结前完整校验（快照必须可发布）
         assembler.validateForSubmit(lockedRevision);
@@ -567,13 +564,12 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
 
     @Override
     @Transactional
-    public SoftwareEditorVO withdraw(Long userId, Long softwareId, Long revisionId, Integer expectedVersion) {
+    public SoftwareEditorVO withdraw(Long userId, Long softwareId, Long revisionId) {
         Software software = ownedSoftware(userId, softwareId);
         SoftwareRevision revision = lockRevisionOfSoftware(software, revisionId);
         if (revision.getReviewStatus() != SoftwareReviewStatus.PENDING) {
             throw new BusinessException("SOFTWARE_STATE_CONFLICT", "仅待审快照可撤回");
         }
-        requireVersion(revision, expectedVersion);
         revision.setReviewStatus(SoftwareReviewStatus.DRAFT);
         revision.setLockVersion(revision.getLockVersion() + 1);
         revisionMapper.updateById(revision);
@@ -584,10 +580,9 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
 
     @Override
     @Transactional
-    public SoftwareEditorVO unlist(Long userId, Long softwareId, Integer expectedVersion) {
+    public SoftwareEditorVO unlist(Long userId, Long softwareId) {
         ownedSoftware(userId, softwareId);
         Software locked = lockMapper.lockSoftware(softwareId);
-        requireVersion(locked, expectedVersion);
         if (locked.getLifecycle() != SoftwareLifecycle.ACTIVE) {
             throw new BusinessException("SOFTWARE_STATE_CONFLICT", "仅上架中的软件可下架");
         }
@@ -602,12 +597,11 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
 
     @Override
     @Transactional
-    public SoftwareEditorVO relist(Long userId, Long softwareId, Integer expectedVersion) {
+    public SoftwareEditorVO relist(Long userId, Long softwareId) {
         // 4.0 矩阵：重新上架要求发布资格（A31/A33：关闭后 relist 也无法绕过）
         publisherPolicy.requireForRestrictedWrite(userId);
         ownedSoftware(userId, softwareId);
         Software locked = lockMapper.lockSoftware(softwareId);
-        requireVersion(locked, expectedVersion);
         if (locked.getLifecycle() == SoftwareLifecycle.BANNED) {
             throw new BusinessException("SOFTWARE_BANNED", "平台封禁的软件不能自行恢复，请联系管理员");
         }
@@ -632,10 +626,9 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
 
     @Override
     @Transactional
-    public void delete(Long userId, Long softwareId, Integer expectedVersion) {
+    public void delete(Long userId, Long softwareId) {
         ownedSoftware(userId, softwareId);
         Software locked = lockMapper.lockSoftware(softwareId);
-        requireVersion(locked, expectedVersion);
         if (locked.getLifecycle() == SoftwareLifecycle.DELETED) {
             return; // 幂等
         }
@@ -660,7 +653,6 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         if (locked == null) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
         }
-        requireVersion(locked, expectedVersion);
         if (locked.getLifecycle() == SoftwareLifecycle.DELETED) {
             return; // 幂等
         }
@@ -727,7 +719,6 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             }
         }
         Software locked = lockMapper.lockSoftware(softwareId);
-        requireVersion(locked, expectedVersion);
         SoftwareRevision revision = lockMapper.lockRevision(revisionId);
         if (revision.getReviewStatus() != SoftwareReviewStatus.PENDING
                 || !Objects.equals(revision.getSubmitSeq(), submitSeq)) {
@@ -988,22 +979,6 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         if (revision.getReviewStatus() != SoftwareReviewStatus.DRAFT
                 && revision.getReviewStatus() != SoftwareReviewStatus.REJECTED) {
             throw new BusinessException("SOFTWARE_STATE_CONFLICT", "仅草稿/退回快照可编辑");
-        }
-    }
-
-    /** 乐观锁校验（A08：并发保存/两标签页仅一方成功） */
-    private void requireVersion(Object entity, Integer expectedVersion) {
-        Integer actual;
-        if (entity instanceof Software software) {
-            actual = software.getLockVersion();
-        } else if (entity instanceof SoftwareRevision revision) {
-            actual = revision.getLockVersion();
-        } else {
-            throw new IllegalStateException("不支持的乐观锁实体");
-        }
-        if (expectedVersion == null || !expectedVersion.equals(actual)) {
-            throw new BusinessException("SOFTWARE_VERSION_CONFLICT",
-                    "内容已被其他页面修改，请刷新后重试");
         }
     }
 

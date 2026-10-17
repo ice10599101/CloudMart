@@ -81,7 +81,7 @@ export default function SoftwareMine() {
 
   const handleDeleteDraft = async (item: SoftwareMineItem) => {
     try {
-      await deleteMySoftware(item.softwareId, item.lockVersion);
+      await deleteMySoftware(item.softwareId);
       message.success("已删除");
       void load(tab);
     } catch {

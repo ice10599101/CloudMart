@@ -252,7 +252,7 @@ class SoftwarePublishServiceImplTest {
                 new SoftwareReviewOutcomeVO("hash", false, false,
                         java.util.List.of(), "内容包含违规词汇，发布被拒绝", NOW)));
 
-        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, 1, "submit-key-1"))
+        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-key-1"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "CONTENT_REJECTED");
         verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
@@ -263,7 +263,7 @@ class SoftwarePublishServiceImplTest {
     void submit_publishDisabled() {
         when(softwareProperties.isPublishEnabled()).thenReturn(false);
 
-        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, 1, "submit-key-2"))
+        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-key-2"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "SOFTWARE_PUBLISH_DISABLED");
     }
@@ -288,7 +288,7 @@ class SoftwarePublishServiceImplTest {
         when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(lockedSoftware);
         when(lockMapper.lockRevision(REVISION_ID)).thenReturn(draft);
 
-        SoftwareSubmittedVO submitted = service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, 1, "submit-key-3");
+        SoftwareSubmittedVO submitted = service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-key-3");
 
         assertThat(submitted.submitSeq()).isEqualTo(1);
         assertThat(draft.getReviewStatus()).isEqualTo(SoftwareReviewStatus.PENDING);
@@ -364,7 +364,7 @@ class SoftwarePublishServiceImplTest {
         when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(banned);
         when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(banned);
 
-        assertThatThrownBy(() -> service.relist(USER_ID, SOFTWARE_ID, 3))
+        assertThatThrownBy(() -> service.relist(USER_ID, SOFTWARE_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "SOFTWARE_BANNED");
 
@@ -374,26 +374,11 @@ class SoftwarePublishServiceImplTest {
         SoftwareRevision approved = revision(SoftwareReviewStatus.APPROVED, 1, 1);
         when(revisionMapper.selectById(REVISION_ID)).thenReturn(approved);
 
-        service.relist(USER_ID, SOFTWARE_ID, 3);
+        service.relist(USER_ID, SOFTWARE_ID);
 
         assertThat(unlisted.getLifecycle()).isEqualTo(SoftwareLifecycle.ACTIVE);
         verify(auditService).record(eq(SOFTWARE_ID), eq(null), eq(null), eq(USER_ID),
                 eq("USER"), eq("RELIST"), eq("UNLISTED"), eq("ACTIVE"), anyString(), any());
-    }
-
-    @Test
-    @DisplayName("A08：expectedVersion 不匹配 → SOFTWARE_VERSION_CONFLICT（并发保存仅一方成功）")
-    void saveDraft_versionConflict() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
-                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
-        SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 5);
-        when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
-        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(draft);
-
-        assertThatThrownBy(() -> service.saveDraft(USER_ID, SOFTWARE_ID, REVISION_ID, 4,
-                new com.cloudmart.software.dto.software.SoftwareSnapshotInput()))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "SOFTWARE_VERSION_CONFLICT");
     }
 
     @Test

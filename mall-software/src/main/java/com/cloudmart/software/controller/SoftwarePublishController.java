@@ -83,15 +83,14 @@ public class SoftwarePublishController {
 
     @PutMapping("/{id}/revisions/{revisionId}")
     @Operation(summary = "保存草稿",
-            description = "仅 DRAFT/REJECTED；expectedVersion CAS（A08）；全量替换子项；白名单字段")
+            description = "仅 DRAFT/REJECTED；全量替换子项；白名单字段（版本号机制已移除，保存即生效）")
     public ApiResponse<SoftwareEditorVO> saveDraft(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("id") Long id,
             @PathVariable("revisionId") Long revisionId,
-            @RequestBody SoftwareSnapshotInput input,
-            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
+            @RequestBody SoftwareSnapshotInput input) {
         return ApiResponse.ok(softwarePublishService.saveDraft(
-                userId, id, revisionId, expectedVersion, input));
+                userId, id, revisionId, input));
     }
 
     @PostMapping("/{id}/revisions/{revisionId}/submit")
@@ -101,10 +100,9 @@ public class SoftwarePublishController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("id") Long id,
             @PathVariable("revisionId") Long revisionId,
-            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         return ApiResponse.ok(softwarePublishService.submit(
-                userId, id, revisionId, expectedVersion, idempotencyKey));
+                userId, id, revisionId, idempotencyKey));
     }
 
     @PostMapping("/{id}/revisions/{revisionId}/withdraw")
@@ -112,18 +110,18 @@ public class SoftwarePublishController {
     public ApiResponse<SoftwareEditorVO> withdraw(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("id") Long id,
-            @PathVariable("revisionId") Long revisionId,
-            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
-        return ApiResponse.ok(softwarePublishService.withdraw(userId, id, revisionId, expectedVersion));
+            @PathVariable("revisionId") Long revisionId
+            ) {
+        return ApiResponse.ok(softwarePublishService.withdraw(userId, id, revisionId));
     }
 
     @PostMapping("/{id}/unlist")
     @Operation(summary = "下架", description = "ACTIVE→UNLISTED（不要求资格）")
     public ApiResponse<SoftwareEditorVO> unlist(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @PathVariable("id") Long id,
-            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
-        return ApiResponse.ok(softwarePublishService.unlist(userId, id, expectedVersion));
+            @PathVariable("id") Long id
+            ) {
+        return ApiResponse.ok(softwarePublishService.unlist(userId, id));
     }
 
     @PostMapping("/{id}/relist")
@@ -131,18 +129,18 @@ public class SoftwarePublishController {
             description = "UNLISTED→ACTIVE，须有合格已审快照；要求发布资格；BANNED 拒绝")
     public ApiResponse<SoftwareEditorVO> relist(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @PathVariable("id") Long id,
-            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
-        return ApiResponse.ok(softwarePublishService.relist(userId, id, expectedVersion));
+            @PathVariable("id") Long id
+            ) {
+        return ApiResponse.ok(softwarePublishService.relist(userId, id));
     }
 
     @DeleteMapping("/{id}")
     @Operation(summary = "删除软件", description = "软删除（审计保留）；幂等")
     public ApiResponse<Void> delete(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @PathVariable("id") Long id,
-            @RequestParam(value = "expectedVersion", required = false) Integer expectedVersion) {
-        softwarePublishService.delete(userId, id, expectedVersion);
+            @PathVariable("id") Long id
+            ) {
+        softwarePublishService.delete(userId, id);
         return ApiResponse.ok(null);
     }
 

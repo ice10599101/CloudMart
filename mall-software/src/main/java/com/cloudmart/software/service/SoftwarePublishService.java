@@ -28,25 +28,25 @@ public interface SoftwarePublishService {
     /** 本人完整工作数据（含链接/提取码/审核原因；独立鉴权，与公开 DTO 隔离） */
     SoftwareEditorVO editor(Long userId, Long softwareId);
 
-    /** 保存草稿（资格矩阵：是）：仅 DRAFT/REJECTED；expectedVersion CAS；全量替换子项 */
+    /** 保存草稿（资格矩阵：是）：仅 DRAFT/REJECTED；全量替换子项；版本号机制已移除，保存即生效 */
     SoftwareEditorVO saveDraft(Long userId, Long softwareId, Long revisionId,
-                               Integer expectedVersion, SoftwareSnapshotInput input);
+                               SoftwareSnapshotInput input);
 
     /** 提交审核（资格+开关）：先远程审核绑定结果，再短事务冻结 PENDING，返回 submitSeq */
     SoftwareSubmittedVO submit(Long userId, Long softwareId, Long revisionId,
-                               Integer expectedVersion, String idempotencyKey);
+                               String idempotencyKey);
 
     /** 撤回待审（归属校验，不要求资格）：PENDING→DRAFT */
-    SoftwareEditorVO withdraw(Long userId, Long softwareId, Long revisionId, Integer expectedVersion);
+    SoftwareEditorVO withdraw(Long userId, Long softwareId, Long revisionId);
 
     /** 作者下架（归属校验）：ACTIVE→UNLISTED */
-    SoftwareEditorVO unlist(Long userId, Long softwareId, Integer expectedVersion);
+    SoftwareEditorVO unlist(Long userId, Long softwareId);
 
     /** 重新上架（资格矩阵：是）：UNLISTED→ACTIVE，须有已审快照；BANNED 拒绝 */
-    SoftwareEditorVO relist(Long userId, Long softwareId, Integer expectedVersion);
+    SoftwareEditorVO relist(Long userId, Long softwareId);
 
     /** 软删除本人软件（归属校验；审计保留） */
-    void delete(Long userId, Long softwareId, Integer expectedVersion);
+    void delete(Long userId, Long softwareId);
 
     /** 管理员删除（软删 DELETED，幂等；审计 actor=ADMIN；任意 lifecycle 可删） */
     void adminDelete(Long adminId, Long softwareId, Integer expectedVersion);

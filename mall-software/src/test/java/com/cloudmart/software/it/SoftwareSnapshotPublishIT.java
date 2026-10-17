@@ -64,8 +64,7 @@ class SoftwareSnapshotPublishIT extends SoftwareIntegrationTestBase {
     /** 创建软件并按输入保存草稿（v1），返回编辑器视图 */
     private SoftwareEditorVO createAndSave(long userId, SoftwareSnapshotInput input) {
         var created = publishService.create(userId, "it-create-" + System.nanoTime());
-        return publishService.saveDraft(userId, created.softwareId(), created.workingRevisionId(),
-                0, input);
+        return publishService.saveDraft(userId, created.softwareId(), created.workingRevisionId(), input);
     }
 
     private SoftwareSnapshotInput baseInput() {
@@ -113,7 +112,7 @@ class SoftwareSnapshotPublishIT extends SoftwareIntegrationTestBase {
         SoftwareSnapshotInput paid = baseInput();
         paid.setAccessMode("ADMIN_PAID");
         paid.setAccessContactId(contactId);
-        publishService.saveDraft(OWNER, sid, rid, v1.lockVersion(), paid);
+        publishService.saveDraft(OWNER, sid, rid, paid);
         SoftwareRevision afterPaid = revisionMapper.selectById(rid);
         assertThat(afterPaid.getAccessMode().name()).isEqualTo("ADMIN_PAID");
         assertThat(afterPaid.getAccessContactId()).isEqualTo(contactId);
@@ -123,8 +122,7 @@ class SoftwareSnapshotPublishIT extends SoftwareIntegrationTestBase {
         SoftwareSnapshotInput back = baseInput();
         back.setAccessMode("REGISTERED");
         back.setAccessContactId(null);
-        SoftwareEditorVO v3 = publishService.saveDraft(OWNER, sid, rid,
-                afterPaid.getLockVersion(), back);
+        SoftwareEditorVO v3 = publishService.saveDraft(OWNER, sid, rid, back);
 
         SoftwareRevision afterBack = revisionMapper.selectById(rid);
         assertThat(afterBack.getAccessMode().name()).isEqualTo("REGISTERED");
@@ -145,8 +143,7 @@ class SoftwareSnapshotPublishIT extends SoftwareIntegrationTestBase {
         SoftwareSnapshotInput cleared = baseInput();
         cleared.setOfficialUrl(null);
         cleared.setDeveloperName(null);
-        publishService.saveDraft(OWNER, v1.softwareId(), v1.revisionId(),
-                v1.lockVersion(), cleared);
+        publishService.saveDraft(OWNER, v1.softwareId(), v1.revisionId(), cleared);
 
         SoftwareRevision after = revisionMapper.selectById(v1.revisionId());
         assertThat(after.getOfficialUrl()).as("official_url 应被清空").isNull();
@@ -161,24 +158,19 @@ class SoftwareSnapshotPublishIT extends SoftwareIntegrationTestBase {
         long sid = v1.softwareId();
         long rid = v1.revisionId();
 
-        // 提交 seq1（CAS 用快照 lockVersion）
-        SoftwareSubmittedVO submitted = publishService.submit(OWNER, sid, rid,
-                v1.lockVersion(), "it-submit-1");
+        // 提交 seq1
+        SoftwareSubmittedVO submitted = publishService.submit(OWNER, sid, rid, "it-submit-1");
         assertThat(submitted.submitSeq()).isEqualTo(1);
 
-        // 撤回必须携带提交后的新版本（提交本身 +1）
-        SoftwareEditorVO withdrawn = publishService.withdraw(OWNER, sid, rid,
-                submitted.lockVersion());
+        SoftwareEditorVO withdrawn = publishService.withdraw(OWNER, sid, rid);
         assertThat(revisionMapper.selectById(rid).getReviewStatus())
                 .isEqualTo(SoftwareReviewStatus.DRAFT);
 
         // 重提 seq2 → 管理员以旧批次 submitSeq=1 决策被拒（A07）
         SoftwareSnapshotInput v3 = baseInput();
         v3.setName("IT 快照工具三版");
-        SoftwareEditorVO resaved = publishService.saveDraft(OWNER, sid, rid,
-                withdrawn.lockVersion(), v3);
-        SoftwareSubmittedVO resubmitted = publishService.submit(OWNER, sid, rid,
-                resaved.lockVersion(), "it-submit-2");
+        SoftwareEditorVO resaved = publishService.saveDraft(OWNER, sid, rid, v3);
+        SoftwareSubmittedVO resubmitted = publishService.submit(OWNER, sid, rid, "it-submit-2");
         assertThat(resubmitted.submitSeq()).isEqualTo(2);
 
         Integer staleLockVersion = softwareMapper.selectById(sid).getLockVersion();

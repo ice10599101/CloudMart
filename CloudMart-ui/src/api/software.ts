@@ -705,40 +705,30 @@ export function getSoftwareEditor(id: string) {
   return request.get<ApiResponse<SoftwareEditorData>>(`${BASE}/${id}/editor`);
 }
 
-/** 保存工作副本：expectedVersion 走 URL 查询参数（后端 @RequestParam 契约，A08 并发拦截） */
+/** 保存工作副本：原样保存（版本号机制已移除，保存即生效） */
 export function saveSoftwareDraft(
   id: string,
   revisionId: string,
-  payload: SoftwareSnapshotInput & { expectedVersion?: number },
+  payload: SoftwareSnapshotInput,
 ) {
-  const { expectedVersion, ...snapshot } = payload;
-  const query =
-    expectedVersion != null ? `?expectedVersion=${expectedVersion}` : "";
   return request.put<ApiResponse<{ lockVersion: number }>>(
-    `${BASE}/${id}/revisions/${revisionId}${query}`,
-    snapshot,
+    `${BASE}/${id}/revisions/${revisionId}`,
+    payload,
   );
 }
 
-/** 删除我的软件（软删 lifecycle=DELETED，幂等；expectedVersion URL 参数） */
-export function deleteMySoftware(id: string, expectedVersion: number) {
-  return request.delete<ApiResponse<boolean>>(
-    `${BASE}/${id}?expectedVersion=${expectedVersion}`,
-  );
+/** 删除我的软件（软删 lifecycle=DELETED，幂等） */
+export function deleteMySoftware(id: string) {
+  return request.delete<ApiResponse<boolean>>(`${BASE}/${id}`);
 }
 
-/** 提交审核：expectedVersion 走 URL 查询参数（后端 @RequestParam 契约） */
+/** 提交审核（版本号机制已移除，无冲突可能） */
 export function submitSoftwareForReview(
   id: string,
   revisionId: string,
-  payload: { expectedVersion?: number },
   idempotencyKey?: string,
 ) {
-  const query =
-    payload.expectedVersion != null
-      ? `?expectedVersion=${payload.expectedVersion}`
-      : "";
-  const url = `${BASE}/${id}/revisions/${revisionId}/submit${query}`;
+  const url = `${BASE}/${id}/revisions/${revisionId}/submit`;
   return request.post<ApiResponse<{ submitSeq: number }>>(
     url,
     {},
