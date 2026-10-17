@@ -49,7 +49,6 @@ export interface AdminSoftwareItem {
 export interface AdminSoftwareDetail extends Record<string, unknown> {
   softwareId: string
   ownerId: string
-  ownerNickname?: string
   lifecycle: string
   lockVersion: number
   featuredRank: number
