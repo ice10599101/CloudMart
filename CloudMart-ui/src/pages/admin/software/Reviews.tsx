@@ -141,9 +141,11 @@ export default function SoftwareReviews() {
       if (res.data.success) {
         setCardDetail(res.data.data)
         setCardDetailOpen(true)
+      } else {
+        message.error(res.data.error?.message || '详情加载失败')
       }
     } catch {
-      // 拦截器已统一提示
+      message.error('详情加载失败，请确认服务已更新到最新版本')
     }
   }
 

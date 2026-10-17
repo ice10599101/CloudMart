@@ -262,7 +262,7 @@ export default function SoftwareItems() {
         <Popconfirm
           key="delete"
           title="删除软件"
-          description={`软删除「${record.name}」，公开面立即隐藏且作者不可恢复，确认？`}
+          description={`删除「${record.name}」，删除后前台立即不可见，且无法恢复，确认？`}
           okText="删除"
           okButtonProps={{ danger: true }}
           cancelText="取消"

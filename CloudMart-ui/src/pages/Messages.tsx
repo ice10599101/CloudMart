@@ -403,8 +403,8 @@ export default function Messages() {
   }, [fetchNotifications, fetchUnreadCount])
 
   useEffect(() => {
-    fetchNotifications(1, false, activeTab)
-  }, [activeTab, fetchNotifications])
+    fetchNotifications(1, false)
+  }, [fetchNotifications])
 
   const handleMarkAllRead = useCallback(async () => {
     try {
@@ -474,12 +474,15 @@ export default function Messages() {
   const handleLoadMore = useCallback(async () => {
     const nextPage = page + 1
     setLoadingMore(true)
-    await fetchNotifications(nextPage, true, activeTab)
+    await fetchNotifications(nextPage, true)
     setPage(nextPage)
     setLoadingMore(false)
   }, [page, fetchNotifications, activeTab])
 
-  const filteredNotifications = notifications
+  const filteredNotifications =
+    activeTab === 'all'
+      ? notifications
+      : notifications.filter((item) => item.category === activeTab)
 
   const tabUnreadCounts = useCallback((): Record<NotificationCategory, number> => {
     const counts: Record<NotificationCategory, number> = { all: 0, interaction: 0, follow: 0, system: 0 }

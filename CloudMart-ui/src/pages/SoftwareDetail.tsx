@@ -466,7 +466,12 @@ export default function SoftwareDetail() {
         {item.label || item.provider || item.sourceType}
       </div>
       <div className={styles.sourceMeta}>
-        {[item.platform, item.arch, item.sizeLabel, item.availability]
+        {[
+          item.platform,
+          item.arch,
+          item.sizeLabel,
+          item.availability && item.availability !== "UNKNOWN" ? item.availability : null,
+        ]
           .filter(Boolean)
           .join(" · ")}
       </div>
