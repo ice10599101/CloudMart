@@ -152,6 +152,15 @@ cloudmart:
       - prefix: /invites/internal
         issuers: [mall-wish]
         scope: user:internal
+      # OPS-03：注销任务运维台账（mall-admin 异常处理中心代理）——
+      # 缺失时 @PreAuthorize(INTERNAL) 匿名拒绝 → 401"请先登录"（真实环境实测暴露）
+      - prefix: /users/account-deletion/internal
+        issuers: [mall-admin]
+        scope: user:admin
+      # WISH-04：邀请资格回调（mall-wish 签到事务提交后触发）
+      - prefix: /invites/internal
+        issuers: [mall-wish]
+        scope: user:internal
     outbound-scopes:
       mall-auth: admin:auth
       # USER-01：注销阻塞核验（/internal/orders/has-open-orders）
