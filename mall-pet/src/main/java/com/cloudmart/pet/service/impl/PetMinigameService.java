@@ -112,12 +112,15 @@ public class PetMinigameService {
         LocalDate quotaDate = petClock.businessDate();
         // 收益局：消耗小游戏局数额度 + 玩耍额度（BE-08：分别记录占用，训练局只退还实际占用的，
         // 不再无条件 release PLAY 造成"释放未占用额度"或"训练局白烧 MINIGAME 配额"）
-        boolean minigameConsumed = quotaService.tryConsume(userId, PetQuotaService.QuotaType.MINIGAME, 0, DAILY_REWARD_ROUNDS);
+        // PET-02：占用-释放成对使用凭据（跨零点回退按原日）
+        PetQuotaService.QuotaReservation minigameReservation = quotaService.tryConsumeReserved(
+                userId, PetQuotaService.QuotaType.MINIGAME, 0, DAILY_REWARD_ROUNDS);
+        boolean minigameConsumed = minigameReservation.granted();
         boolean playConsumed = minigameConsumed
                 && quotaService.tryConsume(userId, PetQuotaService.QuotaType.PLAY_REWARD, 0, 10);
         boolean rewardEligible = minigameConsumed && playConsumed;
         if (minigameConsumed && !playConsumed) {
-            quotaService.release(userId, PetQuotaService.QuotaType.MINIGAME, 0);
+            quotaService.release(minigameReservation);
         }
         // 随机挑战序列：10 个窗口，每窗随机左/中/右
         SecureRandom random = new SecureRandom();

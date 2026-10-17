@@ -48,8 +48,8 @@ public class PetClock {
     }
 
     /**
-     * R22 指定用户业务时区下的当前业务日（每日配额/任务归属按用户 IANA 时区）。
-     * zone 为用户权威时区（由 UserPetTimezoneResolver 解析，已含默认回退）。
+     * 指定业务时区下的当前业务日（PET-02 后经济路径统一用 {@link #businessZone()}，
+     * 保留带区重载供需要显式指定时区的场景使用）。
      */
     public LocalDate businessDate(ZoneId zone) {
         return LocalDate.now(clock.withZone(zone));

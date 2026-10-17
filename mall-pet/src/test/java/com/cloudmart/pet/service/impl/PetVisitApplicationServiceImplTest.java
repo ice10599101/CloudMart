@@ -64,6 +64,12 @@ class PetVisitApplicationServiceImplTest {
     @Test
     @DisplayName("首次拜访且额度充足：事实落库 + 有收益")
     void firstVisit_withQuota_rewarded() {
+        when(quotaService.tryConsumeReserved(any(), any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(inv -> new PetQuotaService.QuotaReservation(
+                inv.getArgument(0), inv.getArgument(1), inv.getArgument(2),
+                java.time.LocalDate.now(), true));
+        // NEIGHBOR 的 VISIT_REWARD 为单向占用（无需回退凭据）
         when(quotaService.tryConsume(any(), any(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
 
@@ -84,15 +90,18 @@ class PetVisitApplicationServiceImplTest {
 
         assertThat(grant.factCreated()).isFalse();
         assertThat(grant.rewardGranted()).isFalse();
-        verify(quotaService, never()).tryConsume(any(), any(), org.mockito.ArgumentMatchers.anyLong(),
+        verify(quotaService, never()).tryConsumeReserved(any(), any(), org.mockito.ArgumentMatchers.anyLong(),
                 org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
     @DisplayName("收益额度用尽：拜访事实仍成立但无收益（reward_granted=0 回写）")
     void overQuota_factWithoutReward() {
-        when(quotaService.tryConsume(any(), any(), org.mockito.ArgumentMatchers.anyLong(),
-                org.mockito.ArgumentMatchers.anyInt())).thenReturn(false);
+        when(quotaService.tryConsumeReserved(any(), any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(inv -> new PetQuotaService.QuotaReservation(
+                inv.getArgument(0), inv.getArgument(1), inv.getArgument(2),
+                java.time.LocalDate.now(), false));
 
         VisitGrant grant = service.recordVisit(100L, 200L, 1L, 2L, VisitSource.NEIGHBOR);
 
@@ -108,30 +117,40 @@ class PetVisitApplicationServiceImplTest {
     @Test
     @DisplayName("好友互访：友好额度先占后总额度失败 → 回退友好额度（不虚耗）")
     void friendVisit_dualQuotaRollback() {
-        when(quotaService.tryConsume(any(), org.mockito.ArgumentMatchers.eq(PetQuotaService.QuotaType.FRIEND_VISIT_REWARD),
-                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
-        when(quotaService.tryConsume(any(), org.mockito.ArgumentMatchers.eq(PetQuotaService.QuotaType.VISIT_REWARD),
-                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(false);
+        when(quotaService.tryConsumeReserved(any(), org.mockito.ArgumentMatchers.eq(PetQuotaService.QuotaType.FRIEND_VISIT_REWARD),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(inv -> new PetQuotaService.QuotaReservation(
+                inv.getArgument(0), inv.getArgument(1), inv.getArgument(2),
+                java.time.LocalDate.now(), true));
+        when(quotaService.tryConsumeReserved(any(), org.mockito.ArgumentMatchers.eq(PetQuotaService.QuotaType.VISIT_REWARD),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(inv -> new PetQuotaService.QuotaReservation(
+                inv.getArgument(0), inv.getArgument(1), inv.getArgument(2),
+                java.time.LocalDate.now(), false));
 
         VisitGrant grant = service.recordVisit(100L, 200L, 1L, 2L, VisitSource.FRIEND);
 
         assertThat(grant.factCreated()).isTrue();
         assertThat(grant.rewardGranted()).isFalse();
-        verify(quotaService).release(100L, PetQuotaService.QuotaType.FRIEND_VISIT_REWARD, 0);
+        verify(quotaService).release(org.mockito.ArgumentMatchers.argThat(r ->
+                r.granted() && r.type() == PetQuotaService.QuotaType.FRIEND_VISIT_REWARD));
     }
 
     @Test
     @DisplayName("R14：友好额度已满（本次未占用）→ 不释放任何额度（原实现误把历史 used 减 1）")
     void friendVisitQuotaFull_noRelease() {
-        when(quotaService.tryConsume(any(), org.mockito.ArgumentMatchers.eq(PetQuotaService.QuotaType.FRIEND_VISIT_REWARD),
-                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(false);
+        when(quotaService.tryConsumeReserved(any(), org.mockito.ArgumentMatchers.eq(PetQuotaService.QuotaType.FRIEND_VISIT_REWARD),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(inv -> new PetQuotaService.QuotaReservation(
+                inv.getArgument(0), inv.getArgument(1), inv.getArgument(2),
+                java.time.LocalDate.now(), false));
 
         VisitGrant grant = service.recordVisit(100L, 200L, 1L, 2L, VisitSource.FRIEND);
 
         assertThat(grant.factCreated()).isTrue();
         assertThat(grant.rewardGranted()).isFalse();
         // 友好额度失败短路：共享额度未尝试；两者都不释放（无占用即无回退）
-        verify(quotaService, never()).tryConsume(any(), org.mockito.ArgumentMatchers.eq(PetQuotaService.QuotaType.VISIT_REWARD),
+        verify(quotaService, never()).tryConsumeReserved(any(), org.mockito.ArgumentMatchers.eq(PetQuotaService.QuotaType.VISIT_REWARD),
                 org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt());
         verify(quotaService, never()).release(any(), any(), org.mockito.ArgumentMatchers.anyLong());
     }
@@ -139,8 +158,14 @@ class PetVisitApplicationServiceImplTest {
     @Test
     @DisplayName("R14：友好额度成功+共享额度成功 → 无任何释放")
     void friendVisitBothConsumed_noRelease() {
-        when(quotaService.tryConsume(any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        when(quotaService.tryConsumeReserved(any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(inv -> new PetQuotaService.QuotaReservation(
+                inv.getArgument(0), inv.getArgument(1), inv.getArgument(2),
+                java.time.LocalDate.now(), true));
+        // VISIT_REWARD 为单向占用（FRIEND 才是配对凭据）
+        when(quotaService.tryConsume(any(), any(), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
 
         VisitGrant grant = service.recordVisit(100L, 200L, 1L, 2L, VisitSource.FRIEND);
 

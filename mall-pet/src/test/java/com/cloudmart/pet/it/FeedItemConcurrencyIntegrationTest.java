@@ -10,7 +10,6 @@ import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.enums.PetActivityType;
 import com.cloudmart.pet.enums.PetItemType;
 import com.cloudmart.pet.feign.CouponFeignClient;
-import com.cloudmart.pet.feign.WishUserProfileFeignClient;
 import com.cloudmart.pet.repository.PetActivityMapper;
 import com.cloudmart.pet.repository.PetFeedEntitlementMapper;
 import com.cloudmart.pet.repository.PetInventoryMapper;
@@ -32,7 +31,6 @@ import com.cloudmart.pet.service.impl.PetOutboxService;
 import com.cloudmart.pet.service.impl.PetQuotaService;
 import com.cloudmart.pet.service.impl.PetRankingCache;
 import com.cloudmart.pet.service.impl.PetStateService;
-import com.cloudmart.pet.service.support.UserPetTimezoneResolver;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -167,7 +165,6 @@ class FeedItemConcurrencyIntegrationTest {
             PetQuotaService.class,
             PetLinkedProductServiceImpl.class,
             PetItemCatalog.class,
-            UserPetTimezoneResolver.class,
             com.cloudmart.pet.config.MyBatisPlusConfig.class,
             com.cloudmart.pet.config.PetClock.class
     })
@@ -209,7 +206,6 @@ class FeedItemConcurrencyIntegrationTest {
     @MockitoBean private PetCooperationService petCooperationService;
     @MockitoBean private PetActivityMutex petActivityMutex;
     @MockitoBean private CouponFeignClient couponFeignClient;
-    @MockitoBean private WishUserProfileFeignClient wishUserProfileFeignClient;
 
     @Autowired private PetInteractionService interactionService;
     @Autowired private PetMapper petMapper;

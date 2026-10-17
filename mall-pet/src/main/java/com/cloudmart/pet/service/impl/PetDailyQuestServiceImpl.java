@@ -101,8 +101,7 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                                     org.springframework.beans.factory.ObjectProvider<PetDailyQuestService> selfProvider,
                                     com.cloudmart.pet.repository.PetDailyQuestSetMapper setMapper,
                                     com.cloudmart.pet.config.PetMetrics metrics,
-                                    com.cloudmart.pet.service.PetSeasonPassService seasonPassService,
-                                    com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver) {
+                                    com.cloudmart.pet.service.PetSeasonPassService seasonPassService) {
         this.petService = petService;
         this.stateService = stateService;
         this.configMapper = configMapper;
@@ -119,14 +118,14 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         this.setMapper = setMapper;
         this.metrics = metrics;
         this.seasonPassService = seasonPassService;
-        this.timezoneResolver = timezoneResolver;
     }
 
-    /** R22 任务集/进度归属的用户业务日 */
-    private final com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver;
-
+    /**
+     * PET-02：任务集/进度归属日固定 {@code pet.businessZone}（WISH-01 同口径），
+     * 不再依赖远程用户时区——换时区/Feign 故障不改变任务集归属与每日上限。
+     */
     private java.time.LocalDate businessDateFor(Long userId) {
-        return petClock.businessDate(timezoneResolver.resolve(userId));
+        return petClock.businessDate();
     }
 
     private java.time.LocalDate businessDateFor(Pet pet) {
@@ -373,7 +372,8 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         }
         try {
             // R22：延迟事件按事件发生时刻在"用户业务时区"下归属（文档：延迟事件归属一致）
-            LocalDate factDate = petClock.businessDateOf(sourceTime, timezoneResolver.resolve(pet.getUserId()));
+            // PET-02：事实日归属固定业务区（消息重放按原事实日，与任务集口径一致）
+            LocalDate factDate = petClock.businessDateOf(sourceTime, petClock.businessZone());
             // PET-10：收据先行（uk(quest_type, event_id) 数据库权威去重），先以 PENDING 落库——
             // 与主动作同事务提交；投影失败不回滚主动作，落 FAILED 交由调度重试/管理重放恢复
             com.cloudmart.pet.entity.PetQuestEventReceipt receipt = new com.cloudmart.pet.entity.PetQuestEventReceipt();

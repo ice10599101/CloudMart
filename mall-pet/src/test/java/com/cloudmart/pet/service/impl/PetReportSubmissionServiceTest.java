@@ -81,8 +81,10 @@ class PetReportSubmissionServiceTest {
         service = new PetReportSubmissionService(reportMapper, wallMessageMapper, bottleRecordMapper,
                 quotaService, properties, petClock, userFeignClient);
         lenient().when(wallMessageMapper.selectById(anyLong())).thenReturn(new PetWallMessage());
-        lenient().when(quotaService.tryConsume(any(), any(), anyLong(), org.mockito.ArgumentMatchers.anyInt()))
-                .thenReturn(true);
+        lenient().when(quotaService.tryConsumeReserved(any(), any(), anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(inv -> new PetQuotaService.QuotaReservation(
+                inv.getArgument(0), inv.getArgument(1), inv.getArgument(2),
+                java.time.LocalDate.now(), true));
         lenient().when(reportMapper.insert(any(PetReport.class))).thenAnswer(invocation -> {
             invocation.getArgument(0, PetReport.class).setId(7777L);
             return 1;
@@ -112,7 +114,7 @@ class PetReportSubmissionServiceTest {
                 .isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> service.create(USER, "WALL_MESSAGE", TARGET_ID, "理由", "x".repeat(1001)))
                 .isInstanceOf(BusinessException.class);
-        verify(quotaService, never()).tryConsume(any(), any(), anyLong(), org.mockito.ArgumentMatchers.anyInt());
+        verify(quotaService, never()).tryConsumeReserved(any(), any(), anyLong(), org.mockito.ArgumentMatchers.anyInt());
     }
 
     @Test
@@ -136,7 +138,7 @@ class PetReportSubmissionServiceTest {
         assertThat(summary.reportId()).isEqualTo(5555L);
         assertThat(summary.deduped()).isTrue();
         assertThat(summary.status()).isEqualTo("PENDING");
-        verify(quotaService, never()).tryConsume(any(), any(), anyLong(), org.mockito.ArgumentMatchers.anyInt());
+        verify(quotaService, never()).tryConsumeReserved(any(), any(), anyLong(), org.mockito.ArgumentMatchers.anyInt());
         verify(reportMapper, never()).insert(any(PetReport.class));
     }
 
@@ -144,8 +146,10 @@ class PetReportSubmissionServiceTest {
     @DisplayName("配额耗尽拒绝入队")
     void rejectsWhenDailyQuotaExhausted() {
         when(reportMapper.selectOne(any())).thenReturn(null);
-        when(quotaService.tryConsume(any(), any(), anyLong(), org.mockito.ArgumentMatchers.anyInt()))
-                .thenReturn(false);
+        when(quotaService.tryConsumeReserved(any(), any(), anyLong(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(inv -> new PetQuotaService.QuotaReservation(
+                inv.getArgument(0), inv.getArgument(1), inv.getArgument(2),
+                java.time.LocalDate.now(), false));
         assertThatThrownBy(() -> service.create(USER, "WALL_MESSAGE", TARGET_ID, "理由", null))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getCode())
@@ -182,7 +186,8 @@ class PetReportSubmissionServiceTest {
                 service.create(USER, "WALL_MESSAGE", TARGET_ID, "理由", null);
         assertThat(summary.deduped()).isTrue();
         assertThat(summary.reportId()).isEqualTo(5555L);
-        verify(quotaService).release(USER, PetQuotaService.QuotaType.REPORT, 0L);
+        verify(quotaService).release(org.mockito.ArgumentMatchers.argThat(r ->
+                r.granted() && r.type() == PetQuotaService.QuotaType.REPORT));
     }
 
     @Test

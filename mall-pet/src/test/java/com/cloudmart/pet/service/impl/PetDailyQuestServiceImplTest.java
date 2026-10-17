@@ -97,14 +97,10 @@ class PetDailyQuestServiceImplTest {
         receiptMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetQuestEventReceiptMapper.class);
         petMapperMock = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetMapper.class);
         setMapper = org.mockito.Mockito.mock(com.cloudmart.pet.repository.PetDailyQuestSetMapper.class);
-        // R22：用户业务日时区解析器（mock 固定 UTC）
-        com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver =
-                org.mockito.Mockito.mock(com.cloudmart.pet.service.support.UserPetTimezoneResolver.class);
-        org.mockito.Mockito.lenient().when(timezoneResolver.resolve(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(java.time.ZoneOffset.UTC);
         // PET-09：ensureQuestSet 需要真实业务日/截止换算——PetClock 为 mock，补最小桩
         java.time.LocalDate today = java.time.LocalDate.now(java.time.ZoneOffset.UTC);
         org.mockito.Mockito.lenient().when(petClock.businessDate()).thenReturn(today);
+        org.mockito.Mockito.lenient().when(petClock.businessZone()).thenReturn(java.time.ZoneOffset.UTC);
         org.mockito.Mockito.lenient().when(petClock.businessDate(org.mockito.ArgumentMatchers.any(java.time.ZoneId.class)))
                 .thenReturn(today);
         org.mockito.Mockito.lenient().when(petClock.businessDateOf(
@@ -153,8 +149,7 @@ class PetDailyQuestServiceImplTest {
                 },
                 setMapper,
                 org.mockito.Mockito.mock(com.cloudmart.pet.config.PetMetrics.class),
-                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetSeasonPassService.class),
-                timezoneResolver);
+                org.mockito.Mockito.mock(com.cloudmart.pet.service.PetSeasonPassService.class));
         lenient().when(petService.requireOwnedPet(100L)).thenReturn(pet());
         // PET-09：按集领取解析集绑定宠物；进度投影按当日任务行（codesOfType 走行快照）
         lenient().when(petMapperMock.selectById(org.mockito.ArgumentMatchers.eq(1L))).thenReturn(pet());

@@ -40,21 +40,21 @@ public class PetQuotaService {
     private final PetDailyQuotaMapper quotaMapper;
     private final PetClock petClock;
     private final com.cloudmart.pet.config.PetMetrics metrics;
-    /** R22 每日配额按用户业务日归属 */
-    private final com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver;
 
     public PetQuotaService(PetDailyQuotaMapper quotaMapper, PetClock petClock,
-                           com.cloudmart.pet.config.PetMetrics metrics,
-                           com.cloudmart.pet.service.support.UserPetTimezoneResolver timezoneResolver) {
+                           com.cloudmart.pet.config.PetMetrics metrics) {
         this.quotaMapper = quotaMapper;
         this.petClock = petClock;
         this.metrics = metrics;
-        this.timezoneResolver = timezoneResolver;
     }
 
-    /** R22：配额业务日按用户 IANA 时区（每日次数随用户本地日界重置） */
-    private LocalDate businessDate(Long userId) {
-        return petClock.businessDate(timezoneResolver.resolve(userId));
+    /**
+     * PET-02：配额业务日固定 {@code pet.businessZone}（默认 Asia/Shanghai，WISH-01 同口径）——
+     * 不再依赖远程用户时区（原 UserPetTimezoneResolver 已删）：换时区/上报/Feign 故障
+     * 均不改变每日上限归属；23:59 占用、次日释放按原凭据退回原日。
+     */
+    private LocalDate businessDate() {
+        return petClock.businessDate();
     }
 
     /**
@@ -64,7 +64,7 @@ public class PetQuotaService {
         if (limit <= 0) {
             return false;
         }
-        LocalDate businessDate = businessDate(userId);
+        LocalDate businessDate = businessDate();
         int updated = quotaMapper.update(null, new LambdaUpdateWrapper<PetDailyQuota>()
                 .setSql("used = used + 1")
                 .eq(PetDailyQuota::getUserId, userId)
@@ -101,14 +101,48 @@ public class PetQuotaService {
         }
     }
 
-    /** 释放一个已占用名额（业务校验失败/活动未成立回退；不将计数减到负数） */
+    /**
+     * PET-02：占用凭据——granted 为 false 时 businessDate 仍填充（诊断用），
+     * 凭据只可用于释放本次占用的同一行。
+     */
+    public record QuotaReservation(Long userId, QuotaType type, long targetId,
+                                   LocalDate businessDate, boolean granted) {
+    }
+
+    /** 带凭据占用：调用方业务校验失败时用原凭据 {@link #release(QuotaReservation)} 回退 */
+    public QuotaReservation tryConsumeReserved(Long userId, QuotaType type, long targetId, int limit) {
+        boolean granted = tryConsume(userId, type, targetId, limit);
+        return new QuotaReservation(userId, type, targetId, businessDate(), granted);
+    }
+
+    /**
+     * PET-02：按原占用凭据释放——禁止跨零点退到新一天（旧实现按释放时当天查行，
+     * 23:59 占用次日校验失败会把新一天的 used 减 1，而旧日占用永久丢失）。
+     */
+    public void release(QuotaReservation reservation) {
+        if (!reservation.granted()) {
+            return;
+        }
+        quotaMapper.update(null, new LambdaUpdateWrapper<PetDailyQuota>()
+                .setSql("used = GREATEST(used - 1, 0)")
+                .eq(PetDailyQuota::getUserId, reservation.userId())
+                .eq(PetDailyQuota::getQuotaType, reservation.type().name())
+                .eq(PetDailyQuota::getTargetId, reservation.targetId())
+                .eq(PetDailyQuota::getBusinessDate, reservation.businessDate()));
+    }
+
+    /**
+     * @deprecated 过渡兼容：按释放时当天释放，存在跨零点退错日的窗口——
+     * 占用-释放配对请改用 {@link #tryConsumeReserved} + {@link #release(QuotaReservation)}。
+     */
+    @Deprecated
     public void release(Long userId, QuotaType type, long targetId) {
         quotaMapper.update(null, new LambdaUpdateWrapper<PetDailyQuota>()
                 .setSql("used = GREATEST(used - 1, 0)")
                 .eq(PetDailyQuota::getUserId, userId)
                 .eq(PetDailyQuota::getQuotaType, type.name())
                 .eq(PetDailyQuota::getTargetId, targetId)
-                .eq(PetDailyQuota::getBusinessDate, businessDate(userId)));
+                .eq(PetDailyQuota::getBusinessDate, businessDate()));
     }
 
     /**
@@ -122,13 +156,13 @@ public class PetQuotaService {
                     .eq(PetDailyQuota::getUserId, userId)
                     .eq(PetDailyQuota::getQuotaType, type.name())
                     .eq(PetDailyQuota::getTargetId, targetId)
-                    .eq(PetDailyQuota::getBusinessDate, businessDate(userId)));
+                    .eq(PetDailyQuota::getBusinessDate, businessDate()));
             if (updated == 0) {
                 PetDailyQuota row = new PetDailyQuota();
                 row.setUserId(userId);
                 row.setQuotaType(type.name());
                 row.setTargetId(targetId);
-                row.setBusinessDate(businessDate(userId));
+                row.setBusinessDate(businessDate());
                 row.setUsed(1);
                 try {
                     quotaMapper.insert(row);
@@ -138,7 +172,7 @@ public class PetQuotaService {
                             .eq(PetDailyQuota::getUserId, userId)
                             .eq(PetDailyQuota::getQuotaType, type.name())
                             .eq(PetDailyQuota::getTargetId, targetId)
-                            .eq(PetDailyQuota::getBusinessDate, businessDate(userId)));
+                            .eq(PetDailyQuota::getBusinessDate, businessDate()));
                 }
             }
         } catch (Exception e) {
@@ -152,7 +186,7 @@ public class PetQuotaService {
                 .eq(PetDailyQuota::getUserId, userId)
                 .eq(PetDailyQuota::getQuotaType, type.name())
                 .eq(PetDailyQuota::getTargetId, targetId)
-                .eq(PetDailyQuota::getBusinessDate, businessDate(userId)));
+                .eq(PetDailyQuota::getBusinessDate, businessDate()));
         return row != null && row.getUsed() != null ? row.getUsed() : 0;
     }
 
@@ -174,7 +208,7 @@ public class PetQuotaService {
         List<PetDailyQuota> rows = quotaMapper.selectList(new LambdaQueryWrapper<PetDailyQuota>()
                 .eq(PetDailyQuota::getUserId, userId)
                 .eq(PetDailyQuota::getTargetId, targetId)
-                .eq(PetDailyQuota::getBusinessDate, businessDate(userId))
+                .eq(PetDailyQuota::getBusinessDate, businessDate())
                 .in(PetDailyQuota::getQuotaType,
                         types.stream().map(QuotaType::name).toList()));
         for (PetDailyQuota row : rows) {

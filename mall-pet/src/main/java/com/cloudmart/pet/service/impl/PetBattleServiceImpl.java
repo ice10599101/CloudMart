@@ -297,14 +297,17 @@ public class PetBattleServiceImpl implements PetBattleService {
         if (userId == null) {
             return false;
         }
-        if (!quotaService.tryConsume(userId, PetQuotaService.QuotaType.BATTLE_REWARD, 0,
-                properties.getBattle().getRewardDailyLimit())) {
+        // PET-02：占用-释放成对使用凭据——跨零点校验失败按原日回退，不退到新一天
+        PetQuotaService.QuotaReservation rewardReservation = quotaService.tryConsumeReserved(
+                userId, PetQuotaService.QuotaType.BATTLE_REWARD, 0,
+                properties.getBattle().getRewardDailyLimit());
+        if (!rewardReservation.granted()) {
             return false;
         }
         if (opponentUserId != null && opponentUserId > 0
                 && !quotaService.tryConsume(userId, PetQuotaService.QuotaType.PVP_OPPONENT,
                         opponentUserId, properties.getBattle().getPvpPerOpponentDailyLimit())) {
-            quotaService.release(userId, PetQuotaService.QuotaType.BATTLE_REWARD, 0);
+            quotaService.release(rewardReservation);
             return false;
         }
         return true;

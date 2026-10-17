@@ -62,14 +62,17 @@ public class PetVisitApplicationServiceImpl implements PetVisitApplicationServic
         // 也无条件 release FRIEND，把历史 used 减 1（免费收益漏洞）
         boolean rewardGranted;
         if (source == VisitSource.FRIEND) {
-            boolean friendConsumed = quotaService.tryConsume(visitorUserId,
-                    PetQuotaService.QuotaType.FRIEND_VISIT_REWARD, 0, properties.getFriend().getDailyVisitLimit());
+            // PET-02：占用-释放成对使用凭据（跨零点回退按原日）
+            PetQuotaService.QuotaReservation friendReservation = quotaService.tryConsumeReserved(
+                    visitorUserId, PetQuotaService.QuotaType.FRIEND_VISIT_REWARD, 0,
+                    properties.getFriend().getDailyVisitLimit());
+            boolean friendConsumed = friendReservation.granted();
             boolean sharedConsumed = friendConsumed && quotaService.tryConsume(visitorUserId,
                     PetQuotaService.QuotaType.VISIT_REWARD, 0, properties.getHome().getDailyVisitLimit());
             rewardGranted = friendConsumed && sharedConsumed;
             if (friendConsumed && !sharedConsumed) {
-                // 第二额度失败：仅回退本次已占用的友好额度
-                quotaService.release(visitorUserId, PetQuotaService.QuotaType.FRIEND_VISIT_REWARD, 0);
+                // 第二额度失败：仅回退本次已占用的友好额度（按原凭据）
+                quotaService.release(friendReservation);
             }
         } else {
             rewardGranted = quotaService.tryConsume(visitorUserId, PetQuotaService.QuotaType.VISIT_REWARD,

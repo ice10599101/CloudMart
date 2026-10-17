@@ -82,8 +82,11 @@ public class PetReportSubmissionService {
         if (existing != null) {
             return new ReportSummary(existing.getId(), existing.getStatus(), true);
         }
-        if (!quotaService.tryConsume(userId, PetQuotaService.QuotaType.REPORT, 0L,
-                properties.getModeration().getReportDailyLimit())) {
+        // PET-02：占用-释放成对使用凭据（跨零点回退按原日）
+        PetQuotaService.QuotaReservation reportReservation = quotaService.tryConsumeReserved(
+                userId, PetQuotaService.QuotaType.REPORT, 0L,
+                properties.getModeration().getReportDailyLimit());
+        if (!reportReservation.granted()) {
             throw new BusinessException(PetErrorCodes.PET_QUOTA_EXHAUSTED, "今日举报次数已达上限");
         }
         PetReport report = new PetReport();
@@ -100,7 +103,7 @@ public class PetReportSubmissionService {
             return new ReportSummary(report.getId(), report.getStatus(), false);
         } catch (DuplicateKeyException duplicate) {
             // 并发同键：释放配额后幂等返回既有举报（与预检同一约束源 uk_pet_report_open）
-            quotaService.release(userId, PetQuotaService.QuotaType.REPORT, 0L);
+            quotaService.release(reportReservation);
             PetReport concurrent = findOpenReport(userId, normalizedType, targetId);
             if (concurrent != null) {
                 return new ReportSummary(concurrent.getId(), concurrent.getStatus(), true);
