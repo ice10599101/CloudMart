@@ -197,10 +197,19 @@ export default function SoftwareItems() {
           label: record.lifecycle,
           color: 'default',
         }
+        if (record.pendingRevisionId) {
+          return (
+            <Space size={4}>
+              <Tag color="processing">待审</Tag>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {info.label}中更新
+              </Typography.Text>
+            </Space>
+          )
+        }
         return (
           <Space size={4}>
             <Tag color={info.color}>{info.label}</Tag>
-            {record.pendingRevisionId && <Tag color="processing">待审</Tag>}
           </Space>
         )
       },

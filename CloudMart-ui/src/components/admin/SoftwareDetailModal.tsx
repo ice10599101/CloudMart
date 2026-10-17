@@ -37,6 +37,19 @@ const TRAIL_COLOR: Record<string, string> = {
   DELETE: 'red',
 }
 
+const LICENSE_LABEL: Record<string, string> = {
+  FREE: '免费',
+  OPEN_SOURCE: '开源',
+  TRIAL: '试用',
+  COMMERCIAL: '商业',
+}
+
+const ATTRIBUTION_LABEL: Record<string, string> = {
+  ORIGINAL: '原创',
+  AUTHORIZED: '授权转载',
+  OFFICIAL_PUBLIC: '官方公开内容',
+}
+
 const PLATFORM_LABEL: Record<string, string> = {
   WINDOWS: 'Windows',
   MACOS: 'macOS',
@@ -109,7 +122,7 @@ export default function SoftwareDetailModal({
                 {detail.lifecycle === 'BANNED' ? <Tag color="error">已封禁</Tag> : null}
               </div>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                发布者 {detail.editorNickname || `用户${detail.editorId ?? '?'}`} · 提交批次{' '}
+                发布者 {detail.editorNickname || (detail.editorId ? `用户${detail.editorId}` : '-')} · 提交批次{' '}
                 {detail.submitSeq ?? '-'}
               </Typography.Text>
             </div>
@@ -120,13 +133,34 @@ export default function SoftwareDetailModal({
             </Typography.Paragraph>
           ) : null}
           {detail.descriptionHtml ? (
-            <div
-              style={{ lineHeight: 1.7, wordBreak: 'break-word' }}
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(detail.descriptionHtml) }}
-            />
+            <>
+              <style>{`.admin-sw-detail img{max-width:100%;height:auto;border-radius:6px}`}</style>
+              <div
+                className="admin-sw-detail"
+                style={{ lineHeight: 1.7, wordBreak: 'break-word' }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(detail.descriptionHtml) }}
+              />
+            </>
           ) : (
             <Typography.Text type="secondary">（介绍为空）</Typography.Text>
           )}
+          <div style={{ margin: '12px 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              授权类型：{LICENSE_LABEL[detail.licenseType ?? ''] ?? detail.licenseType ?? '-'}
+              {'　·　来源声明：'}
+              {ATTRIBUTION_LABEL[detail.attributionType ?? ''] ?? detail.attributionType ?? '-'}
+            </Typography.Text>
+            {detail.officialUrl ? (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                官方网站：{detail.officialUrl}
+              </Typography.Text>
+            ) : null}
+            {detail.systemRequirements ? (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                系统要求：{detail.systemRequirements}
+              </Typography.Text>
+            ) : null}
+          </div>
           {(detail.releases ?? []).length > 0 ? (
             <>
               <Typography.Title level={5} style={{ marginTop: 16 }}>

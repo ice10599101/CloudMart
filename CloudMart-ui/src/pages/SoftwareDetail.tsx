@@ -758,7 +758,7 @@ export default function SoftwareDetail() {
                 }}
                 options={sources.map((item) => ({
                   value: item.sourceId,
-                  label: `${item.label || item.provider || item.sourceType}${item.platform ? ` · ${item.platform}` : ""}`,
+                  label: `${item.label || (item.provider && item.provider !== 'UNKNOWN' ? item.provider : '') || item.sourceType}${item.platform ? ` · ${item.platform}` : ""}`,
                 }))}
               />
               {sourceList}

@@ -70,10 +70,7 @@ export default function SoftwarePublishers() {
       dataIndex: 'userId',
       width: 150,
       search: false,
-      render: (_, record) =>
-        record.userNickname
-          ? `${record.userNickname}（${record.userId}）`
-          : String(record.userId),
+      render: (_, record) => record.userNickname || String(record.userId),
     },
     {
       title: '发布资格',

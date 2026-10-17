@@ -71,6 +71,9 @@ export interface AdminSoftwareDetail extends Record<string, unknown> {
   descriptionHtml?: string
   iconAssetId?: string
   licenseType?: string
+  attributionType?: string
+  officialUrl?: string
+  systemRequirements?: string
   releases?: Array<{
     versionName: string
     changelog: string
