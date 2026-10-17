@@ -77,6 +77,12 @@ class AdminSoftwareServicesTest {
     @Mock
     private SoftwareMapper softwareMapper;
     @Mock
+    private com.cloudmart.software.repository.SoftwareRevisionMapper revisionMapper;
+    @Mock
+    private com.cloudmart.software.repository.SoftwareReleaseMapper releaseMapper;
+    @Mock
+    private com.cloudmart.software.repository.SoftwareSourceMapper sourceMapper;
+    @Mock
     private SoftwarePublisherPermissionMapper publisherPermissionMapper;
     @Mock
     private SoftwareAccessGrantMapper accessGrantMapper;
@@ -120,14 +126,15 @@ class AdminSoftwareServicesTest {
 
         permissionService = new AdminSoftwarePermissionServiceImpl(publisherPermissionMapper,
                 accessGrantMapper, accessContactMapper, permissionAuditMapper, lockMapper,
-                softwareMapper, userSupportFeignClient, operationService,
+                softwareMapper, revisionMapper, userSupportFeignClient, operationService,
                 new ObjectMapper(), fixedClock());
         moderationService = new AdminSoftwareModerationServiceImpl(softwareMapper, reportMapper,
-                commentMapper, feedbackMapper, auditLogMapper, operationService, outboxService,
+                commentMapper, feedbackMapper, auditLogMapper, userSupportFeignClient,
+                revisionMapper, operationService, outboxService,
                 new ObjectMapper(), fixedClock());
-        queryService = new AdminSoftwareQueryServiceImpl(softwareMapper, null, commentMapper,
-                auditLogMapper, operationService, null, outboxService, new ObjectMapper(),
-                fixedClock());
+        queryService = new AdminSoftwareQueryServiceImpl(softwareMapper, userSupportFeignClient,
+                revisionMapper, commentMapper, auditLogMapper, releaseMapper, sourceMapper,
+                operationService, null, outboxService, new ObjectMapper(), fixedClock());
     }
 
     private Clock fixedClock() {

@@ -64,6 +64,8 @@ class AdminSoftwareCatalogServiceImplTest {
     @Mock
     private SoftwareMapper softwareMapper;
     @Mock
+    private com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
+    @Mock
     private SoftwareCategoryMapper categoryMapper;
     @Mock
     private SoftwareTagMapper tagMapper;
@@ -85,9 +87,9 @@ class AdminSoftwareCatalogServiceImplTest {
                         any(), any(), any(Supplier.class), any());
         platformActionService = new SoftwarePlatformActionService(softwareMapper, auditLogMapper,
                 outboxService, new ObjectMapper(), fixedClock());
-        catalogService = new AdminSoftwareCatalogServiceImpl(catalogMapper, softwareMapper,
-                categoryMapper, tagMapper, auditLogMapper, operationService, platformActionService,
-                fixedClock());
+        catalogService = new AdminSoftwareCatalogServiceImpl(catalogMapper, userSupportFeignClient,
+                softwareMapper, categoryMapper, tagMapper, auditLogMapper, operationService,
+                platformActionService, fixedClock());
     }
 
     private Clock fixedClock() {
