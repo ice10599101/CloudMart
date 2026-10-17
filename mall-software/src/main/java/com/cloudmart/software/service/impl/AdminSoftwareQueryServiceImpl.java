@@ -8,13 +8,17 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareAuditLog;
 import com.cloudmart.software.entity.SoftwareComment;
+import com.cloudmart.software.entity.SoftwareRelease;
 import com.cloudmart.software.entity.SoftwareRevision;
+import com.cloudmart.software.entity.SoftwareSource;
 import com.cloudmart.software.enums.SoftwareCommentStatus;
 import com.cloudmart.software.enums.SoftwareReviewStatus;
 import com.cloudmart.software.mq.SoftwareEvents;
 import com.cloudmart.software.repository.SoftwareAuditLogMapper;
 import com.cloudmart.software.repository.SoftwareCommentMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
+import com.cloudmart.software.repository.SoftwareReleaseMapper;
+import com.cloudmart.software.repository.SoftwareSourceMapper;
 import com.cloudmart.software.repository.SoftwareRevisionMapper;
 import com.cloudmart.software.service.AdminSoftwareQueryService;
 import com.cloudmart.software.service.SoftwareOperationService;
@@ -49,6 +53,8 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
     private final SoftwareRevisionMapper revisionMapper;
     private final SoftwareCommentMapper commentMapper;
     private final SoftwareAuditLogMapper auditLogMapper;
+    private final SoftwareReleaseMapper releaseMapper;
+    private final SoftwareSourceMapper sourceMapper;
     private final SoftwareOperationService operationService;
     private final SoftwarePublishService softwarePublishService;
     private final OutboxService outboxService;
@@ -191,6 +197,37 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                         : String.valueOf(revision.getAccessContactId()));
                 detail.put("accessNote", revision.getAccessNote());
                 detail.put("reviewReason", revision.getReviewReason());
+                // 帖子预览所需（抽屉替换技术面板为可读预览）
+                detail.put("descriptionHtml", revision.getDescriptionHtml());
+                detail.put("iconAssetId", revision.getIconAssetId() == null
+                        ? null : String.valueOf(revision.getIconAssetId()));
+                detail.put("licenseType", revision.getLicenseType() == null ? null
+                        : revision.getLicenseType().name());
+                List<Map<String, Object>> releaseRows = new java.util.ArrayList<>();
+                for (SoftwareRelease release : releaseMapper.selectList(
+                        new LambdaQueryWrapper<SoftwareRelease>()
+                                .eq(SoftwareRelease::getRevisionId, revision.getId())
+                                .orderByAsc(SoftwareRelease::getId))) {
+                    List<Map<String, Object>> sourceRows = sourceMapper.selectList(
+                            new LambdaQueryWrapper<SoftwareSource>()
+                                    .eq(SoftwareSource::getReleaseId, release.getId())
+                                    .orderByAsc(SoftwareSource::getId))
+                            .stream()
+                            .map(source -> Map.<String, Object>of(
+                                    "label", source.getLabel() == null ? "" : source.getLabel(),
+                                    "platform", source.getPlatform() == null ? "" : source.getPlatform().name(),
+                                    "arch", source.getArch() == null ? "" : source.getArch().name(),
+                                    "sourceType", source.getSourceType() == null ? "" : source.getSourceType().name(),
+                                    "url", source.getUrl() == null ? "" : source.getUrl(),
+                                    "extractionCode", source.getExtractionCode() == null ? "" : source.getExtractionCode()))
+                            .toList();
+                    releaseRows.add(Map.of(
+                            "versionName", release.getVersionName() == null ? "" : release.getVersionName(),
+                            "changelog", release.getChangelog() == null ? "" : release.getChangelog(),
+                            "recommended", Boolean.TRUE.equals(release.getRecommended()),
+                            "sources", sourceRows));
+                }
+                detail.put("releases", releaseRows);
             }
         }
         List<SoftwareAuditLog> history = auditLogMapper.selectList(

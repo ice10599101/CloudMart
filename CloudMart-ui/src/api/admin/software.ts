@@ -62,6 +62,26 @@ export interface AdminSoftwareDetail extends Record<string, unknown> {
   accessNote: string | null
   reviewReason: string | null
   auditTrail: Array<Record<string, string>>
+  /** 帖子预览（详情弹窗展示用） */
+  editorId: string
+  editorNickname?: string
+  submitSeq?: number
+  descriptionHtml?: string
+  iconAssetId?: string
+  licenseType?: string
+  releases?: Array<{
+    versionName: string
+    changelog: string
+    recommended: boolean
+    sources: Array<{
+      label: string
+      platform: string
+      arch: string
+      sourceType: string
+      url: string
+      extractionCode: string
+    }>
+  }>
 }
 
 /** 审核快照：目标（待审/已审）与当前线上版；均为编辑器完整结构（含链接/提取码） */

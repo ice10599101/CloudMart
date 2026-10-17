@@ -164,7 +164,12 @@ export default function OperLog() {
         width={700}
       >
         {detailRecord && (
-          <Descriptions column={2} bordered size="small">
+          <Descriptions
+            column={1}
+            bordered
+            size="small"
+            labelStyle={{ width: 110, alignItems: 'center' }}
+          >
             <Descriptions.Item label="系统模块">{detailRecord.title}</Descriptions.Item>
             <Descriptions.Item label="操作类型">
               <Tag color={BUSINESS_TYPE_MAP[detailRecord.businessType]?.color ?? 'default'}>
