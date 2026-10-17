@@ -393,9 +393,11 @@ export default function SoftwareEdit() {
   }, [
     accessContactId,
     accessMode,
+    attributionType,
     categoryId,
     descriptionHtml,
     developerName,
+    iconAssetId,
     licenseType,
     minCommunityLevel,
     name,
