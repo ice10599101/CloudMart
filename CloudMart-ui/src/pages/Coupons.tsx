@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useUrlTab } from '@/hooks/useUrlTab'
 import { listTemplates, listUserCoupons, claimCoupon } from '@/api/coupon'
 import type { CouponTemplate, UserCoupon, CouponType, UserCouponStatus } from '@/types'
 
@@ -249,7 +250,11 @@ function UserCouponCard({ coupon }: { coupon: UserCoupon }) {
 }
 
 export default function Coupons() {
-  const [activeTab, setActiveTab] = useState<'available' | 'mine'>('available')
+  const [activeTab, setActiveTab] = useUrlTab<'available' | 'mine'>(
+    'tab',
+    ['available', 'mine'],
+    'available',
+  )
   const [templates, setTemplates] = useState<CouponTemplate[]>([])
   const [userCoupons, setUserCoupons] = useState<UserCoupon[]>([])
   const [loading, setLoading] = useState(false)

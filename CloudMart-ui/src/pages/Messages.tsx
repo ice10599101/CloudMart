@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useUrlTab } from '@/hooks/useUrlTab'
 import {  } from 'antd'
 import { message } from '@/utils/appMessage'
 import {
@@ -340,7 +341,11 @@ function ExpectedActions({
 }
 
 export default function Messages() {
-  const [activeTab, setActiveTab] = useState<NotificationCategory>('all')
+  const [activeTab, setActiveTab] = useUrlTab<NotificationCategory>(
+    'tab',
+    ['all', 'interaction', 'follow', 'system'],
+    'all',
+  )
   const [notifications, setNotifications] = useState<EnrichedNotification[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)

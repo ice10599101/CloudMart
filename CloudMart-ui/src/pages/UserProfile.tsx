@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useUrlTab } from '@/hooks/useUrlTab'
 import { useParams, history } from 'umi'
 import { Empty, Popconfirm } from 'antd'
 import { message } from '@/utils/appMessage'
@@ -317,7 +318,11 @@ export default function UserProfile() {
   const [chatLoading, setChatLoading] = useState(false)
   const [isBlocked, setIsBlocked] = useState(false)
   const [blockLoading, setBlockLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'posts' | 'collections' | 'wishes' | 'comments' | 'liked'>('posts')
+  const [activeTab, setActiveTab] = useUrlTab<'posts' | 'collections' | 'wishes' | 'comments' | 'liked'>(
+    'tab',
+    ['posts', 'collections', 'wishes', 'comments', 'liked'],
+    'posts',
+  )
   const [wishes, setWishes] = useState<WishListItem[] | null>(null)
   const [userComments, setUserComments] = useState<MyComment[] | null>(null)
   const [likedPosts, setLikedPosts] = useState<Post[] | null>(null)

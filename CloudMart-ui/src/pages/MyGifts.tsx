@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useUrlTab } from '@/hooks/useUrlTab'
 import { Button, Card, Empty, Skeleton, Statistic, Tabs, Tag } from 'antd'
 import { ArrowLeftOutlined, GiftOutlined, StarFilled } from '@ant-design/icons'
 import { history } from 'umi'
@@ -36,7 +37,11 @@ export default function MyGifts() {
   const { user, userLoading } = useAuthStore()
   const [summary, setSummary] = useState<MyGiftSummary | null>(null)
   const [balance, setBalance] = useState<number | null>(null)
-  const [tab, setTab] = useState<RecordTab>('sent')
+  const [tab, setTab] = useUrlTab<RecordTab>(
+    'tab',
+    ['sent', 'received'],
+    'sent',
+  )
   const [records, setRecords] = useState<GiftRecordItem[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)

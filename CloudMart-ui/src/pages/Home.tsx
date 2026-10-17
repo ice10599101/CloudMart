@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useUrlTab } from '@/hooks/useUrlTab'
 import { Spin, Empty, Tag, Dropdown, Modal, App } from 'antd'
 import type { MenuProps } from 'antd'
 import {
@@ -428,7 +429,11 @@ export default function Home() {
   const { message } = App.useApp()
   const { isAuthenticated, user } = useAuthStore()
   const currentUserId = user?.id ?? null
-  const [activeTab, setActiveTab] = useState('recommend')
+  const [activeTab, setActiveTab] = useUrlTab(
+    'tab',
+    FEED_TABS.map((t) => t.key),
+    'recommend',
+  )
   const [posts, setPosts] = useState<Post[]>([])
   const [topics, setTopics] = useState<HotTopic[]>([])
   const [recommendUsers, setRecommendUsers] = useState<RecommendUser[]>([])

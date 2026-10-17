@@ -1,6 +1,7 @@
 import RichText, { richTextToPlainText } from '@/components/RichText'
 import { stripHtml, formatDateTime } from '@/utils/format'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useUrlTab } from '@/hooks/useUrlTab'
 import { createPortal } from 'react-dom'
 import { history } from 'umi'
 import { Input, Select, DatePicker, Button, Modal, ConfigProvider, Empty, Spin, Pagination } from 'antd'
@@ -1540,7 +1541,11 @@ function WishlistTab({ onToast }: { onToast: (msg: string, type: 'success' | 'er
 export default function UserCenterPage() {
   const { user, fetchProfile } = useAuthStore()
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<TabKey>('profile')
+  const [activeTab, setActiveTab] = useUrlTab<TabKey>(
+    'tab',
+    TABS.map((t) => t.key) as TabKey[],
+    'profile',
+  )
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [communityProfile, setCommunityProfile] = useState<CommunityProfileData>({ postCount: 0, followerCount: 0, followCount: 0, collectCount: 0, badges: [] })
   const [levelInfo, setLevelInfo] = useState<UserLevelInfo | null>(null)

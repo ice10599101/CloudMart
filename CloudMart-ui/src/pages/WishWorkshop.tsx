@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useUrlTab } from '@/hooks/useUrlTab'
 import { Button, Card, Empty, Image, Modal, Progress, Segmented, Space, Spin, Tag, App } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -59,7 +60,11 @@ type TabKey = 'workshop' | 'collections' | 'brands'
 export default function WishWorkshop() {
   const { message } = App.useApp()
   const { user, userLoading } = useAuthStore()
-  const [tab, setTab] = useState<TabKey>('workshop')
+  const [tab, setTab] = useUrlTab<TabKey>(
+    'tab',
+    ['workshop', 'collections', 'brands'],
+    'workshop',
+  )
 
   // 工坊
   const [assets, setAssets] = useState<WorkshopAsset[]>([])
