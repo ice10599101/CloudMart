@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -46,17 +47,20 @@ public class MinioPublicFileController {
 
     private final MinioClient minioClient;
     private final String bucket;
+    private final com.cloudmart.file.repository.FileAssetMapper assetMapper;
 
     public MinioPublicFileController(
             @Value("${file.minio.endpoint:http://127.0.0.1:9000}") String endpoint,
             @Value("${file.minio.access-key:minioadmin}") String accessKey,
             @Value("${file.minio.secret-key:minioadmin}") String secretKey,
-            @Value("${file.minio.bucket:cloudmart-files}") String bucket) {
+            @Value("${file.minio.bucket:cloudmart-files}") String bucket,
+            com.cloudmart.file.repository.FileAssetMapper assetMapper) {
         this.minioClient = MinioClient.builder()
                 .endpoint(endpoint)
                 .credentials(accessKey, secretKey)
                 .build();
         this.bucket = bucket;
+        this.assetMapper = assetMapper;
     }
 
     /** 复用服务实现类的启动校验语义：桶不可用直接暴露配置问题 */
@@ -71,6 +75,23 @@ public class MinioPublicFileController {
         }
     }
 
+    /**
+     * 按资产 ID 取公共文件：/files/by-id/{assetId}。
+     * 图标/正文图片等场景只有资产 ID（无存储路径），由本端点解析 storage_key 读取。
+     * 仅 PUBLIC 且 READY 的资产可读；PRIVATE 返回 403。
+     */
+    @GetMapping("/by-id/{assetId}")
+    public ResponseEntity<byte[]> serveById(@PathVariable Long assetId) {
+        var asset = assetMapper.selectById(assetId);
+        if (asset == null || !"READY".equals(asset.getStatus())) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!"PUBLIC".equals(asset.getVisibility())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return serveByKey(asset.getStorageKey());
+    }
+
     @GetMapping("/**")
     public ResponseEntity<byte[]> serve(jakarta.servlet.http.HttpServletRequest request) {
         // /files/{path} → 对象键 public/{path}（静态映射语义对齐本地模式）
@@ -79,8 +100,11 @@ public class MinioPublicFileController {
         if (relative.isBlank() || relative.contains("..")) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        String objectKey = MinioFileServiceImpl.DOMAIN_PUBLIC + "/" + relative;
+        return serveByKey(MinioFileServiceImpl.DOMAIN_PUBLIC + "/" + relative);
+    }
 
+    /** 按完整对象键读取并输出（by-id 与静态映射共用） */
+    private ResponseEntity<byte[]> serveByKey(String objectKey) {
         try {
             minioClient.statObject(StatObjectArgs.builder().bucket(bucket).object(objectKey).build());
         } catch (Exception e) {
@@ -89,8 +113,8 @@ public class MinioPublicFileController {
 
         try (var stream = minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(objectKey).build())) {
             byte[] content = stream.readAllBytes();
-            String ext = relative.contains(".")
-                    ? relative.substring(relative.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT)
+            String ext = objectKey.contains(".")
+                    ? objectKey.substring(objectKey.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT)
                     : "";
             MediaType mediaType = CONTENT_TYPES.getOrDefault(ext, MediaType.APPLICATION_OCTET_STREAM);
             return ResponseEntity.ok()

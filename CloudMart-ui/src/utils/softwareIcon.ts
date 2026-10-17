@@ -14,7 +14,7 @@ export const SOFTWARE_ICON_FALLBACK = `data:image/svg+xml;charset=utf-8,${encode
 )}`;
 
 export function softwareIconUrl(assetId: string | null): string {
-  return assetId ? `/files/${assetId}` : SOFTWARE_ICON_FALLBACK;
+  return assetId ? `/files/by-id/${assetId}` : SOFTWARE_ICON_FALLBACK;
 }
 
 /** <img onError> 处理：仅在尚未回退过时切占位图，且回退后摘除监听防循环 */

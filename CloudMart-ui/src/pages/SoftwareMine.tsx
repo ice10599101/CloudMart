@@ -179,7 +179,7 @@ export default function SoftwareMine() {
                     <Popconfirm
                       key="delete"
                       title="删除草稿"
-                      description={`软删除「${item.name}」，不可恢复，确认？`}
+                      description={`删除后不可恢复，确定删除「${item.name}」吗？`}
                       okText="删除"
                       okButtonProps={{ danger: true }}
                       cancelText="取消"

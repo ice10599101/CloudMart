@@ -145,7 +145,7 @@ export default function SoftwarePreview() {
         <div className={styles.head}>
           {editor.iconAssetId ? (
             <img
-              src={`/files/${editor.iconAssetId}`}
+              src={`/files/by-id/${editor.iconAssetId}`}
               alt="软件图标"
               style={{
                 width: 56,

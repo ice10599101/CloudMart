@@ -539,7 +539,7 @@ export default function SoftwarePublish() {
             >
               {iconAssetId ? (
                 <img
-                  src={`/files/${iconAssetId}`}
+                  src={`/files/by-id/${iconAssetId}`}
                   alt="软件图标"
                   style={{
                     width: 72,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef} from "react";
 import {
   Alert,
   App,
@@ -34,6 +34,11 @@ import {
   type SoftwareTag,
 } from "@/api/software";
 import { uploadFileAsset } from "@/api/file";
+import {
+  clearPageDraft,
+  loadPageDraft,
+  savePageDraft,
+} from "@/utils/pageDraft";
 import { useAuthStore } from "@/stores/auth";
 import styles from "./SoftwareEdit.module.css";
 
@@ -152,6 +157,40 @@ export default function SoftwareEdit() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // ---------------- 未保存内容跨页保留（localStorage；保存/提交成功即清） ----------------
+  const EDIT_DRAFT_KEY = "software-edit-draft";
+  const editRestoredRef = useRef(false);
+  useEffect(() => {
+    const draft = loadPageDraft<{
+      name?: string;
+      summary?: string;
+      descriptionHtml?: string;
+      developerName?: string;
+      officialUrl?: string;
+      systemRequirements?: string;
+    }>(EDIT_DRAFT_KEY);
+    if (!draft) return;
+    if (draft.name) setName(draft.name);
+    if (draft.summary) setSummary(draft.summary);
+    if (draft.descriptionHtml) setDescriptionHtml(draft.descriptionHtml);
+    if (draft.developerName) setDeveloperName(draft.developerName);
+    if (draft.officialUrl) setOfficialUrl(draft.officialUrl);
+    if (draft.systemRequirements) setSystemRequirements(draft.systemRequirements);
+    editRestoredRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!editRestoredRef.current) return;
+    savePageDraft(EDIT_DRAFT_KEY, {
+      name,
+      summary,
+      descriptionHtml,
+      developerName,
+      officialUrl,
+      systemRequirements,
+    });
+  }, [name, summary, descriptionHtml, developerName, officialUrl, systemRequirements]);
+
   const loadEditor = useCallback(async () => {
     setLoading(true);
     setConflict(false);
@@ -167,6 +206,19 @@ export default function SoftwareEdit() {
       setLicenseType(data.licenseType ?? "FREE");
       setAttributionType(data.attributionType ?? "ORIGINAL");
       setIconAssetId(data.iconAssetId ?? undefined);
+      // 已发布软件直接编辑会撞「仅草稿/退回快照可编辑」——自动创建工作副本
+      if (data.reviewStatus === "APPROVED" && !data.workingRevisionId) {
+        try {
+          const created = await createWorkingRevision(id);
+          if (created.data.success) {
+            message.info("已发布内容不可直接修改，已自动创建新的编辑版本");
+            await loadEditor();
+            return;
+          }
+        } catch {
+          // 失败则按原数据继续展示（保存时报错由拦截器提示）
+        }
+      }
       setDeveloperName(data.developerName ?? "");
       setOfficialUrl(data.officialUrl ?? "");
       setSystemRequirements(data.systemRequirements ?? "");
@@ -559,7 +611,7 @@ export default function SoftwareEdit() {
             >
               {iconAssetId ? (
                 <img
-                  src={`/files/${iconAssetId}`}
+                  src={`/files/by-id/${iconAssetId}`}
                   alt="软件图标"
                   style={{
                     width: 72,

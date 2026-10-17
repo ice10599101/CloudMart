@@ -198,7 +198,7 @@ export default function SoftwareExplore() {
             updateParams({ categoryId: value })
           }
           options={categories.map((item) => ({
-            value: item.id,
+            value: String(item.id),
             label: item.name,
           }))}
         />

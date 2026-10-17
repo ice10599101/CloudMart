@@ -134,7 +134,7 @@ export default function SoftwareHome() {
                 <Button
                   type="link"
                   size="small"
-                  onClick={() => goExplore({ sort: "recommend" })}
+                  onClick={() => goExplore({ sort: "featured" })}
                 >
                   查看全部
                 </Button>
