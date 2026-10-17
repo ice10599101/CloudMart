@@ -30,9 +30,26 @@ function walk(dir, ext, out = []) {
   }
   return out
 }
-/** 路径归一：模板段 ${x}/{x} 与数字段统一为 {} */
+/** 路径归一：模板/路径变量段 → '*'（段通配，可跨多段——前端 ${configType} 值可含 'configs/jobs' 两段） */
 function norm(p) {
-  return p.replace(/\$\{[^}]*\}/g, '{}').replace(/\{[^}/]*\}/g, '{}').replace(/\/\d+(?=\/|$)/g, '/{}')
+  return p.replace(/\$\{[^}]*\}/g, '*').replace(/\{[^}/]*\}/g, '*').replace(/\d+/g, '*')
+}
+
+/** 段级通配匹配：'*' 匹配至少 1 段（可回溯跨多段）；其余段精确 */
+function matchPath(pattern, target) {
+  const ps = pattern.split('/').filter(Boolean)
+  const ts = target.split('/').filter(Boolean)
+  function rec(i, j) {
+    if (i === ps.length) return j === ts.length
+    if (ps[i] === '*') {
+      if (i === ps.length - 1) return j < ts.length || (j === ts.length && false) || ts.slice(j).length >= 1
+      for (let k = j + 1; k <= ts.length; k++) if (rec(i + 1, k)) return true
+      return false
+    }
+    if (j >= ts.length || ps[i] !== ts[j]) return false
+    return rec(i + 1, j + 1)
+  }
+  return rec(0, 0)
 }
 
 // ---------- 1. 菜单无路由 ----------
@@ -84,12 +101,19 @@ function norm(p) {
     if (f.endsWith('.test.ts')) continue // 测试断言字符串不是 API 调用
     const src = readFileSync(f, 'utf-8')
     for (const m of src.matchAll(/['"`](\/admin\/[^'"`]+)['"`]/g)) {
+      // 排除常量赋值行（const BASE = '/admin/software'——定义非调用，调用处必经拼接）
+      const lineStart = src.lastIndexOf('\n', m.index) + 1
+      const line = src.slice(lineStart, src.indexOf('\n', m.index))
+      if (/\b(?:const|let|var)\s+\w+\s*[:=]/.test(line)) continue
       const p = norm(m[1])
       if (!fePaths.has(p)) fePaths.set(p, `${f}:${m[1]}`)
     }
   }
+  const backendNorm = [...backend].map(norm)
   for (const [p, at] of fePaths) {
-    if (!backend.has(p)) {
+    const feNorm = norm(p)
+    const covered = backendNorm.some((b) => matchPath(feNorm, b) || matchPath(b, feNorm))
+    if (!covered) {
       // 存量断链台账（contract-whitelist-broken.txt）：可见 WARN 不阻塞；台账外新增直接失败
       if (brokenLinks.has(p)) {
         warns.push(`[存量断链·台账] 前端调用 ${p}（${at}）后端无端点——补端点或删入口后请从台账移除`)
@@ -100,8 +124,11 @@ function norm(p) {
   }
   // 4. 未使用公共能力（软）
   const whitelistUnused = new Set(readLines('scripts/contract-whitelist-unused.txt'))
+  const feNorms = [...fePaths.keys()].map(norm)
   for (const p of backend) {
-    if (!fePaths.has(p) && !whitelistUnused.has(p)) {
+    const bNorm = norm(p)
+    const used = feNorms.some((f) => matchPath(f, bNorm) || matchPath(bNorm, f))
+    if (!used && !whitelistUnused.has(p)) {
       warns.push(`[未使用公共能力] ${p} 前端零引用（加入 scripts/contract-whitelist-unused.txt 或补前端入口）`)
     }
   }

@@ -137,6 +137,14 @@ public class AdminPetWalletController {
         return petFeignClient.walletReconciliationOf(runId);
     }
 
+    @PostMapping("/reconciliations/run")
+    @OperLog(title = "宠物钱包对账", businessType = 2)
+    @RequiresPermission("business:pet:wallet:read")
+    @Operation(summary = "立即执行一轮对账", description = "BASE-02 断链修复：触发下游 W04 对账（异步批次，结果见列表）")
+    public ApiResponse<Void> runReconciliation() {
+        return petFeignClient.triggerWalletReconcile();
+    }
+
     @GetMapping("/reconciliations/{runId}/diffs")
     @RequiresPermission("business:pet:wallet:read")
     @Operation(summary = "差异明细（§8.2）", description = "按处置状态过滤 OPEN/RESOLVED；只读")

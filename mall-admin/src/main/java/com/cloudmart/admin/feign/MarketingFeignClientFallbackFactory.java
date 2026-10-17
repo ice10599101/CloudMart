@@ -87,6 +87,12 @@ public class MarketingFeignClientFallbackFactory implements FallbackFactory<Mark
             public ApiResponse<Void> deleteTieredPromotion(Long id) {
                 throw FeignBusinessErrors.parse(cause, "MARKETING_SERVICE_UNAVAILABLE", "营销服务不可用，请稍后重试");
             }
+
+            @Override
+            public ApiResponse<Object> previewTieredPromotion(Long id, java.util.Map<String, Object> body) {
+                throw com.cloudmart.common.feign.FeignBusinessErrors.parse(cause,
+                        "MARKETING_SERVICE_UNAVAILABLE", "营销服务不可用，请稍后重试");
+            }
         };
     }
 }
