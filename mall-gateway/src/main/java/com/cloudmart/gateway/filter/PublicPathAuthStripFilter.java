@@ -35,6 +35,7 @@ public class PublicPathAuthStripFilter implements WebFilter {
             "/api/auth/login",
             "/api/auth/refresh",
             "/api/user/users/register",
+            "/api/payment/channels",
             "/api/payment/payment-attempts/mock-callbacks",
             "/actuator/"
     );

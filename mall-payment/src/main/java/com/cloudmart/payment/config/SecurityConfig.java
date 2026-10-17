@@ -40,7 +40,7 @@ public class SecurityConfig {
             .addFilterBefore(userJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(serviceTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/error", "/payment-attempts/mock-callbacks", "/actuator/**", "/doc.html", "/webjars/**", "/swagger-resources/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers("/error", "/channels", "/payment-attempts/mock-callbacks", "/actuator/**", "/doc.html", "/webjars/**", "/swagger-resources/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(eh -> eh.authenticationEntryPoint((request, response, authException) -> JsonAuthenticationEntryPoint.writeUnauthorized(request, response)));
