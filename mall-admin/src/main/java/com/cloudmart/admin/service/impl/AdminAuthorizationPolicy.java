@@ -2,6 +2,7 @@ package com.cloudmart.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.datascope.DataScopeResult;
+import com.cloudmart.common.datascope.DataScopeType;
 import com.cloudmart.admin.entity.AdminRole;
 import com.cloudmart.admin.entity.AdminUser;
 import com.cloudmart.admin.repository.AdminUserMapper;
@@ -85,17 +86,12 @@ public class AdminAuthorizationPolicy {
         if (ctx == null || ctx.isSuperAdmin()) {
             return;
         }
+        // ADMIN-01：组织模型退役——范围只有两级（超管 ALL / 其余 SELF 当前账号边界）；
+        // 跨用户操作能力由角色操作权限点决定
         DataScopeResult dataScope = dataScopeService.resolveDataScope(ctx.userId());
-        // 范围无法解析（管理员无任何角色配置）时按最严格策略：仅本人记录可见
         boolean within = dataScope == null
                 ? target.getId().equals(ctx.userId())
-                : switch (dataScope.type()) {
-            case ALL -> true;
-            case CUSTOM, DEPT_AND_CHILD -> target.getDeptId() != null
-                    && dataScope.deptIds() != null && dataScope.deptIds().contains(target.getDeptId());
-            case DEPT -> target.getDeptId() != null && target.getDeptId().equals(ctx.deptId());
-            case SELF -> target.getId().equals(ctx.userId());
-        };
+                : dataScope.type() == DataScopeType.ALL || target.getId().equals(ctx.userId());
         if (!within) {
             throw new BusinessException("USER_NOT_FOUND", "用户不存在");
         }

@@ -360,31 +360,10 @@ public class AdminUserServiceImpl implements AdminUserService {
             return;
         }
 
+        // ADMIN-01：组织模型退役——只有两级（超管 ALL / 其余 SELF）
         DataScopeResult dataScope = dataScopeService.resolveDataScope(ctx.userId());
-        switch (dataScope.type()) {
-            case ALL -> {}
-            case CUSTOM -> {
-                if (dataScope.deptIds() == null || dataScope.deptIds().isEmpty()) {
-                    wrapper.apply("1 = 0");
-                } else {
-                    wrapper.in(AdminUser::getDeptId, dataScope.deptIds());
-                }
-            }
-            case DEPT -> {
-                if (ctx.deptId() == null) {
-                    wrapper.apply("1 = 0");
-                } else {
-                    wrapper.eq(AdminUser::getDeptId, ctx.deptId());
-                }
-            }
-            case DEPT_AND_CHILD -> {
-                if (dataScope.deptIds() == null || dataScope.deptIds().isEmpty()) {
-                    wrapper.apply("1 = 0");
-                } else {
-                    wrapper.in(AdminUser::getDeptId, dataScope.deptIds());
-                }
-            }
-            case SELF -> wrapper.eq(AdminUser::getId, ctx.userId());
+        if (dataScope.type() != DataScopeType.ALL) {
+            wrapper.eq(AdminUser::getId, ctx.userId());
         }
     }
 
