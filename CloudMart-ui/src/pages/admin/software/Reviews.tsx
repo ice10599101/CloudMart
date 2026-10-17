@@ -5,12 +5,9 @@ import { Button, Drawer, Input, Radio, Space, Table, Tag, Typography } from 'ant
 import DOMPurify from 'dompurify'
 import {
   decideReview,
-  getAdminSoftwareDetail,
   getReviewDetail,
   listPendingReviews,
-  type AdminSoftwareDetail,
 } from '@/api/admin/software'
-import SoftwareDetailModal from '@/components/admin/SoftwareDetailModal'
 import type { AdminReviewDetail, AdminRevisionSnapshot } from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
@@ -93,8 +90,6 @@ export default function SoftwareReviews() {
   const message = useMessage()
   const actionRef = useRef<ActionType>(null)
   const [detail, setDetail] = useState<AdminReviewDetail | null>(null)
-  const [cardDetail, setCardDetail] = useState<AdminSoftwareDetail | null>(null)
-  const [cardDetailOpen, setCardDetailOpen] = useState(false)
   const [approve, setApprove] = useState(true)
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -135,18 +130,9 @@ export default function SoftwareReviews() {
     }
   }
 
-  const openDetail = async (softwareId: string) => {
-    try {
-      const res = await getAdminSoftwareDetail(softwareId)
-      if (res.data.success) {
-        setCardDetail(res.data.data)
-        setCardDetailOpen(true)
-      } else {
-        message.error(res.data.error?.message || '详情加载失败')
-      }
-    } catch {
-      message.error('详情加载失败，请确认服务已更新到最新版本')
-    }
+  const openDetail = (record: PendingRow) => {
+    // 详情复用审核弹窗（reviewDetail 接口对管理员可用，内容含完整预览）
+    void openReview(record.revisionId)
   }
 
   const columns: ProColumns<PendingRow>[] = [
@@ -162,7 +148,7 @@ export default function SoftwareReviews() {
         <Button
           type="link"
           style={{ padding: 0 }}
-          onClick={() => void openDetail(record.softwareId)}
+          onClick={() => openDetail(record)}
         >
           {record.name || '(未命名)'}
         </Button>
@@ -197,7 +183,7 @@ export default function SoftwareReviews() {
         <Button
           key="detail"
           type="link"
-          onClick={() => void openDetail(record.softwareId)}
+          onClick={() => openDetail(record)}
         >
           详情
         </Button>,

@@ -266,10 +266,10 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
         detail.put("submitSeq", revision.getSubmitSeq());
         detail.put("lockVersion", revision.getLockVersion());
         detail.put("editorId", String.valueOf(revision.getEditorId()));
-        // 发布者昵称（profiles 失败时留空，前端回落 ID 展示）
+        // 发布者 = 软件所有者（owner 永远有值；profiles 失败时留空，前端回落 ID）
         try {
             for (var profile : userSupportFeignClient.profiles(
-                    Map.of("userIds", List.of(revision.getEditorId()))).data()) {
+                    Map.of("userIds", List.of(software.getOwnerId()))).data()) {
                 if (profile.nickname() != null && !profile.nickname().isBlank()) {
                     detail.put("editorNickname", profile.nickname());
                 }
