@@ -11,6 +11,7 @@ import {
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
 import { Button, Drawer, Modal, Popconfirm, Select, Space, Statistic, Table, Tag, Typography } from 'antd'
 import { PlusOutlined, TrophyOutlined, FileTextOutlined } from '@ant-design/icons'
+import { useAdminAuthStore } from '@/stores/adminAuth'
 import {
     listAdminActivities,
     createAdminActivity,
@@ -132,6 +133,12 @@ const TRANSITION_ACTION: Partial<Record<AdminActivityStatus, { action: 'start' |
 }
 
 export default function ActivityAdmin() {
+    // ADMIN-05：列表与审核权限分离——无 review 权限只读名单，不展示审批按钮（服务端同样强制）
+    const canReview = useAdminAuthStore(
+        (state) =>
+            state.permissions.includes('*:*:*') ||
+            state.permissions.includes('business:activity:review'),
+    )
     const message = useMessage()
     const actionRef = useRef<ActionType>(null)
     const [modalVisible, setModalVisible] = useState(false)
@@ -200,7 +207,7 @@ export default function ActivityAdmin() {
         void loadParticipants(record.id)
     }
 
-    const handleReview = async (applicantUserId: number, approved: boolean) => {
+    const handleReview = async (applicantUserId: number | string, approved: boolean) => {
         if (!participantsRecord) return
         await reviewAdminPartnerApplication(participantsRecord.id, applicantUserId, approved)
         message.success(approved ? '已批准进组' : '已驳回申请')
@@ -554,14 +561,14 @@ export default function ActivityAdmin() {
                             },
                         },
                         { title: '角色', dataIndex: 'role', width: 90, render: (v: string | null) => v ?? '-' },
-                        { title: '协作心愿', dataIndex: 'wishId', width: 100, render: (v: number | null) => v ?? '-' },
+                        { title: '协作心愿', dataIndex: 'wishId', width: 100, render: (v: number | string | null) => v ?? '-' },
                         { title: '技能标签', dataIndex: 'skills', ellipsis: true, render: (v: string | null) => v ?? '-' },
                         { title: '匹配分', dataIndex: 'matchScore', width: 80, render: (v: number | null) => v ?? '-' },
                         {
                             title: '操作',
                             width: 140,
                             render: (_, row) =>
-                                row.status === 'PENDING' ? (
+                                row.status === 'PENDING' && canReview ? (
                                     <Space size="small">
                                         <Popconfirm title="批准该申请进组？" onConfirm={() => handleReview(row.userId, true)}>
                                             <Button type="link" size="small">批准</Button>

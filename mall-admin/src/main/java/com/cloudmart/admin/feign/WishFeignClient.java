@@ -1,10 +1,13 @@
 package com.cloudmart.admin.feign;
 
-import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.admin.config.WishServiceTokenConfig;
+import com.cloudmart.admin.dto.WishActivityParticipantVO;
+import com.cloudmart.admin.dto.WishActivityReviewRequest;
+import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -281,6 +284,20 @@ public interface WishFeignClient {
 
     @GetMapping("/activity/{id}/rewards/logs")
     ApiResponse<Object> listActivityRewardLogs(@PathVariable("id") Long id);
+
+    // ---- 活动报名审核（ADMIN-05，代理 /admin/activity/{id}/participants）----
+
+    @GetMapping("/activity/{id}/participants")
+    ApiResponse<List<WishActivityParticipantVO>> listActivityParticipants(
+            @PathVariable("id") Long id,
+            @RequestParam("page") Integer page,
+            @RequestParam("size") Integer size);
+
+    @PutMapping("/activity/{id}/participants/{applicantUserId}/review")
+    ApiResponse<Object> reviewActivityParticipant(
+            @PathVariable("id") Long id,
+            @PathVariable("applicantUserId") Long applicantUserId,
+            @RequestBody WishActivityReviewRequest request);
 
     // ---- 虚拟资产 + 品牌审核（Sprint 3.6 管理后台，代理 /admin/collection、/admin/brand）----
 

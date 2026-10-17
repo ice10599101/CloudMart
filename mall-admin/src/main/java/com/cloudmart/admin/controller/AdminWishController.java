@@ -1,5 +1,7 @@
 package com.cloudmart.admin.controller;
 
+import com.cloudmart.admin.dto.WishActivityParticipantVO;
+import com.cloudmart.admin.dto.WishActivityReviewRequest;
 import com.cloudmart.admin.dto.feign.AdminCommentSearchRequest;
 import com.cloudmart.admin.dto.feign.AdminInteractionSearchRequest;
 import com.cloudmart.admin.dto.feign.AdminWishSearchRequest;
@@ -13,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -534,6 +537,30 @@ public class AdminWishController {
     @Operation(summary = "奖励发放日志", description = "审计：时间/用户/奖励类型/数量")
     public ApiResponse<Object> listActivityRewardLogs(@PathVariable Long id) {
         return wishFeignClient.listActivityRewardLogs(id);
+    }
+
+    // ---- 活动报名审核（ADMIN-05：列表/审核权限分离）----
+
+    @GetMapping("/wish/activity/{id}/participants")
+    @RequiresPermission("business:activity:list")
+    @Operation(summary = "活动报名列表", description = "全状态含 PENDING；真实 userId 供审批定位；分页上限 100")
+    public ApiResponse<List<WishActivityParticipantVO>> listActivityParticipants(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "20") Integer size) {
+        return wishFeignClient.listActivityParticipants(id, page, size);
+    }
+
+    @PutMapping("/wish/activity/{id}/participants/{applicantUserId}/review")
+    @OperLog(title = "活动报名审核", businessType = 2)
+    @RequiresPermission("business:activity:review")
+    @Operation(summary = "活动报名审核", description = "approved=true 进组 / false 驳回；"
+            + "服务端校验活动创建者归属与当前状态，操作者取认证上下文")
+    public ApiResponse<Object> reviewActivityParticipant(
+            @PathVariable Long id,
+            @PathVariable Long applicantUserId,
+            @Valid @RequestBody WishActivityReviewRequest request) {
+        return wishFeignClient.reviewActivityParticipant(id, applicantUserId, request);
     }
 
     // ---- 虚拟资产 + 品牌审核（Sprint 3.6 管理后台）----

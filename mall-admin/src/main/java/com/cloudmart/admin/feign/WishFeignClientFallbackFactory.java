@@ -1,5 +1,7 @@
 package com.cloudmart.admin.feign;
 
+import com.cloudmart.admin.dto.WishActivityParticipantVO;
+import com.cloudmart.admin.dto.WishActivityReviewRequest;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.common.feign.FeignBusinessErrors;
@@ -10,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -336,6 +339,17 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
 
             @Override
             public ApiResponse<Object> listActivityRewardLogs(Long id) {
+                throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<List<WishActivityParticipantVO>> listActivityParticipants(Long id, Integer page, Integer size) {
+                throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> reviewActivityParticipant(Long id, Long applicantUserId,
+                                                                 WishActivityReviewRequest request) {
                 throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
 

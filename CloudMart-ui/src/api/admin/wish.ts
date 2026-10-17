@@ -997,24 +997,25 @@ export function issueAdminActivityRewards(id: number) {
 
 /** T13/T22：全状态参与者/申请列表（含 PENDING 与真实 userId），审批闭环前置查询 */
 export interface AdminActivityParticipantRow {
-  userId: number
+  /** BASE-01：申请人/心愿 ID 保持字符串联合（雪花/大整数防精度损失） */
+  userId: number | string
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'JOINED' | string
   role?: string | null
-  wishId?: number | null
+  wishId?: number | string | null
   skills?: string | null
   matchScore?: number | null
   appliedAt?: string | null
   reviewedAt?: string | null
 }
 
-export function listAdminActivityParticipants(id: number, params: { page?: number; size?: number } = {}) {
+export function listAdminActivityParticipants(id: number | string, params: { page?: number; size?: number } = {}) {
   return request.get<ApiResponse<AdminActivityParticipantRow[]>>(
     `/admin/wish/activity/${id}/participants`, { params },
   )
 }
 
 /** 审批搭子申请（仅活动创建管理员；approved=true 进组/false 驳回） */
-export function reviewAdminPartnerApplication(id: number, applicantUserId: number, approved: boolean) {
+export function reviewAdminPartnerApplication(id: number | string, applicantUserId: number | string, approved: boolean) {
   return request.put<ApiResponse<null>>(
     `/admin/wish/activity/${id}/participants/${applicantUserId}/review`, { approved },
   )
