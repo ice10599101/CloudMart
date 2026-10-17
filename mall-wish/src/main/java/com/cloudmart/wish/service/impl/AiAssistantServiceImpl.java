@@ -79,7 +79,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     @Override
     public AiBreakdownVO breakdownGoal(Long userId, AiAssistantRequest request) {
         requireAiConsent(userId);
-        ZoneId userZone = ZoneId.of(userStatService.getUserTimezone(userId));
+        ZoneId userZone = userStatService.economicBusinessZone();
         if (!aiRateLimiter.checkGoalBreakdownDailyLimit(userId, userZone)) {
             throw new BusinessException(WishErrorCodes.WISH_AI_RATE_LIMITED,
                     "今日 AI 助手拆解次数已达上限（" + aiProperties.getGoalBreakdownDailyLimit() + " 次/日）");

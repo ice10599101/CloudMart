@@ -122,7 +122,7 @@ class TreeHoleServiceImplTest {
         // 默认放行：已同意 / 限频放行 / 默认时区
         when(consentService.hasGrantedAiDataProcessing(anyLong())).thenReturn(true);
         when(aiRateLimiter.checkTreeHoleDailyLimit(anyLong(), any())).thenReturn(true);
-        when(userStatService.getUserTimezone(anyLong())).thenReturn("Asia/Shanghai");
+        when(userStatService.economicBusinessZone()).thenReturn(java.time.ZoneId.of("Asia/Shanghai"));
 
         // 默认树洞心愿（当前用户为作者）
         when(wishMapper.selectById(WISH_ID)).thenReturn(buildTreeHoleWish());

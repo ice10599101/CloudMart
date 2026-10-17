@@ -102,7 +102,7 @@ public class InteractionServiceImpl implements InteractionService {
 
         // ---- 前置校验（无 DB 写、无锁持有）----
         Wish wish = requireInteractableWish(wishId, userId);
-        ZoneId userZone = ZoneId.of(userStatService.getUserTimezone(userId));
+        ZoneId userZone = userStatService.economicBusinessZone();
 
         // ---- 限频（Redis，Fail-Open；DB 唯一约束兜底）----
         if (!rateLimiter.checkUserDailyLimit(userId, type, userZone)) {
@@ -275,8 +275,8 @@ public class InteractionServiceImpl implements InteractionService {
     public List<MyInteractionVO> listMyInteractions(Long userId, Long wishId) {
         requireInteractableWish(wishId, userId);
         // DB 时间按平台时区存储；"今日"按用户时区判定（与限频口径一致）
-        ZoneId userZone = ZoneId.of(userStatService.getUserTimezone(userId));
-        LocalDate today = LocalDate.now(userZone);
+        ZoneId userZone = userStatService.economicBusinessZone();
+        LocalDate today = com.cloudmart.common.time.UserBusinessCalendar.today(userZone);
         List<WishInteraction> interactions = wishInteractionMapper.selectList(
                 new LambdaQueryWrapper<WishInteraction>()
                         .eq(WishInteraction::getWishId, wishId)

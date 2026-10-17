@@ -181,6 +181,10 @@ export interface DailySigninResult {
 
 /** 签到日历（month 格式 yyyy-MM） */
 export interface SigninCalendarData {
+  /** WISH-01：服务端经济业务日（Asia/Shanghai 日界）——今日状态以此判定，不用本地日期 */
+  businessDate?: string
+  /** 下次重置绝对时间（下一业务日 0 点 UTC ISO-8601） */
+  nextResetAt?: string
     signedDates: string[]
     consecutiveDays: number
     totalDays: number

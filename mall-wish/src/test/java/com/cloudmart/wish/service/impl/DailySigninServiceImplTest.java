@@ -69,7 +69,7 @@ class DailySigninServiceImplTest {
         dailySigninService = new DailySigninServiceImpl(
                 wishDailySigninMapper, wishSigninMilestoneClaimMapper, userStatService, communityFeignClient,
                 mock(WishRewardObligationService.class));
-        when(userStatService.getUserTimezone(USER_ID)).thenReturn("Asia/Shanghai");
+        when(userStatService.economicBusinessZone()).thenReturn(java.time.ZoneId.of("Asia/Shanghai"));
     }
 
     @Nested

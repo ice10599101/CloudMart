@@ -48,7 +48,11 @@ export default function DailySigninPage() {
   const [levelUp, setLevelUp] = useState<LevelUpEvent | null>(null)
   const [milestones, setMilestones] = useState<SigninMilestone[]>([])
 
-  const todayStr = useMemo(
+  // WISH-01：业务日以服务端返回为准（本地日期仅作加载日历的兜底初值）——
+  // 用户设备时区与业务区（Asia/Shanghai）不同时，"今日已签到"不再误判
+  const [businessToday, setBusinessToday] = useState<string | null>(null)
+  const [nextResetAt, setNextResetAt] = useState<string | null>(null)
+  const todayStr = businessToday ?? useMemo(
     () => formatDate(now.getFullYear(), now.getMonth() + 1, now.getDate()),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -61,8 +65,13 @@ export default function DailySigninPage() {
       setSignedDates(new Set(data.signedDates))
       setConsecutiveDays(data.consecutiveDays)
       setTotalDays(data.totalDays)
-      // 当月为当前月时，以日历判断今日是否已签到
-      const isCurrentMonth = y === now.getFullYear() && m === now.getMonth() + 1
+      // WISH-01：业务日/下次重置以服务端为准，前端不自行判断"还能领"
+      if (data.businessDate) setBusinessToday(data.businessDate)
+      if (data.nextResetAt) setNextResetAt(data.nextResetAt)
+      // 业务日落在当月时，以日历判断今日是否已签到
+      const isCurrentMonth = data.businessDate
+        ? data.businessDate.startsWith(`${formatMonth(y, m)}`)
+        : y === now.getFullYear() && m === now.getMonth() + 1
       setSignedToday(isCurrentMonth && data.signedDates.includes(todayStr))
     } catch {
       // 错误已由 request 处理
@@ -199,7 +208,14 @@ export default function DailySigninPage() {
               {signing ? '签到中...' : signedToday ? '今日已签到 ✓' : '签到领星光 +5'}
             </Text>
           </View>
-          <Text className={styles.rewardLine}>明日签到可获得星光 +5</Text>
+          {/* WISH-01：重置时间展示服务端绝对时间（业务日 0 点换算），不在本地判断还能领 */}
+          {nextResetAt ? (
+            <Text className={styles.rewardLine}>
+              重置于 {new Date(nextResetAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}（北京时间）
+            </Text>
+          ) : (
+            <Text className={styles.rewardLine}>明日签到可获得星光 +5</Text>
+          )}
         </View>
 
         {/* 星光余额（数字滚动） */}

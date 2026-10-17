@@ -145,6 +145,13 @@ public interface UserStatService {
     String getUserTimezone(Long userId);
 
     /**
+     * WISH-01：经济业务区——固定 {@code Asia/Shanghai}（中国业务日）。
+     * 签到/打卡/配额/邀请等经济日界一律用它，<b>不跟随用户上报时区</b>
+     * （上报仅作展示与提醒时机）；换设备/换时区/延迟消息均不改变业务日归属。
+     */
+    java.time.ZoneId economicBusinessZone();
+
+    /**
      * 累计帮助他人次数 +1（文档 6.5：点亮/匿名星光时异步累加，MQ 消费者调用）。
      * 独立事务（无调用方事务上下文）。
      *

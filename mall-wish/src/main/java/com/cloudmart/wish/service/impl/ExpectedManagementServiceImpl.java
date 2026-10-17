@@ -69,7 +69,7 @@ public class ExpectedManagementServiceImpl implements ExpectedManagementService 
         int skippedByLimit = 0;
         int skippedByPreference = 0;
         for (WishService.OverdueWishInfo wish : wishes) {
-            ZoneId userZone = ZoneId.of(userStatService.getUserTimezone(wish.userId()));
+            ZoneId userZone = userStatService.economicBusinessZone();
             int dailyLimit = aiConfigService.getIntConfig(
                     AiConfigService.KEY_EXPECTED_DAILY_LIMIT, 3);
             if (!aiRateLimiter.checkDailyLimit(wish.userId(), RATE_TYPE, dailyLimit, userZone)) {

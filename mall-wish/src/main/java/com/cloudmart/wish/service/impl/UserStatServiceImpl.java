@@ -54,8 +54,12 @@ public class UserStatServiceImpl implements UserStatService {
     /** 星光余额上限（文档 6.3 防囤积：超出不再累加） */
     static final int STARLIGHT_BALANCE_CAP = 5000;
 
-    /** 默认时区（用户统计记录不存在时） */
+    /** 默认时区（用户统计记录不存在时；上报时区仅作展示/提醒时机） */
     static final String DEFAULT_TIMEZONE = "Asia/Shanghai";
+
+    /** WISH-01：经济业务区固定 Asia/Shanghai——签到/打卡/配额/邀请日界不跟随用户上报时区 */
+    static final java.time.ZoneId ECONOMIC_BUSINESS_ZONE =
+            java.time.ZoneId.of(com.cloudmart.common.time.UserBusinessCalendar.DEFAULT_ZONE_ID);
 
     /** 等级标题（文档 6.5：L1 追梦新人 → L5 宇宙守护者） */
     static final Map<Integer, String> LEVEL_TITLES = Map.of(
@@ -311,6 +315,11 @@ public class UserStatServiceImpl implements UserStatService {
     public String getUserTimezone(Long userId) {
         WishUserStat stat = wishUserStatMapper.selectById(userId);
         return stat != null && stat.getTimezone() != null ? stat.getTimezone() : DEFAULT_TIMEZONE;
+    }
+
+    @Override
+    public java.time.ZoneId economicBusinessZone() {
+        return ECONOMIC_BUSINESS_ZONE;
     }
 
     @Override

@@ -101,7 +101,7 @@ class InteractionServiceImplTest {
         when(rateLimiter.checkWishLightLimit(anyLong())).thenReturn(true);
         when(rateLimiter.checkBlessPerWish(anyLong(), anyLong(), any())).thenReturn(true);
         when(rateLimiter.tryAcquireSameWishUnique(anyLong(), anyLong(), anyLong())).thenReturn(true);
-        when(userStatService.getUserTimezone(anyLong())).thenReturn("Asia/Shanghai");
+        when(userStatService.economicBusinessZone()).thenReturn(java.time.ZoneId.of("Asia/Shanghai"));
 
         // 默认可互动的公开心愿（他人发布）
         when(wishMapper.selectById(WISH_ID)).thenReturn(buildPublicWish());

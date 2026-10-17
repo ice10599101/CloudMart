@@ -84,7 +84,7 @@ public class TreeHoleServiceImpl implements TreeHoleService {
             throw new BusinessException(WishErrorCodes.WISH_CONSENT_REQUIRED,
                     "使用 AI 功能前需同意 AI 数据处理协议");
         }
-        ZoneId userZone = ZoneId.of(userStatService.getUserTimezone(userId));
+        ZoneId userZone = userStatService.economicBusinessZone();
         if (!aiRateLimiter.checkTreeHoleDailyLimit(userId, userZone)) {
             throw new BusinessException(WishErrorCodes.WISH_AI_RATE_LIMITED,
                     "今日树洞倾诉次数已达上限（" + aiProperties.getTreeHoleDailyLimit() + " 次/日）");

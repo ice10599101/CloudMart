@@ -73,7 +73,7 @@ public class DailySigninServiceImpl implements DailySigninService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DailySigninVO signin(Long userId) {
-        LocalDate today = LocalDate.now(ZoneId.of(userStatService.getUserTimezone(userId)));
+        LocalDate today = com.cloudmart.common.time.UserBusinessCalendar.today(userStatService.economicBusinessZone());
 
         // 预查快速失败；并发双击由 uk_signin_daily 唯一键兜底（409）
         Long existing = wishDailySigninMapper.selectCount(new LambdaQueryWrapper<WishDailySignin>()
@@ -118,7 +118,7 @@ public class DailySigninServiceImpl implements DailySigninService {
 
     @Override
     public List<SigninMilestoneVO> listMilestones(Long userId) {
-        LocalDate today = LocalDate.now(ZoneId.of(userStatService.getUserTimezone(userId)));
+        LocalDate today = com.cloudmart.common.time.UserBusinessCalendar.today(userStatService.economicBusinessZone());
         int consecutiveDays = wishDailySigninMapper.countConsecutiveDays(userId, today);
 
         Set<Integer> claimedDays = wishSigninMilestoneClaimMapper.selectList(
@@ -146,7 +146,7 @@ public class DailySigninServiceImpl implements DailySigninService {
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(WishErrorCodes.WISH_MILESTONE_INVALID, "里程碑天数非法"));
 
-        LocalDate today = LocalDate.now(ZoneId.of(userStatService.getUserTimezone(userId)));
+        LocalDate today = com.cloudmart.common.time.UserBusinessCalendar.today(userStatService.economicBusinessZone());
         int consecutiveDays = wishDailySigninMapper.countConsecutiveDays(userId, today);
         if (consecutiveDays < milestone.days()) {
             throw new BusinessException(WishErrorCodes.WISH_MILESTONE_NOT_REACHED,
@@ -216,10 +216,17 @@ public class DailySigninServiceImpl implements DailySigninService {
         Long totalDays = wishDailySigninMapper.selectCount(new LambdaQueryWrapper<WishDailySignin>()
                 .eq(WishDailySignin::getUserId, userId));
 
+        // WISH-01：业务日与下次重置绝对时间由服务端给出——前端不在本地判断"还能领"
+        java.time.ZoneId businessZone = userStatService.economicBusinessZone();
+        java.time.LocalDate businessToday = com.cloudmart.common.time.UserBusinessCalendar.today(businessZone);
+        java.time.Instant nextReset = com.cloudmart.common.time.UserBusinessCalendar
+                .businessDayStartUtc(businessToday.plusDays(1), businessZone);
         return new SigninCalendarVO(
                 signedDates,
                 computeCurrentStreak(userId),
-                totalDays == null ? 0 : totalDays.intValue());
+                totalDays == null ? 0 : totalDays.intValue(),
+                businessToday.toString(),
+                nextReset.toString());
     }
 
     /**
@@ -234,7 +241,7 @@ public class DailySigninServiceImpl implements DailySigninService {
         if (latest == null) {
             return 0;
         }
-        LocalDate today = LocalDate.now(ZoneId.of(userStatService.getUserTimezone(userId)));
+        LocalDate today = com.cloudmart.common.time.UserBusinessCalendar.today(userStatService.economicBusinessZone());
         LocalDate anchor = latest.getSigninDate();
         if (anchor.isBefore(today.minusDays(1))) {
             return 0;

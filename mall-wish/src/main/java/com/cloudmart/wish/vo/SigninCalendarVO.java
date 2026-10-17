@@ -15,5 +15,9 @@ import java.util.List;
 public record SigninCalendarVO(
         @Schema(description = "当月已签到日期（yyyy-MM-dd）") List<String> signedDates,
         @Schema(description = "截至当前连续签到天数") int consecutiveDays,
-        @Schema(description = "历史累计签到天数") int totalDays) {
+        @Schema(description = "历史累计签到天数") int totalDays,
+        @Schema(description = "WISH-01：服务端经济业务日（Asia/Shanghai 日界）——前端以此判定今日状态，不用本地日期")
+        String businessDate,
+        @Schema(description = "下次重置绝对时间（下一业务日 0 点 UTC ISO-8601），前端只展示不自行判断")
+        String nextResetAt) {
 }

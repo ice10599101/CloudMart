@@ -93,6 +93,10 @@ class DriftBottleServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        // WISH-01：经济业务区固定 Asia/Shanghai（不随用户上报时区变化）
+        org.mockito.Mockito.lenient()
+                .when(userStatService.economicBusinessZone())
+                .thenReturn(java.time.ZoneId.of("Asia/Shanghai"));
         driftBottleService = new DriftBottleServiceImpl(
                 bottleMapper, fishLogMapper, interactionMapper, commentMapper, wishMapper,
                 userStatService, encounterEventProducer, userFeignClient);

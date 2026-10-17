@@ -881,7 +881,7 @@ public class WishServiceImpl implements WishService {
 
     private CheckinResultVO doCheckin(Long userId, Long wishId, String content, String mood) {
         // 打卡日按用户时区计算（与每日签到一致）：硬编码 UTC 会导致东八区用户 0:00-7:59 打卡被记为前一天
-        LocalDate today = LocalDate.now(ZoneId.of(userStatService.getUserTimezone(userId)));
+        LocalDate today = com.cloudmart.common.time.UserBusinessCalendar.today(userStatService.economicBusinessZone());
         // uk_checkin_daily 幂等
         Long existing = wishCheckinMapper.selectCount(new LambdaQueryWrapper<WishCheckin>()
                 .eq(WishCheckin::getWishId, wishId)

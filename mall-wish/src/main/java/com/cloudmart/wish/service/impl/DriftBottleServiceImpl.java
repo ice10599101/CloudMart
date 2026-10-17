@@ -87,16 +87,12 @@ public class DriftBottleServiceImpl implements DriftBottleService {
     }
 
     /**
-     * P1-15：配额日界统一用户时区（与心愿打卡 getUserTimezone 同源）。
-     * 每日配额按"用户本地自然日"计数，用户的本地 0 点换算为 UTC 时间点后
-     * 与 thrown_at/picked_at（UTC 存储）比较；时区非法时回退 UTC（fail-open 到原口径）。
+     * WISH-01：配额日界固定经济业务区（Asia/Shanghai），不跟随用户上报时区——
+     * 业务日 0 点换算为 UTC 时间点后与 thrown_at/picked_at（UTC 存储）比较；
+     * 换设备/换时区/上报异常均不改变每日配额归属。
      */
     private ZoneId userZone(Long userId) {
-        try {
-            return ZoneId.of(userStatService.getUserTimezone(userId));
-        } catch (Exception e) {
-            return ZoneOffset.UTC;
-        }
+        return userStatService.economicBusinessZone();
     }
 
     /** 用户本地今日 0 点（换算为 UTC 存储口径的时间点） */
