@@ -85,6 +85,7 @@ class InventoryReservationLedgerTest {
         when(lock.isHeldByCurrentThread()).thenReturn(true);
 
         service = new InventoryServiceImpl(inventoryMapper, inventoryLogMapper, reservationMapper,
+                mock(com.cloudmart.inventory.repository.InventoryAdjustmentMapper.class),
                 null, redisTemplate,
                 mock(org.springframework.data.redis.core.script.DefaultRedisScript.class),
                 redissonClient, transactionTemplate);

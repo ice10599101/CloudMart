@@ -43,6 +43,7 @@ class InventoryServiceImplTest {
     private InventoryLogMapper inventoryLogMapper;
     private InventoryConverter inventoryConverter;
     private com.cloudmart.inventory.repository.InventoryReservationMapper reservationMapper;
+    private com.cloudmart.inventory.repository.InventoryAdjustmentMapper adjustmentMapper;
     private StringRedisTemplate redisTemplate;
     private DefaultRedisScript<Long> deductInventoryScript;
     private RedissonClient redissonClient;
@@ -71,9 +72,12 @@ class InventoryServiceImplTest {
         when(redissonClient.getLock(anyString())).thenReturn(rLock);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
+        adjustmentMapper = mock(com.cloudmart.inventory.repository.InventoryAdjustmentMapper.class);
+
         inventoryService = new InventoryServiceImpl(
                 inventoryMapper, inventoryLogMapper,
                 reservationMapper,
+                adjustmentMapper,
                 inventoryConverter,
                 redisTemplate, deductInventoryScript, redissonClient, transactionTemplate
         );
@@ -430,13 +434,175 @@ class InventoryServiceImplTest {
             when(inventoryMapper.selectOne(any())).thenReturn(inventory);
             when(valueOperations.get("inventory:product:" + SKU_ID)).thenReturn(null);
             when(inventoryConverter.toDTO(inventory)).thenReturn(
-                    new InventoryDTO(1L, PRODUCT_ID, SKU_ID, 100, 0)
+                    new InventoryDTO(1L, PRODUCT_ID, SKU_ID, 100, 0, null)
             );
 
             InventoryDTO result = inventoryService.getInventory(SKU_ID);
 
             assertThat(result.available()).isEqualTo(100);
             verify(valueOperations).set(eq("inventory:product:" + SKU_ID), eq("100"), any());
+        }
+    }
+
+    // ==================== TRADE-02：盘点调整单 ====================
+
+    private com.cloudmart.inventory.entity.InventoryAdjustment existingAdjustment(int delta) {
+        com.cloudmart.inventory.entity.InventoryAdjustment row =
+                new com.cloudmart.inventory.entity.InventoryAdjustment();
+        row.setId(9L);
+        row.setAdjustNo("ADJ2026101700001");
+        row.setSkuId(SKU_ID);
+        row.setProductId(7L);
+        row.setDelta(delta);
+        row.setReason("月度盘点");
+        row.setRequestKey("req-key-1");
+        row.setExpectedVersion(3);
+        row.setBeforeAvailable(100);
+        row.setAfterAvailable(100 + delta);
+        row.setBeforeReserved(5);
+        row.setAfterReserved(5);
+        row.setOperatorId(9001L);
+        return row;
+    }
+
+    private Inventory inventoryRow(int available, int reserved, int version) {
+        Inventory row = new Inventory();
+        row.setId(1L);
+        row.setSkuId(SKU_ID);
+        row.setProductId(7L);
+        row.setAvailable(available);
+        row.setReserved(reserved);
+        row.setVersion(version);
+        return row;
+    }
+
+    private com.cloudmart.inventory.dto.InventoryAdjustRequest adjustRequest(
+            int delta, int expectedVersion, String requestKey) {
+        return new com.cloudmart.inventory.dto.InventoryAdjustRequest(
+                SKU_ID, delta, "月度盘点", expectedVersion, requestKey);
+    }
+
+    @Nested
+    @DisplayName("TRADE-02 盘点调整单")
+    class AdjustStock {
+
+        @BeforeEach
+        void enableTransaction() {
+            when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+                org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+                return callback.doInTransaction(null);
+            });
+        }
+
+        @Test
+        @DisplayName("幂等：同 requestKey 同参返回原单，不重复入账")
+        void adjust_sameKeySameParams_returnsOriginal() {
+            when(adjustmentMapper.selectByRequestKey("req-key-1")).thenReturn(existingAdjustment(5));
+
+            var vo = inventoryService.adjustStock(adjustRequest(5, 3, "req-key-1"), 9001L);
+
+            assertThat(vo.adjustNo()).isEqualTo("ADJ2026101700001");
+            assertThat(vo.afterAvailable()).isEqualTo(105);
+            verify(adjustmentMapper, never()).casAdjust(any(), anyInt(), anyInt());
+            verify(adjustmentMapper, never()).insert(any(com.cloudmart.inventory.entity.InventoryAdjustment.class));
+        }
+
+        @Test
+        @DisplayName("幂等键被异参占用 → 显式拒绝（防误复用请求键）")
+        void adjust_sameKeyDifferentParams_rejected() {
+            when(adjustmentMapper.selectByRequestKey("req-key-1")).thenReturn(existingAdjustment(5));
+
+            assertThatThrownBy(() -> inventoryService.adjustStock(adjustRequest(-3, 3, "req-key-1"), 9001L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code")
+                    .isEqualTo("INVENTORY_REQUEST_KEY_CONFLICT");
+        }
+
+        @Test
+        @DisplayName("成功：CAS 按 expectedVersion 生效，调整单/流水/缓存齐备，前后值正确")
+        void adjust_success_recordsAll() {
+            when(adjustmentMapper.selectByRequestKey("req-key-1")).thenReturn(null);
+            // 第一次 selectOne：事务内读当前行（100/版本 3）；第二次：提交后缓存刷新读到新值 105
+            when(inventoryMapper.selectOne(any()))
+                    .thenReturn(inventoryRow(100, 5, 3))
+                    .thenReturn(inventoryRow(105, 5, 4));
+            when(adjustmentMapper.casAdjust(SKU_ID, 5, 3)).thenReturn(1);
+            when(adjustmentMapper.countByAdjustNoPrefix(anyString())).thenReturn(0L);
+            when(adjustmentMapper.selectCount(any())).thenReturn(0L);
+            when(adjustmentMapper.insert(any(com.cloudmart.inventory.entity.InventoryAdjustment.class))).thenReturn(1);
+            when(inventoryLogMapper.insert(any(InventoryLog.class))).thenReturn(1);
+
+            var vo = inventoryService.adjustStock(adjustRequest(5, 3, "req-key-1"), 9001L);
+
+            assertThat(vo.beforeAvailable()).isEqualTo(100);
+            assertThat(vo.afterAvailable()).isEqualTo(105);
+            assertThat(vo.beforeReserved()).isEqualTo(5);
+            assertThat(vo.afterReserved()).isEqualTo(5);
+            assertThat(vo.operatorId()).isEqualTo(9001L);
+            // 预占只读：缓存刷新为新可用值
+            verify(valueOperations).set(eq("inventory:product:" + SKU_ID), eq("105"), any());
+        }
+
+        @Test
+        @DisplayName("版本冲突：expectedVersion 过期 → 拒绝并提示当前版本")
+        void adjust_versionConflict_rejected() {
+            when(adjustmentMapper.selectByRequestKey("req-key-1")).thenReturn(null);
+            when(inventoryMapper.selectOne(any())).thenReturn(inventoryRow(100, 5, 7));
+
+            assertThatThrownBy(() -> inventoryService.adjustStock(adjustRequest(5, 3, "req-key-1"), 9001L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "INVENTORY_VERSION_CONFLICT")
+                    .hasMessageContaining("当前版本 7");
+            verify(adjustmentMapper, never()).casAdjust(any(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("负库存边界：调整后可用为负 → 拒绝")
+        void adjust_wouldGoNegative_rejected() {
+            when(adjustmentMapper.selectByRequestKey("req-key-1")).thenReturn(null);
+            when(inventoryMapper.selectOne(any())).thenReturn(inventoryRow(2, 5, 3));
+
+            assertThatThrownBy(() -> inventoryService.adjustStock(adjustRequest(-3, 3, "req-key-1"), 9001L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "INVENTORY_ADJUST_INVALID");
+        }
+
+        @Test
+        @DisplayName("未初始化 SKU → 提示先走初始化")
+        void adjust_notInitialized_rejected() {
+            when(adjustmentMapper.selectByRequestKey("req-key-1")).thenReturn(null);
+            when(inventoryMapper.selectOne(any())).thenReturn(null);
+
+            assertThatThrownBy(() -> inventoryService.adjustStock(adjustRequest(5, 0, "req-key-1"), 9001L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "INVENTORY_NOT_FOUND");
+        }
+
+        @Test
+        @DisplayName("缺操作人身份 → 显式拒绝（调整必须可追溯到人）")
+        void adjust_missingOperator_rejected() {
+            assertThatThrownBy(() -> inventoryService.adjustStock(adjustRequest(5, 3, "req-key-1"), null))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", "INVENTORY_OPERATOR_REQUIRED");
+        }
+
+        @Test
+        @DisplayName("缓存刷新失败：不回滚已提交事实，降级为失效（读路径重建）")
+        void adjust_cacheFailure_degradesToEvict() {
+            when(adjustmentMapper.selectByRequestKey("req-key-1")).thenReturn(null);
+            when(inventoryMapper.selectOne(any())).thenReturn(inventoryRow(100, 5, 3));
+            when(adjustmentMapper.casAdjust(SKU_ID, 5, 3)).thenReturn(1);
+            when(adjustmentMapper.countByAdjustNoPrefix(anyString())).thenReturn(0L);
+            when(adjustmentMapper.selectCount(any())).thenReturn(0L);
+            when(adjustmentMapper.insert(any(com.cloudmart.inventory.entity.InventoryAdjustment.class))).thenReturn(1);
+            when(inventoryLogMapper.insert(any(InventoryLog.class))).thenReturn(1);
+            // 缓存故障：从 opsForValue 入口抛出（覆盖 set 调用），降级路径走 redisTemplate.delete
+            when(redisTemplate.opsForValue()).thenThrow(new RuntimeException("redis down"));
+
+            var vo = inventoryService.adjustStock(adjustRequest(5, 3, "req-key-1"), 9001L);
+
+            assertThat(vo.afterAvailable()).isEqualTo(105);
+            verify(redisTemplate).delete("inventory:product:" + SKU_ID);
         }
     }
 }

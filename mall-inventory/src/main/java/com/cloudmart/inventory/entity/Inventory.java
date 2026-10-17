@@ -24,6 +24,9 @@ public class Inventory {
 
     private Integer reserved;
 
+    /** 乐观锁版本（TRADE-02 调整单 CAS 前置条件） */
+    private Integer version;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

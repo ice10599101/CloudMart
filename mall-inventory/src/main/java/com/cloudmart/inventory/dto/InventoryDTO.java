@@ -5,5 +5,6 @@ public record InventoryDTO(
     Long productId,
     Long skuId,
     Integer available,
-    Integer reserved
+    Integer reserved,
+    Integer version
 ) {}

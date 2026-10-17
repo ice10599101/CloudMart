@@ -1,5 +1,6 @@
 package com.cloudmart.admin.feign;
 
+import com.cloudmart.admin.dto.feign.InventoryAdjustmentDTO;
 import com.cloudmart.admin.dto.feign.InventoryDTO;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
@@ -30,6 +31,18 @@ public class InventoryFeignClientFallbackFactory implements FallbackFactory<Inve
 
             @Override
             public ApiResponse<Void> initStock(Long skuId, Long productId, Integer stock) {
+                throw FeignBusinessErrors.parse(cause, "INVENTORY_SERVICE_UNAVAILABLE", "库存服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<InventoryAdjustmentDTO> adjustStock(
+                    com.cloudmart.admin.dto.InventoryAdjustRequest request, Long operatorId) {
+                throw FeignBusinessErrors.parse(cause, "INVENTORY_SERVICE_UNAVAILABLE", "库存服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<java.util.List<InventoryAdjustmentDTO>> listAdjustments(
+                    Long skuId, Integer page, Integer pageSize) {
                 throw FeignBusinessErrors.parse(cause, "INVENTORY_SERVICE_UNAVAILABLE", "库存服务不可用，请稍后重试");
             }
         };

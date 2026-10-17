@@ -40,8 +40,8 @@ class InventoryControllerTest {
     @Test
     @DisplayName("查询库存 - 成功返回信封")
     void getInventory_ShouldReturnEnvelope() throws Exception {
-        InventoryDTO dto = new InventoryDTO(1L, 100L, 200L, 50, 10);
-        InventoryVO vo = new InventoryVO(1L, 100L, 200L, 50, 10, null);
+        InventoryDTO dto = new InventoryDTO(1L, 100L, 200L, 50, 10, null);
+        InventoryVO vo = new InventoryVO(1L, 100L, 200L, 50, 10, null, null);
 
         given(inventoryService.getInventory(200L)).willReturn(dto);
         given(inventoryConverter.dtoToVO(dto)).willReturn(vo);

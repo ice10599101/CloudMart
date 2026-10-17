@@ -45,6 +45,11 @@ public class ProductFeignClientFallbackFactory implements FallbackFactory<Produc
             public ApiResponse<CountResponse> getProductCount() {
                 throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
             }
+        
+            @Override
+            public ApiResponse<java.util.List<com.cloudmart.admin.dto.feign.SkuBatchDTO>> getSkusBatch(java.util.List<Long> ids) {
+                throw FeignBusinessErrors.parse(cause, "PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用，请稍后重试");
+            }
         };
     }
 }

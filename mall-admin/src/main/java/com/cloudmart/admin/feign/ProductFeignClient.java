@@ -3,6 +3,8 @@ package com.cloudmart.admin.feign;
 import com.cloudmart.admin.dto.feign.*;
 import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
+
+import java.util.List;
 import org.springframework.web.bind.annotation.*;
 
 @FeignClient(contextId = "productFeignClient", name = "mall-product", path = "/admin/products", fallbackFactory = ProductFeignClientFallbackFactory.class)
@@ -32,4 +34,8 @@ public interface ProductFeignClient {
 
     @GetMapping("/count")
     ApiResponse<CountResponse> getProductCount();
+
+    /** TRADE-02：按 SKU ID 批量取商品名/规格（库存列表补齐展示字段，单次调用避免 N+1） */
+    @GetMapping("/skus/batch")
+    ApiResponse<List<SkuBatchDTO>> getSkusBatch(@RequestParam("ids") List<Long> ids);
 }

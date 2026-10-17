@@ -46,6 +46,8 @@ import {
   deleteReview,
   getInventory,
   getInventoryDetail,
+  adjustInventory,
+  listInventoryAdjustments,
   initInventory,
   getPayments,
   getPaymentByOrder,
@@ -378,6 +380,28 @@ describe('admin business API - Inventory Management', () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
     await initInventory({ skuId: 1, quantity: 100 })
     expect(request.post).toHaveBeenCalledWith('/admin/business/inventory/init', { skuId: 1, quantity: 100 })
+  })
+
+  it('TRADE-02：adjustInventory() calls POST /admin/business/inventory/adjustments（幂等/CAS 契约）', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+    const payload = {
+      skuId: '9007199254740993',
+      delta: -3,
+      reason: '月度盘点盘亏',
+      expectedVersion: 4,
+      requestKey: 'adj-1',
+    }
+    await adjustInventory(payload)
+    // BASE-01：字符串 SKU ID 原样透传，不做数字转换
+    expect(request.post).toHaveBeenCalledWith('/admin/business/inventory/adjustments', payload)
+  })
+
+  it('TRADE-02：listInventoryAdjustments() calls GET /admin/business/inventory/adjustments', async () => {
+    vi.mocked(request.get).mockResolvedValue({ data: {} } as any)
+    await listInventoryAdjustments({ skuId: '7', page: 1, pageSize: 20 })
+    expect(request.get).toHaveBeenCalledWith('/admin/business/inventory/adjustments', {
+      params: { skuId: '7', page: 1, pageSize: 20 },
+    })
   })
 })
 

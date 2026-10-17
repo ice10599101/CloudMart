@@ -11,5 +11,6 @@ public record InventoryVO(
     @Schema(description = "SKU ID") Long skuId,
     @Schema(description = "可用库存") Integer availableStock,
     @Schema(description = "锁定库存") Integer lockedStock,
+    @Schema(description = "乐观锁版本（调整单 CAS 前置条件）") Integer version,
     @Schema(description = "更新时间") LocalDateTime updatedAt
 ) {}

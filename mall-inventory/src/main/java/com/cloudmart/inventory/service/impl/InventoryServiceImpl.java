@@ -43,6 +43,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final InventoryMapper inventoryMapper;
     private final InventoryLogMapper inventoryLogMapper;
     private final com.cloudmart.inventory.repository.InventoryReservationMapper reservationMapper;
+    private final com.cloudmart.inventory.repository.InventoryAdjustmentMapper adjustmentMapper;
     private final InventoryConverter inventoryConverter;
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> deductInventoryScript;
@@ -52,6 +53,7 @@ public class InventoryServiceImpl implements InventoryService {
     public InventoryServiceImpl(InventoryMapper inventoryMapper,
                                 InventoryLogMapper inventoryLogMapper,
                                 com.cloudmart.inventory.repository.InventoryReservationMapper reservationMapper,
+                                com.cloudmart.inventory.repository.InventoryAdjustmentMapper adjustmentMapper,
                                 InventoryConverter inventoryConverter,
                                 StringRedisTemplate redisTemplate,
                                 DefaultRedisScript<Long> deductInventoryScript,
@@ -60,6 +62,7 @@ public class InventoryServiceImpl implements InventoryService {
         this.inventoryMapper = inventoryMapper;
         this.inventoryLogMapper = inventoryLogMapper;
         this.reservationMapper = reservationMapper;
+        this.adjustmentMapper = adjustmentMapper;
         this.inventoryConverter = inventoryConverter;
         this.redisTemplate = redisTemplate;
         this.deductInventoryScript = deductInventoryScript;
@@ -500,5 +503,172 @@ public class InventoryServiceImpl implements InventoryService {
         }
         log.info("[T19] 收货入库完成 receiptId={} skuId={} quantity={}", receiptId, skuId, quantity);
         return java.util.Map.of("restocked", true, "receiptId", receiptId);
+    }
+
+    // ==================== TRADE-02：盘点调整单 ====================
+
+    @Override
+    public com.cloudmart.inventory.vo.InventoryAdjustmentVO adjustStock(
+            com.cloudmart.inventory.dto.InventoryAdjustRequest request, Long operatorId) {
+        if (operatorId == null) {
+            // 调整单必须可追溯到人：身份缺失显式拒绝，不允许匿名改库存
+            throw new BusinessException("INVENTORY_OPERATOR_REQUIRED", "缺少操作人身份，禁止调整库存");
+        }
+        if (request.delta() == 0) {
+            throw new BusinessException("INVENTORY_ADJUST_INVALID", "调整量不能为 0");
+        }
+
+        // 幂等：同 request_key 已有调整单——同参返回原单（不重复入账），异参拒绝
+        com.cloudmart.inventory.entity.InventoryAdjustment existing =
+                adjustmentMapper.selectByRequestKey(request.requestKey());
+        if (existing != null) {
+            boolean sameParams = existing.getSkuId().equals(request.skuId())
+                    && existing.getDelta().equals(request.delta())
+                    && existing.getReason().equals(request.reason());
+            if (!sameParams) {
+                throw new BusinessException("INVENTORY_REQUEST_KEY_CONFLICT",
+                        "幂等键已被不同参数的调整单占用，请更换 requestKey");
+            }
+            return toAdjustmentVO(existing);
+        }
+
+        // 事务：CAS 变更 + 调整单落库 + 流水（三者原子；失败全部回滚）
+        com.cloudmart.inventory.entity.InventoryAdjustment adjustment =
+                transactionTemplate.execute(status -> doAdjust(request, operatorId));
+
+        // DB 提交后刷新缓存；失败仅失效（读路径 getInventory 会从 DB 自动重建，缓存不是事实源）
+        refreshCacheQuietly(request.skuId());
+
+        log.info("[TRADE02] 库存调整完成 adjustNo={} skuId={} delta={} {}→{} operator={}",
+                adjustment.getAdjustNo(), request.skuId(), request.delta(),
+                adjustment.getBeforeAvailable(), adjustment.getAfterAvailable(), operatorId);
+        return toAdjustmentVO(adjustment);
+    }
+
+    private com.cloudmart.inventory.entity.InventoryAdjustment doAdjust(
+            com.cloudmart.inventory.dto.InventoryAdjustRequest request, Long operatorId) {
+        Inventory row = inventoryMapper.selectOne(
+                new LambdaQueryWrapper<Inventory>().eq(Inventory::getSkuId, request.skuId()));
+        if (row == null) {
+            throw new BusinessException("INVENTORY_NOT_FOUND",
+                    "该 SKU 尚未初始化库存，请先走库存初始化");
+        }
+        int expectedVersion = row.getVersion() == null ? 0 : row.getVersion();
+        if (expectedVersion != request.expectedVersion()) {
+            throw new BusinessException("INVENTORY_VERSION_CONFLICT",
+                    "库存已被其他操作变更（当前版本 " + expectedVersion + "，提交版本 "
+                            + request.expectedVersion() + "），请刷新后重试");
+        }
+        int beforeAvailable = row.getAvailable();
+        if (beforeAvailable + request.delta() < 0) {
+            throw new BusinessException("INVENTORY_ADJUST_INVALID",
+                    "调整后可用库存不能为负（当前可用 " + beforeAvailable + "，调整量 " + request.delta() + "）");
+        }
+
+        int updated = adjustmentMapper.casAdjust(request.skuId(), request.delta(), expectedVersion);
+        if (updated == 0) {
+            // 并发窗口内版本被抢走：与预检同样语义（版本冲突）
+            throw new BusinessException("INVENTORY_VERSION_CONFLICT",
+                    "库存已被其他操作变更，请刷新后重试");
+        }
+
+        String adjustNo = nextAdjustNo();
+        com.cloudmart.inventory.entity.InventoryAdjustment adjustment =
+                new com.cloudmart.inventory.entity.InventoryAdjustment();
+        adjustment.setAdjustNo(adjustNo);
+        adjustment.setSkuId(request.skuId());
+        adjustment.setProductId(row.getProductId());
+        adjustment.setDelta(request.delta());
+        adjustment.setReason(request.reason());
+        adjustment.setRequestKey(request.requestKey());
+        adjustment.setExpectedVersion(expectedVersion);
+        adjustment.setBeforeAvailable(beforeAvailable);
+        adjustment.setAfterAvailable(beforeAvailable + request.delta());
+        adjustment.setBeforeReserved(row.getReserved());
+        adjustment.setAfterReserved(row.getReserved());
+        adjustment.setOperatorId(operatorId);
+        try {
+            adjustmentMapper.insert(adjustment);
+        } catch (org.springframework.dao.DuplicateKeyException race) {
+            // 并发同 request_key：uk_request_key 兜底——返回既有单（同参幂等语义）
+            com.cloudmart.inventory.entity.InventoryAdjustment winner =
+                    adjustmentMapper.selectByRequestKey(request.requestKey());
+            if (winner != null) {
+                return winner;
+            }
+            throw new BusinessException("INVENTORY_REQUEST_KEY_CONFLICT", "幂等键冲突，请更换 requestKey");
+        }
+
+        InventoryLog logEntry = new InventoryLog();
+        logEntry.setSkuId(request.skuId());
+        logEntry.setType("ADJUST");
+        logEntry.setQuantity(request.delta());
+        logEntry.setOrderId(null);
+        try {
+            inventoryLogMapper.insert(logEntry);
+        } catch (org.springframework.dao.DuplicateKeyException ignored) {
+            // 流水无业务幂等键（receipt_id 为空），唯一键不会命中；保留吞异常与既有风格一致
+        }
+        return adjustment;
+    }
+
+    @Override
+    public com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.inventory.vo.InventoryAdjustmentVO>
+            listAdjustments(Long skuId, int page, int size) {
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.inventory.entity.InventoryAdjustment>
+                result = adjustmentMapper.selectPage(new Page<>(Math.max(page, 1), safeSize),
+                new LambdaQueryWrapper<com.cloudmart.inventory.entity.InventoryAdjustment>()
+                        .eq(skuId != null, com.cloudmart.inventory.entity.InventoryAdjustment::getSkuId, skuId)
+                        .orderByDesc(com.cloudmart.inventory.entity.InventoryAdjustment::getId));
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.inventory.vo.InventoryAdjustmentVO>
+                voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
+        voPage.setRecords(result.getRecords().stream().map(this::toAdjustmentVO).toList());
+        return voPage;
+    }
+
+    private com.cloudmart.inventory.vo.InventoryAdjustmentVO toAdjustmentVO(
+            com.cloudmart.inventory.entity.InventoryAdjustment adjustment) {
+        return new com.cloudmart.inventory.vo.InventoryAdjustmentVO(
+                adjustment.getAdjustNo(), adjustment.getSkuId(), adjustment.getProductId(),
+                adjustment.getDelta(), adjustment.getReason(), adjustment.getRequestKey(),
+                adjustment.getExpectedVersion(), adjustment.getBeforeAvailable(),
+                adjustment.getAfterAvailable(), adjustment.getBeforeReserved(),
+                adjustment.getAfterReserved(), adjustment.getOperatorId(), adjustment.getCreatedAt());
+    }
+
+    /** 调整单号：ADJ + yyyyMMdd + 5 位序号（当日计数；uk_adjust_no 兜底并发撞号重试一次） */
+    private String nextAdjustNo() {
+        String date = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        String prefix = "ADJ" + date;
+        long seq = adjustmentMapper.countByAdjustNoPrefix(prefix) + 1;
+        String candidate = prefix + String.format("%05d", seq);
+        if (adjustmentMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.inventory.entity.InventoryAdjustment>()
+                .eq(com.cloudmart.inventory.entity.InventoryAdjustment::getAdjustNo, candidate)) > 0) {
+            // 并发撞号：以时间毫秒尾数兜底，唯一键保证最终一致
+            candidate = prefix + String.format("%05d", seq)
+                    + String.format("%02d", System.nanoTime() % 100);
+        }
+        return candidate;
+    }
+
+    /** 缓存刷新：成功写入新值；任何异常降级为失效（下次读重建），绝不因缓存失败回滚已提交事实 */
+    private void refreshCacheQuietly(Long skuId) {
+        String key = INVENTORY_KEY_PREFIX + skuId;
+        try {
+            Inventory fresh = inventoryMapper.selectOne(
+                    new LambdaQueryWrapper<Inventory>().eq(Inventory::getSkuId, skuId));
+            if (fresh != null) {
+                redisTemplate.opsForValue().set(key, String.valueOf(fresh.getAvailable()), buildTtlWithJitter());
+            }
+        } catch (Exception cacheError) {
+            log.warn("[TRADE02] 调整后缓存刷新失败，降级为失效（读路径自动重建） skuId={}: {}",
+                    skuId, cacheError.getMessage());
+            try {
+                redisTemplate.delete(key);
+            } catch (Exception ignored) {
+                // 失效也失败：TTL 兜底过期
+            }
+        }
     }
 }

@@ -183,6 +183,44 @@ export function deleteReview(id: number | string) {
   return request.delete(`/admin/business/reviews/${id}`)
 }
 
+// ==================== 库存（TRADE-02 契约） ====================
+
+/**
+ * 库存行：availableStock（可售）+ lockedStock（预占）即全部事实——
+ * 不存在总库存/多仓/安全库存字段（WMS 仓库是履约位置，不是库存分域）。
+ * version 供盘点调整单乐观锁 CAS。
+ */
+export interface InventoryRow {
+  id: number | string
+  /** BASE-01：商品/SKU ID 保持字符串联合 */
+  productId: number | string
+  skuId: number | string
+  /** 批量补齐的商品名（商品服务不可用时为 null） */
+  productName: string | null
+  /** 批量补齐的 SKU 规格（attributes） */
+  skuSpec: string | null
+  availableStock: number
+  lockedStock: number
+  version: number
+  updatedAt: string
+}
+
+export interface InventoryAdjustment {
+  adjustNo: string
+  skuId: number | string
+  productId: number | string
+  delta: number
+  reason: string
+  requestKey: string
+  expectedVersion: number
+  beforeAvailable: number
+  afterAvailable: number
+  beforeReserved: number
+  /** BASE-01：操作管理员 ID 字符串联合 */
+  operatorId: number | string
+  createdAt: string
+}
+
 export function getInventory(params?: Record<string, any>) {
   return request.get('/admin/business/inventory', { params })
 }
@@ -193,6 +231,24 @@ export function getInventoryDetail(skuId: number | string) {
 
 export function initInventory(data: Record<string, any>) {
   return request.post('/admin/business/inventory/init', data)
+}
+
+/**
+ * 提交盘点调整单（TRADE-02）：库存唯一受控变更入口——delta 非 0、
+ * 原因必填、乐观锁版本 CAS（冲突 409 需刷新重试）、requestKey 幂等。
+ */
+export function adjustInventory(data: {
+  skuId: number | string
+  delta: number
+  reason: string
+  expectedVersion: number
+  requestKey: string
+}) {
+  return request.post('/admin/business/inventory/adjustments', data)
+}
+
+export function listInventoryAdjustments(params?: Record<string, any>) {
+  return request.get('/admin/business/inventory/adjustments', { params })
 }
 
 export function getPayments(params?: Record<string, any>) {
