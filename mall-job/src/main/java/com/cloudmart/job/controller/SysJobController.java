@@ -1,119 +1,69 @@
 package com.cloudmart.job.controller;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.cloudmart.common.annotation.OperLog;
 import com.cloudmart.common.annotation.RequiresPermission;
 import com.cloudmart.common.api.ApiResponse;
-import com.cloudmart.job.dto.SysJobLogResponse;
-import com.cloudmart.job.dto.SysJobRequest;
-import com.cloudmart.job.dto.SysJobResponse;
-import com.cloudmart.job.service.SysJobService;
+import com.cloudmart.job.service.impl.XxlJobAdapterService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
+/**
+ * OPS-01：任务管理适配层——展示 XXL-JOB 实际配置与执行日志（只读事实），
+ * 手动运行走白名单 handler。生命周期（新建/编辑/启停/Cron）一律走 XXL
+ * 调度中心控制台，本服务不再维护第二套 Cron 注册表。
+ */
 @RestController
-@Tag(name = "定时任务", description = "定时任务管理与执行日志")
+@RequestMapping("/job")
+@Tag(name = "定时任务(XXL 适配)", description = "OPS-01：XXL-JOB 事实只读适配 + 白名单手动运行")
 public class SysJobController {
 
-    private final SysJobService sysJobService;
+    private final XxlJobAdapterService adapterService;
 
-    public SysJobController(SysJobService sysJobService) {
-        this.sysJobService = sysJobService;
+    public SysJobController(XxlJobAdapterService adapterService) {
+        this.adapterService = adapterService;
     }
 
     @GetMapping("/list")
     @RequiresPermission("monitor:job:list")
-    @Operation(summary = "任务列表", description = "分页查询定时任务")
-    public ApiResponse<IPage<SysJobResponse>> list(
+    @Operation(summary = "任务列表", description = "XXL 事实：handler/Cron/启停状态/负责人（只读适配）")
+    public ApiResponse<Map<String, Object>> list(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer pageSize,
-            @RequestParam(required = false) String jobName,
-            @RequestParam(required = false) Integer status) {
-        IPage<SysJobResponse> result = sysJobService.page(page, pageSize, jobName, status);
-        return ApiResponse.ok(result, new ApiResponse.Meta(page, pageSize, result.getTotal()));
+            @RequestParam(required = false) String jobName) {
+        return ApiResponse.ok(adapterService.page(page, pageSize, jobName));
     }
 
     @GetMapping("/{id}")
-    @RequiresPermission("monitor:job:query")
-    @Operation(summary = "任务详情", description = "查询定时任务详情")
-    public ApiResponse<SysJobResponse> getInfo(@PathVariable Long id) {
-        return ApiResponse.ok(sysJobService.getById(id));
+    @RequiresPermission("monitor:job:list")
+    @Operation(summary = "任务详情")
+    public ApiResponse<Map<String, Object>> getById(@PathVariable long id) {
+        return ApiResponse.ok(adapterService.getById(id));
     }
 
-    @PostMapping
-    @RequiresPermission("monitor:job:add")
-    @OperLog(title = "定时任务", businessType = 1)
-    @Operation(summary = "新增任务", description = "创建定时任务")
-    public ApiResponse<Long> add(@Valid @RequestBody SysJobRequest request) {
-        return ApiResponse.ok(sysJobService.create(request));
-    }
-
-    @PutMapping("/{id}")
-    @RequiresPermission("monitor:job:edit")
+    @PostMapping("/{id}/run")
     @OperLog(title = "定时任务", businessType = 2)
-    @Operation(summary = "修改任务", description = "更新定时任务")
-    public ApiResponse<Void> edit(@PathVariable Long id, @Valid @RequestBody SysJobRequest request) {
-        sysJobService.update(id, request);
-        return ApiResponse.ok(null);
-    }
-
-    @DeleteMapping("/{id}")
-    @RequiresPermission("monitor:job:remove")
-    @OperLog(title = "定时任务", businessType = 3)
-    @Operation(summary = "删除任务", description = "删除定时任务")
-    public ApiResponse<Void> remove(@PathVariable Long id) {
-        sysJobService.delete(id);
-        return ApiResponse.ok(null);
-    }
-
-    @PutMapping("/{id}/status")
-    @RequiresPermission("monitor:job:changeStatus")
-    @OperLog(title = "定时任务", businessType = 2)
-    @Operation(summary = "切换状态", description = "暂停/恢复定时任务")
-    public ApiResponse<Void> changeStatus(@PathVariable Long id, @RequestBody Map<String, Integer> body) {
-        sysJobService.changeStatus(id, body.get("status"));
-        return ApiResponse.ok(null);
-    }
-
-    @PutMapping("/{id}/run")
-    @RequiresPermission("monitor:job:changeStatus")
-    @OperLog(title = "定时任务", businessType = 0)
-    @Operation(summary = "立即执行", description = "立即执行一次定时任务")
-    public ApiResponse<Void> run(@PathVariable Long id) {
-        sysJobService.runOnce(id);
+    @RequiresPermission("monitor:job:run")
+    @Operation(summary = "手动运行", description = "白名单 handler 直接执行（与计划触发同一业务动作与幂等事实）")
+    public ApiResponse<Void> runOnce(@PathVariable long id) {
+        adapterService.runOnce(id);
         return ApiResponse.ok(null);
     }
 
     @GetMapping("/log/page")
     @RequiresPermission("monitor:job:list")
-    @Operation(summary = "任务日志", description = "分页查询任务执行日志")
-    public ApiResponse<IPage<SysJobLogResponse>> pageJobLogs(
-            @RequestParam(required = false) Long jobId,
+    @Operation(summary = "执行日志", description = "XXL 事实：触发/执行结果码与消息（handle_code 200=成功）")
+    public ApiResponse<Map<String, Object>> pageLogs(
+            @RequestParam long jobId,
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer pageSize) {
-        IPage<SysJobLogResponse> result = sysJobService.pageJobLogs(jobId, page, pageSize);
-        return ApiResponse.ok(result, new ApiResponse.Meta(page, pageSize, result.getTotal()));
-    }
-
-    @DeleteMapping("/log/{id}")
-    @RequiresPermission("monitor:job:remove")
-    @OperLog(title = "任务日志", businessType = 3)
-    @Operation(summary = "删除日志", description = "删除任务执行日志")
-    public ApiResponse<Void> deleteLog(@PathVariable Long id) {
-        sysJobService.deleteJobLog(id);
-        return ApiResponse.ok(null);
-    }
-
-    @DeleteMapping("/log/clean")
-    @RequiresPermission("monitor:job:remove")
-    @OperLog(title = "任务日志", businessType = 3)
-    @Operation(summary = "清空日志", description = "清空所有任务执行日志")
-    public ApiResponse<Void> cleanLog() {
-        sysJobService.cleanJobLogs();
-        return ApiResponse.ok(null);
+        return ApiResponse.ok(adapterService.pageLogs(jobId, page, pageSize));
     }
 }

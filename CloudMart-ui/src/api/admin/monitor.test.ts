@@ -8,10 +8,6 @@ import request from '@/utils/request'
 import {
   getJobs,
   getJob,
-  createJob,
-  updateJob,
-  deleteJob,
-  changeJobStatus,
   runJob,
   getJobLogs,
   deleteJobLog,
@@ -37,34 +33,10 @@ describe('admin monitor API - Job Management', () => {
     expect(request.get).toHaveBeenCalledWith('/job/1')
   })
 
-  it('createJob() calls POST /job', async () => {
+  it('runJob() calls POST /job/:id/run', async () => {
     vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-    await createJob({ name: 'CleanupJob' })
-    expect(request.post).toHaveBeenCalledWith('/job', { name: 'CleanupJob' })
-  })
-
-  it('updateJob() calls PUT /job/:id', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await updateJob(1, { name: 'UpdatedJob' })
-    expect(request.put).toHaveBeenCalledWith('/job/1', { name: 'UpdatedJob' })
-  })
-
-  it('deleteJob() calls DELETE /job/:id', async () => {
-    vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
-    await deleteJob(1)
-    expect(request.delete).toHaveBeenCalledWith('/job/1')
-  })
-
-  it('changeJobStatus() calls PUT /job/:id/status', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-    await changeJobStatus(1, { status: 1 })
-    expect(request.put).toHaveBeenCalledWith('/job/1/status', { status: 1 })
-  })
-
-  it('runJob() calls PUT /job/:id/run', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
     await runJob(1)
-    expect(request.put).toHaveBeenCalledWith('/job/1/run')
+    expect(request.post).toHaveBeenCalledWith('/job/1/run')
   })
 })
 

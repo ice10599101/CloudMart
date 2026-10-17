@@ -42,12 +42,14 @@ public class BusinessJobHandler {
     public void orderAutoConfirmHandler() {
         log.info("开始执行订单自动收货...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-order/internal/orders/auto-confirm-receipts?days=7")
                     .header(ServiceTokenCodec.HEADER_NAME,
                             serviceTokenProvider.sign("mall-order", "order:internal"))
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-order/internal/orders/auto-confirm-receipts?days=7");
             log.info("订单自动收货完成");
         } catch (Exception e) {
             log.error("订单自动收货失败: {}", e.getMessage());
@@ -64,12 +66,14 @@ public class BusinessJobHandler {
     public void groupExpirationHandler() {
         log.info("XXL-JOB: 开始执行拼团超时处理...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-marketing/internal/marketing/group/expiration")
                     .header(ServiceTokenCodec.HEADER_NAME,
                             serviceTokenProvider.sign("mall-marketing", "marketing:internal"))
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-marketing/internal/marketing/group/expiration");
             log.info("XXL-JOB: 拼团超时处理完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 拼团超时处理失败: {}", e.getMessage());
@@ -86,12 +90,14 @@ public class BusinessJobHandler {
     public void orderTimeoutCancelHandler() {
         log.info("XXL-JOB: 开始执行订单超时取消兜底扫描...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-order/internal/orders/timeout-scan?timeoutMinutes=15&batchSize=200")
                     .header(ServiceTokenCodec.HEADER_NAME,
                             serviceTokenProvider.sign("mall-order", "order:internal"))
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-order/internal/orders/timeout-scan?timeoutMinutes=15&batchSize=200");
             log.info("XXL-JOB: 订单超时取消兜底扫描完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 订单超时取消兜底扫描失败: {}", e.getMessage());
@@ -106,12 +112,14 @@ public class BusinessJobHandler {
     public void couponExpirationHandler() {
         log.info("XXL-JOB: 开始执行优惠券过期处理...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-coupon/internal/coupons/expire-batch")
                     .header(ServiceTokenCodec.HEADER_NAME,
                             serviceTokenProvider.sign("mall-coupon", "coupon:jobs"))
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-coupon/internal/coupons/expire-batch");
             log.info("XXL-JOB: 优惠券过期处理完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 优惠券过期处理失败: {}", e.getMessage());
@@ -131,12 +139,14 @@ public class BusinessJobHandler {
     public void treeMoodScanHandler() {
         log.info("XXL-JOB: 开始执行生命树情绪环境扫描...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/tree-env/scan")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/tree-env/scan");
             log.info("XXL-JOB: 生命树情绪环境扫描完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 生命树情绪环境扫描失败: {}", e.getMessage());
@@ -155,12 +165,14 @@ public class BusinessJobHandler {
     public void wishOverdueScanHandler() {
         log.info("XXL-JOB: 开始执行心愿 OVERDUE 扫描...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/overdue-scan")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/overdue-scan");
             log.info("XXL-JOB: 心愿 OVERDUE 扫描完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 心愿 OVERDUE 扫描失败: {}", e.getMessage());
@@ -177,12 +189,14 @@ public class BusinessJobHandler {
     public void homeHotCacheRefreshHandler() {
         log.info("XXL-JOB: 开始刷新热门推荐缓存...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/hot-cache-refresh")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/hot-cache-refresh");
             log.info("XXL-JOB: 热门推荐缓存刷新完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 热门推荐缓存刷新失败: {}", e.getMessage());
@@ -202,12 +216,14 @@ public class BusinessJobHandler {
     public void seasonScanHandler() {
         log.info("XXL-JOB: 开始执行生命树季节落库扫描...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/tree-env/season-scan")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/tree-env/season-scan");
             log.info("XXL-JOB: 生命树季节落库扫描完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 生命树季节落库扫描失败: {}", e.getMessage());
@@ -224,12 +240,14 @@ public class BusinessJobHandler {
     public void badgeCompensationScanHandler() {
         log.info("XXL-JOB: 开始执行徽章漏发补偿扫描...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/badge-compensation-scan")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/badge-compensation-scan");
             log.info("XXL-JOB: 徽章漏发补偿扫描完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 徽章漏发补偿扫描失败: {}", e.getMessage());
@@ -250,12 +268,14 @@ public class BusinessJobHandler {
     public void capsuleOpenScanHandler() {
         log.info("XXL-JOB: 开始执行时间胶囊到期扫描...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/capsule-open-scan")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/capsule-open-scan");
             log.info("XXL-JOB: 时间胶囊到期扫描完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 时间胶囊到期扫描失败: {}", e.getMessage());
@@ -276,12 +296,14 @@ public class BusinessJobHandler {
     public void aiReminderScanHandler() {
         log.info("XXL-JOB: 开始执行 AI 陪伴提醒扫描...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/ai-reminder-scan")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/ai-reminder-scan");
             log.info("XXL-JOB: AI 陪伴提醒扫描完成");
         } catch (Exception e) {
             log.error("XXL-JOB: AI 陪伴提醒扫描失败: {}", e.getMessage());
@@ -297,12 +319,14 @@ public class BusinessJobHandler {
     public void leaderboardRefreshHandler() {
         log.info("XXL-JOB: 开始执行排行榜刷新...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/leaderboard-refresh")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/leaderboard-refresh");
             log.info("XXL-JOB: 排行榜刷新完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 排行榜刷新失败: {}", e.getMessage());
@@ -318,12 +342,14 @@ public class BusinessJobHandler {
     public void encounterMatchHandler() {
         log.info("XXL-JOB: 开始执行擦肩而过匹配...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/encounter-match")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/encounter-match");
             log.info("XXL-JOB: 擦肩而过匹配完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 擦肩而过匹配失败: {}", e.getMessage());
@@ -339,12 +365,14 @@ public class BusinessJobHandler {
     public void traceCleanupHandler() {
         log.info("XXL-JOB: 开始执行轨迹清理...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/trace-cleanup")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/trace-cleanup");
             log.info("XXL-JOB: 轨迹清理完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 轨迹清理失败: {}", e.getMessage());
@@ -359,12 +387,14 @@ public class BusinessJobHandler {
     public void starlightDecayHandler() {
         log.info("XXL-JOB: 开始执行星光衰减...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/starlight-decay")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/starlight-decay");
             log.info("XXL-JOB: 星光衰减完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 星光衰减失败: {}", e.getMessage());
@@ -379,12 +409,14 @@ public class BusinessJobHandler {
     public void starlightReconcileHandler() {
         log.info("XXL-JOB: 开始执行星光对账...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/starlight-reconcile")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/starlight-reconcile");
             log.info("XXL-JOB: 星光对账完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 星光对账失败: {}", e.getMessage());
@@ -399,12 +431,14 @@ public class BusinessJobHandler {
     public void levelUpgradeHandler() {
         log.info("XXL-JOB: 开始执行等级升级扫描...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/level-upgrade")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/level-upgrade");
             log.info("XXL-JOB: 等级升级扫描完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 等级升级扫描失败: {}", e.getMessage());
@@ -419,12 +453,14 @@ public class BusinessJobHandler {
     public void restrictionReleaseHandler() {
         log.info("XXL-JOB: 开始执行限制解除...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/restriction-release")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/restriction-release");
             log.info("XXL-JOB: 限制解除完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 限制解除失败: {}", e.getMessage());
@@ -439,12 +475,14 @@ public class BusinessJobHandler {
     public void riskScoreDecayHandler() {
         log.info("XXL-JOB: 开始执行风控分衰减...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/risk-score-decay")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/risk-score-decay");
             log.info("XXL-JOB: 风控分衰减完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 风控分衰减失败: {}", e.getMessage());
@@ -459,12 +497,14 @@ public class BusinessJobHandler {
     public void inactiveArchiveHandler() {
         log.info("XXL-JOB: 开始执行不活跃归档...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/inactive-archive")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/inactive-archive");
             log.info("XXL-JOB: 不活跃归档完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 不活跃归档失败: {}", e.getMessage());
@@ -479,12 +519,14 @@ public class BusinessJobHandler {
     public void dataExportPurgeHandler() {
         log.info("XXL-JOB: 开始执行数据导出过期清理...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/data-export-purge")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/data-export-purge");
             log.info("XXL-JOB: 数据导出过期清理完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 数据导出过期清理失败: {}", e.getMessage());
@@ -499,12 +541,14 @@ public class BusinessJobHandler {
     public void accountDeletionScanHandler() {
         log.info("XXL-JOB: 开始执行注销到期执行...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/account-deletion-scan")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/account-deletion-scan");
             log.info("XXL-JOB: 注销到期执行完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 注销到期执行失败: {}", e.getMessage());
@@ -519,12 +563,14 @@ public class BusinessJobHandler {
     public void activityRewardCheckHandler() {
         log.info("XXL-JOB: 开始执行活动达标自动发奖扫描...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/activity-reward-check")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/activity-reward-check");
             log.info("XXL-JOB: 活动达标自动发奖扫描完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 活动达标自动发奖扫描失败: {}", e.getMessage());
@@ -536,16 +582,29 @@ public class BusinessJobHandler {
     public void brandRewardCheckHandler() {
         log.info("XXL-JOB: 开始执行品牌池达标发奖...");
         try {
-            restClient.post()
+            Map<String, Object> envelope = restClient.post()
                     .uri("http://mall-wish/internal/jobs/brand-reward-check")
                     .header("X-Internal-Call", "true")
                     .header("X-Service-Token", wishServiceTokenProvider.token())
                     .retrieve()
                     .body(Map.class);
+            // OPS-01：核验业务信封——HTTP 状态由 RestClient 异常传播，success=false 显式失败（不"日志 error、页面成功"）
+            requireSuccess(envelope, "http://mall-wish/internal/jobs/brand-reward-check");
             log.info("XXL-JOB: 品牌池达标发奖完成");
         } catch (Exception e) {
             log.error("XXL-JOB: 品牌池达标发奖失败: {}", e.getMessage());
             throw new RuntimeException("品牌池达标发奖失败", e);
+        }
+    }
+
+    /**
+     * OPS-01：统一业务信封核验——success=false 显式抛异常向 XXL 传播失败
+     * （原实现只解析 Map 不核验，业务失败显示为成功）。
+     */
+    private void requireSuccess(Map<String, Object> envelope, String uri) {
+        if (envelope != null && Boolean.FALSE.equals(envelope.get("success"))) {
+            throw new IllegalStateException("下游业务失败(success=false): " + uri
+                    + " -> " + envelope.get("error"));
         }
     }
 }

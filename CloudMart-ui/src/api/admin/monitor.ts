@@ -1,5 +1,7 @@
 import request from '@/utils/request'
 
+// OPS-01：调度唯一事实来源是 XXL-JOB——任务生命周期（新建/编辑/启停/Cron）
+// 走 XXL 调度中心控制台；本服务接口只做只读适配 + 白名单手动运行。
 export function getJobs(params?: Record<string, any>) {
   return request.get('/job/list', { params })
 }
@@ -8,24 +10,8 @@ export function getJob(id: number | string) {
   return request.get(`/job/${id}`)
 }
 
-export function createJob(data: Record<string, any>) {
-  return request.post('/job', data)
-}
-
-export function updateJob(id: number | string, data: Record<string, any>) {
-  return request.put(`/job/${id}`, data)
-}
-
-export function deleteJob(id: number | string) {
-  return request.delete(`/job/${id}`)
-}
-
-export function changeJobStatus(id: number | string, data: Record<string, any>) {
-  return request.put(`/job/${id}/status`, data)
-}
-
 export function runJob(id: number | string) {
-  return request.put(`/job/${id}/run`)
+  return request.post(`/job/${id}/run`)
 }
 
 export function getJobLogs(params?: Record<string, any>) {

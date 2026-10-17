@@ -1,12 +1,7 @@
 package com.cloudmart.job.controller;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.cloudmart.common.handler.GlobalExceptionHandler;
-import com.cloudmart.job.dto.SysJobLogResponse;
-import com.cloudmart.job.dto.SysJobRequest;
-import com.cloudmart.job.dto.SysJobResponse;
-import com.cloudmart.job.service.SysJobService;
+import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.job.service.impl.XxlJobAdapterService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,171 +10,72 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * OPS-01：适配层契约——只读 XXL 事实（list/详情/日志）+ 白名单手动运行；
+ * 本地调度的写接口（新建/编辑/启停/删除）已退役。
+ */
 class SysJobControllerTest {
 
+    private XxlJobAdapterService adapterService;
     private MockMvc mockMvc;
-
-    private final SysJobService sysJobService = Mockito.mock(SysJobService.class);
-
-    private static final LocalDateTime FIXED_TIME = LocalDateTime.of(2026, 5, 29, 10, 0);
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new SysJobController(sysJobService))
-                .setControllerAdvice(new GlobalExceptionHandler())
+        adapterService = Mockito.mock(XxlJobAdapterService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new SysJobController(adapterService))
+                .setControllerAdvice(new com.cloudmart.common.handler.GlobalExceptionHandler())
                 .build();
     }
 
     @Test
-    @DisplayName("任务列表 - 成功返回分页信封")
-    void list_ShouldReturnPagedEnvelope() throws Exception {
-        SysJobResponse response = new SysJobResponse(1L, "清理日志", "DEFAULT",
-                "cleanLog", "0 0 2 * * ?", 1, 0, 0, "每日清理", FIXED_TIME, FIXED_TIME);
-        Page<SysJobResponse> page = new Page<>(1, 20, 1L);
-        page.setRecords(List.of(response));
-
-        given(sysJobService.page(1, 20, null, null)).willReturn(page);
-
-        mockMvc.perform(get("/list"))
+    @DisplayName("GET /job/list 返回 XXL 事实分页")
+    void list_ok() throws Exception {
+        given(adapterService.page(anyInt(), anyInt(), any()))
+                .willReturn(Map.of("records", List.of(Map.of("id", 1, "executorHandler", "orderTimeoutCancelHandler")),
+                        "total", 1));
+        mockMvc.perform(get("/job/list"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.records").isArray())
-                .andExpect(jsonPath("$.data.records[0].id").value(1))
-                .andExpect(jsonPath("$.data.records[0].jobName").value("清理日志"))
-                .andExpect(jsonPath("$.meta.page").value(1))
-                .andExpect(jsonPath("$.meta.pageSize").value(20))
-                .andExpect(jsonPath("$.meta.total").value(1));
+                .andExpect(jsonPath("$.data.records[0].executorHandler").value("orderTimeoutCancelHandler"));
     }
 
     @Test
-    @DisplayName("任务详情 - 成功返回信封")
-    void getInfo_ShouldReturnEnvelope() throws Exception {
-        SysJobResponse response = new SysJobResponse(1L, "清理日志", "DEFAULT",
-                "cleanLog", "0 0 2 * * ?", 1, 0, 0, "每日清理", FIXED_TIME, FIXED_TIME);
-
-        given(sysJobService.getById(1L)).willReturn(response);
-
-        mockMvc.perform(get("/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.jobName").value("清理日志"));
+    @DisplayName("POST /job/{id}/run 白名单手动运行")
+    void run_ok() throws Exception {
+        mockMvc.perform(post("/job/1/run").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+        verify(adapterService).runOnce(1L);
     }
 
     @Test
-    @DisplayName("新增任务 - 成功返回信封")
-    void add_ShouldReturnEnvelope() throws Exception {
-        given(sysJobService.create(Mockito.any(SysJobRequest.class))).willReturn(1L);
-
-        mockMvc.perform(post("")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"jobName\":\"清理日志\",\"jobGroup\":\"DEFAULT\",\"invokeTarget\":\"cleanLog\",\"cronExpression\":\"0 0 2 * * ?\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data").value(1));
-    }
-
-    @Test
-    @DisplayName("新增任务 - 缺少必填字段返回校验错误")
-    void add_WhenMissingRequiredField_ShouldReturnValidationError() throws Exception {
-        mockMvc.perform(post("")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+    @DisplayName("runOnce 空 handler 任务拒绝（JOB_HANDLER_EMPTY，400 业务信封）")
+    void run_empty_handler_rejected() throws Exception {
+        doThrow(new BusinessException("JOB_HANDLER_EMPTY", "任务未配置 executor_handler"))
+                .when(adapterService).runOnce(19L);
+        mockMvc.perform(post("/job/19/run").contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+                .andExpect(jsonPath("$.error.code").value("JOB_HANDLER_EMPTY"));
     }
 
     @Test
-    @DisplayName("修改任务 - 成功返回信封")
-    void edit_ShouldReturnEnvelope() throws Exception {
-        mockMvc.perform(put("/1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"jobName\":\"清理日志-更新\",\"jobGroup\":\"DEFAULT\",\"invokeTarget\":\"cleanLog\",\"cronExpression\":\"0 0 3 * * ?\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-
-        verify(sysJobService).update(Mockito.eq(1L), Mockito.any(SysJobRequest.class));
-    }
-
-    @Test
-    @DisplayName("删除任务 - 成功返回信封")
-    void remove_ShouldReturnEnvelope() throws Exception {
-        mockMvc.perform(delete("/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-
-        verify(sysJobService).delete(1L);
-    }
-
-    @Test
-    @DisplayName("切换状态 - 成功返回信封")
-    void changeStatus_ShouldReturnEnvelope() throws Exception {
-        mockMvc.perform(put("/1/status")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":1}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-
-        verify(sysJobService).changeStatus(1L, 1);
-    }
-
-    @Test
-    @DisplayName("立即执行 - 成功返回信封")
-    void run_ShouldReturnEnvelope() throws Exception {
-        mockMvc.perform(put("/1/run"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-
-        verify(sysJobService).runOnce(1L);
-    }
-
-    @Test
-    @DisplayName("任务日志分页 - 成功返回分页信封")
-    void pageJobLogs_ShouldReturnPagedEnvelope() throws Exception {
-        SysJobLogResponse logResponse = new SysJobLogResponse(1L, 1L, "清理日志", "DEFAULT",
-                "cleanLog", "0 0 2 * * ?", "执行成功", 1, null, FIXED_TIME, FIXED_TIME, "100ms");
-        Page<SysJobLogResponse> page = new Page<>(1, 20, 1L);
-        page.setRecords(List.of(logResponse));
-
-        given(sysJobService.pageJobLogs(null, 1, 20)).willReturn(page);
-
-        mockMvc.perform(get("/log/page"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.records").isArray())
-                .andExpect(jsonPath("$.meta.page").value(1));
-    }
-
-    @Test
-    @DisplayName("删除日志 - 成功返回信封")
-    void deleteLog_ShouldReturnEnvelope() throws Exception {
-        mockMvc.perform(delete("/log/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-
-        verify(sysJobService).deleteJobLog(1L);
-    }
-
-    @Test
-    @DisplayName("清空日志 - 成功返回信封")
-    void cleanLog_ShouldReturnEnvelope() throws Exception {
-        mockMvc.perform(delete("/log/clean"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true));
-
-        verify(sysJobService).cleanJobLogs();
+    @DisplayName("本地调度写接口已退役（POST /job 不再映射业务写入）")
+    void create_retired() throws Exception {
+        int status = mockMvc.perform(post("/job").contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andReturn().getResponse().getStatus();
+        org.assertj.core.api.Assertions.assertThat(status).isGreaterThanOrEqualTo(400);
     }
 }
