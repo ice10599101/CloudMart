@@ -1,13 +1,13 @@
 import type { ConfigDef } from './types'
 
 /**
- * R20 币种口径（与后端结算链路对齐，字段名 priceCoins/costCoins 为历史兼容名）：
- * 售价/进化/晋升消耗走 PetEconomyService.spend —— 钱包 PET 模式扣宠物币 PET_COIN，
- * LEGACY 模式扣社区星光 STARLIGHT，商城返回 currency 字段标明当前币种。
+ * PET-04 币种口径（与后端结算链路对齐）：PET_COIN 独立钱包为唯一正账本，
+ * 售价/消耗统一走 PetEconomyService.spend 扣宠物币；字段名 priceCoins/costCoins
+ * 为历史兼容名，实际币种以服务端结算为准（接口返回 currency）。
  */
-export const CURRENCY_TIP = '按当前钱包模式结算：PET 模式=宠物币 PET_COIN，LEGACY 模式=社区星光（商城接口返回 currency）'
-/** 奖励类 currencyReward/rewardCoins 经 earnStarlight 发放社区星光 STARLIGHT（非宠物币） */
-export const STARLIGHT_REWARD_TIP = '奖励发放社区星光 STARLIGHT（经心愿域 earnStarlight 幂等入账）'
+export const CURRENCY_TIP = '宠物币 PET_COIN 结算（字段名 priceCoins 为历史兼容名，实际币种以服务端 currency 为准）'
+/** 奖励类 currencyReward/rewardCoins 经 PetEconomyService.earn 幂等入宠物币钱包 */
+export const STARLIGHT_REWARD_TIP = '奖励入宠物币 PET_COIN 钱包（经宠物经济服务幂等入账）'
 
 export const CONFIGS: ConfigDef[] = [
   {
@@ -20,7 +20,7 @@ export const CONFIGS: ConfigDef[] = [
       { name: 'energyCost', label: '精力消耗', type: 'number' },
       { name: 'hungerCost', label: '饥饿消耗', type: 'number' },
       { name: 'expReward', label: '经验奖励', type: 'number' },
-      { name: 'currencyReward', label: '星光奖励(社区星光)', type: 'number', tip: STARLIGHT_REWARD_TIP },
+      { name: 'currencyReward', label: '宠物币奖励', type: 'number', tip: STARLIGHT_REWARD_TIP },
       { name: 'requiredLevel', label: '等级要求', type: 'number' },
       { name: 'sort', label: '排序', type: 'number' },
     ],
@@ -141,7 +141,7 @@ export const CONFIGS: ConfigDef[] = [
         options: ['BOTTLE', 'BATTLE', 'WORK', 'STUDY', 'FEED', 'PLAY', 'VISIT'],
       },
       { name: 'targetValue', label: '目标次数', type: 'number', required: true },
-      { name: 'rewardCoins', label: '奖励星光(社区星光)', type: 'number', tip: STARLIGHT_REWARD_TIP },
+      { name: 'rewardCoins', label: '宠物币奖励', type: 'number', tip: STARLIGHT_REWARD_TIP },
       { name: 'rewardExp', label: '奖励经验', type: 'number' },
       { name: 'rewardItemCode', label: '奖励物品编码' },
       { name: 'sort', label: '排序', type: 'number' },
@@ -163,7 +163,7 @@ export const CONFIGS: ConfigDef[] = [
       { name: 'energyCost', label: '精力消耗', type: 'number' },
       { name: 'hungerCost', label: '饥饿消耗', type: 'number' },
       { name: 'expReward', label: '经验奖励', type: 'number' },
-      { name: 'currencyReward', label: '星光奖励(社区星光)', type: 'number', tip: STARLIGHT_REWARD_TIP },
+      { name: 'currencyReward', label: '宠物币奖励', type: 'number', tip: STARLIGHT_REWARD_TIP },
       { name: 'promoteToCode', label: '晋升目标编码', tip: '留空表示该路线最高阶' },
       { name: 'promoteRequiredCount', label: '晋升所需次数', type: 'number' },
       { name: 'promoteStarCost', label: '晋升消耗(宠物币)', type: 'number', tip: CURRENCY_TIP },
@@ -228,7 +228,7 @@ export const CONFIGS: ConfigDef[] = [
       },
       { name: 'targetValue', label: '目标次数', type: 'number', required: true },
       { name: 'expReward', label: '奖励经验', type: 'number' },
-      { name: 'currencyReward', label: '奖励星光(社区星光)', type: 'number', tip: STARLIGHT_REWARD_TIP },
+      { name: 'currencyReward', label: '宠物币奖励', type: 'number', tip: STARLIGHT_REWARD_TIP },
       { name: 'requiredLevel', label: '等级要求', type: 'number' },
       { name: 'sort', label: '排序', type: 'number' },
     ],

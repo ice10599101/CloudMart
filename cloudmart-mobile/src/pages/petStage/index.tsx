@@ -42,7 +42,15 @@ const INTENT_TO_PANEL: Record<string, string> = {
   openProfile: 'openProfile',
   // 二期：养成面板（商城/背包/技能/进化/活动/串门/多宠物，原文档 §89）
   openCare: 'openCare',
+  // PET-03：三期 Cocos 场景按钮——补齐既有意图映射（与 pet/index 宿主回落映射一致）
+  openRoom: 'openRoom',
+  openDaily: 'openDaily',
+  openSocial: 'openSocial',
+  openCareer: 'openCareer',
 }
+
+/** PET-03：交互类动作白名单（feed/play/clean/rest 走 API，其余按面板意图/未知回执处理） */
+const INTERACTION_ACTIONS = new Set(['feed', 'play', 'clean', 'rest'])
 
 function toDisplayState(pet: PetInfo): Record<string, unknown> {
   return {
@@ -72,6 +80,10 @@ export default function PetStagePage() {
   const [failed, setFailed] = useState(false)
   const [pet, setPet] = useState<PetInfo | null>(null)
   const [bubble, setBubble] = useState('加载宠物舞台中…')
+  // PET-03：舞台 15 秒未 ready → 降级提示切原生功能入口（此前只有 onError，卡加载无出口）
+  const [stageSlow, setStageSlow] = useState(false)
+  // PET-03：交互意图防连点——同一时刻只允许一个在途交互请求
+  const interactionInFlightRef = useRef(false)
 
   const postToGame = useCallback((message: HostToGame) => {
     if (isWeapp) return
@@ -90,6 +102,13 @@ export default function PetStagePage() {
       .then(({ data: res }) => { if (res.data) setPet(res.data) })
       .catch(() => setFailed(true))
   }, [isWeapp])
+
+  // PET-03：ready 超时兜底——15 秒仍未 ready 视作舞台不可用，提示切原生功能入口
+  useEffect(() => {
+    if (isWeapp || ready || failed) return
+    const timer = setTimeout(() => setStageSlow(true), 15000)
+    return () => clearTimeout(timer)
+  }, [isWeapp, ready, failed])
 
   useEffect(() => {
     if (isWeapp || !ready || !pet) return
@@ -118,7 +137,13 @@ export default function PetStagePage() {
       if (message.type !== 'intent' || !message.action) return
 
       const action = message.action
-      if (action === 'feed' || action === 'play' || action === 'clean' || action === 'rest') {
+      if (INTERACTION_ACTIONS.has(action)) {
+        // PET-03：同一时刻只放行一个交互请求；游戏连点得到明确失败回执（不排队不重复扣)
+        if (interactionInFlightRef.current) {
+          postToGame({ source: 'pet-host', type: 'actionResult', action, ok: false, message: 'busy' })
+          return
+        }
+        interactionInFlightRef.current = true
         try {
           const { data: res } =
             action === 'feed' ? await petApi.feed()
@@ -135,13 +160,16 @@ export default function PetStagePage() {
             source: 'pet-host', type: 'actionResult', action, ok: false,
             message: errorMessage(error, '现在不行哦'),
           })
+        } finally {
+          interactionInFlightRef.current = false
         }
         return
       }
       // 面板/档案类意图回落到原生管理页执行的 with intent 参数
       const intent = INTENT_TO_PANEL[action]
       if (intent) {
-        Taro.navigateTo({ url: `/pages/pet/index?intent=${intent}` })
+        // PET-03：携带 intentId 消费键——宿主页对同一导航只消费一次（刷新/返回不重复执行）
+        Taro.navigateTo({ url: `/pages/pet/index?intent=${intent}&intentId=${Date.now()}` })
         return
       }
       // P2-4：未知意图明确回执（联调/排查可见，不再静默丢弃）
@@ -173,8 +201,8 @@ export default function PetStagePage() {
         />
         <View className={styles.hintRow}>
           <Text className={styles.hint}>
-            {failed
-              ? '舞台产物暂不可用，全部功能可在「我的宠物」管理页使用'
+            {failed || stageSlow
+              ? '舞台暂未就绪，全部功能可在「我的宠物」管理页使用'
               : ready
                 ? '点一下宠物、或者让它去打工、读书、捞漂流瓶吧'
                 : '正在唤醒宠物…'}

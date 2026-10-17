@@ -65,6 +65,8 @@ import { ProfileModal } from './ProfileModal'
  */
 export default function PetPage() {
   const { params } = useRouter()
+  // PET-03：本实例内已消费意图（防 pet 状态刷新触发 effect 重跑时重复互动）
+  const consumedIntentRef = useRef<Set<string>>(new Set())
   const { dataTheme, themeStyle } = useThemeClass()
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()
   const { user: currentUser } = useAuthStore()
@@ -342,10 +344,25 @@ export default function PetPage() {
     }
   }, [refresh])
 
-  // 微信 web-view 舞台页的实时意图回落：navigateTo('/pages/pet/index?intent=feed')
+  // 微信 web-view 舞台页的实时意图回落：navigateTo('/pages/pet/index?intent=feed&intentId=...')
+  // PET-03：同一导航意图只消费一次——intentId 记入本地消费台账（实例 ref 只挡本挂载内的
+  // pet 数据刷新重跑；storage 台账跨实例/跨返回导航生效），切宠后原意图不自动作用于新宠
   useEffect(() => {
     const intent = params.intent
-    if (!intent || !pet) return
+    const intentId = params.intentId ?? params.intent
+    if (!intent || !intentId || !pet) return
+    if (consumedIntentRef.current.has(intentId)) return
+    consumedIntentRef.current.add(intentId)
+    try {
+      const ledgerKey = 'pet_consumed_intent_ids'
+      const consumed: string[] = Taro.getStorageSync(ledgerKey) || []
+      if (consumed.includes(intentId)) return
+      consumed.push(intentId)
+      // 台账限长 20，防无限增长
+      Taro.setStorageSync(ledgerKey, consumed.slice(-20))
+    } catch {
+      // storage 异常不阻断意图执行（仍有实例内 ref 保护）
+    }
     setPanel('home')
     if (intent === 'feed' || intent === 'play' || intent === 'clean' || intent === 'rest') {
       void runInteraction(intent)

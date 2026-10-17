@@ -62,11 +62,13 @@ class PetEconomyServiceImplTest {
     }
 
     @Test
-    @DisplayName("P03 新基线：null/blank 与非法值一律 PET_COIN（唯一正账本，fail-safe）")
+    @DisplayName("PET-04：null/blank 默认 PET；非法配置（含退役 LEGACY）置维护 PAUSED 并告警，不再静默扣款")
     void mode_routing_defaultsToPet() {
         assertThat(serviceOf(null).mode()).isEqualTo(Mode.PET);
         assertThat(serviceOf("").mode()).isEqualTo(Mode.PET);
-        assertThat(serviceOf("bogus").mode()).isEqualTo(Mode.PET);
+        // 非法配置：拒绝新经济意图（PAUSED），直至配置修正——不静默当 PET 继续扣款
+        assertThat(serviceOf("bogus").mode()).isEqualTo(Mode.PAUSED);
+        assertThat(serviceOf("LEGACY").mode()).isEqualTo(Mode.PAUSED);
     }
 
 

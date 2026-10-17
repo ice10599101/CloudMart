@@ -100,13 +100,18 @@ public class PetEconomyServiceImpl implements PetEconomyService {
 
     @Override
     public Mode mode() {
-        // PET_COIN 独立钱包为唯一正账本——null/blank/非法配置（含已退役的 LEGACY）一律按 PET 处理
+        // PET-04：PET_COIN 独立钱包为唯一正账本；未配置默认 PET；
+        // 非法配置（含已退役的 LEGACY）不得静默当 PET 继续扣款——置维护（PAUSED 只拒绝
+        // 新经济意图，已提交事实的查询/补偿不受阻）并以 error 告警，直至配置修正
         String raw = properties.getWalletMode();
-        try {
-            return Mode.valueOf(raw == null || raw.isBlank() ? "PET" : raw.trim().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            log.warn("pet.wallet.mode 配置非法: {}，按新基线 PET_COIN 处理", raw);
+        if (raw == null || raw.isBlank()) {
             return Mode.PET;
+        }
+        try {
+            return Mode.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.error("[PET04] pet.wallet.mode 配置非法: {}，已按维护（PAUSED）处理，请立即修正配置", raw);
+            return Mode.PAUSED;
         }
     }
 }
