@@ -51,6 +51,9 @@ export default defineConfig({
         { path: '/wishlist', component: '@/pages/Wishlist' },
         { path: '/checkout', component: '@/pages/Checkout' },
         { path: '/orders', component: '@/pages/OrderList' },
+        // WEB-01：我的售后（列表 + 详情；订单详情申请入口与售后记录区共同指向）
+        { path: '/after-sale', component: '@/pages/AfterSaleList' },
+        { path: '/after-sale/:id', component: '@/pages/AfterSaleDetail' },
         { path: '/orders/:id', component: '@/pages/OrderDetail' },
         { path: '/payment/:id', component: '@/pages/Payment' },
         { path: '/shop/seckill', component: '@/pages/Seckill' },

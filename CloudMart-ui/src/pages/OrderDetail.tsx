@@ -12,7 +12,7 @@ import {
   SafetyCertificateOutlined,
 } from '@ant-design/icons'
 import { history, useParams } from 'umi'
-import { fetchOrderById, cancelOrder, confirmReceipt, requestRefund } from '@/api/order'
+import { fetchOrderById, cancelOrder, confirmReceipt } from '@/api/order'
 import {
   applyAfterSale,
   cancelAfterSale,
@@ -20,6 +20,9 @@ import {
   type AfterSaleCase,
 } from '@/api/afterSale'
 import { type Order, type OrderStatus, ORDER_STATUS_LABELS } from '@/types'
+import { getAfterSaleEligibility } from '@/api/afterSale'
+import type { AfterSaleEligibility } from '@/api/afterSale'
+import type { ApiResponse } from '@/types/api'
 import OrderItemReview from '@/components/OrderItemReview'
 
 const cssVars = {
@@ -179,15 +182,17 @@ export default function OrderDetail() {
   const { id } = useParams<{ id: string }>()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
-  const [refundModalOpen, setRefundModalOpen] = useState(false)
-  const [refundReason, setRefundReason] = useState('')
   // T11：售后案件（PAID/SHIPPED 可申请；详情页展示该订单全部案件进度，PENDING 可撤销）
   const [afterSaleModalOpen, setAfterSaleModalOpen] = useState(false)
   const [afterSaleType, setAfterSaleType] = useState<'REFUND_ONLY' | 'RETURN_REFUND'>('REFUND_ONLY')
   const [afterSaleReason, setAfterSaleReason] = useState('')
+  // WEB-01：可申请性来自服务端（allowedTypes/剩余数量/可退上限/窗口），页面不自造规则
+  const [eligibility, setEligibility] = useState<AfterSaleEligibility | null>(null)
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null)
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(1)
   const [afterSaleCases, setAfterSaleCases] = useState<AfterSaleCase[]>([])
   const [afterSaleSubmitting, setAfterSaleSubmitting] = useState(false)
-  const [cancellingCaseId, setCancellingCaseId] = useState<number | null>(null)
+  const [cancellingCaseId, setCancellingCaseId] = useState<number | string | null>(null)
 
   const loadAfterSales = useCallback(async (orderId: number) => {
     try {
@@ -199,9 +204,31 @@ export default function OrderDetail() {
     }
   }, [])
 
+  const openAfterSaleModal = useCallback(async () => {
+    if (!order) return
+    setAfterSaleType('REFUND_ONLY')
+    setAfterSaleReason('')
+    setSelectedItemId(null)
+    setSelectedQuantity(1)
+    setEligibility(null)
+    setAfterSaleModalOpen(true)
+    try {
+      const { data: res } = await getAfterSaleEligibility(order.id)
+      setEligibility((res as ApiResponse<AfterSaleEligibility>).data ?? null)
+    } catch {
+      // Fail-Open：eligibility 拉取失败时仍允许提交（服务端 apply 校验兜底）
+      setEligibility(null)
+    }
+  }, [order])
+
   const submitAfterSale = useCallback(async () => {
     if (!order || !afterSaleReason.trim()) {
       message.warning('请填写售后原因')
+      return
+    }
+    // TRADE-01：退货退款必须落到具体商品行与数量（服务端校验剩余可退）
+    if (afterSaleType === 'RETURN_REFUND' && !selectedItemId) {
+      message.warning('请选择要售后的商品')
       return
     }
     setAfterSaleSubmitting(true)
@@ -209,6 +236,9 @@ export default function OrderDetail() {
       await applyAfterSale(order.id, {
         type: afterSaleType,
         reason: afterSaleReason.trim(),
+        itemId: selectedItemId ?? undefined,
+        quantity:
+          afterSaleType === 'RETURN_REFUND' && selectedItemId ? selectedQuantity : undefined,
       })
       message.success('售后申请已提交，等待商家受理')
       setAfterSaleModalOpen(false)
@@ -219,7 +249,7 @@ export default function OrderDetail() {
     } finally {
       setAfterSaleSubmitting(false)
     }
-  }, [order, afterSaleType, afterSaleReason, loadAfterSales])
+  }, [order, afterSaleType, afterSaleReason, selectedItemId, selectedQuantity, loadAfterSales])
 
   const handleCancelAfterSale = useCallback(
     (afterSaleCase: AfterSaleCase) => {
@@ -290,22 +320,6 @@ export default function OrderDetail() {
     try {
       await confirmReceipt(order.id)
       message.success('已确认收货')
-      loadOrder()
-    } catch {
-      message.error('操作失败')
-    }
-  }
-
-  const handleRefund = async () => {
-    if (!order || !refundReason.trim()) {
-      message.warning('请填写退款原因')
-      return
-    }
-    try {
-      await requestRefund(order.id, refundReason.trim())
-      message.success('退款申请已提交')
-      setRefundModalOpen(false)
-      setRefundReason('')
       loadOrder()
     } catch {
       message.error('操作失败')
@@ -425,14 +439,9 @@ export default function OrderDetail() {
                 {order.status === 'SHIPPED' && (
                   <ActionButton label="确认收货" onClick={handleConfirm} variant="primary" />
                 )}
-                {order.status === 'PAID' && (
-                  <ActionButton label="申请退款" onClick={() => setRefundModalOpen(true)} variant="danger" />
-                )}
-                {(order.status === 'PAID' || order.status === 'SHIPPED') && (
-                  <ActionButton
-                    label="申请售后"
-                    onClick={() => setAfterSaleModalOpen(true)}
-                  />
+                // WEB-01：退款统一走售后案件（旧直接退款入口已删除）
+                {(order.status === 'PAID' || order.status === 'SHIPPED' || order.status === 'COMPLETED') && (
+                  <ActionButton label="申请售后" onClick={() => void openAfterSaleModal()} />
                 )}
                 {order.status === 'COMPLETED' && (
                   <ActionButton label="再次购买" onClick={() => history.push('/products')} variant="primary" />
@@ -626,6 +635,12 @@ export default function OrderDetail() {
             title="售后记录"
             icon={<SafetyCertificateOutlined style={{ color: 'var(--color-primary)', fontSize: 16 }} />}
           >
+            <div style={{ textAlign: 'right', marginBottom: 4 }}>
+              {/* WEB-01：我的售后入口（列表含全部状态筛选与案件进度） */}
+              <Button type="link" size="small" style={{ padding: 0 }} onClick={() => history.push('/after-sale')}>
+                查看我的售后
+              </Button>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {afterSaleCases.map((afterSaleCase) => {
                 const statusMeta = AFTER_SALE_STATUS_META[afterSaleCase.status] ?? {
@@ -832,43 +847,6 @@ export default function OrderDetail() {
         </div>
       </div>
 
-      <Modal
-        title={
-          <div style={{ color: 'var(--color-text-secondary)', fontSize: 16, fontWeight: 600 }}>申请退款</div>
-        }
-        open={refundModalOpen}
-        onOk={handleRefund}
-        onCancel={() => {
-          setRefundModalOpen(false)
-          setRefundReason('')
-        }}
-        okText="提交"
-        cancelText="取消"
-        styles={{
-          header: { background: 'var(--color-bg-container)', borderBottom: '1px solid var(--color-border)' },
-          body: { background: 'var(--color-bg-container)' },
-          footer: { background: 'var(--color-bg-container)', borderTop: '1px solid var(--color-border)' },
-        }}
-      >
-        <div style={{ color: 'var(--color-text-secondary)', fontSize: 14, marginBottom: 12 }}>
-          请填写退款原因：
-        </div>
-        <Input.TextArea
-          rows={4}
-          value={refundReason}
-          onChange={(e) => setRefundReason(e.target.value)}
-          placeholder="请输入退款原因"
-          maxLength={200}
-          showCount
-          style={{
-            background: 'var(--color-bg-footer)',
-            borderColor: 'var(--color-border)',
-            color: 'var(--color-text-secondary)',
-            borderRadius: 8,
-          }}
-        />
-      </Modal>
-
       {/* T11：申请售后 Modal（类型+原因；提交后进度在「售后记录」区块展示） */}
       <Modal
         open={afterSaleModalOpen}
@@ -890,11 +868,26 @@ export default function OrderDetail() {
         ]}
       >
         <div>
+          {/* WEB-01：可申请性与窗口来自服务端（TRADE-01 同源），超窗/不支持时如实禁用 */}
+          {eligibility?.rejectReason && (
+            <div style={{ marginBottom: 12, padding: '8px 10px', borderRadius: 8, background: 'var(--color-bg-footer)', color: '#cf1322', fontSize: 13 }}>
+              {eligibility.rejectReason}
+            </div>
+          )}
+          {!eligibility?.rejectReason && eligibility?.applyDeadlineAt && (
+            <div style={{ marginBottom: 12, padding: '8px 10px', borderRadius: 8, background: 'var(--color-bg-footer)', color: 'var(--color-text-tertiary)', fontSize: 13 }}>
+              申请窗口截止：{eligibility.applyDeadlineAt.slice(0, 19).replace('T', ' ')}
+            </div>
+          )}
           <div style={{ marginBottom: 12 }}>
             <div style={{ marginBottom: 6, color: 'var(--color-text-secondary)' }}>售后类型</div>
             <select
               value={afterSaleType}
-              onChange={(e) => setAfterSaleType(e.target.value as 'REFUND_ONLY' | 'RETURN_REFUND')}
+              onChange={(e) => {
+                setAfterSaleType(e.target.value as 'REFUND_ONLY' | 'RETURN_REFUND')
+                setSelectedItemId(null)
+                setSelectedQuantity(1)
+              }}
               style={{
                 width: '100%',
                 padding: '8px',
@@ -904,10 +897,64 @@ export default function OrderDetail() {
                 color: 'var(--color-text-secondary)',
               }}
             >
-              <option value="REFUND_ONLY">仅退款（未发货/与商家协商）</option>
-              {order?.status === 'SHIPPED' && <option value="RETURN_REFUND">退货退款（按商品项）</option>}
+              {/* 类型白名单来自服务端 eligibility.allowedTypes */}
+              {(eligibility?.allowedTypes?.includes('REFUND_ONLY') ?? afterSaleType === 'REFUND_ONLY') && (
+                <option value="REFUND_ONLY">仅退款（未发货/与商家协商）</option>
+              )}
+              {(eligibility?.allowedTypes?.includes('RETURN_REFUND') ?? order?.status === 'SHIPPED') && (
+                <option value="RETURN_REFUND">退货退款（按商品项）</option>
+              )}
             </select>
           </div>
+          {afterSaleType === 'RETURN_REFUND' && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 6, color: 'var(--color-text-secondary)' }}>
+                选择商品行（按件退货{eligibility ? `，剩余可退 ${eligibility.remainingQuantity} 件` : ''}）
+              </div>
+              <select
+                value={selectedItemId ?? ''}
+                onChange={(e) => {
+                  const itemId = Number(e.target.value)
+                  setSelectedItemId(Number.isFinite(itemId) && itemId > 0 ? itemId : null)
+                  const item = order?.items?.find((it) => it.id === itemId)
+                  setSelectedQuantity(Math.min(1, item?.quantity ?? 1))
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: 8,
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-bg-container)',
+                  color: 'var(--color-text-secondary)',
+                }}
+              >
+                <option value="">请选择商品</option>
+                {(order?.items ?? []).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.productName}
+                    {item.skuAttributes ? `（${item.skuAttributes}）` : ''} × {item.quantity}
+                  </option>
+                ))}
+              </select>
+              {selectedItemId != null && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ marginBottom: 6, color: 'var(--color-text-secondary)' }}>退货数量</div>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={eligibility?.remainingQuantity ?? undefined}
+                    value={selectedQuantity}
+                    onChange={(e) => {
+                      const max = eligibility?.remainingQuantity ?? 99
+                      const v = Number(e.target.value)
+                      setSelectedQuantity(Number.isFinite(v) ? Math.max(1, Math.min(v, max)) : 1)
+                    }}
+                    style={{ width: 120 }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <div>
             <div style={{ marginBottom: 6, color: 'var(--color-text-secondary)' }}>售后原因</div>
             <Input.TextArea
