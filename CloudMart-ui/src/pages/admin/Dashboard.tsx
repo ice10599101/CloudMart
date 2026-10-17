@@ -411,7 +411,7 @@ export default function Dashboard() {
                 const IconComp = card.icon
                 const value = softwareStats?.[card.key] ?? 0
                 return (
-                  <Col span={12} key={card.key}>
+                  <Col xs={12} sm={8} md={6} key={card.key}>
                     <div
                       onClick={(e) => {
                         e.stopPropagation()
