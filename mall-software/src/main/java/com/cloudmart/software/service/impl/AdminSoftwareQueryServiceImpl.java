@@ -162,6 +162,17 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                 : String.valueOf(software.getWorkingRevisionId()));
         detail.put("publicationSeq", software.getPublicationSeq());
         detail.put("ownerId", String.valueOf(software.getOwnerId()));
+        // 发布者昵称 = 软件所有者（owner 永远有值；profiles 失败时留空，前端回落 ID）
+        try {
+            for (var profile : userSupportFeignClient.profiles(
+                    Map.of("userIds", List.of(software.getOwnerId()))).data()) {
+                if (profile.nickname() != null && !profile.nickname().isBlank()) {
+                    detail.put("editorNickname", profile.nickname());
+                }
+            }
+        } catch (Exception ignored) {
+            // 资料服务不可用：昵称留空
+        }
         detail.put("featuredRank", software.getFeaturedRank());
         detail.put("commentCount", software.getCommentCount());
         detail.put("favoriteCount", software.getFavoriteCount());

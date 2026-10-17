@@ -346,4 +346,37 @@ class AdminSoftwareServicesTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "SOFTWARE_STATE_CONFLICT");
     }
+    @Test
+    @DisplayName("adminDetail：发布者昵称按软件所有者查询并写入 editorNickname")
+    void adminDetail_fillsOwnerNickname() {
+        com.cloudmart.software.entity.Software software =
+                new com.cloudmart.software.entity.Software();
+        software.setId(112L);
+        software.setOwnerId(USER_ID);
+        software.setLifecycle(com.cloudmart.software.enums.SoftwareLifecycle.ACTIVE);
+        software.setPublishedRevisionId(15L);
+        software.setWorkingRevisionId(null);
+        when(softwareMapper.selectById(112L)).thenReturn(software);
+
+        com.cloudmart.software.entity.SoftwareRevision revision =
+                new com.cloudmart.software.entity.SoftwareRevision();
+        revision.setId(15L);
+        revision.setSoftwareId(112L);
+        revision.setEditorId(USER_ID);
+        revision.setName("测试软件");
+        revision.setDescriptionHtml("<p>介绍</p>");
+        revision.setReviewStatus(com.cloudmart.software.enums.SoftwareReviewStatus.APPROVED);
+        revision.setSubmitSeq(1);
+        when(revisionMapper.selectById(15L)).thenReturn(revision);
+        when(releaseMapper.selectList(any())).thenReturn(java.util.List.of());
+        when(auditLogMapper.selectList(any())).thenReturn(java.util.List.of());
+
+        when(userSupportFeignClient.profiles(any())).thenReturn(ApiResponse.ok(
+                List.of(new SoftwareProfileVO(USER_ID, "ice", null, true))));
+
+        Map<String, Object> detail = queryService.adminDetail(112L);
+        assertThat(detail.get("editorNickname")).isEqualTo("ice");
+        assertThat(detail.get("descriptionHtml")).isNotNull();
+    }
+
 }

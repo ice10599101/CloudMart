@@ -57,14 +57,10 @@ export default function SoftwareItems() {
   const [banReason, setBanReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const openDetail = async (softwareId: string, ownerNickname?: string) => {
+  const openDetail = async (softwareId: string) => {
     try {
       const res = await getAdminSoftwareDetail(softwareId)
-      // 发布者昵称优先取列表行现值（不依赖后端部署进度）
-      setDetail({
-        ...(res.data.data ?? {}),
-        ownerNickname: ownerNickname ?? res.data.data?.ownerNickname,
-      })
+      setDetail(res.data.data)
     } catch {
       message.error('加载详情失败')
     }
@@ -241,7 +237,7 @@ export default function SoftwareItems() {
       valueType: 'option',
       width: 220,
       render: (_, record) => [
-        <a key="detail" onClick={() => openDetail(record.softwareId, record.ownerNickname)}>
+        <a key="detail" onClick={() => openDetail(record.softwareId)}>
           详情
         </a>,
         <a
