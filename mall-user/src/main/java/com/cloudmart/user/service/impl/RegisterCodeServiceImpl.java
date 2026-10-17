@@ -95,9 +95,14 @@ public class RegisterCodeServiceImpl implements RegisterCodeService {
 
         redisTemplate.opsForValue().set(COOLDOWN_KEY_PREFIX + email, "1", COOLDOWN_TTL);
         redisTemplate.opsForValue().set(CODE_KEY_PREFIX + email, sha256(code), CODE_TTL);
-        boolean sent = mailSender.send(email, "宝贝小答注册验证码",
-                "您正在注册宝贝小答账号。\n\n验证码：" + code
-                        + "\n有效期：" + CODE_TTL.toMinutes() + " 分钟\n\n如果这不是您本人的操作，请忽略本邮件。");
+        boolean sent = mailSender.send(email, "✨ 欢迎入伙！你的宝贝小答注册验证码到账",
+                "嗨，未来的社区搭子！\n"
+                        + "你正在解锁「宝贝小答」—— 有料又好玩的综合娱乐社区～\n\n"
+                        + "🔑 注册验证码：" + code + "\n"
+                        + "⏰ 有效期：" + CODE_TTL.toMinutes() + " 分钟，别让快乐等太久哦！\n\n"
+                        + "在这里，你能刷到海量趣味短视频/文章、生活种草干货，各种互动玩法，"
+                        + "还能随手下载各种宝藏软件，休闲摸鱼、实用工具全都有，一站式承包你的日常快乐。\n\n"
+                        + "如果这不是你本人的操作，请忽略本邮件。赶紧完成注册，来社区一起玩吧！");
         if (sent) {
             log.info("注册验证码邮件已发送 email={}", maskEmail(email));
             return new SendCodeResult(true, null, null);
