@@ -65,6 +65,15 @@ describe('request 请求拦截器（真实实例）', () => {
     expect(config.headers.Authorization).toBe('Bearer admin-token')
   })
 
+  it('ADMIN-04：adminAuth 显式管理员域——后台直传 /file/assets 使用 admin token', () => {
+    localStorage.setItem('admin_access_token', 'admin-token')
+    localStorage.setItem('access_token', 'user-token')
+
+    const config = runRequestInterceptor({ url: '/file/assets', method: 'post', adminAuth: true })
+
+    expect(config.headers.Authorization).toBe('Bearer admin-token')
+  })
+
   it('已登录时公开路径 GET 也携带 token（BUG-A 回归：路径公开语义私有的心愿接口需身份头）', () => {
     localStorage.setItem('access_token', 'user-token')
 

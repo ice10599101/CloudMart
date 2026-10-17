@@ -8,6 +8,7 @@ import com.cloudmart.file.entity.FileReference;
 import com.cloudmart.file.repository.FileReferenceMapper;
 import com.cloudmart.file.repository.FileAssetMapper;
 import com.cloudmart.file.service.FileAssetService;
+import com.cloudmart.file.service.FileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -15,10 +16,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -43,6 +46,7 @@ import java.util.Map;
 public class InternalFileController {
 
     private final FileAssetService fileAssetService;
+    private final FileService fileService;
     private final com.cloudmart.file.repository.FileAssetMapper fileAssetMapper;
     private final FileReferenceMapper fileReferenceMapper;
 
@@ -147,6 +151,58 @@ public class InternalFileController {
         String path = fileAssetService.buildInternalDownloadPath(asset.getId(),
                 java.time.Instant.now(), ttl);
         return ApiResponse.ok(Map.of("downloadPath", path, "expiresInSeconds", ttl));
+    }
+
+    // ==================== ADMIN-04：管理员文件域（仅 owner_type=ADMIN） ====================
+
+    /** 后台资产视图（fileId 对外字符串；PUBLIC 资产返回可预览 URL） */
+    public record AdminAssetView(String fileId, String originalName, String mime, Long sizeBytes,
+                                 String visibility, String status, String purpose, Long createdBy,
+                                 Long refCount, String url, java.time.LocalDateTime createdAt) {
+    }
+
+    /** 后台资产分页视图 */
+    public record AdminAssetPageView(java.util.List<AdminAssetView> items, long total, int page, int size) {
+    }
+
+    @GetMapping("/admin")
+    @Operation(summary = "管理员域资产分页", description = "仅返回 owner_type=ADMIN 的运营资产；"
+            + "不包含用户上传/私聊/售后私有内容")
+    public ApiResponse<AdminAssetPageView> pageAdminAssets(
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "purpose", required = false) String purpose) {
+        FileAssetService.AdminAssetPage result = fileAssetService.pageAdminAssets(page, size, status, purpose);
+        return ApiResponse.ok(new AdminAssetPageView(
+                result.items().stream().map(this::toAdminView).toList(),
+                result.total(), result.page(), result.size()));
+    }
+
+    @GetMapping("/admin/{id}")
+    @Operation(summary = "管理员域资产详情", description = "非 ADMIN 域资产一律 404（防跨域窥探用户文件）")
+    public ApiResponse<AdminAssetView> adminAssetDetail(@PathVariable("id") Long id) {
+        return ApiResponse.ok(toAdminView(fileAssetService.requireAdminAssetRow(id)));
+    }
+
+    @DeleteMapping("/admin/{id}")
+    @Operation(summary = "管理员域资产删除", description = "仅 ADMIN 域；引用保护（被引用 409）+ CAS 关闭并发删除")
+    public ApiResponse<Void> deleteAdminAsset(@PathVariable("id") Long id) {
+        FileAssetService.AdminAssetRow row = fileAssetService.requireAdminAssetRow(id);
+        FileAsset deleting = fileAssetService.authorizeDelete(id, null, true);
+        fileService.deleteByStorageKey(deleting.getStorageKey());
+        fileAssetService.markDeleted(id);
+        log.info("管理员删除资产: fileId={}, purpose={}, createdBy={}",
+                row.fileId(), row.purpose(), row.createdBy());
+        return ApiResponse.ok(null);
+    }
+
+    private AdminAssetView toAdminView(FileAssetService.AdminAssetRow row) {
+        String url = "PUBLIC".equals(row.visibility()) && row.storageKey() != null
+                ? fileService.publicUrlOf(row.storageKey()) : null;
+        return new AdminAssetView(row.fileId(), row.originalName(), row.mime(), row.sizeBytes(),
+                row.visibility(), row.status(), row.purpose(), row.createdBy(), row.refCount(),
+                url, row.createdAt());
     }
 
     private void validateRequest(BindReferenceRequest request) {

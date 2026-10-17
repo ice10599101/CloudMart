@@ -93,7 +93,6 @@ import {
   createWarehouse,
   updateWarehouse,
   deleteWarehouse,
-  uploadFile,
 } from './business'
 
 describe('admin business API - Product Management', () => {
@@ -695,17 +694,5 @@ describe('admin business API - Brand Management', () => {
     vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
     await updateBrand(1, { name: 'Samsung' })
     expect(request.put).toHaveBeenCalledWith('/admin/business/brands/1', { name: 'Samsung' })
-  })
-})
-
-describe('admin business API - File Management', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-
-  it('S01：uploadFile() calls POST /file/assets（唯一资产入口）', async () => {
-    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
-    const formData = new FormData()
-    formData.append('file', new Blob(['test']), 'test.png')
-    await uploadFile(formData)
-    expect(request.post).toHaveBeenCalledWith('/file/assets', formData)
   })
 })

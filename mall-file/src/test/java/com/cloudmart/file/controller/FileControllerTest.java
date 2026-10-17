@@ -71,7 +71,8 @@ class FileControllerTest {
         given(fileAssetService.validateContent(any(), anyString())).willReturn("image/jpeg");
         given(fileService.store(any(), anyString(), anyString())).willReturn("public/pic/20261001/a.jpg");
         given(fileService.publicUrlOf("public/pic/20261001/a.jpg")).willReturn("/files/pic/20261001/a.jpg");
-        given(fileAssetService.persist(any(), anyString(), anyString(), anyLong(), anyString(), anyString(), anyString()))
+        given(fileAssetService.persist(any(), anyString(), any(), any(), anyString(), anyString(), anyLong(),
+                anyString(), anyString(), anyString()))
                 .willReturn(asset(42L, "PUBLIC"));
 
         mockMvc.perform(multipart("/assets").file(imageFile())
@@ -94,7 +95,8 @@ class FileControllerTest {
         given(fileAssetService.validateContent(any(), anyString())).willReturn("image/jpeg");
         given(fileService.store(any(), anyString(), anyString())).willReturn("private/pic/20261001/a.jpg");
         given(fileService.publicUrlOf("private/pic/20261001/a.jpg")).willReturn(null);
-        given(fileAssetService.persist(any(), anyString(), anyString(), anyLong(), anyString(), anyString(), anyString()))
+        given(fileAssetService.persist(any(), anyString(), any(), any(), anyString(), anyString(), anyLong(),
+                anyString(), anyString(), anyString()))
                 .willReturn(asset(43L, "PRIVATE"));
 
         mockMvc.perform(multipart("/assets").file(imageFile())
@@ -119,6 +121,37 @@ class FileControllerTest {
 
         verify(fileService).deleteByStorageKey("PUBLIC/pic/20261001/test42.jpg");
         verify(fileAssetService).markDeleted(42L);
+    }
+
+    @Test
+    @DisplayName("ADMIN-04：管理员上传必须声明用途，台账记录 ADMIN 域与操作者")
+    void uploadAsset_admin_requiresPurposeAndRecordsOperator() throws Exception {
+        given(fileAssetService.validateContent(any(), anyString())).willReturn("image/jpeg");
+        given(fileService.store(any(), anyString(), anyString())).willReturn("public/pic/20261017/a.jpg");
+        given(fileService.publicUrlOf("public/pic/20261017/a.jpg")).willReturn("/files/pic/20261017/a.jpg");
+        given(fileAssetService.persist(any(), anyString(), any(), any(), anyString(), anyString(), anyLong(),
+                anyString(), anyString(), anyString()))
+                .willReturn(asset(50L, "PUBLIC"));
+
+        // 缺 purpose → 400（不得静默归入管理员域）
+        mockMvc.perform(multipart("/assets").file(imageFile())
+                        .param("visibility", "PUBLIC")
+                        .header("X-User-Id", "9001")
+                        .header("X-Admin-Role", "admin"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("FILE_PURPOSE_REQUIRED"));
+
+        // 带 purpose → 成功，ownerType=ADMIN、createdBy=管理员账号
+        mockMvc.perform(multipart("/assets").file(imageFile())
+                        .param("visibility", "PUBLIC")
+                        .param("purpose", "GIFT_IMAGE")
+                        .header("X-User-Id", "9001")
+                        .header("X-Admin-Role", "admin"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.fileId").value("50"));
+
+        verify(fileAssetService).persist(any(), eq("ADMIN"), eq(9001L), eq("GIFT_IMAGE"),
+                anyString(), anyString(), anyLong(), anyString(), anyString(), eq("PUBLIC"));
     }
 
     @Nested
@@ -155,11 +188,14 @@ class FileControllerTest {
             given(fileAssetService.validateContent(any(), anyString())).willReturn("image/jpeg");
             given(fileService.store(any(), anyString(), anyString())).willReturn("public/pic/20261001/b.jpg");
             given(fileService.publicUrlOf(anyString())).willReturn("/files/pic/20261001/b.jpg");
-            given(fileAssetService.persist(any(), anyString(), anyString(), anyLong(), anyString(), anyString(), anyString()))
+            given(fileAssetService.persist(any(), anyString(), any(), any(), anyString(), anyString(), anyLong(),
+                anyString(), anyString(), anyString()))
                     .willReturn(asset(44L, "PUBLIC"));
 
+            // ADMIN-04：管理员上传必须声明业务用途（新契约），此处沿用免配额验证
             mockMvc.perform(multipart("/assets").file(imageFile())
                             .param("visibility", "PUBLIC")
+                            .param("purpose", "ADMIN_ASSET")
                             .header("X-Admin-Role", "admin"))
                     .andExpect(status().isOk());
 

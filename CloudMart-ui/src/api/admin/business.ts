@@ -504,15 +504,6 @@ export function disableExchangeCode(code: string) {
   return request.put(`/admin/business/coupons/exchange-codes/${code}/disable`)
 }
 
-export function uploadFile(data: FormData) {
-  // S01：唯一资产入口 /file/assets（内容校验+配额+分域存储）
-  return request.post('/file/assets', data)
-}
-
-export function deleteFile(url: string) {
-  return request.delete('/file/delete', { params: { url } })
-}
-
 // ========== P2-22：ES 索引运维（契约对齐 mall-admin /admin/business/products/es/index/*） ==========
 
 export interface EsIndexStatus {

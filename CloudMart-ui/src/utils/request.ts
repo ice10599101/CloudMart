@@ -62,6 +62,11 @@ function rejectPendingRequests(domain: AuthDomain, cause: unknown) {
   refreshDomains[domain].pendingRequests = []
 }
 
+/** 管理员域判定：显式 adminAuth（后台直传接口）或路径前缀命中 */
+function isAdminDomain(config: { url?: string; adminAuth?: boolean }): boolean {
+  return config.adminAuth === true || isAdminRequest(config.url ?? '')
+}
+
 function isAdminRequest(url: string): boolean {
   // FE-01：/job、/gen 是管理后台页面使用的服务，必须归入管理员域取 admin token
   return (
@@ -134,6 +139,11 @@ declare module 'axios' {
      * 意图键不因本地 TTL 过期轮换（未知结果先按原键查询终态）
      */
     persistentIntent?: boolean
+    /**
+     * ADMIN-04：显式管理员令牌域——后台直传 /file/assets 等非 /admin 前缀接口
+     * 必须用管理员令牌（否则管理员单登录失败、双登录时资产误归用户）
+     */
+    adminAuth?: boolean
   }
 }
 
@@ -145,7 +155,7 @@ function intentStoreKey(config: AxiosRequestConfig): string | null {
   }
   // FE-01/T22：指纹绑定稳定主体（JWT sub）而非 Authorization 头——token 刷新后
   // 指纹不变，重试沿用原意图键；域内无令牌（匿名）时主体为空串，同样稳定
-  const domain: AuthDomain = isAdminRequest(config.url ?? '') ? 'admin' : 'user'
+  const domain: AuthDomain = isAdminDomain(config) ? 'admin' : 'user'
   const token = localStorage.getItem(domain === 'admin' ? 'admin_access_token' : 'access_token')
   const subject = jwtSubject(token)
   const fingerprint = hashFingerprint(
@@ -174,8 +184,7 @@ function clearIntent(config: AxiosRequestConfig | undefined): void {
 // 若按前缀跳过会导致这些接口缺身份头而 401。token 过期由响应拦截器的刷新流程自愈。
 request.interceptors.request.use(
   (config) => {
-    const url = config.url ?? ''
-    const domain: AuthDomain = isAdminRequest(url) ? 'admin' : 'user'
+    const domain: AuthDomain = isAdminDomain(config) ? 'admin' : 'user'
     const tokenKey = domain === 'admin' ? 'admin_access_token' : 'access_token'
     const token = localStorage.getItem(tokenKey)
     if (token) {
@@ -311,7 +320,7 @@ request.interceptors.response.use(
       if ((error.config as { _authRetried?: boolean } | undefined)?._authRetried) {
         return Promise.reject(toBusinessError('UNAUTHORIZED', '登录状态已失效', { status: 401 }))
       }
-      const domain: AuthDomain = isAdminRequest(error.config.url ?? '') ? 'admin' : 'user'
+      const domain: AuthDomain = isAdminDomain(error.config) ? 'admin' : 'user'
       const state = refreshDomains[domain]
       const accessTokenKey = domain === 'admin' ? 'admin_access_token' : 'access_token'
       const refreshTokenKey = domain === 'admin' ? 'admin_refresh_token' : 'refresh_token'

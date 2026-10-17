@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -65,11 +66,15 @@ class FileAssetServiceTest {
         String mime = service.validateContent(PNG_MAGIC, "photo.png");
         String sha = service.sha256Hex(PNG_MAGIC);
 
-        service.persist(42L, "photo.png", "private/pic/20260928/abc.png", PNG_MAGIC.length, mime, sha, "PRIVATE");
+        service.persist(42L, "USER", 42L, null, "photo.png", "private/pic/20260928/abc.png",
+                PNG_MAGIC.length, mime, sha, "PRIVATE");
 
         ArgumentCaptor<FileAsset> captor = ArgumentCaptor.forClass(FileAsset.class);
         verify(fileAssetMapper).insert(captor.capture());
         assertThat(captor.getValue().getOwnerId()).isEqualTo(42L);
+        assertThat(captor.getValue().getOwnerType()).isEqualTo("USER");
+        assertThat(captor.getValue().getCreatedBy()).isEqualTo(42L);
+        assertThat(captor.getValue().getPurpose()).isNull();
         assertThat(captor.getValue().getMime()).isEqualTo("image/png");
         assertThat(captor.getValue().getVisibility()).isEqualTo("PRIVATE");
         assertThat(captor.getValue().getStatus()).isEqualTo("READY");
@@ -197,5 +202,35 @@ class FileAssetServiceTest {
         FileAssetService unsigned = new FileAssetService(fileAssetMapper, fileReferenceMapper, "");
         assertThatThrownBy(() -> unsigned.validateDownloadToken(100L, tokenValue, expiresValue))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    @DisplayName("ADMIN-04：管理员域分页仅返回 ADMIN 资产，引用数批量统计")
+    void pageAdminAssets_onlyAdminDomainWithRefCounts() {
+        FileAsset adminAsset = new FileAsset();
+        adminAsset.setId(7L);
+        adminAsset.setOwnerType("ADMIN");
+        adminAsset.setOriginalName("gift.png");
+        adminAsset.setMime("image/png");
+        adminAsset.setSizeBytes(10L);
+        adminAsset.setVisibility("PUBLIC");
+        adminAsset.setStatus("READY");
+        adminAsset.setPurpose("GIFT_IMAGE");
+        adminAsset.setCreatedBy(9001L);
+        adminAsset.setStorageKey("public/pic/20261017/gift.png");
+
+        when(fileAssetMapper.selectList(any())).thenReturn(List.of(adminAsset));
+        when(fileAssetMapper.selectCount(any())).thenReturn(1L);
+        when(fileReferenceMapper.selectMaps(any())).thenReturn(List.of(
+                new java.util.HashMap<>(java.util.Map.of("asset_id", 7L, "cnt", 2L))));
+
+        FileAssetService.AdminAssetPage page = service.pageAdminAssets(1, 20, null, null);
+
+        assertThat(page.total()).isEqualTo(1L);
+        assertThat(page.items()).hasSize(1);
+        assertThat(page.items().get(0).fileId()).isEqualTo("7");
+        assertThat(page.items().get(0).purpose()).isEqualTo("GIFT_IMAGE");
+        assertThat(page.items().get(0).createdBy()).isEqualTo(9001L);
+        assertThat(page.items().get(0).refCount()).isEqualTo(2L);
     }
 }

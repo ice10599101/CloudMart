@@ -12,7 +12,7 @@ import {
   getAdminGiftRecords,
 } from '@/api/admin/wish'
 import type { AdminGiftRecord, AdminGiftRecordItem } from '@/api/admin/wish'
-import { uploadFile } from '@/api/file'
+import { uploadAdminFile } from '@/api/file'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
@@ -105,7 +105,7 @@ export default function Gifts() {
     const file = options.file as File
     setUploading(true)
     try {
-      const response = await uploadFile(file)
+      const response = await uploadAdminFile(file, 'GIFT_IMAGE')
       const result = response.data
       if (result?.success && result.data?.url) {
         setIconUrl(result.data.url)

@@ -2,9 +2,11 @@ package com.cloudmart.file.service;
 
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.file.entity.FileAsset;
+import com.cloudmart.file.entity.FileReference;
 import com.cloudmart.file.repository.FileAssetMapper;
 import com.cloudmart.file.repository.FileReferenceMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,7 +16,11 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 文件资产台账（FILE-01）：归属、内容校验、引用计数与短期下载授权。
@@ -60,11 +66,20 @@ public class FileAssetService {
         return sniffedMime;
     }
 
-    /** 登记上传结果（校验通过、物理文件已按可见性分域落盘后调用；可见性一次写定） */
-    public FileAsset persist(Long ownerId, String originalName, String storageKey, long sizeBytes,
+    /**
+     * 登记上传结果（校验通过、物理文件已按可见性分域落盘后调用；可见性一次写定）。
+     *
+     * <p>ADMIN-04：管理员域上传记录 ownerType=ADMIN、操作者 createdBy 与业务用途 purpose；
+     * 用户域 createdBy 与 ownerId 一致、purpose 恒为 null（用户不得自造用途标签）。</p>
+     */
+    public FileAsset persist(Long ownerId, String ownerType, Long createdBy, String purpose,
+                             String originalName, String storageKey, long sizeBytes,
                              String mime, String sha256, String visibility) {
         FileAsset asset = new FileAsset();
         asset.setOwnerId(ownerId);
+        asset.setOwnerType(ownerType);
+        asset.setCreatedBy(createdBy);
+        asset.setPurpose(purpose);
         asset.setOriginalName(sanitizeOriginalName(originalName));
         asset.setStorageKey(storageKey);
         asset.setMime(mime);
@@ -79,6 +94,85 @@ public class FileAssetService {
     /** 内容指纹（sha256 列 NOT NULL；内容已由控制器单次读取复用） */
     public String sha256Hex(byte[] content) {
         return sha256HexOf(content);
+    }
+
+    /** ADMIN-04：管理员域资产行（storageKey 仅服务内部使用，对外由控制器转 URL） */
+    public record AdminAssetRow(String fileId, String originalName, String mime, Long sizeBytes,
+                                String visibility, String status, String purpose, Long createdBy,
+                                Long refCount, String storageKey, LocalDateTime createdAt) {
+    }
+
+    /** ADMIN-04：管理员域资产分页结果 */
+    public record AdminAssetPage(List<AdminAssetRow> items, long total, int page, int size) {
+    }
+
+    /**
+     * ADMIN-04：管理员域资产分页——只查 owner_type=ADMIN，后台不浏览用户私有内容。
+     * 引用数按页批量统计（一次 GROUP BY，避免逐行 count 的 N+1）。
+     */
+    public AdminAssetPage pageAdminAssets(int page, int size, String status, String purpose) {
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        int offset = Math.max(page - 1, 0) * safeSize;
+        String normalizedStatus = status == null || status.isBlank() ? null : status.trim().toUpperCase();
+        String normalizedPurpose = purpose == null || purpose.isBlank() ? null : purpose.trim();
+        LambdaQueryWrapper<FileAsset> query = new LambdaQueryWrapper<FileAsset>()
+                .eq(FileAsset::getOwnerType, "ADMIN")
+                .eq(normalizedStatus != null, FileAsset::getStatus, normalizedStatus)
+                .eq(normalizedPurpose != null, FileAsset::getPurpose, normalizedPurpose)
+                .orderByDesc(FileAsset::getId)
+                .last("LIMIT " + safeSize + " OFFSET " + offset);
+        List<FileAsset> assets = fileAssetMapper.selectList(query);
+        Long total = fileAssetMapper.selectCount(new LambdaQueryWrapper<FileAsset>()
+                .eq(FileAsset::getOwnerType, "ADMIN")
+                .eq(normalizedStatus != null, FileAsset::getStatus, normalizedStatus)
+                .eq(normalizedPurpose != null, FileAsset::getPurpose, normalizedPurpose));
+        Map<Long, Long> refCounts = countReferences(assets.stream().map(FileAsset::getId).toList());
+        List<AdminAssetRow> items = assets.stream()
+                .map(a -> toAdminRow(a, refCounts.getOrDefault(a.getId(), 0L)))
+                .toList();
+        return new AdminAssetPage(items, total == null ? 0L : total, page, safeSize);
+    }
+
+    /** ADMIN-04：管理员域资产详情（非 ADMIN 域一律 404，防跨域窥探） */
+    public AdminAssetRow requireAdminAssetRow(Long fileId) {
+        FileAsset asset = requireAsset(fileId);
+        if (!"ADMIN".equals(asset.getOwnerType())) {
+            throw new BusinessException("FILE_NOT_FOUND", "文件不存在");
+        }
+        return toAdminRow(asset, countReferences(List.of(fileId)).getOrDefault(fileId, 0L));
+    }
+
+    /** 单资产引用数（删除前展示与审计） */
+    public long countReferenceOf(Long fileId) {
+        Long count = fileReferenceMapper.selectCount(new LambdaQueryWrapper<FileReference>()
+                .eq(FileReference::getAssetId, fileId));
+        return count == null ? 0L : count;
+    }
+
+    private AdminAssetRow toAdminRow(FileAsset asset, long refCount) {
+        return new AdminAssetRow(String.valueOf(asset.getId()), asset.getOriginalName(), asset.getMime(),
+                asset.getSizeBytes(), asset.getVisibility(), asset.getStatus(), asset.getPurpose(),
+                asset.getCreatedBy(), refCount, asset.getStorageKey(), asset.getCreatedAt());
+    }
+
+    /** 批量引用数：{assetId: count}（单次 GROUP BY） */
+    private Map<Long, Long> countReferences(List<Long> assetIds) {
+        if (assetIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Map<String, Object>> rows = fileReferenceMapper.selectMaps(new QueryWrapper<FileReference>()
+                .select("asset_id", "COUNT(*) AS cnt")
+                .in("asset_id", assetIds)
+                .groupBy("asset_id"));
+        Map<Long, Long> counts = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            Object id = row.get("asset_id") != null ? row.get("asset_id") : row.get("assetId");
+            Object cnt = row.get("cnt") != null ? row.get("cnt") : row.get("CNT");
+            if (id instanceof Number idNumber && cnt instanceof Number cntNumber) {
+                counts.put(idNumber.longValue(), cntNumber.longValue());
+            }
+        }
+        return counts;
     }
 
     /**

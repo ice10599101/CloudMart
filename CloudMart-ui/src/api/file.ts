@@ -60,3 +60,26 @@ export function deleteFileAsset(fileId: string) {
 export function getAssetDownloadUrl(fileId: string) {
   return request.get<ApiResponse<{ url: string; expiresAt: string }>>(`/file/assets/${fileId}/download-url`)
 }
+
+// ==================== ADMIN-04：管理员域上传 ====================
+
+/**
+ * 管理员域上传：直传 mall-file `/file/assets`，但按管理员令牌域发送（adminAuth），
+ * 并声明业务用途（服务端记录 owner_type=ADMIN / created_by=管理员账号 / purpose）。
+ * 后台 BGM、礼物图、软件素材等运营资产统一走本入口，不再使用用户令牌上传。
+ */
+export function uploadAdminFile(file: File, purpose: string, options?: UploadFileOptions) {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('visibility', 'PUBLIC')
+  formData.append('purpose', purpose)
+  return request.post<ApiResponse<FileUploadResult>>('/file/assets', formData, {
+    adminAuth: true,
+    onUploadProgress: (event: AxiosProgressEvent) => {
+      if (!options?.onProgress || !event.total) return
+      options.onProgress(Math.round((event.loaded / event.total) * 100))
+    },
+    cancelToken: options?.cancelToken,
+    timeout: 60000,
+  })
+}

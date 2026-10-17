@@ -20,6 +20,15 @@ public class FileAsset {
     /** 归属用户ID；null=平台/存量无主（LEGACY_UNCLAIMED 仅管理员可处置） */
     private Long ownerId;
 
+    /** ADMIN-04：归属域 USER/ADMIN（管理员运营资产不进入用户资产空间） */
+    private String ownerType;
+
+    /** ADMIN-04：上传操作者（管理员域=管理员账号；用户域=owner_id） */
+    private Long createdBy;
+
+    /** ADMIN-04：业务用途（后台上传必填，如 GIFT_IMAGE/WISH_BGM/ADMIN_ASSET） */
+    private String purpose;
+
     private String originalName;
 
     /** 存储键（相对存储根路径，唯一） */

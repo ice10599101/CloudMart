@@ -5,6 +5,7 @@ import com.cloudmart.file.entity.FileAsset;
 import com.cloudmart.file.entity.FileReference;
 import com.cloudmart.file.repository.FileReferenceMapper;
 import com.cloudmart.file.service.FileAssetService;
+import com.cloudmart.file.service.FileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,6 +37,8 @@ class InternalFileControllerTest {
     @Mock
     private FileAssetService fileAssetService;
     @Mock
+    private FileService fileService;
+    @Mock
     private com.cloudmart.file.repository.FileAssetMapper fileAssetMapper;
     @Mock
     private FileReferenceMapper fileReferenceMapper;
@@ -44,7 +47,7 @@ class InternalFileControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new InternalFileController(fileAssetService, fileAssetMapper, fileReferenceMapper);
+        controller = new InternalFileController(fileAssetService, fileService, fileAssetMapper, fileReferenceMapper);
     }
 
     @Test

@@ -12,7 +12,7 @@ import {
   deleteAdminWishBgmSong,
 } from '@/api/admin/wish'
 import type { AdminBgmSongRecord } from '@/api/admin/wish'
-import { uploadFile } from '@/api/file'
+import { uploadAdminFile } from '@/api/file'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
@@ -154,7 +154,7 @@ export default function WishBgm() {
     setUploading(true)
     setUploadProgress(0)
     try {
-      const response = await uploadFile(file, { onProgress: setUploadProgress })
+      const response = await uploadAdminFile(file, 'WISH_BGM', { onProgress: setUploadProgress })
       const result = response.data
       if (result?.success && result.data?.url) {
         setUploadedUrl(result.data.url)

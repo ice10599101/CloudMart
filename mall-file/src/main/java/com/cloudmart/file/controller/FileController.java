@@ -63,6 +63,8 @@ public class FileController {
             @RequestParam("file") MultipartFile file,
             @Parameter(description = "可见性：PUBLIC/PRIVATE")
             @RequestParam(value = "visibility", required = false, defaultValue = "PUBLIC") String visibility,
+            @Parameter(description = "业务用途（后台上传必填：GIFT_IMAGE/WISH_BGM/SOFTWARE_ASSET/ADMIN_ASSET）")
+            @RequestParam(value = "purpose", required = false) String purpose,
             @Parameter(description = "用户 ID（已验签令牌主体）", hidden = true)
             @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) String userId,
             @Parameter(description = "管理员角色（网关注入，admin 即管理员）", hidden = true)
@@ -75,6 +77,19 @@ public class FileController {
             throw new BusinessException("FILE_VISIBILITY_INVALID", "可见性取值非法（PUBLIC/PRIVATE）");
         }
         Long ownerId = isAdmin ? null : Long.valueOf(userId);
+        Long createdBy = userId == null || userId.isBlank() ? null : Long.valueOf(userId);
+        // ADMIN-04：管理员域资产必须声明业务用途（检索/授权审计依据）；用户域不记录用途标签
+        String normalizedPurpose = null;
+        if (isAdmin) {
+            normalizedPurpose = purpose == null ? "" : purpose.trim();
+            if (normalizedPurpose.isEmpty()) {
+                throw new BusinessException("FILE_PURPOSE_REQUIRED", "后台上传必须填写业务用途");
+            }
+            if (normalizedPurpose.length() > 64) {
+                throw new BusinessException("FILE_PURPOSE_INVALID", "业务用途最长 64 字符");
+            }
+        }
+        String ownerType = isAdmin ? "ADMIN" : "USER";
         // 管理员豁免配额（与原配额语义一致）；普通用户预占，失败路径统一归还
         boolean quotaReserved = false;
         if (!isAdmin) {
@@ -99,8 +114,8 @@ public class FileController {
             // 可见性分域落盘（public/ 或 private/）
             storageKey = fileService.store(content, file.getOriginalFilename(), visibility);
             // 台账登记（可见性一次写定）→ 发布
-            FileAsset asset = fileAssetService.persist(ownerId, file.getOriginalFilename(),
-                    storageKey, file.getSize(), mime, sha256, visibility);
+            FileAsset asset = fileAssetService.persist(ownerId, ownerType, createdBy, normalizedPurpose,
+                    file.getOriginalFilename(), storageKey, file.getSize(), mime, sha256, visibility);
             String publicUrl = fileService.publicUrlOf(storageKey);
             return ApiResponse.ok(new AssetUploadResponse(
                     String.valueOf(asset.getId()), publicUrl, asset.getMime(),

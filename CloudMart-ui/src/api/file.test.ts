@@ -5,7 +5,7 @@ vi.mock('@/utils/request', () => ({
 }))
 
 import request from '@/utils/request'
-import { uploadFile, uploadFileAsset, deleteFileAsset } from './file'
+import { uploadFile, uploadFileAsset, deleteFileAsset, uploadAdminFile } from './file'
 
 // S01/LC05：旧 /file/upload 与 /file/delete 通道已删除——唯一入口 /file/assets，
 // 删除按 fileId（旧 URL 无任何执行入口）。
@@ -61,5 +61,23 @@ describe('file API (assets only)', () => {
     await deleteFileAsset('42')
 
     expect(request.delete).toHaveBeenCalledWith('/file/assets/42')
+  })
+
+  it('ADMIN-04：uploadAdminFile() 管理员令牌域 + 业务用途必填，PUBLIC 直传', async () => {
+    vi.mocked(request.post).mockResolvedValue({ data: {} } as any)
+
+    const file = new File(['test content'], 'gift.png', { type: 'image/png' })
+    await uploadAdminFile(file, 'GIFT_IMAGE')
+
+    expect(request.post).toHaveBeenCalledWith(
+      '/file/assets',
+      expect.any(FormData),
+      expect.objectContaining({ adminAuth: true, timeout: 60000 }),
+    )
+
+    const formData = vi.mocked(request.post).mock.calls[0][1] as FormData
+    expect(formData.get('visibility')).toBe('PUBLIC')
+    expect(formData.get('purpose')).toBe('GIFT_IMAGE')
+    expect(formData.get('file')).toBeInstanceOf(File)
   })
 })
