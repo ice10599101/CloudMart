@@ -80,10 +80,13 @@ export default function AiChatPage() {
   const [searchMode, setSearchMode] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  // BASE 修复：滚动锚定到消息容器内部——scrollIntoView 会连带把整个网页滚到底部
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const msgIdRef = useRef(0)
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = messagesContainerRef.current
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [])
 
   // 进入页面停在顶部（从第一条消息看起）；仅新消息到达时才滚到底部
@@ -241,7 +244,7 @@ export default function AiChatPage() {
           </div>
         </div>
 
-        <div style={{
+        <div ref={messagesContainerRef} style={{
           flex: 1,
           overflowY: 'auto',
           padding: '24px 28px',
