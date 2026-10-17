@@ -2,6 +2,8 @@ package com.cloudmart.software.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.cloudmart.software.service.AdminRowEnricher;
+import java.util.List;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.software.dto.software.AdminContactSaveRequest;
 import com.cloudmart.software.dto.software.AdminGrantRequest;
@@ -17,6 +19,7 @@ import com.cloudmart.software.feign.UserSupportFeignClient;
 import com.cloudmart.software.repository.SoftwareAccessContactMapper;
 import com.cloudmart.software.repository.SoftwareAccessGrantMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
+import com.cloudmart.software.repository.SoftwareRevisionMapper;
 import com.cloudmart.software.repository.SoftwarePermissionAuditMapper;
 import com.cloudmart.software.repository.SoftwarePublisherPermissionMapper;
 import com.cloudmart.software.repository.SoftwareLockMapper;
@@ -59,6 +62,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
     private final SoftwarePermissionAuditMapper permissionAuditMapper;
     private final SoftwareLockMapper lockMapper;
     private final SoftwareMapper softwareMapper;
+    private final SoftwareRevisionMapper revisionMapper;
     private final UserSupportFeignClient userSupportFeignClient;
     private final SoftwareOperationService operationService;
     private final ObjectMapper objectMapper;
@@ -325,7 +329,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         LocalDateTime now = LocalDateTime.now(clock);
         Page<Map<String, Object>> result = new Page<>(grantRows.getCurrent(), grantRows.getSize(),
                 grantRows.getTotal());
-        result.setRecords(grantRows.getRecords().stream().map(grant -> {
+        List<Map<String, Object>> rows = grantRows.getRecords().stream().map(grant -> {
             Map<String, Object> row = new HashMap<>();
             row.put("grantId", String.valueOf(grant.getId()));
             row.put("softwareId", String.valueOf(grant.getSoftwareId()));
@@ -341,7 +345,10 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
             row.put("externalReference", grant.getExternalReference());
             row.put("lockVersion", grant.getLockVersion());
             return row;
-        }).toList());
+        }).toList();
+        AdminRowEnricher.fillUserNicknames(rows, userSupportFeignClient, "userId", "userNickname");
+        AdminRowEnricher.fillSoftwareNames(rows, softwareMapper, revisionMapper, "softwareId", "softwareName");
+        result.setRecords(rows);
         return result;
     }
 

@@ -62,7 +62,22 @@ export default function SoftwareComments() {
   const columns: ProColumns<AdminSoftwareComment>[] = [
     { title: '评论ID', dataIndex: 'commentId', width: 90, search: false },
     { title: '用户ID', dataIndex: 'userId', width: 100, search: false },
+    {
+      title: '用户',
+      dataIndex: 'userNickname',
+      width: 110,
+      search: false,
+      render: (_, record) => record.userNickname || '-',
+    },
     { title: '软件ID', dataIndex: 'softwareId', width: 90, search: false },
+    {
+      title: '软件',
+      dataIndex: 'softwareName',
+      width: 160,
+      ellipsis: true,
+      search: false,
+      render: (_, record) => record.softwareName || '-',
+    },
     {
       title: '内容',
       dataIndex: 'content',

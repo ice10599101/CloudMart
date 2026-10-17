@@ -98,6 +98,14 @@ export default function SoftwareLinkFeedback() {
   const columns: ProColumns<AdminLinkFeedback>[] = [
     { title: '反馈ID', dataIndex: 'feedbackId', width: 90, search: false },
     { title: '软件ID', dataIndex: 'softwareId', width: 90, search: false },
+    {
+      title: '软件',
+      dataIndex: 'softwareName',
+      width: 160,
+      ellipsis: true,
+      search: false,
+      render: (_, record) => record.softwareName || '-',
+    },
     { title: '来源键', dataIndex: 'sourceKey', width: 190, ellipsis: true, search: false },
     { title: '反馈人', dataIndex: 'reporterId', width: 100, search: false },
     {

@@ -141,6 +141,9 @@ export interface AdminRevisionSnapshot extends Record<string, unknown> {
 
 export interface AdminSoftwareComment {
   commentId: string
+  userNickname?: string
+  softwareName?: string
+
   softwareId: string
   userId: string
   content: string | null
@@ -179,6 +182,9 @@ export interface AdminPublisherPermission {
 
 export interface AdminAccessGrant {
   softwareId: string
+  userNickname?: string
+  softwareName?: string
+
   userId: string
   status: 'ACTIVE' | 'EXPIRED' | 'REVOKED'
   grantedBy: string | null
@@ -200,6 +206,9 @@ export interface AdminAccessContact {
 
 export interface AdminSoftwareReport {
   reportId: string
+  reporterNickname?: string
+  softwareName?: string
+
   reporterId: string
   softwareId: string
   targetType: 'SOFTWARE' | 'SOFTWARE_COMMENT'
@@ -213,6 +222,8 @@ export interface AdminSoftwareReport {
 
 export interface AdminLinkFeedback {
   feedbackId: string
+  softwareName?: string
+
   softwareId: string
   sourceKey: string
   reporterId: string

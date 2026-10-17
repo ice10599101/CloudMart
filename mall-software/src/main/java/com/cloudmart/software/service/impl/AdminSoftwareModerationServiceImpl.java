@@ -2,6 +2,8 @@ package com.cloudmart.software.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.cloudmart.software.service.AdminRowEnricher;
+import java.util.List;
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.outbox.OutboxService;
 import com.cloudmart.common.exception.BusinessException;
@@ -58,6 +60,8 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
     private final SoftwareCommentMapper commentMapper;
     private final SoftwareLinkFeedbackMapper feedbackMapper;
     private final SoftwareAuditLogMapper auditLogMapper;
+    private final com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
+    private final com.cloudmart.software.repository.SoftwareRevisionMapper revisionMapper;
     private final SoftwareOperationService operationService;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
@@ -73,7 +77,7 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
                         .orderByAsc(SoftwareReport::getCreatedAt));
         Page<Map<String, Object>> result = new Page<>(reportPage.getCurrent(),
                 reportPage.getSize(), reportPage.getTotal());
-        result.setRecords(reportPage.getRecords().stream()
+        List<Map<String, Object>> rows = reportPage.getRecords().stream()
                 .map(report -> {
                     Map<String, Object> row = new HashMap<>();
                     row.put("reportId", String.valueOf(report.getId()));
@@ -89,7 +93,10 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
                     row.put("createdAt", String.valueOf(report.getCreatedAt()));
                     return row;
                 })
-                .toList());
+                .toList();
+        AdminRowEnricher.fillUserNicknames(rows, userSupportFeignClient, "reporterId", "reporterNickname");
+        AdminRowEnricher.fillSoftwareNames(rows, softwareMapper, revisionMapper, "softwareId", "softwareName");
+        result.setRecords(rows);
         return result;
     }
 
@@ -201,7 +208,7 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
                         .orderByAsc(SoftwareLinkFeedback::getCreatedAt));
         Page<Map<String, Object>> result = new Page<>(feedbackPage.getCurrent(),
                 feedbackPage.getSize(), feedbackPage.getTotal());
-        result.setRecords(feedbackPage.getRecords().stream()
+        List<Map<String, Object>> rows = feedbackPage.getRecords().stream()
                 .map(feedback -> {
                     Map<String, Object> row = new HashMap<>();
                     row.put("feedbackId", String.valueOf(feedback.getId()));
@@ -216,7 +223,10 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
                     row.put("createdAt", String.valueOf(feedback.getCreatedAt()));
                     return row;
                 })
-                .toList());
+                .toList();
+        AdminRowEnricher.fillUserNicknames(rows, userSupportFeignClient, "reporterId", "reporterNickname");
+        AdminRowEnricher.fillSoftwareNames(rows, softwareMapper, revisionMapper, "softwareId", "softwareName");
+        result.setRecords(rows);
         return result;
     }
 

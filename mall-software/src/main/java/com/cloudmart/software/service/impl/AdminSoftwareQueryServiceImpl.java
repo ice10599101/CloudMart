@@ -23,6 +23,7 @@ import com.cloudmart.software.repository.SoftwareRevisionMapper;
 import com.cloudmart.software.service.AdminSoftwareQueryService;
 import com.cloudmart.software.service.SoftwareOperationService;
 import com.cloudmart.software.service.SoftwarePublishService;
+import com.cloudmart.software.service.AdminRowEnricher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -304,7 +305,7 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                         .orderByDesc(SoftwareComment::getCreatedAt));
         Page<Map<String, Object>> result = new Page<>(commentPage.getCurrent(),
                 commentPage.getSize(), commentPage.getTotal());
-        result.setRecords(commentPage.getRecords().stream()
+        List<Map<String, Object>> rows = commentPage.getRecords().stream()
                 .map(comment -> {
                     Map<String, Object> row = new HashMap<>();
                     row.put("commentId", String.valueOf(comment.getId()));
@@ -319,7 +320,10 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                     row.put("createdAt", String.valueOf(comment.getCreatedAt()));
                     return row;
                 })
-                .toList());
+                .toList();
+        AdminRowEnricher.fillUserNicknames(rows, userSupportFeignClient, "userId", "userNickname");
+        AdminRowEnricher.fillSoftwareNames(rows, softwareMapper, revisionMapper, "softwareId", "softwareName");
+        result.setRecords(rows);
         return result;
     }
 

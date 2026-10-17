@@ -130,7 +130,22 @@ export default function SoftwareAccessGrants() {
 
   const grantColumns: ProColumns<AdminAccessGrant>[] = [
     { title: '软件ID', dataIndex: 'softwareId', width: 90, search: false },
+    {
+      title: '软件',
+      dataIndex: 'softwareName',
+      width: 160,
+      ellipsis: true,
+      search: false,
+      render: (_, record) => record.softwareName || '-',
+    },
     { title: '会员ID', dataIndex: 'userId', width: 100, search: false },
+    {
+      title: '会员昵称',
+      dataIndex: 'userNickname',
+      width: 110,
+      search: false,
+      render: (_, record) => record.userNickname || '-',
+    },
     {
       title: '状态',
       dataIndex: 'status',
@@ -186,6 +201,14 @@ export default function SoftwareAccessGrants() {
     { title: '操作', dataIndex: 'action', width: 150, search: false },
     { title: '目标会员', dataIndex: 'targetUserId', width: 100, search: false },
     { title: '软件ID', dataIndex: 'softwareId', width: 90, search: false },
+    {
+      title: '软件',
+      dataIndex: 'softwareName',
+      width: 160,
+      ellipsis: true,
+      search: false,
+      render: (_, record) => record.softwareName || '-',
+    },
     { title: '操作人', dataIndex: 'actorAdminId', width: 90, search: false },
     { title: '原因', dataIndex: 'reason', ellipsis: true, search: false },
     { title: '请求追踪', dataIndex: 'requestId', width: 140, ellipsis: true, search: false },

@@ -58,8 +58,23 @@ export default function SoftwareReports() {
 
   const columns: ProColumns<AdminSoftwareReport>[] = [
     { title: '举报ID', dataIndex: 'reportId', width: 90, search: false },
-    { title: '举报人', dataIndex: 'reporterId', width: 100, search: false },
+    { title: '举报人ID', dataIndex: 'reporterId', width: 100, search: false },
+    {
+      title: '举报人',
+      dataIndex: 'reporterNickname',
+      width: 110,
+      search: false,
+      render: (_, record) => record.reporterNickname || '-',
+    },
     { title: '软件ID', dataIndex: 'softwareId', width: 90, search: false },
+    {
+      title: '软件',
+      dataIndex: 'softwareName',
+      width: 160,
+      ellipsis: true,
+      search: false,
+      render: (_, record) => record.softwareName || '-',
+    },
     {
       title: '目标',
       dataIndex: 'targetType',
