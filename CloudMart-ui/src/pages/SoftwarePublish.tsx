@@ -29,6 +29,7 @@ import {
   type SoftwareLicenseType,
   type SoftwareSourceType,
   type SoftwareTag,
+  getSoftwareEditor,
 } from "@/api/software";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -336,6 +337,43 @@ export default function SoftwarePublish() {
     tagIds,
   ]);
 
+  /**
+   * 版本冲突恢复（单人场景终态）：本地内容是用户真实意图，服务端版本号仅是计数器——
+   * 冲突时拉最新进度（revisionId/lockVersion），用本地内容自动重试一次保存。
+   * 返回保存成功后的 {revisionId, lockVersion}；不可恢复（软件被删/状态冻结）返回 null。
+   */
+  const recoverOnConflict = useCallback(async (): Promise<{
+    softwareId: string;
+    revisionId: string;
+    lockVersion: number;
+  } | null> => {
+    if (!softwareId) return null;
+    const res = await getSoftwareEditor(softwareId);
+    if (!res.data.success) return null;
+    const editor = res.data.data;
+    if (editor.reviewStatus !== "DRAFT" && editor.reviewStatus !== "REJECTED") {
+      message.info("该软件当前状态不可编辑，请刷新后查看");
+      return null;
+    }
+    setRevisionId(editor.revisionId);
+    setLockVersion(editor.lockVersion);
+    const retry = await saveSoftwareDraft(editor.softwareId ?? softwareId, editor.revisionId, {
+      ...buildPayload(),
+      expectedVersion: editor.lockVersion,
+    });
+    if (!retry.data.success) {
+      message.warning("版本冲突自动重试失败，请刷新页面后重试");
+      return null;
+    }
+    const nextLockVersion = retry.data.data?.lockVersion ?? editor.lockVersion;
+    setLockVersion(nextLockVersion);
+    return {
+      softwareId: editor.softwareId ?? softwareId,
+      revisionId: editor.revisionId,
+      lockVersion: nextLockVersion,
+    };
+  }, [buildPayload, message, softwareId]);
+
   /** 新建链：create（空草稿）→ saveDraft 落本地内容（软件被删自愈时也复用） */
   const doSaveFresh = useCallback(async () => {
     const created = await createSoftware(buildPayload());
@@ -373,13 +411,21 @@ export default function SoftwarePublish() {
       setLockVersion(res.data.data?.lockVersion ?? lockVersion);
       message.success("草稿已保存");
     } catch (err) {
-      // 本地指向的服务端草稿已被删除（如清理孤儿）：清进度重建，本地内容原样保留
-      if ((err as { code?: string } | null)?.code === "SOFTWARE_NOT_FOUND") {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === "SOFTWARE_NOT_FOUND") {
+        // 本地指向的服务端草稿已被删除（如清理孤儿）：清进度重建，本地内容原样保留
         setSoftwareId(null);
         setRevisionId(null);
         setLockVersion(null);
         message.info("原草稿已不存在，已为你重新创建");
         await doSaveFresh();
+        return;
+      }
+      if (code === "SOFTWARE_VERSION_CONFLICT") {
+        const recovered = await recoverOnConflict();
+        if (recovered) {
+          message.success("版本已自动同步，保存成功");
+        }
         return;
       }
       // 其余错误拦截器已统一提示
@@ -444,13 +490,33 @@ export default function SoftwarePublish() {
       message.success("已提交审核，审核通过后公开可见");
       history.push("/software/mine");
     } catch (err) {
-      // 提交链软件被删：重建草稿并落内容，提示再次点击提交
-      if ((err as { code?: string } | null)?.code === "SOFTWARE_NOT_FOUND") {
+      const code = (err as { code?: string } | null)?.code;
+      if (code === "SOFTWARE_NOT_FOUND") {
+        // 提交链软件被删：重建草稿并落内容，提示再次点击提交
         setSoftwareId(null);
         setRevisionId(null);
         setLockVersion(null);
         await doSaveFresh();
         message.info("原草稿已不存在，已重新创建并保存，请再次点击提交审核");
+        return;
+      }
+      if (code === "SOFTWARE_VERSION_CONFLICT") {
+        // 版本漂移自动恢复：同步进度 → 本地内容落库 → 自动重试提交
+        const recovered = await recoverOnConflict();
+        if (recovered) {
+          const retried = await submitSoftwareForReview(
+            recovered.softwareId,
+            recovered.revisionId,
+            { expectedVersion: recovered.lockVersion },
+          );
+          if (retried.data.success) {
+            clearPageDraft(DRAFT_KEY);
+            message.success("已提交审核，审核通过后公开可见");
+            history.push("/software/mine");
+            return;
+          }
+        }
+        message.info("内容已自动保存，请再次点击提交审核");
         return;
       }
       // 其余错误拦截器已统一提示
