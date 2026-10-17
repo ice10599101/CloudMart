@@ -38,7 +38,7 @@ export function uploadFile(file: File, options?: UploadFileOptions) {
 export interface AssetUploadResult {
   /** 资产 ID（对外 string，19 位安全） */
   fileId: string
-  url: string
+  url: string | null
   mime: string
   fileSize: number
 }
@@ -48,7 +48,7 @@ export function uploadFileAsset(file: File, visibility: 'PUBLIC' | 'PRIVATE' = '
   const formData = new FormData()
   formData.append('file', file)
   formData.append('visibility', visibility)
-  return request.post<ApiResponse<AssetUploadResult>>('/file/assets', formData)
+  return request.post<ApiResponse<AssetUploadResult>>('/file/assets', formData, { timeout: 60000 })
 }
 
 /** 按 fileId 删除（引用计数；被引用 409） */
@@ -58,7 +58,7 @@ export function deleteFileAsset(fileId: string) {
 
 /** 私有附件 10 分钟签名下载地址 */
 export function getAssetDownloadUrl(fileId: string) {
-  return request.get<ApiResponse<{ url: string; expiresAt: string }>>(`/file/assets/${fileId}/download-url`)
+  return request.get<ApiResponse<{ downloadPath: string; expiresInSeconds: number }>>(`/file/assets/${fileId}/download-url`)
 }
 
 // ==================== ADMIN-04：管理员域上传 ====================

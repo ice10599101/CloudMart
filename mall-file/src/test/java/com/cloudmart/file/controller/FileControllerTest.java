@@ -54,6 +54,20 @@ class FileControllerTest {
         return new MockMultipartFile("file", "test.jpg", "image/jpeg", "image-content".getBytes());
     }
 
+    @Test
+    void missingOrEmptyFileDoesNotConsumeQuota() throws Exception {
+        mockMvc.perform(multipart("/assets").header("X-User-Id", "10001"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("FILE_EMPTY"));
+        mockMvc.perform(multipart("/assets")
+                        .file(new MockMultipartFile("file", "empty.png", "image/png", new byte[0]))
+                        .header("X-User-Id", "10001"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("FILE_EMPTY"));
+        verify(uploadQuotaService, never()).reserve(anyString(), anyString());
+        verify(fileService, never()).store(any(), anyString(), anyString());
+    }
+
     private FileAsset asset(long id, String visibility) {
         FileAsset asset = new FileAsset();
         asset.setId(id);

@@ -4,7 +4,7 @@ import { router } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
-import { fileApi } from '@/api/file'
+import { fileApi, createUploadForm } from '@/api/file'
 import { userApi } from '@/api/user'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import axios from 'axios'
@@ -127,13 +127,11 @@ export default function ProfilePage() {
       if (result.canceled || !result.assets?.[0]) return
 
       setAvatarUploading(true)
-      const token = await storage.getItem('access_token')
-      const formData = new FormData()
-      formData.append('file', {
+      const formData = await createUploadForm({
         uri: result.assets[0].uri,
-        type: 'image/jpeg',
-        name: 'avatar.jpg',
-      } as unknown as Blob)
+        type: result.assets[0].mimeType || 'image/jpeg',
+        name: result.assets[0].fileName || result.assets[0].uri.split('/').pop()?.split('?')[0] || 'avatar.jpg',
+      })
 
       // S01：唯一资产入口 /file/assets（fileApi.upload 内部已带鉴权与 URL 解析）
       const uploadRes = await fileApi.upload(formData)

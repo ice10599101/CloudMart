@@ -92,7 +92,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MultipartException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleMultipartException(MultipartException ex) {
-        return ApiResponse.fail("INVALID_REQUEST", "请上传有效的文件");
+        log.warn("Multipart request failed: {}", ex.getMessage());
+        return ApiResponse.fail("INVALID_REQUEST", "文件上传请求格式错误，请重新选择文件后重试");
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public ApiResponse<Void> handleUploadTooLarge(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        return ApiResponse.fail("FILE_TOO_LARGE", "上传文件超过大小限制，请压缩文件后重试");
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleMissingFile(org.springframework.web.multipart.support.MissingServletRequestPartException ex) {
+        return ApiResponse.fail("FILE_EMPTY", "缺少上传文件，请重新选择文件");
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -124,6 +137,7 @@ public class GlobalExceptionHandler {
             return HttpStatus.SERVICE_UNAVAILABLE;
         }
         return switch (code) {
+            case "FILE_TOO_LARGE" -> HttpStatus.PAYLOAD_TOO_LARGE;
             // 内容安全（P0-1）：宠物名/UGC 内容命中敏感词，客户端可换词重试
             case "PET_NAME_SENSITIVE", "PET_CONTENT_SENSITIVE" -> HttpStatus.BAD_REQUEST;
             case "UNAUTHORIZED", "TOKEN_EXPIRED", "TOKEN_REUSE_DETECTED", "INVALID_REFRESH_TOKEN",

@@ -15,6 +15,15 @@ class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
+    @Test
+    void uploadErrorsHaveSpecificCodes() {
+        assertThat(statusOf("FILE_TOO_LARGE")).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+        assertThat(handler.handleUploadTooLarge(new org.springframework.web.multipart.MaxUploadSizeExceededException(1024))
+                .error().code()).isEqualTo("FILE_TOO_LARGE");
+        assertThat(handler.handleMissingFile(new org.springframework.web.multipart.support.MissingServletRequestPartException("file"))
+                .error().code()).isEqualTo("FILE_EMPTY");
+    }
+
     private HttpStatusCode statusOf(String code) {
         ResponseEntity<ApiResponse<Void>> response = handler.handleBusinessException(new BusinessException(code, "msg"));
         return response.getStatusCode();

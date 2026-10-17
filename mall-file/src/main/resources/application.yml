@@ -2,6 +2,11 @@ server:
   port: 9030
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      # 留出 multipart 边界与表单字段的空间。
+      max-request-size: 55MB
   application:
     name: mall-file
   config:
@@ -52,10 +57,6 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-  servlet:
-    multipart:
-      max-file-size: 50MB
-      max-request-size: 50MB
 
 # ===== 阿里云 OSS 方案（已停用，仅注释保留；2026-09-17 起改为服务器本地存储） =====
 #dromara:

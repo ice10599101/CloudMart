@@ -4,7 +4,7 @@ import { ActivityIndicator, Alert, Image, Switch, Text, TextInput, TouchableOpac
 import { useTheme } from '@/hooks/use-theme-context'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { PetCreamTheme } from '@/constants/pet-cream'
-import { fileApi } from '@/api/file'
+import { fileApi, createUploadForm } from '@/api/file'
 import { errorMessage } from '@/utils/request'
 import * as ImagePicker from 'expo-image-picker'
 import { petApi, type PetAnniversary, type PetPersona, type PetFriendFeedItem, type PetDiaryPage, type PetDiaryEntry, type PetMemory, type PetNotifyPref, type PetOnboardingProgress, type PetAlbumAssetView, type PetContentVisibility } from '@/api/pet'
@@ -210,9 +210,7 @@ export function CompanionPanel(
     const asset = picked.assets[0]
     setPending('album')
     try {
-      const form = new FormData()
-      // RN FormData：以 uri 引用本地图片，随 multipart 上传
-      form.append('file', { uri: asset.uri, name: 'album.jpg', type: 'image/jpeg' } as unknown as Blob)
+      const form = await createUploadForm({ uri: asset.uri, name: asset.fileName || asset.uri.split('/').pop()?.split('?')[0] || 'upload.jpg', type: asset.mimeType || 'image/jpeg' })
       // PET-13/T31：相册资产上传即 PRIVATE（绑定要求 PRIVATE，缺省 PUBLIC 会导致绑定失败/隐私泄露）
       const { data: up } = await fileApi.upload(form, 'PRIVATE')
       if (!up.data) {

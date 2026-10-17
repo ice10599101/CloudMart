@@ -11,7 +11,7 @@ import {
   AFTER_SALE_TYPE_TEXT,
   type AfterSaleCase,
 } from '@/api/after-sale'
-import { fileApi } from '@/api/file'
+import { fileApi, createUploadForm } from '@/api/file'
 import { productApi, type OwnReview } from '@/api/product'
 import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -236,8 +236,7 @@ export default function OrderDetailPage() {
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
     try {
-      const form = new FormData()
-      form.append('file', { uri: asset.uri, name: 'after-sale.jpg', type: 'image/jpeg' } as unknown as Blob)
+      const form = await createUploadForm({ uri: asset.uri, name: asset.fileName || asset.uri.split('/').pop()?.split('?')[0] || 'upload.jpg', type: asset.mimeType || 'image/jpeg' })
       // 售后凭证为用户私密附件：显式 PRIVATE（S01 可见性分域）
       const { data: up } = await fileApi.upload(form, 'PRIVATE')
       const fileId = up?.data?.fileId

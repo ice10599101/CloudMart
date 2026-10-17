@@ -12,7 +12,7 @@ import {
   type SoftwareCategory,
   type SoftwareContact,
 } from '@/api/software'
-import { fileApi } from '@/api/file'
+import { fileApi, resolveFileUrl } from '@/api/file'
 import { errorMessage } from '@/utils/request'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
@@ -145,7 +145,7 @@ export default function SoftwareEditPage() {
   }
 
   // 图标展示：本地素材 URL 经 /files 反代（与 Web 一致由 file 服务提供）
-  const resolveIcon = (assetId: string) => `/file/assets/${assetId}/raw`
+  const resolveIcon = (assetId: string) => resolveFileUrl(`/files/by-id/${assetId}`)
 
   const chooseIcon = async () => {
     try {

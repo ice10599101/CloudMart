@@ -1,65 +1,49 @@
 import Taro from '@tarojs/taro'
+import { API_BASE } from '@/utils/request'
+import { BusinessError } from '@/utils/businessError'
 
-const IS_WEAPP = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
-const API_BASE = IS_WEAPP ? 'http://localhost:8080' : '/api'
 export { API_BASE }
 
-/**
- * 将后端返回的本地存储相对 URL（/files/...）解析为当前环境可访问的地址：
- * - 小程序：域名白名单限制，必须返回完整 http 地址（经 web 主站 nginx 8080 的 /files 反代）
- * - H5：保持相对路径，由 dev server proxy / nginx 的 /files 反代提供
- */
 export function resolveFileUrl(url: string): string {
-  if (url.startsWith('/files/') && IS_WEAPP) {
-    return `http://localhost:8080${url}`
-  }
-  return url
+  return url.startsWith('/files/') && API_BASE.startsWith('http')
+    ? API_BASE.replace(/\/api\/?$/, '') + url
+    : url
 }
 
-export const fileApi = {
-  upload: (filePath: string) => {
-    return new Promise<{ data: { data: { url: string } } }>((resolve, reject) => {
-      const token = Taro.getStorageSync('access_token')
-      const uploadTask = Taro.uploadFile({
-        url: `${API_BASE}/file/assets`,
-        filePath,
-        name: 'file',
-        header: token ? { Authorization: `Bearer ${token}` } : {},
-        success: (res) => {
-          try {
-            const data = JSON.parse(res.data)
-            if (data?.data?.url) {
-              data.data.url = resolveFileUrl(data.data.url)
-            }
-            resolve({ data })
-          } catch {
-            reject(new Error('Parse upload response failed'))
-          }
-        },
-        fail: (err) => reject(err),
-      })
-      // Return upload task for progress tracking if needed
-      return uploadTask
-    })
-  },
-  /** FILE-01 资产上传（内容魔数校验，SVG 拒绝）→ 返回 fileId（宠物相册等引用型场景） */
-  uploadAsset: (filePath: string, visibility: 'PUBLIC' | 'PRIVATE' = 'PUBLIC') => {
-    return new Promise<{ data: { data: { fileId: string; url: string; mime: string; fileSize: number } } }>((resolve, reject) => {
-      const token = Taro.getStorageSync('access_token')
-      Taro.uploadFile({
-        url: `${API_BASE}/file/assets?visibility=${visibility}`,
-        filePath,
-        name: 'file',
-        header: token ? { Authorization: `Bearer ${token}` } : {},
-        success: (res) => {
-          try {
-            resolve({ data: JSON.parse(res.data) })
-          } catch {
-            reject(new Error('Parse asset upload response failed'))
-          }
-        },
-        fail: (err) => reject(err),
-      })
-    })
-  },
+interface FileUploadResult {
+  fileId: string
+  url: string | null
+  mime: string
+  fileSize: number
 }
+
+function upload(filePath: string, visibility: 'PUBLIC' | 'PRIVATE' = 'PUBLIC') {
+  return new Promise<{ data: { data: FileUploadResult } }>((resolve, reject) => {
+    const token = Taro.getStorageSync('access_token')
+    Taro.uploadFile({
+      url: API_BASE + '/file/assets',
+      filePath,
+      name: 'file',
+      formData: { visibility },
+      timeout: 60000,
+      header: token ? { Authorization: 'Bearer ' + token } : {},
+      success: (res) => {
+        try {
+          const data = JSON.parse(res.data)
+          if (res.statusCode >= 400 || data.success !== true) {
+            reject(new BusinessError(data.error?.code || 'HTTP_' + res.statusCode,
+              data.error?.message || '文件上传失败', { status: res.statusCode }))
+            return
+          }
+          if (data.data?.url) data.data.url = resolveFileUrl(data.data.url)
+          resolve({ data })
+        } catch {
+          reject(new BusinessError('INVALID_RESPONSE', '上传响应格式错误，请重试'))
+        }
+      },
+      fail: () => reject(new BusinessError('NETWORK_ERROR', '文件上传失败，请检查网络连接')),
+    })
+  })
+}
+
+export const fileApi = { upload, uploadAsset: upload }

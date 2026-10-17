@@ -57,7 +57,6 @@ export { API_BASE }
 const client = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
-  headers: { 'Content-Type': 'application/json' },
 })
 
 /**
@@ -309,6 +308,7 @@ interface RequestConfig {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
   data?: Record<string, unknown> | FormData
   header?: Record<string, string>
+  timeout?: number
   /** GET 查询参数（axios params；W03 钱包游标分页等） */
   params?: Record<string, unknown>
   /**
@@ -325,6 +325,7 @@ async function request<T = unknown>(config: RequestConfig): Promise<{ data: ApiR
     data: config.data,
     params: config.params,
     headers: config.header,
+    timeout: config.timeout,
     persistentIntent: config.persistentIntent,
   } as unknown as InternalAxiosRequestConfig)
   return { data: res.data }

@@ -79,6 +79,7 @@ export default function ProfilePage() {
       setAvatarUploading(true)
       const uploadRes = await fileApi.upload(tempFilePath)
       const avatarUrl = uploadRes.data.data.url
+      if (!avatarUrl) throw new Error('头像上传未返回图片地址，请重试')
       await userApi.updateProfile({ avatar: avatarUrl })
       await fetchUser()
       Taro.showToast({ title: '头像更新成功', icon: 'success' })

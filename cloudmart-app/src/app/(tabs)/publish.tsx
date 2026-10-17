@@ -6,7 +6,7 @@ import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
 import { communityApi } from '@/api/community'
 import { productApi } from '@/api/product'
-import { fileApi } from '@/api/file'
+import { fileApi, createUploadForm } from '@/api/file'
 import type { Product } from '@/types'
 import { RichTextEditor, RichTextEditorRef } from '@/components/RichTextEditor'
 import { appendAttachmentNodes, generateAttachmentId, type SurveyAttachmentQuestion } from '@/utils/postAttachments'
@@ -148,12 +148,11 @@ export default function PublishPage() {
         uploadedUrls.push(item.url)
       } else if (item.localUri) {
         try {
-          const formData = new FormData()
-          formData.append('file', {
+          const formData = await createUploadForm({
             uri: item.localUri,
             type: 'image/jpeg',
-            name: 'upload.jpg',
-          } as any)
+            name: item.localUri.split('/').pop()?.split('?')[0] || 'upload.jpg',
+          })
           const res = await fileApi.upload(formData)
           const url = (res.data as any)?.data?.url || (res.data as any)?.url
           if (url) uploadedUrls.push(url)
@@ -457,12 +456,11 @@ export default function PublishPage() {
     setUploading(true)
     try {
       const asset = result.assets[0]
-      const formData = new FormData()
-      formData.append('file', {
+      const formData = await createUploadForm({
         uri: asset.uri,
-        type: 'image/jpeg',
-        name: 'upload.jpg',
-      } as any)
+        type: asset.mimeType || 'image/jpeg',
+        name: asset.fileName || asset.uri.split('/').pop()?.split('?')[0] || 'upload.jpg',
+      })
 
       const res = await fileApi.upload(formData)
       const url = (res.data as any)?.data?.url || (res.data as any)?.url

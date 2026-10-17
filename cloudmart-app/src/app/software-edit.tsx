@@ -23,7 +23,8 @@ import {
   type SoftwareCategory,
   type SoftwareContact,
 } from '@/api/software'
-import { fileApi } from '@/api/file'
+import { fileApi, createUploadForm } from '@/api/file'
+import { resolveMediaUrl } from '@/utils/mediaUrl'
 import { useTheme } from '@/hooks/use-theme-context'
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme'
 
@@ -170,7 +171,7 @@ export default function SoftwareEditScreen() {
     if (ed.reviewStatus === 'REJECTED' && ed.reviewReason) setReviewReason(`退回原因：${ed.reviewReason}`)
   }
 
-  const resolveIcon = (assetId: string) => `/file/assets/${assetId}/raw`
+  const resolveIcon = (assetId: string) => resolveMediaUrl(`/files/by-id/${assetId}`)
 
   const chooseIcon = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -179,13 +180,12 @@ export default function SoftwareEditScreen() {
     })
     if (result.canceled || !result.assets?.[0]) return
     const asset = result.assets[0]
-    const formData = new FormData()
-    formData.append('file', {
-      uri: asset.uri,
-      name: 'icon.jpg',
-      type: 'image/jpeg',
-    } as any)
     try {
+      const formData = await createUploadForm({
+        uri: asset.uri,
+        name: asset.fileName || asset.uri.split('/').pop()?.split('?')[0] || 'upload.jpg',
+        type: asset.mimeType || 'image/jpeg',
+      })
       const res = await fileApi.upload(formData, 'PUBLIC')
       const data = (res.data as any)?.data
       if (data?.fileId) {

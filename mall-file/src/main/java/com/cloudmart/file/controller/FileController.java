@@ -60,7 +60,7 @@ public class FileController {
             + "PRIVATE 返回 fileId（无公开 URL，凭 /download-url 短期授权下载）")
     public ApiResponse<AssetUploadResponse> uploadAsset(
             @Parameter(description = "上传文件", required = true)
-            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "file", required = false) MultipartFile file,
             @Parameter(description = "可见性：PUBLIC/PRIVATE")
             @RequestParam(value = "visibility", required = false, defaultValue = "PUBLIC") String visibility,
             @Parameter(description = "业务用途（后台上传必填：GIFT_IMAGE/WISH_BGM/SOFTWARE_ASSET/ADMIN_ASSET）")
@@ -90,6 +90,9 @@ public class FileController {
             }
         }
         String ownerType = isAdmin ? "ADMIN" : "USER";
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("FILE_EMPTY", "上传文件不能为空");
+        }
         // 管理员豁免配额（与原配额语义一致）；普通用户预占，失败路径统一归还
         boolean quotaReserved = false;
         if (!isAdmin) {
@@ -98,9 +101,6 @@ public class FileController {
         }
         String storageKey = null;
         try {
-            if (file == null || file.isEmpty()) {
-                throw new BusinessException("FILE_EMPTY", "上传文件不能为空");
-            }
             // 内容只读一次：嗅探/哈希/落盘复用（S01 大文件禁止多次 getBytes 的最小可行形态）
             byte[] content;
             try {

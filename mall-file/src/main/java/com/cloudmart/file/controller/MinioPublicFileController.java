@@ -47,20 +47,17 @@ public class MinioPublicFileController {
 
     private final MinioClient minioClient;
     private final String bucket;
-    private final com.cloudmart.file.repository.FileAssetMapper assetMapper;
 
     public MinioPublicFileController(
             @Value("${file.minio.endpoint:http://127.0.0.1:9000}") String endpoint,
             @Value("${file.minio.access-key:minioadmin}") String accessKey,
             @Value("${file.minio.secret-key:minioadmin}") String secretKey,
-            @Value("${file.minio.bucket:cloudmart-files}") String bucket,
-            com.cloudmart.file.repository.FileAssetMapper assetMapper) {
+            @Value("${file.minio.bucket:cloudmart-files}") String bucket) {
         this.minioClient = MinioClient.builder()
                 .endpoint(endpoint)
                 .credentials(accessKey, secretKey)
                 .build();
         this.bucket = bucket;
-        this.assetMapper = assetMapper;
     }
 
     /** 复用服务实现类的启动校验语义：桶不可用直接暴露配置问题 */
@@ -73,23 +70,6 @@ public class MinioPublicFileController {
         } catch (Exception e) {
             throw new IllegalStateException("P1-19 MinIO 连接失败（/files 代理不可用）: " + e.getMessage(), e);
         }
-    }
-
-    /**
-     * 按资产 ID 取公共文件：/files/by-id/{assetId}。
-     * 图标/正文图片等场景只有资产 ID（无存储路径），由本端点解析 storage_key 读取。
-     * 仅 PUBLIC 且 READY 的资产可读；PRIVATE 返回 403。
-     */
-    @GetMapping("/by-id/{assetId}")
-    public ResponseEntity<byte[]> serveById(@PathVariable Long assetId) {
-        var asset = assetMapper.selectById(assetId);
-        if (asset == null || !"READY".equals(asset.getStatus())) {
-            return ResponseEntity.notFound().build();
-        }
-        if (!"PUBLIC".equals(asset.getVisibility())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        return serveByKey(asset.getStorageKey());
     }
 
     @GetMapping("/**")
