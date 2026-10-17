@@ -12,5 +12,10 @@ public record GroupMemberDTO(
     @Schema(description = "是否团长") Boolean isLeader,
     @Schema(description = "关联订单ID") Long orderId,
     @Schema(description = "状态: JOINED/CONFIRMED/REFUNDED") String status,
-    @Schema(description = "加入时间") LocalDateTime joinedAt
+    @Schema(description = "加入时间") LocalDateTime joinedAt,
+    @Schema(description = "WEB-02：成团建单任务状态 SUCCESS/FAILED/PENDING/ABSENT_ADDRESS——"
+            + "FAILED/ABSENT_ADDRESS 为补偿状态，不伪造全部建单成功")
+    String orderTaskStatus,
+    @Schema(description = "WEB-02：建单失败原因（补偿状态时展示）")
+    String orderTaskError
 ) {}

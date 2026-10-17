@@ -1,376 +1,295 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Button, Empty, Input, Modal, Select, Spin, Tag } from 'antd'
 import {
   listGroupActivities,
   openGroup,
+  joinGroup,
   getGroupOrders,
+  getMyGroups,
+  getGroupOrder,
 } from '@/api/marketing'
 import type { GroupActivity, GroupOrder } from '@/api/marketing'
+import { listAddresses } from '@/api/user'
+import { getUserProfile } from '@/api/user'
+import type { ApiResponse } from '@/types/api'
 
-function GroupActivityCard({
-  activity,
-  onJoin,
-  onToast,
-}: {
-  activity: GroupActivity
-  onJoin: (activityId: number) => void
-  onToast: (message: string, type: 'success' | 'error') => void
-}) {
-  const [joining, setJoining] = useState(false)
-  const progressPercent = activity.targetNumber > 0
-    ? Math.round((activity.currentGroups / activity.targetNumber) * 100)
-    : 0
-  // 启用中且未过 endTime 才可参与（与倒计时"已结束"判断保持一致）
-  const isExpired = activity.endTime ? new Date(activity.endTime).getTime() <= Date.now() : false
-  const isActive = activity.status === 'ENABLED' && !isExpired
-
-  const handleJoin = async () => {
-    setJoining(true)
-    try {
-      await openGroup(activity.id)
-      onToast('参团成功', 'success')
-      onJoin(activity.id)
-    } catch {
-      onToast('参团失败', 'error')
-    } finally {
-      setJoining(false)
-    }
-  }
-
-  const timeRemaining = () => {
-    if (!activity.endTime) return null
-    const end = new Date(activity.endTime).getTime()
-    const diff = Math.max(0, Math.floor((end - Date.now()) / 1000))
-    if (diff <= 0) return '已结束'
-    const h = Math.floor(diff / 3600)
-    const m = Math.floor((diff % 3600) / 60)
-    return h > 0 ? `${h}时${m}分` : `${m}分钟`
-  }
-
-  return (
-    <div style={{
-      background: 'var(--color-bg-container)',
-      border: '1px solid var(--color-border)',
-      borderRadius: '16px',
-      overflow: 'hidden',
-      transition: 'all 0.3s ease',
-    }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = 'rgba(var(--color-primary-rgb), 0.3)'
-        e.currentTarget.style.boxShadow = '0 8px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(var(--color-primary-rgb), 0.08)'
-        e.currentTarget.style.transform = 'translateY(-4px)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = 'var(--color-border)'
-        e.currentTarget.style.boxShadow = 'none'
-        e.currentTarget.style.transform = 'translateY(0)'
-      }}
-    >
-      <div style={{
-        height: 200,
-        background: 'linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.06), rgba(0,153,204,0.12))',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        {activity.productId ? (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-tertiary)', fontSize: 12 }}>
-            商品 #{activity.productId}
-          </div>
-        ) : (
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(var(--color-primary-rgb), 0.4)" strokeWidth="1.5">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-        )}
-        {isActive && (
-          <div style={{
-            position: 'absolute',
-            top: 12,
-            right: 12,
-            padding: '4px 10px',
-            borderRadius: '6px',
-            background: 'rgba(var(--color-primary-rgb), 0.15)',
-            border: '1px solid rgba(var(--color-primary-rgb), 0.3)',
-            color: 'var(--color-primary)',
-            fontSize: 12,
-            fontWeight: 600,
-          }}>
-            拼团中
-          </div>
-        )}
-      </div>
-
-      <div style={{ padding: 20 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {activity.name}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 16 }}>
-          <span style={{ fontSize: 28, fontWeight: 800, color: 'var(--color-primary)', textShadow: '0 0 20px rgba(var(--color-primary-rgb), 0.3)' }}>
-            ¥{activity.groupPrice.toFixed(2)}
-          </span>
-          <span style={{ fontSize: 14, color: 'var(--color-text-tertiary)', textDecoration: 'line-through' }}>
-            ¥{activity.originalPrice.toFixed(2)}
-          </span>
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-              {activity.currentGroups}/{activity.targetNumber}人成团
-            </span>
-            {timeRemaining() && (
-              <span style={{ fontSize: 12, color: '#FFA502' }}>{timeRemaining()}</span>
-            )}
-          </div>
-          <div style={{
-            height: 6,
-            background: 'var(--color-border)',
-            borderRadius: 3,
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${progressPercent}%`,
-              background: 'linear-gradient(90deg, var(--color-primary), var(--color-primary-dark))',
-              borderRadius: 3,
-              transition: 'width 0.3s ease',
-              boxShadow: '0 0 10px rgba(var(--color-primary-rgb), 0.3)',
-            }} />
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleJoin}
-          disabled={!isActive || joining}
-          style={{
-            width: '100%',
-            padding: '12px 0',
-            border: 'none',
-            borderRadius: '10px',
-            fontSize: 15,
-            fontWeight: 700,
-            cursor: !isActive || joining ? 'not-allowed' : 'pointer',
-            background: !isActive
-              ? 'var(--color-bg-elevated)'
-              : 'var(--color-gradient-primary)',
-            color: !isActive ? 'var(--color-text-tertiary)' : '#fff',
-            boxShadow: !isActive ? 'none' : '0 4px 16px rgba(var(--color-primary-rgb), 0.3)',
-            transition: 'all 0.3s ease',
-            letterSpacing: 1,
-          }}
-        >
-          {joining ? '参团中...' : isActive ? '参与拼团' : '已结束'}
-        </button>
-      </div>
-    </div>
-  )
+const GROUP_STATUS_META: Record<string, { label: string; color: string }> = {
+  PENDING: { label: '拼团中', color: '#FFA502' },
+  SUCCESS: { label: '拼团成功', color: '#2ED573' },
+  FAILED: { label: '已成团失败', color: '#FF4757' },
+  EXPIRED: { label: '已过期', color: '#8d8d8d' },
 }
 
-function GroupOrderCard({ order }: { order: GroupOrder }) {
-  const isPending = order.status === 'PENDING' || order.status === 'WAITING'
-  const isCompleted = order.status === 'COMPLETED' || order.status === 'SUCCESS'
-  const progressPercent = order.targetNumber > 0
-    ? Math.round((order.currentNumber / order.targetNumber) * 100)
-    : 0
-
-  const statusConfig = isPending
-    ? { label: '拼团中', color: '#FFA502' }
-    : isCompleted
-      ? { label: '拼团成功', color: '#2ED573' }
-      : { label: '拼团失败', color: 'var(--color-text-tertiary)' }
-
-  return (
-    <div style={{
-      background: 'var(--color-bg-container)',
-      border: '1px solid var(--color-border)',
-      borderRadius: '10px',
-      padding: 20,
-      marginBottom: 12,
-      transition: 'all 0.3s ease',
-    }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = 'rgba(var(--color-primary-rgb), 0.3)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = 'var(--color-border)'
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <span style={{ color: 'var(--color-text-secondary)', fontSize: 14, fontWeight: 600 }}>
-              团长：用户#{order.leaderUserId}
-            </span>
-          </div>
-          <div style={{ color: 'var(--color-text-secondary)', fontSize: 13, marginBottom: 8 }}>
-            {order.currentNumber}/{order.targetNumber}人成团
-          </div>
-          <div style={{
-            height: 4,
-            background: 'var(--color-border)',
-            borderRadius: 2,
-            overflow: 'hidden',
-            maxWidth: 200,
-          }}>
-            <div style={{
-              height: '100%',
-              width: `${progressPercent}%`,
-              background: 'linear-gradient(90deg, var(--color-primary), var(--color-primary-dark))',
-              borderRadius: 2,
-            }} />
-          </div>
-        </div>
-        <span style={{
-          padding: '4px 12px',
-          borderRadius: '6px',
-          background: `${statusConfig.color}15`,
-          color: statusConfig.color,
-          fontSize: 13,
-          fontWeight: 600,
-        }}>
-          {statusConfig.label}
-        </span>
-      </div>
-    </div>
-  )
+/** 服务器时间校准：以响应 Date 头为基准计算偏移，倒计时不用本地时钟直判 */
+function serverOffsetFrom(res: unknown): number {
+  const dateHeader = (res as { headers?: { date?: string } })?.headers?.date
+  if (!dateHeader) return 0
+  const serverNow = Date.parse(dateHeader)
+  return Number.isNaN(serverNow) ? 0 : serverNow - Date.now()
 }
 
 export default function GroupBuyPage() {
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [activities, setActivities] = useState<GroupActivity[]>([])
-  const [groupOrders, setGroupOrders] = useState<GroupOrder[]>([])
+  const [myGroups, setMyGroups] = useState<GroupOrder[]>([])
+  const [openGroups, setOpenGroups] = useState<GroupOrder[]>([])
+  const [openGroupsActivity, setOpenGroupsActivity] = useState<GroupActivity | null>(null)
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'activities' | 'orders'>('activities')
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const serverOffsetRef = useRef(0)
+  const [nowTick, setNowTick] = useState(Date.now())
+  // WEB-02：开团/加入此团两动作分离——加入必须携带所选 groupId 与收货地址
+  const [joinTarget, setJoinTarget] = useState<{ activityId: number; groupOrderId?: number } | null>(null)
+  const [addresses, setAddresses] = useState<Array<Record<string, any>>>([])
+  const [selectedAddressId, setSelectedAddressId] = useState<number | string | null>(null)
+  const [joinSubmitting, setJoinSubmitting] = useState(false)
+  // WEB-02：groupId 深链详情（不提供从 URL 切到无关团的入口）
+  const [deepLinkGroup, setDeepLinkGroup] = useState<GroupOrder | null>(null)
+  const myUserIdRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 30_000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (toast) {
-      const timer = setTimeout(() => setToast(null), 3000)
-      return () => clearTimeout(timer)
+      const t = setTimeout(() => setToast(null), 3000)
+      return () => clearTimeout(t)
     }
   }, [toast])
 
-  const fetchActivities = useCallback(async () => {
+  const notify = (msg: string, type: 'success' | 'error') => setToast({ message: msg, type })
+
+  /** 打开地址选择并提交参团：无有效地址时明确阻断，不静默形成无地址团 */
+  const openJoinFlow = useCallback(async (activityId: number, groupOrderId?: number) => {
+    setJoinTarget({ activityId, groupOrderId })
+    try {
+      const { data: res } = await listAddresses()
+      const response = res as ApiResponse<Array<Record<string, any>>>
+      const list = response.data ?? []
+      setAddresses(list)
+      const def = list.find((a) => a.isDefault) ?? list[0]
+      setSelectedAddressId(def ? def.id : null)
+    } catch {
+      setAddresses([])
+      setSelectedAddressId(null)
+    }
+  }, [])
+
+  const doJoin = async () => {
+    if (!joinTarget) return
+    // WEB-02：缺有效地址不能静默形成无地址订单（后端冻结参团地址快照）
+    if (!selectedAddressId) {
+      notify('请先添加收货地址再参与拼团', 'error')
+      return
+    }
+    setJoinSubmitting(true)
+    try {
+      const payload: Record<string, unknown> = {
+        activityId: joinTarget.activityId,
+        addressId: selectedAddressId,
+      }
+      // 加入此团必须带所选 groupId；开团不带
+      if (joinTarget.groupOrderId != null) payload.groupOrderId = joinTarget.groupOrderId
+      await joinGroup(payload as { activityId: number })
+      notify(joinTarget.groupOrderId != null ? '已加入该团' : '开团成功', 'success')
+      setJoinTarget(null)
+      void refresh()
+    } catch {
+      notify('参与失败（可能已参加过/团已满/已过期）', 'error')
+    } finally {
+      setJoinSubmitting(false)
+    }
+  }
+
+  const refresh = useCallback(async () => {
     setLoading(true)
     try {
-      const { data: res } = await listGroupActivities(1, 20)
-      setActivities(res.data?.records ?? [])
+      const actRes = await listGroupActivities(1, 20)
+      serverOffsetRef.current = serverOffsetFrom(actRes)
+      setActivities(actRes.data?.data?.records ?? [])
+      const myRes = await getMyGroups(1, 20)
+      serverOffsetRef.current = serverOffsetFrom(myRes)
+      setMyGroups(myRes.data?.data?.records ?? [])
     } finally {
       setLoading(false)
     }
   }, [])
 
-  const fetchGroupOrders = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { data: res } = await getGroupOrders(undefined, 1, 20)
-      setGroupOrders(res.data?.records ?? [])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
+  // WEB-02：groupId 深链——只展示该团，不从 URL 切换到无关团
   useEffect(() => {
-    if (activeTab === 'activities') {
-      fetchActivities()
-    } else {
-      fetchGroupOrders()
+    void refresh()
+    void (async () => {
+      try {
+        const { data: profile } = await getUserProfile()
+        myUserIdRef.current = (profile as ApiResponse<{ id: number }>).data?.id ?? null
+      } catch {
+        myUserIdRef.current = null
+      }
+    })()
+    const groupId = searchParams.get('groupId')
+    if (groupId) {
+      void (async () => {
+        try {
+          const { data: res } = await getGroupOrder(Number(groupId))
+          setDeepLinkGroup((res as ApiResponse<GroupOrder>).data ?? null)
+        } catch {
+          notify('拼团组不存在或已失效', 'error')
+        }
+      })()
     }
-  }, [activeTab, fetchActivities, fetchGroupOrders])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const handleJoin = () => {
-    fetchActivities()
-    fetchGroupOrders()
+  const expandOpenGroups = async (activity: GroupActivity) => {
+    setOpenGroupsActivity(openGroupsActivity?.id === activity.id ? null : activity)
+    setOpenGroups([])
+    try {
+      const { data: res } = await getGroupOrders(activity.id, 1, 10)
+      serverOffsetRef.current = serverOffsetFrom(res)
+      setOpenGroups(res.data?.records ?? [])
+    } catch {
+      setOpenGroups([])
+    }
+  }
+
+  const remaining = (expireTime: string | null | undefined) => {
+    if (!expireTime) return null
+    const diff = Math.max(0, Math.floor((new Date(expireTime).getTime() - (nowTick + serverOffsetRef.current)) / 1000))
+    if (diff <= 0) return '已截止'
+    const h = Math.floor(diff / 3600)
+    const m = Math.floor((diff % 3600) / 60)
+    return h > 0 ? `剩余 ${h}时${m}分` : `剩余 ${m}分钟`
+  }
+
+  /** 本人成员视图（成团建单结果/补偿状态） */
+  const myMemberOf = (order: GroupOrder) =>
+    order.members?.find((m) => myUserIdRef.current != null && m.userId === myUserIdRef.current) ?? null
+
+  const groupOrderCard = (order: GroupOrder) => {
+    const meta = GROUP_STATUS_META[order.status] ?? { label: order.status, color: '#8d8d8d' }
+    const percent = order.targetNumber > 0 ? Math.round((order.currentNumber / order.targetNumber) * 100) : 0
+    const mine = myMemberOf(order)
+    // WEB-02：成团失败/过期仅释放预留权益——不展示不存在的"退款中"
+    const failureNote =
+      order.status === 'FAILED' || order.status === 'EXPIRED' ? '（预留权益已释放，未产生订单与扣款）' : ''
+    // 补偿状态：成团成功但本人建单失败/缺地址——如实展示，不伪造全部建单成功
+    const compensation =
+      order.status === 'SUCCESS' && mine && (mine.orderTaskStatus === 'FAILED' || mine.orderTaskStatus === 'ABSENT_ADDRESS')
+        ? mine.orderTaskStatus === 'ABSENT_ADDRESS'
+          ? '参团时未登记收货地址，建单未完成——请联系客服补建订单'
+          : `建单失败${mine.orderTaskError ? `：${mine.orderTaskError}` : ''}——已进入补偿处理`
+        : null
+    return (
+      <div
+        key={order.id}
+        style={{
+          background: 'var(--color-bg-container)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 10,
+          padding: 16,
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)', marginBottom: 4 }}>
+              团 ID {order.id} · 活动 #{order.activityId}
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>
+              {order.currentNumber}/{order.targetNumber} 人成团
+              {remaining(order.expireTime) ? (
+                <span style={{ marginLeft: 10, fontSize: 12, color: '#FFA502' }}>{remaining(order.expireTime)}</span>
+              ) : null}
+            </div>
+            <div style={{ height: 4, background: 'var(--color-border)', borderRadius: 2, maxWidth: 220, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${percent}%`, background: 'var(--color-primary)', borderRadius: 2 }} />
+            </div>
+            {compensation && (
+              <div style={{ marginTop: 8, fontSize: 13, color: '#d46b08' }}>⚠ {compensation}</div>
+            )}
+            {failureNote && (
+              <div style={{ marginTop: 8, fontSize: 12, color: 'var(--color-text-tertiary)' }}>{failureNote}</div>
+            )}
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <Tag color={meta.color}>{meta.label}</Tag>
+            {/* 成团后：本人建单成功 → 订单入口（待付款金额与支付期限在订单详情/支付页） */}
+            {order.status === 'SUCCESS' && mine?.orderId != null && (
+              <Button
+                type="primary"
+                size="small"
+                style={{ marginTop: 8 }}
+                onClick={() => navigate(`/orders/${mine.orderId}`)}
+              >
+                去支付订单
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg-base)' }}>
       {toast && (
-        <div style={{
-          position: 'fixed',
-          top: 24,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 9999,
-          padding: '12px 32px',
-          borderRadius: '10px',
-          background: toast.type === 'success' ? 'rgba(var(--color-primary-rgb), 0.15)' : 'rgba(255,71,87,0.15)',
-          border: `1px solid ${toast.type === 'success' ? 'rgba(var(--color-primary-rgb), 0.3)' : 'rgba(255,71,87,0.3)'}`,
-          color: toast.type === 'success' ? 'var(--color-primary)' : '#FF4757',
-          backdropFilter: 'blur(12px)',
-          fontSize: 14,
-          fontWeight: 500,
-          animation: 'fade-in 0.3s ease',
-        }}>
+        <div
+          style={{
+            position: 'fixed',
+            top: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            padding: '12px 32px',
+            borderRadius: 10,
+            background: toast.type === 'success' ? 'rgba(var(--color-primary-rgb), 0.15)' : 'rgba(255,71,87,0.15)',
+            color: toast.type === 'success' ? 'var(--color-primary)' : '#FF4757',
+            fontSize: 14,
+            fontWeight: 500,
+          }}
+        >
           {toast.message}
         </div>
       )}
 
-      <div style={{
-        background: 'var(--color-gradient-hero)',
-        padding: '64px 24px 48px',
-        textAlign: 'center',
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 500,
-          height: 350,
-          background: 'radial-gradient(ellipse at center, rgba(var(--color-primary-rgb), 0.06) 0%, transparent 70%)',
-          borderRadius: '50%',
-          filter: 'blur(60px)',
-        }} />
-        <div style={{ position: 'relative' }}>
-          <div style={{ fontSize: 14, color: 'var(--color-primary)', letterSpacing: 4, marginBottom: 16, fontWeight: 600 }}>
-            Group Buy
-          </div>
-          <h1 style={{ fontSize: 44, fontWeight: 900, color: 'var(--color-text-secondary)', marginBottom: 8 }}>
-            拼团<span style={{ color: 'var(--color-primary)' }}>专区</span>
-          </h1>
-          <div style={{ color: 'var(--color-text-secondary)', fontSize: 16 }}>
-            一起拼，更优惠
-          </div>
-        </div>
+      <div
+        style={{
+          background: 'var(--color-gradient-hero)',
+          padding: '56px 24px 40px',
+          textAlign: 'center',
+        }}
+      >
+        <h1 style={{ fontSize: 38, fontWeight: 900, color: 'var(--color-text-secondary)', margin: 0 }}>
+          拼团<span style={{ color: 'var(--color-primary)' }}>专区</span>
+        </h1>
+        <div style={{ color: 'var(--color-text-secondary)', fontSize: 15, marginTop: 6 }}>一起拼，更优惠</div>
       </div>
 
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 24px' }}>
-        <div style={{
-          display: 'flex',
-          gap: 0,
-          borderBottom: '1px solid var(--color-border)',
-          marginBottom: 32,
-        }}>
-          {([
-            { key: 'activities' as const, label: '拼团活动' },
-            { key: 'orders' as const, label: '我的拼团' },
-          ]).map((tab) => (
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 24px 80px' }}>
+        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border)', marginBottom: 24 }}>
+          {(
+            [
+              { key: 'activities' as const, label: '拼团活动' },
+              { key: 'orders' as const, label: '我的拼团' },
+            ] as const
+          ).map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
               style={{
-                padding: '16px 32px',
+                padding: '14px 28px',
                 border: 'none',
                 background: 'transparent',
                 color: activeTab === tab.key ? 'var(--color-primary)' : 'var(--color-text-secondary)',
                 fontSize: 15,
                 fontWeight: activeTab === tab.key ? 700 : 400,
                 cursor: 'pointer',
-                position: 'relative',
-                transition: 'color 0.3s ease',
                 borderBottom: activeTab === tab.key ? '2px solid var(--color-primary)' : '2px solid transparent',
               }}
             >
@@ -380,52 +299,183 @@ export default function GroupBuyPage() {
         </div>
 
         {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-            <div style={{
-              width: 40,
-              height: 40,
-              border: '3px solid var(--color-border)',
-              borderTopColor: 'var(--color-primary)',
-              borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-            }} />
+          <div style={{ textAlign: 'center', padding: 80 }}>
+            <Spin />
           </div>
         ) : activeTab === 'activities' ? (
           activities.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '80px 0' }}>
-              <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>👥</div>
-              <div style={{ color: 'var(--color-text-tertiary)', fontSize: 15 }}>暂无拼团活动</div>
-            </div>
+            <Empty description="暂无拼团活动" style={{ padding: '64px 0' }} />
           ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-              gap: 24,
-              paddingBottom: 80,
-            }}>
-              {activities.map((activity) => (
-                <GroupActivityCard
-                  key={activity.id}
-                  activity={activity}
-                  onJoin={handleJoin}
-                  onToast={(msg, type) => setToast({ message: msg, type })}
-                />
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {activities.map((activity) => {
+                const expired = activity.endTime
+                  ? new Date(activity.endTime).getTime() <= nowTick + serverOffsetRef.current
+                  : false
+                const isActive = activity.status === 'ENABLED' && !expired
+                const showList = openGroupsActivity?.id === activity.id
+                return (
+                  <div
+                    key={activity.id}
+                    style={{
+                      background: 'var(--color-bg-container)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 12,
+                      padding: 18,
+                    }}
+                  >
+                    {/* WEB-02：活动卡只显示规则/团价/截止——不拿活动团数冒充人数 */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: 240 }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{activity.name}</div>
+                        <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)', marginBottom: 8 }}>
+                          {activity.description}
+                        </div>
+                        <div style={{ display: 'flex', gap: 14, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                          <span>
+                            <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--color-primary)' }}>
+                              ¥{activity.groupPrice?.toFixed(2)}
+                            </span>
+                            <span style={{ marginLeft: 8, textDecoration: 'line-through', color: 'var(--color-text-tertiary)' }}>
+                              ¥{activity.originalPrice?.toFixed(2)}
+                            </span>
+                          </span>
+                          <span>{activity.targetNumber} 人成团</span>
+                          {remaining(activity.endTime) && <span style={{ color: '#FFA502' }}>{remaining(activity.endTime)}</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, justifyContent: 'center' }}>
+                        {/* WEB-02：开团 / 加入此团 两动作分离 */}
+                        <Button
+                          type="primary"
+                          disabled={!isActive}
+                          onClick={() => void openJoinFlow(activity.id)}
+                        >
+                          {isActive ? '我要开团' : '已结束'}
+                        </Button>
+                        <Button disabled={!isActive} onClick={() => void expandOpenGroups(activity)}>
+                          {showList ? '收起开放团' : '查看开放团'}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* WEB-02：开放团列表（groupId/人数/截止），加入必须带所选 groupId */}
+                    {showList && (
+                      <div style={{ marginTop: 14, borderTop: '1px dashed var(--color-border)', paddingTop: 12 }}>
+                        {openGroups.length === 0 ? (
+                          <div style={{ fontSize: 13, color: 'var(--color-text-tertiary)' }}>
+                            暂无等待中的团，成为第一个团长吧
+                          </div>
+                        ) : (
+                          openGroups.map((g) => (
+                            <div
+                              key={g.id}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '8px 0',
+                                gap: 12,
+                              }}
+                            >
+                              <span style={{ fontSize: 13 }}>
+                                团 {g.id} · {g.currentNumber}/{g.targetNumber} 人
+                                {remaining(g.expireTime) ? (
+                                  <span style={{ marginLeft: 8, color: '#FFA502' }}>{remaining(g.expireTime)}</span>
+                                ) : null}
+                              </span>
+                              <Button size="small" disabled={!isActive} onClick={() => void openJoinFlow(activity.id, g.id)}>
+                                加入此团
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )
-        ) : groupOrders.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 0' }}>
-            <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>📋</div>
-            <div style={{ color: 'var(--color-text-tertiary)', fontSize: 15 }}>暂无拼团订单</div>
-          </div>
+        ) : myGroups.length === 0 ? (
+          <Empty description="暂未参与任何拼团" style={{ padding: '64px 0' }} />
         ) : (
-          <div style={{ paddingBottom: 80 }}>
-            {groupOrders.map((order) => (
-              <GroupOrderCard key={order.id} order={order} />
-            ))}
-          </div>
+          <div>{myGroups.map(groupOrderCard)}</div>
         )}
       </div>
+
+      {/* 参团地址选择（后端冻结地址快照；无地址明确阻断） */}
+      <Modal
+        title={joinTarget?.groupOrderId != null ? '加入此团' : '我要开团'}
+        open={joinTarget !== null}
+        onOk={doJoin}
+        confirmLoading={joinSubmitting}
+        onCancel={() => setJoinTarget(null)}
+        okText="确认参与"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {addresses.length === 0 ? (
+            <div style={{ color: '#d46b08', fontSize: 13 }}>
+              尚无收货地址。请先在「个人中心 → 收货地址」新增地址后再参与拼团（成团建单将使用参团时的地址快照）。
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>选择收货地址（成团建单按此快照）：</div>
+              <Select
+                style={{ width: '100%' }}
+                value={selectedAddressId ?? undefined}
+                onChange={(v) => setSelectedAddressId(v)}
+                options={addresses.map((a) => ({
+                  value: a.id,
+                  label: `${a.receiverName ?? a.name ?? ''} ${a.phone ?? ''} ${a.address ?? ''}${
+                    a.isDefault ? '（默认）' : ''
+                  }`,
+                }))}
+              />
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* groupId 深链详情（只展示该团，不可切团） */}
+      <Modal
+        title={`拼团组 ${deepLinkGroup?.id ?? ''}`}
+        open={deepLinkGroup !== null}
+        onCancel={() => setDeepLinkGroup(null)}
+        footer={[
+          <Button key="close" onClick={() => setDeepLinkGroup(null)}>
+            关闭
+          </Button>,
+          ...(deepLinkGroup && deepLinkGroup.status === 'PENDING'
+            ? [
+                <Button
+                  key="join"
+                  type="primary"
+                  onClick={() => {
+                    const activityId = deepLinkGroup.activityId
+                    setDeepLinkGroup(null)
+                    void openJoinFlow(activityId, deepLinkGroup.id)
+                  }}
+                >
+                  加入此团
+                </Button>,
+              ]
+            : []),
+        ]}
+      >
+        {deepLinkGroup && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14 }}>
+            <div>
+              进度：{deepLinkGroup.currentNumber}/{deepLinkGroup.targetNumber} 人
+              <Tag color={GROUP_STATUS_META[deepLinkGroup.status]?.color} style={{ marginLeft: 10 }}>
+                {GROUP_STATUS_META[deepLinkGroup.status]?.label ?? deepLinkGroup.status}
+              </Tag>
+            </div>
+            <div style={{ color: 'var(--color-text-tertiary)', fontSize: 13 }}>
+              截止：{deepLinkGroup.expireTime?.slice(0, 19).replace('T', ' ')}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

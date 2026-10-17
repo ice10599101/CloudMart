@@ -97,7 +97,7 @@ class GroupActivityControllerTest {
 
         given(groupActivityService.joinGroup(Mockito.eq(1L), Mockito.any(JoinGroupRequest.class))).willReturn(dto);
 
-        GroupOrderVO vo = new GroupOrderVO(1L, 1L, 1L, 1, 3, "PENDING", LocalDateTime.now().plusDays(1));
+        GroupOrderVO vo = new GroupOrderVO(1L, 1L, 1L, 1, 3, "PENDING", LocalDateTime.now().plusDays(1), null, null);
         given(marketingConverter.groupOrderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(post("/group/join")
@@ -118,7 +118,7 @@ class GroupActivityControllerTest {
 
         given(groupActivityService.getGroupOrder(1L)).willReturn(dto);
 
-        GroupOrderVO vo = new GroupOrderVO(1L, 1L, 1L, 2, 3, "PENDING", LocalDateTime.now().plusDays(1));
+        GroupOrderVO vo = new GroupOrderVO(1L, 1L, 1L, 2, 3, "PENDING", LocalDateTime.now().plusDays(1), null, null);
         given(marketingConverter.groupOrderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/group/orders/1"))
@@ -138,7 +138,7 @@ class GroupActivityControllerTest {
         dtoPage.setRecords(List.of(dto));
         given(groupActivityService.listGroupOrders(null, null, 1, 10)).willReturn(dtoPage);
 
-        GroupOrderVO vo = new GroupOrderVO(1L, 1L, 1L, 2, 3, "PENDING", LocalDateTime.now().plusDays(1));
+        GroupOrderVO vo = new GroupOrderVO(1L, 1L, 1L, 2, 3, "PENDING", LocalDateTime.now().plusDays(1), null, null);
         given(marketingConverter.groupOrderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/group/orders"))

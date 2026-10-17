@@ -146,7 +146,7 @@ class AdminGroupActivityControllerTest {
         dtoPage.setRecords(List.of(dto));
         given(groupActivityService.listGroupOrders(null, null, 1, 10)).willReturn(dtoPage);
 
-        GroupOrderVO vo = new GroupOrderVO(1L, 1L, 1L, 2, 3, "PENDING", LocalDateTime.now().plusDays(1));
+        GroupOrderVO vo = new GroupOrderVO(1L, 1L, 1L, 2, 3, "PENDING", LocalDateTime.now().plusDays(1), null, null);
         given(marketingConverter.groupOrderDtoToVO(dto)).willReturn(vo);
 
         mockMvc.perform(get("/admin/marketing/group/orders"))

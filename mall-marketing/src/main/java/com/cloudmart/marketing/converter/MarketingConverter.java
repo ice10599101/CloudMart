@@ -26,6 +26,9 @@ public interface MarketingConverter {
 
     List<GroupMemberDTO> toMemberDTOList(List<GroupMember> entities);
 
+    List<com.cloudmart.marketing.vo.GroupMemberVO> toMemberVOList(
+            List<com.cloudmart.marketing.dto.GroupMemberDTO> dtos);
+
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "isLeader", constant = "false")
