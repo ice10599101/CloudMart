@@ -36,9 +36,11 @@ public class AdminWishOperationsController {
             @RequestParam(defaultValue = "20") int size) {
         WishOutboxService.OperationsPage result =
                 wishOutboxService.pageForOperations(status, page, size);
+        // BASE-02：分页统一 {items,total,page,size}
         return ApiResponse.ok(Map.of(
-                "records", result.records(),
+                "items", result.records(),
                 "total", result.total(),
+                "page", Math.max(page, 1), "size", size,
                 "stats", wishOutboxService.statsForOperations()));
     }
 

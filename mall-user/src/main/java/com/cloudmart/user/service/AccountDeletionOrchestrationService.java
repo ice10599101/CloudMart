@@ -570,6 +570,8 @@ public class AccountDeletionOrchestrationService {
                 "blockReason", t.getBlockReason() == null ? "" : t.getBlockReason(),
                 "requestedAt", t.getRequestedAt() == null ? "" : t.getRequestedAt().toString(),
                 "executedAt", t.getExecutedAt() == null ? "" : t.getExecutedAt().toString())).toList();
-        return java.util.Map.of("records", records, "total", result.getTotal());
+        // BASE-02：分页统一 {items,total,page,size}
+        return java.util.Map.of("items", records, "total", result.getTotal(),
+                "page", Math.max(page, 1), "size", size);
     }
 }

@@ -14,8 +14,10 @@ export function resolveProTableData<T>(response: ApiResponse<T[] | unknown>): Pr
     data = response.data
   } else if (response.data && typeof response.data === 'object') {
     const dataObj = response.data as Record<string, unknown>
-    if (Array.isArray(dataObj.records)) {
-      data = dataObj.records as T[]
+    // BASE-02：新形状 {items,total,page,size} 优先；records 为存量其它服务过渡兼容
+    const rows = Array.isArray(dataObj.items) ? dataObj.items : dataObj.records
+    if (Array.isArray(rows)) {
+      data = rows as T[]
       if (!total && typeof dataObj.total === 'number') {
         total = dataObj.total
       }

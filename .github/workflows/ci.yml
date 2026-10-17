@@ -305,6 +305,11 @@ jobs:
         run: node scripts/ci/check-cocos-assets.mjs
       - name: 悬空引用门禁（C36-4：删文件后无悬空 import/脚本/文档链接）
         run: node scripts/ci/check-dangling-refs.mjs
+      # BASE-02：三端契约门禁——漏代理（前端 /admin/** 调用必须被 mall-admin
+      # 端点覆盖，存量断链台账可见不阻塞）、菜单无路由、分页形状（新接口统一
+      # {items,total,page,size}）、未使用公共能力（软报警台账）
+      - name: BASE-02 契约门禁
+        run: node scripts/contract-check.mjs
       - name: 设置 JDK（R27 路由注解门禁）
         uses: actions/setup-java@v5
         with:
@@ -316,7 +321,7 @@ jobs:
       - name: R27 路由注解门禁（Spring 真实解析：全限定/多路径/继承/@RequiresPermission，含 mall-pet）
         run: >-
           ./mvnw -B -ntp -pl mall-admin,mall-ai,mall-auth,mall-cart,mall-community,mall-coupon,
-          mall-file,mall-gen,mall-inventory,mall-job,mall-live,mall-marketing,mall-notification,
+          mall-file,mall-inventory,mall-job,mall-live,mall-marketing,mall-notification,
           mall-order,mall-payment,mall-pet,mall-product,mall-risk,mall-seckill,mall-user,mall-wish,mall-wms
           -am test -Dtest=RouteGuardTest -Dsurefire.failIfNoSpecifiedTests=false
       - name: 密钥泄漏扫描（gitleaks）

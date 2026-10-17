@@ -56,9 +56,11 @@ public class AdminDataExportController {
                 new LambdaQueryWrapper<DataExport>()
                         .eq(status != null && !status.isBlank(), DataExport::getStatus, status)
                         .orderByDesc(DataExport::getId));
+        // BASE-02：分页统一 {items,total,page,size}
         return ApiResponse.ok(Map.of(
-                "records", result.getRecords().stream().map(this::toView).toList(),
-                "total", result.getTotal()));
+                "items", result.getRecords().stream().map(this::toView).toList(),
+                "total", result.getTotal(),
+                "page", Math.max(page, 1), "size", Math.min(size, 100)));
     }
 
     public record RetryExportRequest(String reason) {

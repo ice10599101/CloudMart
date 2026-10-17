@@ -45,9 +45,11 @@ public class AdminOperationsController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
         OutboxOperationsService.OperationsPage result = operations().page(status, page, size);
+        // BASE-02：分页统一 {items,total,page,size}
         return ApiResponse.ok(Map.of(
-                "records", result.records(),
+                "items", result.records(),
                 "total", result.total(),
+                "page", Math.max(page, 1), "size", size,
                 "stats", operations().stats()));
     }
 

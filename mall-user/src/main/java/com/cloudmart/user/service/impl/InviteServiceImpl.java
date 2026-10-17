@@ -261,6 +261,8 @@ public class InviteServiceImpl implements InviteService {
                 "rewardReason", r.getRewardReason() == null ? "" : r.getRewardReason(),
                 "eligibleAt", r.getEligibleAt() == null ? "" : r.getEligibleAt().toString(),
                 "ruleVersion", r.getRuleVersion() == null ? 1 : r.getRuleVersion())).toList();
-        return Map.of("records", records, "total", result.getTotal());
+        // BASE-02：分页统一 {items,total,page,size}
+        return Map.of("items", records, "total", result.getTotal(),
+                "page", Math.max(page, 1), "size", size);
     }
 }
