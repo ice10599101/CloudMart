@@ -64,7 +64,7 @@ export default function WishPrivacyCenter() {
               管理授权
             </Button>
           </Descriptions.Item>
-          <Descriptions.Item label="数据导出">
+          <Descriptions.Item label="心愿数据导出">
             <Space>
               <Tag>{view?.dataExport?.status ?? 'NONE'}</Tag>
               {view?.dataExport?.status === 'SUCCESS' && (

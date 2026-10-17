@@ -35,6 +35,9 @@ public class DataExport {
     /** 密文 SHA-256（下载时完整性校验） */
     private String contentSha256;
 
+    /** OPS-02：失败原因（任务页展示；可受控重试的依据） */
+    private String failReason;
+
     /** 租约持有者（实例+线程；接管时轮换） */
     private String leaseOwner;
 

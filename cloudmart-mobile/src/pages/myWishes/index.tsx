@@ -322,7 +322,7 @@ export default function MyWishesPage() {
               style={{ fontSize: 24, color: '#4a90d9', marginRight: 24 }}
               onClick={() => Taro.navigateTo({ url: '/pages/dataExport/index' })}
             >
-              数据导出
+              心愿数据导出
             </Text>
             <Text
               style={{ fontSize: 24, color: deletionPending ? '#ffa940' : '#ff6b6b' }}

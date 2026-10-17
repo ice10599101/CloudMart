@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
@@ -75,12 +76,20 @@ public class DataExportServiceImpl implements DataExportService {
     private final WishUserStatMapper userStatMapper;
     private final ObjectMapper objectMapper;
 
-    /** 单线程执行器：导出任务串行化，避免并发聚合压库 */
-    private final ExecutorService exportExecutor = Executors.newSingleThreadExecutor(r -> {
-        final Thread thread = new Thread(r, "wish-data-export");
-        thread.setDaemon(true);
-        return thread;
-    });
+    /**
+     * OPS-02：单线程执行器 + 有界队列——聚合串行化避免压库；队列打满时拒绝新任务
+     * （DiscardPolicy），DB 是权威队列，被拒任务由周期 worker 重新认领，不丢任务。
+     * 原 newSingleThreadExecutor 的无界 LinkedBlockingQueue 在积压时可 OOM。
+     */
+    private final ExecutorService exportExecutor = new java.util.concurrent.ThreadPoolExecutor(
+            1, 1, 60L, java.util.concurrent.TimeUnit.SECONDS,
+            new java.util.concurrent.ArrayBlockingQueue<>(64),
+            r -> {
+                final Thread thread = new Thread(r, "wish-data-export");
+                thread.setDaemon(true);
+                return thread;
+            },
+            new java.util.concurrent.ThreadPoolExecutor.DiscardPolicy());
 
     /**
      * PENDING 任务恢复：内存执行器队列在实例重启时会丢任务（DB 状态停在 PENDING），
@@ -88,27 +97,52 @@ public class DataExportServiceImpl implements DataExportService {
      */
     @PostConstruct
     public void recoverPendingTasks() {
-        exportExecutor.execute(() -> {
-            try {
-                // W04：只恢复 PENDING + 租约过期的 PROCESSING——活跃租约归其他实例所有，
-                // 不重复处理（QA31：多实例各恢复各的，无重复执行）
-                final List<DataExport> stuck = exportMapper.selectList(
+        // OPS-02：启动即扫一轮（立即恢复本实例重启前的遗留任务）
+        scanPendingTasks();
+    }
+
+    /**
+     * OPS-02：持续恢复 worker——每 60s 分页认领 PENDING / 租约过期的 PROCESSING，
+     * 循环扫到无可认领任务为止（120 个积压也能被持续消化，不再只有启动一次
+     * LIMIT 50 的机会）；执行器队列打满时停止本轮入队（下轮继续）。
+     * 多实例只接管过期租约（活跃租约归其他实例，QA31 不重复处理）。
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 60_000)
+    public void scanPendingTasks() {
+        try {
+            int submitted = 0;
+            long cursor = 0L;
+            while (true) {
+                final List<DataExport> batch = exportMapper.selectList(
                         new LambdaQueryWrapper<DataExport>()
                                 .and(w -> w.eq(DataExport::getStatus, "PENDING")
                                         .or(x -> x.eq(DataExport::getStatus, "PROCESSING")
                                                 .isNotNull(DataExport::getLeaseUntil)
                                                 .lt(DataExport::getLeaseUntil,
                                                         LocalDateTime.now(ZoneId.of("UTC")))))
-                                .last("LIMIT 50"));
-                for (DataExport task : stuck) {
-                    log.info("恢复遗留导出任务 taskId={} userId={} status={}",
-                            task.getId(), task.getUserId(), task.getStatus());
-                    exportExecutor.execute(() -> generate(task.getId(), task.getUserId()));
+                                .gt(cursor > 0, DataExport::getId, cursor)
+                                .orderByAsc(DataExport::getId)
+                                .last("LIMIT 100"));
+                if (batch.isEmpty()) {
+                    break;
                 }
-            } catch (Exception ex) {
-                log.error("恢复遗留导出任务失败", ex);
+                for (DataExport task : batch) {
+                    cursor = task.getId();
+                    final Long taskId = task.getId();
+                    exportExecutor.execute(() -> generate(taskId, task.getUserId()));
+                    submitted++;
+                }
+                if (submitted >= 500) {
+                    // 单轮上限防长占调度线程；剩余任务由下一轮继续
+                    break;
+                }
             }
-        });
+            if (submitted > 0) {
+                log.info("[OPS02] 本轮恢复导出任务 {} 个", submitted);
+            }
+        } catch (Exception ex) {
+            log.error("[OPS02] 恢复导出任务失败（下轮继续）", ex);
+        }
     }
 
     /** W04：租约持有者标识（实例进程 + 提交序号，接管时轮换） */
@@ -121,7 +155,11 @@ public class DataExportServiceImpl implements DataExportService {
     }
 
     @Override
+    @Transactional
     public DataExport createExport(Long userId) {
+        // OPS-02：用户 stat 行 FOR UPDATE——并发创建同用户任务时串行化，
+        // 消除"先 count 后 insert"的竞态窗口（同用户并发只有一个活动任务）
+        userStatMapper.forUpdateUser(userId);
         // B19：每用户同时仅一个进行中任务；24 小时内最多 2 次
         Long active = exportMapper.selectCount(new LambdaQueryWrapper<DataExport>()
                 .eq(DataExport::getUserId, userId)
@@ -194,22 +232,23 @@ public class DataExportServiceImpl implements DataExportService {
                     EXPORT_AAD_PREFIX + taskId + ":" + userId);
             final String cipherSha = sha256Hex(encrypted);
 
-            final DataExport update = new DataExport();
-            update.setId(taskId);
-            update.setStatus("SUCCESS");
-            update.setContentEnc(encrypted);
-            update.setContentSha256(cipherSha);
-            update.setExpiresAt(LocalDateTime.now(ZoneId.of("UTC")).plusDays(EXPIRE_DAYS));
-            exportMapper.updateById(update);
-            exportMapper.clearLease(taskId);
+            // OPS-02：完成走 owner CAS——只允许当前租约持有者落终态
+            final int completed = exportMapper.completeByOwner(taskId, owner, encrypted, cipherSha);
+            if (completed == 0) {
+                // 租约已被接管：本实例结果作废（密文丢弃，不覆盖新执行者）
+                log.warn("[OPS02] 完成时发现租约已被接管，结果作废 taskId={}", taskId);
+                return;
+            }
             log.info("数据导出完成（已加密落库） taskId={}, cipherSize={}", taskId, encrypted.length());
         } catch (Exception ex) {
             log.error("数据导出任务失败 taskId={}", taskId, ex);
-            final DataExport failed = new DataExport();
-            failed.setId(taskId);
-            failed.setStatus("FAILED");
-            exportMapper.updateById(failed);
-            exportMapper.clearLease(taskId);
+            // OPS-02：失败走 owner CAS（含原因）；旧 owner 无权覆盖接管后的状态
+            final int marked = exportMapper.failByOwner(taskId, owner,
+                    ex.getMessage() != null && ex.getMessage().length() > 500
+                            ? ex.getMessage().substring(0, 500) : ex.getMessage());
+            if (marked == 0) {
+                log.warn("[OPS02] 失败时发现租约已被接管，不覆盖 taskId={}", taskId);
+            }
         }
     }
 

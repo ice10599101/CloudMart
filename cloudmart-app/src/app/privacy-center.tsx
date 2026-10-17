@@ -150,7 +150,7 @@ export default function PrivacyCenterScreen() {
               <Row label="授权更新时间">
                 <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary }}>{formatDateTime(view.aiDataProcessing.updatedAt)}</Text>
               </Row>
-              <Row label="数据导出">
+              <Row label="心愿数据导出">
                 <StatusTag text={view.dataExport.status || 'NONE'} />
                 {view.dataExport.status === 'SUCCESS' && (
                   <TouchableOpacity onPress={() => router.push('/data-export')}>

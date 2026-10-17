@@ -26,14 +26,14 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/my")
-@Tag(name = "数据导出", description = "用户数据导出（合规 34.2）")
+@Tag(name = "心愿数据导出", description = "OPS-02：首期覆盖心愿/成长/还愿/互动/收藏/统计域（合规 34.2）；账户管理页有支持范围说明")
 @RequiredArgsConstructor
 public class DataExportController {
 
     private final DataExportService dataExportService;
 
     @PostMapping("/export")
-    @Operation(summary = "触发数据导出", description = "创建异步导出任务并触发后台生成")
+    @Operation(summary = "触发心愿数据导出", description = "OPS-02：创建异步导出任务（持续可恢复 worker 处理；同用户并发仅一个活动任务）")
     public ApiResponse<DataExport> createExport(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
