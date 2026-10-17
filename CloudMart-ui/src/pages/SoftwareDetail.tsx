@@ -128,6 +128,16 @@ export default function SoftwareDetail() {
         if (commentRes.data.success)
           setComments(commentRes.data.data?.records ?? []);
       })
+      .catch((err) => {
+        // 拦截器已把业务失败转为 reject（如未发布软件的 SOFTWARE_NOT_FOUND）——
+        // 在此转为页面内的友好错误态，绝不向上抛出（防 Unhandled Rejection 炸屏）
+        const code = (err as { code?: string } | null)?.code;
+        setLoadError(
+          code === "SOFTWARE_NOT_FOUND"
+            ? "软件不存在或尚未公开"
+            : "加载失败，请稍后重试",
+        );
+      })
       .finally(() => setLoading(false));
   }, [id]);
 

@@ -508,9 +508,18 @@ export default function SoftwareEdit() {
         <h1 className={styles.title}>编辑软件</h1>
         <Space>
           <Tag>{REVIEW_LABEL[editor.reviewStatus] ?? editor.reviewStatus}</Tag>
-          <Button onClick={() => history.push(`/software/${id}`)}>
-            查看前台
-          </Button>
+          {editor?.reviewStatus === "APPROVED" &&
+          editor?.reviewStatus !== undefined ? (
+            <Button onClick={() => history.push(`/software/${id}`)}>
+              查看前台
+            </Button>
+          ) : (
+            <Button
+              onClick={() => history.push(`/software/${id}/preview`)}
+            >
+              预览
+            </Button>
+          )}
         </Space>
       </div>
 

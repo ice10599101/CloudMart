@@ -32,6 +32,13 @@
   word-break: break-word;
 }
 
+/* 正文图片限宽：上传的大尺寸截图不得撑破容器 */
+.description img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
 .sourceList {
   display: flex;
   flex-direction: column;
