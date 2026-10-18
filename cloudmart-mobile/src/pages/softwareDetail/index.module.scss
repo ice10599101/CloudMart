@@ -323,3 +323,141 @@
   font-size: 26rpx;
   color: #3d5afe;
 }
+
+/* SW11：来源反馈/回复/举报 */
+.sourceRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sourceFeedback {
+  font-size: 24rpx;
+  color: #f5a623;
+  padding: 8rpx 12rpx;
+}
+
+.commentOps {
+  display: flex;
+  flex-direction: row;
+  gap: 20rpx;
+}
+
+.commentOp {
+  font-size: 24rpx;
+  color: #3d5afe;
+}
+
+.commentOpDanger {
+  font-size: 24rpx;
+  color: #d3392f;
+}
+
+.replyItem {
+  margin-top: 8rpx;
+  padding-left: 24rpx;
+  border-left-width: 4rpx;
+  border-left-color: #e2e8f0;
+  border-left-style: solid;
+}
+
+.replyUser {
+  font-size: 24rpx;
+  color: #0b1220;
+  font-weight: 600;
+}
+
+.replyContent {
+  font-size: 24rpx;
+  color: #475569;
+}
+
+.replyBanner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8rpx 0;
+}
+
+.replyBannerText {
+  font-size: 24rpx;
+  color: #475569;
+}
+
+.replyBannerCancel {
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+
+.discussHead {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reportLink {
+  font-size: 24rpx;
+  color: #94a3b8;
+}
+
+.ratingRevoke {
+  font-size: 24rpx;
+  color: #94a3b8;
+  margin-top: 8rpx;
+}
+
+.reportMask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99;
+}
+
+.reportCard {
+  width: 80%;
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+
+.reportTitle {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #0b1220;
+}
+
+.reportInput {
+  margin-top: 16rpx;
+  padding: 12rpx;
+  border-radius: 12rpx;
+  background: #f1f5f9;
+  font-size: 26rpx;
+}
+
+.reportActions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 32rpx;
+  margin-top: 16rpx;
+}
+
+.reportCancel {
+  font-size: 26rpx;
+  color: #94a3b8;
+}
+
+.reportSubmit {
+  font-size: 26rpx;
+  color: #d3392f;
+  font-weight: 600;
+}

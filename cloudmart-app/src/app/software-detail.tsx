@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
   Image,
   ScrollView,
   Text,
@@ -51,6 +53,18 @@ export default function SoftwareDetailScreen() {
   const [resolved, setResolved] = useState<SoftwareResolveResult | null>(null)
   const [commentText, setCommentText] = useState('')
   const [sending, setSending] = useState(false)
+  // SW11：回复目标（根楼 + 精确目标）与举报目标
+  const [replyTarget, setReplyTarget] = useState<{
+    rootId: string
+    replyToCommentId: string
+    nickname: string
+  } | null>(null)
+  const [reportModal, setReportModal] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [pendingReport, setPendingReport] = useState<{
+    targetType: 'SOFTWARE' | 'SOFTWARE_COMMENT'
+    targetId?: string
+  } | null>(null)
 
   /** SW11：评论分页——加载更多追加，不再固定首批 20 条 */
   const [commentsPage, setCommentsPage] = useState(1)
@@ -122,13 +136,67 @@ export default function SoftwareDetailScreen() {
     if (!content) return
     setSending(true)
     try {
-      await softwareApi.createComment(id, content)
+      await softwareApi.createComment(
+        id,
+        content,
+        replyTarget?.rootId,
+        replyTarget?.replyToCommentId,
+      )
       setCommentText('')
+      setReplyTarget(null)
       await loadComments()
     } catch {
       // 违规/限频等由拦截器提示；输入保留
     } finally {
       setSending(false)
+    }
+  }
+
+  /** SW11：删除自己的评论 */
+  const handleDeleteComment = async (comment: SoftwareComment) => {
+    try {
+      await softwareApi.deleteComment(id, comment.id)
+      await loadComments()
+    } catch {
+      // 由拦截器提示
+    }
+  }
+
+  /** SW11：软件/评论举报 */
+  const handleReport = async (target: { targetType: 'SOFTWARE' | 'SOFTWARE_COMMENT'; targetId?: string }) => {
+    try {
+      await softwareApi.report(id, {
+        targetType: target.targetType,
+        targetId: target.targetId,
+        reason: reportReason.trim() || 'OTHER',
+      })
+      setReportModal(false)
+      setReportReason('')
+      Alert.alert('提示', '举报已提交，管理员会尽快处理')
+    } catch {
+      // 重复举报/限频由拦截器提示
+    }
+  }
+
+  /** SW11：来源失效反馈（同指纹同人幂等返回既有反馈） */
+  const handleSourceFeedback = async (sourceId: string) => {
+    try {
+      await softwareApi.sourceFeedback(id, sourceId, 'LINK_INVALID')
+      Alert.alert('提示', '感谢反馈，我们会尽快核实该来源')
+    } catch {
+      // 限频等由拦截器提示
+    }
+  }
+
+  /** SW11：撤销评分 */
+  const handleRevokeRating = async () => {
+    if (!detail) return
+    try {
+      await softwareApi.revokeRating(id)
+      const res = await softwareApi.detail(id)
+      setDetail(res.data.data)
+    } catch {
+      // 由拦截器提示
     }
   }
 
@@ -298,6 +366,13 @@ export default function SoftwareDetailScreen() {
                 ? '分享者不能给自己评分'
                 : '点击星星评分（1~5）'}
             </Text>
+            {(detail.myScore ?? 0) > 0 && (
+              <TouchableOpacity onPress={() => void handleRevokeRating()}>
+                <Text style={{ color: theme.textTertiary, fontSize: FontSize.xs, marginTop: 4 }}>
+                  撤销我的评分
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -337,30 +412,49 @@ export default function SoftwareDetailScreen() {
 
           <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
             {sources.map((source) => (
-              <TouchableOpacity
+              <View
                 key={source.sourceId}
-                onPress={() => {
-                  setSourceId(source.sourceId)
-                  setResolved(null)
-                }}
                 style={{
-                  paddingVertical: Spacing.sm,
-                  paddingHorizontal: Spacing.md,
-                  borderRadius: BorderRadius.sm,
-                  borderWidth: 1,
-                  borderColor: sourceId === source.sourceId ? theme.primary : theme.border,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: Spacing.xs,
                 }}
               >
-                <Text
+                <TouchableOpacity
+                  onPress={() => {
+                    setSourceId(source.sourceId)
+                    setResolved(null)
+                  }}
                   style={{
-                    fontSize: FontSize.sm,
-                    color: sourceId === source.sourceId ? theme.primary : theme.textSecondary,
+                    flex: 1,
+                    paddingVertical: Spacing.sm,
+                    paddingHorizontal: Spacing.md,
+                    borderRadius: BorderRadius.sm,
+                    borderWidth: 1,
+                    borderColor: sourceId === source.sourceId ? theme.primary : theme.border,
                   }}
                 >
-                  {source.label || source.provider || source.sourceType}
-                  {source.platform ? ` · ${source.platform}` : ''}
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={{
+                      fontSize: FontSize.sm,
+                      color: sourceId === source.sourceId ? theme.primary : theme.textSecondary,
+                    }}
+                  >
+                    {source.label || source.provider || source.sourceType}
+                    {source.platform ? ` · ${source.platform}` : ''}
+                  </Text>
+                </TouchableOpacity>
+                {/* SW11：来源失效反馈（不向无权限者泄露 URL，仅提交指纹结论） */}
+                <TouchableOpacity
+                  onPress={() => void handleSourceFeedback(source.sourceId)}
+                  style={{
+                    paddingHorizontal: Spacing.sm,
+                    paddingVertical: Spacing.sm,
+                  }}
+                >
+                  <Text style={{ color: '#f5a623', fontSize: FontSize.xs }}>反馈失效</Text>
+                </TouchableOpacity>
+              </View>
             ))}
           </View>
 
@@ -427,9 +521,20 @@ export default function SoftwareDetailScreen() {
 
         {/* 交流讨论 */}
         <View style={{ borderRadius: BorderRadius.md, padding: Spacing.md, backgroundColor: theme.bgContainer }}>
-          <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>
-            交流讨论（{detail.commentCount}）
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>
+              交流讨论（{detail.commentCount}）
+            </Text>
+            <TouchableOpacity
+              onPress={() => {
+                setReportReason('')
+                setPendingReport({ targetType: 'SOFTWARE' })
+                setReportModal(true)
+              }}
+            >
+              <Text style={{ color: theme.textTertiary, fontSize: FontSize.xs }}>举报本软件</Text>
+            </TouchableOpacity>
+          </View>
           <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm }}>
             <TextInput
               value={commentText}
@@ -453,6 +558,23 @@ export default function SoftwareDetailScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+          {replyTarget && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: 4,
+              }}
+            >
+              <Text style={{ color: theme.textTertiary, fontSize: FontSize.xs }}>
+                回复 {replyTarget.nickname}
+              </Text>
+              <TouchableOpacity onPress={() => setReplyTarget(null)}>
+                <Text style={{ color: theme.textTertiary, fontSize: FontSize.xs }}>取消回复</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {commentsHasMore && (
             <TouchableOpacity
@@ -485,15 +607,105 @@ export default function SoftwareDetailScreen() {
                       {comment.likedByMe ? '♥' : '♡'} {comment.likeCount}
                     </Text>
                   </TouchableOpacity>
-                  <Text style={{ color: theme.textTertiary, fontSize: FontSize.xs }}>
-                    {comment.createdAt}
-                  </Text>
+                  <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                    {/* SW11：回复（楼中楼，parentId 恒指向根楼） */}
+                    <TouchableOpacity
+                      onPress={() =>
+                        setReplyTarget({
+                          rootId: comment.parentId ?? comment.id,
+                          replyToCommentId: comment.id,
+                          nickname: comment.nickname,
+                        })
+                      }
+                    >
+                      <Text style={{ color: theme.primary, fontSize: FontSize.xs }}>回复</Text>
+                    </TouchableOpacity>
+                    {String(user?.id ?? '') === comment.userId ? (
+                      <TouchableOpacity onPress={() => void handleDeleteComment(comment)}>
+                        <Text style={{ color: '#d3392f', fontSize: FontSize.xs }}>删除</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setReportReason('')
+                          setReportModal(true)
+                          setPendingReport({
+                            targetType: 'SOFTWARE_COMMENT',
+                            targetId: comment.id,
+                          })
+                        }}
+                      >
+                        <Text style={{ color: theme.textTertiary, fontSize: FontSize.xs }}>举报</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
+                {/* SW11：楼中楼展示 */}
+                {(comment.replies ?? []).map((reply) => (
+                  <View
+                    key={reply.id}
+                    style={{
+                      marginTop: Spacing.xs,
+                      paddingLeft: Spacing.md,
+                      borderLeftWidth: 2,
+                      borderLeftColor: theme.border,
+                    }}
+                  >
+                    <Text style={{ color: theme.text, fontSize: FontSize.xs, fontWeight: '600' }}>
+                      {reply.nickname}
+                    </Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: FontSize.xs }}>
+                      {reply.content}
+                    </Text>
+                  </View>
+                ))}
               </View>
             ))
           )}
         </View>
       </ScrollView>
+
+      {/* SW11：举报弹窗（软件/评论共用；理由可空走 OTHER） */}
+      <Modal visible={reportModal} transparent animationType="fade" onRequestClose={() => setReportModal(false)}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.45)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: Spacing.lg,
+          }}
+        >
+          <View style={{ width: '100%', borderRadius: BorderRadius.md, backgroundColor: theme.bgElevated ?? '#fff', padding: Spacing.md }}>
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>
+              {pendingReport?.targetType === 'SOFTWARE_COMMENT' ? '举报该评论' : '举报本软件'}
+            </Text>
+            <TextInput
+              value={reportReason}
+              onChangeText={setReportReason}
+              placeholder="举报原因（可留空，默认“其他”）"
+              placeholderTextColor={theme.textTertiary}
+              multiline
+              style={{
+                minHeight: 60,
+                marginTop: Spacing.sm,
+                padding: Spacing.sm,
+                borderRadius: BorderRadius.sm,
+                backgroundColor: theme.bgInput,
+                color: theme.text,
+              }}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.md, marginTop: Spacing.sm }}>
+              <TouchableOpacity onPress={() => setReportModal(false)}>
+                <Text style={{ color: theme.textTertiary }}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => pendingReport && void handleReport(pendingReport)}>
+                <Text style={{ color: '#d3392f', fontWeight: '600' }}>提交举报</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   FlatList,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -11,6 +12,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { softwareApi, softwarePublishApi } from '@/api/software'
 import type { SoftwareMineItem } from '@/api/software'
+import { useAuthStore } from '@/store/auth'
 import { useTheme } from '@/hooks/use-theme-context'
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme'
 
@@ -62,6 +64,25 @@ export default function SoftwareMineScreen() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [busy, setBusy] = useState(false)
+  /** SW11：更新提醒总开关（与订阅关系相互独立；退订≠关闭提醒） */
+  const [updateNotify, setUpdateNotify] = useState(true)
+
+  useEffect(() => {
+    softwareApi.preferences()
+      .then((res) => setUpdateNotify(res.data.data?.updateNotifications ?? true))
+      .catch(() => undefined)
+  }, [])
+
+  const handleToggleNotify = async (enabled: boolean) => {
+    const prev = updateNotify
+    setUpdateNotify(enabled)
+    try {
+      await softwareApi.updatePreferences(enabled)
+      Alert.alert('提示', enabled ? '已开启软件更新提醒' : '已关闭软件更新提醒')
+    } catch {
+      setUpdateNotify(prev)
+    }
+  }
 
   const isOwnTab = tab === 'published' || tab === 'draft' || tab === 'pending'
     || tab === 'rejected'
@@ -246,6 +267,20 @@ export default function SoftwareMineScreen() {
           </TouchableOpacity>
         )}
       </View>
+      {/* SW11：更新提醒开关（我的软件设置；退订与关闭语义不同） */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: Spacing.md,
+          paddingVertical: 6,
+        }}
+      >
+        <Text style={{ fontSize: FontSize.sm, color: theme.text }}>软件更新提醒</Text>
+        <Switch value={updateNotify} onValueChange={(v) => void handleToggleNotify(v)} />
+      </View>
+
       {/* SW11：页签——投稿/收藏/订阅 + 翻页加载更多 */}
       <View style={{ flexDirection: 'row', paddingHorizontal: Spacing.md, paddingBottom: Spacing.xs, gap: Spacing.xs }}>
         {MINE_TABS.map((entry) => {

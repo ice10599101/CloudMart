@@ -46,6 +46,18 @@ export default function SoftwareDetailPage() {
   const [resolved, setResolved] = useState<SoftwareResolveResult | null>(null)
   const [commentText, setCommentText] = useState('')
   const [sending, setSending] = useState(false)
+  /** SW11：回复目标（根楼+精确目标）与举报目标 */
+  const [replyTarget, setReplyTarget] = useState<{
+    rootId: string
+    replyToCommentId: string
+    nickname: string
+  } | null>(null)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [pendingReport, setPendingReport] = useState<{
+    targetType: 'SOFTWARE' | 'SOFTWARE_COMMENT'
+    targetId?: string
+  } | null>(null)
 
   /** SW11：评论分页——加载更多追加，不再固定首批 20 条 */
   const [commentsPage, setCommentsPage] = useState(1)
@@ -122,14 +134,68 @@ export default function SoftwareDetailPage() {
     if (!content) return
     setSending(true)
     try {
-      await softwareApi.createComment(id, content)
+      await softwareApi.createComment(
+        id,
+        content,
+        replyTarget?.rootId,
+        replyTarget?.replyToCommentId,
+      )
       setCommentText('')
+      setReplyTarget(null)
       await Taro.showToast({ title: '已发送', icon: 'success' })
       await loadComments()
     } catch {
       // 违规/限频等由拦截器提示；输入保留
     } finally {
       setSending(false)
+    }
+  }
+
+  /** SW11：删除自己的评论 */
+  const handleDeleteComment = async (comment: SoftwareComment) => {
+    try {
+      await softwareApi.deleteComment(id, comment.id)
+      await loadComments()
+    } catch {
+      // 由拦截器提示
+    }
+  }
+
+  /** SW11：软件/评论举报 */
+  const handleReport = async () => {
+    if (!pendingReport) return
+    try {
+      await softwareApi.report(id, {
+        targetType: pendingReport.targetType,
+        targetId: pendingReport.targetId,
+        reason: reportReason.trim() || 'OTHER',
+      })
+      setReportOpen(false)
+      setReportReason('')
+      Taro.showToast({ title: '举报已提交', icon: 'success' })
+    } catch {
+      // 重复举报/限频由拦截器提示
+    }
+  }
+
+  /** SW11：来源失效反馈（同指纹同人幂等） */
+  const handleSourceFeedback = async (sourceId: string) => {
+    try {
+      await softwareApi.sourceFeedback(id, sourceId, 'LINK_INVALID')
+      Taro.showToast({ title: '感谢反馈', icon: 'success' })
+    } catch {
+      // 限频由拦截器提示
+    }
+  }
+
+  /** SW11：撤销评分（真实均分随刷新返回） */
+  const handleRevokeRating = async () => {
+    try {
+      await softwareApi.revokeRating(id)
+      const res = await softwareApi.detail(id)
+      setDetail(res.data.data)
+    } catch {
+      // 由拦截器提示
     }
   }
 
@@ -259,6 +325,11 @@ export default function SoftwareDetailPage() {
               ? '分享者不能给自己评分'
               : '点击星星评分（1~5）'}
           </Text>
+          {(detail.myScore ?? 0) > 0 && (
+            <Text className={styles.ratingRevoke} onClick={() => void handleRevokeRating()}>
+              撤销我的评分
+            </Text>
+          )}
         </View>
       </View>
 
@@ -288,22 +359,29 @@ export default function SoftwareDetailPage() {
           <Text className={styles.emptyText}>暂无可用来源</Text>
         ) : (
           sources.map((source) => (
-            <Text
-              key={source.sourceId}
-              className={`${styles.sourceItem} ${
-                sourceId === source.sourceId ? styles.sourceActive : ''
-              }`}
-              onClick={() => {
-                setSourceId(source.sourceId)
-                setResolved(null)
-              }}
-            >
-              {source.label || source.provider || source.sourceType}
-              {source.platform ? ` · ${source.platform}` : ''}
-              {source.availability !== 'UNKNOWN' && source.availability !== 'AVAILABLE'
-                ? `（${source.availabilityTip ?? '需核实'}）`
-                : ''}
-            </Text>
+            <View key={source.sourceId} className={styles.sourceRow}>
+              <Text
+                className={`${styles.sourceItem} ${
+                  sourceId === source.sourceId ? styles.sourceActive : ''
+                }`}
+                onClick={() => {
+                  setSourceId(source.sourceId)
+                  setResolved(null)
+                }}
+              >
+                {source.label || source.provider || source.sourceType}
+                {source.platform ? ` · ${source.platform}` : ''}
+                {source.availability !== 'UNKNOWN' && source.availability !== 'AVAILABLE'
+                  ? `（${source.availabilityTip ?? '需核实'}）`
+                  : ''}
+              </Text>
+              <Text
+                className={styles.sourceFeedback}
+                onClick={() => void handleSourceFeedback(source.sourceId)}
+              >
+                反馈失效
+              </Text>
+            </View>
           ))
         )}
 
@@ -379,12 +457,35 @@ export default function SoftwareDetailPage() {
       </View>
 
       <View className={styles.card}>
-        <Text className={styles.cardTitle}>交流讨论（{detail.commentCount}）</Text>
+        <View className={styles.discussHead}>
+          <Text className={styles.cardTitle}>交流讨论（{detail.commentCount}）</Text>
+          <Text
+            className={styles.reportLink}
+            onClick={() => {
+              setPendingReport({ targetType: 'SOFTWARE' })
+              setReportReason('')
+              setReportOpen(true)
+            }}
+          >
+            举报本软件
+          </Text>
+        </View>
+        {replyTarget && (
+          <View className={styles.replyBanner}>
+            <Text className={styles.replyBannerText}>回复 {replyTarget.nickname}</Text>
+            <Text
+              className={styles.replyBannerCancel}
+              onClick={() => setReplyTarget(null)}
+            >
+              取消
+            </Text>
+          </View>
+        )}
         <View className={styles.commentInputRow}>
           <Input
             className={styles.commentInput}
             value={commentText}
-            placeholder="留下你的看法"
+            placeholder={replyTarget ? `回复 ${replyTarget.nickname}` : '留下你的看法'}
             onInput={(event) => setCommentText(event.detail.value)}
           />
           <Text className={styles.commentSend} onClick={() => void handleSendComment()}>
@@ -417,13 +518,76 @@ export default function SoftwareDetailPage() {
                 <Text className={styles.commentLike} onClick={() => void handleLike(comment)}>
                   {comment.likedByMe ? '♥' : '♡'} {comment.likeCount}
                 </Text>
+                <View className={styles.commentOps}>
+                  <Text
+                    className={styles.commentOp}
+                    onClick={() =>
+                      setReplyTarget({
+                        rootId: comment.parentId ?? comment.id,
+                        replyToCommentId: comment.id,
+                        nickname: comment.nickname,
+                      })
+                    }
+                  >
+                    回复
+                  </Text>
+                  {String(user?.id ?? '') === comment.userId ? (
+                    <Text
+                      className={styles.commentOpDanger}
+                      onClick={() => void handleDeleteComment(comment)}
+                    >
+                      删除
+                    </Text>
+                  ) : (
+                    <Text
+                      className={styles.commentOp}
+                      onClick={() => {
+                        setPendingReport({ targetType: 'SOFTWARE_COMMENT', targetId: comment.id })
+                        setReportReason('')
+                        setReportOpen(true)
+                      }}
+                    >
+                      举报
+                    </Text>
+                  )}
+                </View>
                 <Text className={styles.commentTime}>{comment.createdAt}</Text>
               </View>
+              {(comment.replies ?? []).map((reply) => (
+                <View key={reply.id} className={styles.replyItem}>
+                  <Text className={styles.replyUser}>{reply.nickname}</Text>
+                  <Text className={styles.replyContent}>{reply.content}</Text>
+                </View>
+              ))}
             </View>
           ))
         )}
       </View>
 
+      <View className={styles.bottomSpace} />
+      {reportOpen && (
+        <View className={styles.reportMask}>
+          <View className={styles.reportCard}>
+            <Text className={styles.reportTitle}>
+              {pendingReport?.targetType === 'SOFTWARE_COMMENT' ? '举报该评论' : '举报本软件'}
+            </Text>
+            <Input
+              className={styles.reportInput}
+              value={reportReason}
+              placeholder="举报原因（可留空，默认“其他”）"
+              onInput={(event) => setReportReason(event.detail.value)}
+            />
+            <View className={styles.reportActions}>
+              <Text className={styles.reportCancel} onClick={() => setReportOpen(false)}>
+                取消
+              </Text>
+              <Text className={styles.reportSubmit} onClick={() => void handleReport()}>
+                提交举报
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
       <View className={styles.bottomSpace} />
     </ScrollView>
   )

@@ -205,10 +205,35 @@ export const softwareApi = {
     request<SoftwarePage<SoftwareComment>>({
       url: `${BASE}/${id}/comments${buildQuery({ page, size })}`,
     }),
-  createComment: (id: string, content: string) => {
+  /** SW11：回复楼中楼——parentId 恒指向根楼，replyToCommentId 精确到目标 */
+  createComment: (
+    id: string,
+    content: string,
+    parentId?: string,
+    replyToCommentId?: string,
+  ) => {
     const url = `${BASE}/${id}/comments`
-    const payload = { content }
+    const payload = {
+      content,
+      ...(parentId ? { parentId } : {}),
+      ...(replyToCommentId ? { replyToCommentId } : {}),
+    }
     return write<SoftwareComment>('POST', url, payload, (header) =>
+      request({ url, method: 'POST', data: payload, header }),
+    )
+  },
+
+  /** SW11：删除自己的评论 */
+  deleteComment: (id: string, commentId: string) =>
+    write<void>('DELETE', `${BASE}/${id}/comments/${commentId}`, {}, (header) =>
+      request({ url: `${BASE}/${id}/comments/${commentId}`, method: 'DELETE', header }),
+    ),
+
+  /** SW11：来源失效反馈 */
+  sourceFeedback: (id: string, sourceId: string, reasonCode: string) => {
+    const url = `${BASE}/${id}/sources/${sourceId}/feedback`
+    const payload = { reasonCode }
+    return write<{ feedbackId: string; status: string }>('POST', url, payload, (header) =>
       request({ url, method: 'POST', data: payload, header }),
     )
   },

@@ -126,6 +126,7 @@ export interface SoftwareComment {
   status: string
   likeCount: number
   likedByMe: boolean
+  replies?: SoftwareComment[]
   createdAt: string
   pinned: boolean
 }
@@ -178,11 +179,68 @@ export const softwareApi = {
     request<SoftwarePage<SoftwareComment>>({
       url: `${BASE}/${id}/comments${buildQuery({ page, size })}`,
     }),
-  createComment: (id: string, content: string) => {
+  /** SW11：回复楼中楼——parentId 恒指向根楼，replyToCommentId 精确到目标 */
+  createComment: (
+    id: string,
+    content: string,
+    parentId?: string,
+    replyToCommentId?: string,
+  ) => {
     const url = `${BASE}/${id}/comments`
-    const payload = { content }
+    const payload = {
+      content,
+      ...(parentId ? { parentId } : {}),
+      ...(replyToCommentId ? { replyToCommentId } : {}),
+    }
     return write<SoftwareComment>('POST', url, payload, (header) =>
       request({ url, method: 'POST', data: payload, header }),
+    )
+  },
+
+  /** SW11：删除自己的评论 */
+  deleteComment: (id: string, commentId: string) =>
+    write<void>('DELETE', `${BASE}/${id}/comments/${commentId}`, {}, (header) =>
+      request({ url: `${BASE}/${id}/comments/${commentId}`, method: 'DELETE', header }),
+    ),
+
+  /** SW11：软件/评论举报 */
+  report: (
+    id: string,
+    payload: {
+      targetType: 'SOFTWARE' | 'SOFTWARE_COMMENT'
+      targetId?: string
+      reason: string
+      description?: string
+    },
+  ) => {
+    const url = `${BASE}/${id}/reports`
+    return write<{ reportId: string; status: string }>('POST', url, payload, (header) =>
+      request({ url, method: 'POST', data: payload, header }),
+    )
+  },
+
+  /** SW11：来源失效反馈（LINK_INVALID/CODE_WRONG/FILE_MISMATCH/SUSPICIOUS/OTHER） */
+  sourceFeedback: (id: string, sourceId: string, reasonCode: string) => {
+    const url = `${BASE}/${id}/sources/${sourceId}/feedback`
+    const payload = { reasonCode }
+    return write<{ feedbackId: string; status: string }>('POST', url, payload, (header) =>
+      request({ url, method: 'POST', data: payload, header }),
+    )
+  },
+
+  /** SW11：榜单（access/favorite/rating，口径由服务端定义） */
+  rankings: (type: 'access' | 'favorite' | 'rating', page = 1, size = 20) =>
+    request<SoftwarePage<SoftwareCard>>({
+      url: `${BASE}/rankings${buildQuery({ type, page, size })}`,
+    }),
+
+  /** SW11：更新提醒偏好（与订阅关系相互独立） */
+  preferences: () => request<{ updateNotifications: boolean }>({ url: `${BASE}/preferences` }),
+  updatePreferences: (updateNotifications: boolean) => {
+    const url = `${BASE}/preferences`
+    const payload = { updateNotifications }
+    return write<{ updateNotifications: boolean }>('PUT', url, payload, (header) =>
+      request({ url, method: 'PUT', data: payload, header }),
     )
   },
   likeComment: (id: string, commentId: string) =>
@@ -201,6 +259,12 @@ export const softwareApi = {
       request({ url, method: 'PUT', data: payload, header }),
     )
   },
+
+  /** SW11：撤销评分（真实均分随刷新返回） */
+  revokeRating: (id: string) =>
+    write<void>('DELETE', `${BASE}/${id}/rating`, {}, (header) =>
+      request({ url: `${BASE}/${id}/rating`, method: 'DELETE', header }),
+    ),
   resolve: (id: string, sourceId: string) => {
     const url = `${BASE}/${id}/sources/${sourceId}/resolve`
     return write<SoftwareResolveResult>('POST', url, null, (header) =>

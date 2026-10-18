@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Switch } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { softwareApi, softwarePublishApi, type SoftwareMineItem } from '@/api/software'
 import { errorMessage } from '@/utils/request'
@@ -50,6 +50,8 @@ export default function SoftwareMinePage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  /** SW11：更新提醒总开关（与订阅关系相互独立；退订≠关闭提醒） */
+  const [updateNotify, setUpdateNotify] = useState(true)
 
   const isOwnTab = tab === 'published' || tab === 'draft' || tab === 'pending'
     || tab === 'rejected'
@@ -80,11 +82,25 @@ export default function SoftwareMinePage() {
       Taro.redirectTo({ url: '/pages/login/index' })
       return
     }
+    softwareApi.preferences()
+      .then((res) => setUpdateNotify(res.data.data?.updateNotifications ?? true))
+      .catch(() => undefined)
     // 新建/编辑返回后刷新
     const flag = router.params.refreshed
     void load(tab, 1)
     void flag
   }, [isLoggedIn, router.params.refreshed, load, tab])
+
+  const handleToggleNotify = async (enabled: boolean) => {
+    const prev = updateNotify
+    setUpdateNotify(enabled)
+    try {
+      await softwareApi.updatePreferences(enabled)
+      Taro.showToast({ title: enabled ? '已开启更新提醒' : '已关闭更新提醒', icon: 'success' })
+    } catch {
+      setUpdateNotify(prev)
+    }
+  }
 
   const gate = async (fn: () => Promise<unknown>, doneTip: string) => {
     setBusy(doneTip)
@@ -191,6 +207,15 @@ export default function SoftwareMinePage() {
               <Text className={styles.newBtnText}>＋ 新建软件</Text>
             </View>
           )}
+        </View>
+
+        {/* SW11：更新提醒开关（退订与关闭语义不同） */}
+        <View className={styles.notifyRow}>
+          <Text className={styles.notifyLabel}>软件更新提醒</Text>
+          <Switch
+            checked={updateNotify}
+            onChange={(event) => void handleToggleNotify(event.detail.value)}
+          />
         </View>
 
         {/* SW11：页签——投稿/收藏/订阅 + 翻页加载更多 */}

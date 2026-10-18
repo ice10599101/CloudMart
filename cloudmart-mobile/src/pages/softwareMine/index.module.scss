@@ -182,3 +182,17 @@
   font-size: 26rpx;
   color: #3d5afe;
 }
+
+/* SW11：更新提醒开关 */
+.notifyRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 24rpx;
+}
+
+.notifyLabel {
+  font-size: 26rpx;
+  color: #0b1220;
+}
