@@ -201,17 +201,17 @@ class PetSeasonPassServiceImplTest {
         @Test
         @DisplayName("补发：CLAIM_PENDING 重试交付成功 → SETTLED（每人每档一次）")
         void settlePendingClaims_retriesDelivery() {
-            when(claimMapper.selectList(any())).thenReturn(List.of(claim(1, "CLAIM_PENDING")));
+            when(claimMapper.selectDuePending(any(), anyInt())).thenReturn(List.of(claim(1, "CLAIM_PENDING")));
+            when(claimMapper.tryLease(any(), any(), any(), any())).thenReturn(1);
             when(passMapper.selectOne(any())).thenReturn(pass(60));
             when(passMapper.update(any(), any())).thenReturn(1);
+            when(claimMapper.update(any(), any())).thenReturn(1);
 
             int settled = service.settlePendingClaims();
 
             assertThat(settled).isEqualTo(1);
             verify(rewardApplicationService).claim(any(), any());
-            ArgumentCaptor<PetSeasonPassClaim> captor = ArgumentCaptor.forClass(PetSeasonPassClaim.class);
-            verify(claimMapper).updateById(captor.capture());
-            assertThat(captor.getValue().getStatus()).isEqualTo("SETTLED");
+            verify(claimMapper).update(any(), any()); // markSettled
         }
 
         @Test
@@ -221,9 +221,11 @@ class PetSeasonPassServiceImplTest {
             PetSeasonPassClaim pending = claim(10, "CLAIM_PENDING");
             pending.setRewardSnapshot(
                     "{\"tier\":10,\"coins\":200,\"skin\":\"SNAP_SKIN\",\"ruleVersion\":\"V1\",\"targetPetId\":42}");
-            when(claimMapper.selectList(any())).thenReturn(List.of(pending));
+            when(claimMapper.selectDuePending(any(), anyInt())).thenReturn(List.of(pending));
+            when(claimMapper.tryLease(any(), any(), any(), any())).thenReturn(1);
             when(passMapper.selectOne(any())).thenReturn(pass(200));
             when(passMapper.update(any(), any())).thenReturn(1);
+            when(claimMapper.update(any(), any())).thenReturn(1);
             Pet pet = new Pet();
             pet.setId(42L);
             when(petService.requireOwnedPet(USER_ID, 42L)).thenReturn(pet);
@@ -242,6 +244,87 @@ class PetSeasonPassServiceImplTest {
             verify(inventoryMapper).insert(cap.capture());
             assertThat(cap.getValue().getItemCode()).isEqualTo("SNAP_SKIN");
             assertThat(cap.getValue().getPetId()).isEqualTo(42L);
+        }
+
+        @Test
+        @DisplayName("T18：租约抢占失败（其他实例持有）→ 跳过不交付")
+        void settle_leaseConflict_skips() {
+            when(claimMapper.selectDuePending(any(), anyInt())).thenReturn(List.of(claim(1, "CLAIM_PENDING")));
+            when(claimMapper.tryLease(any(), any(), any(), any())).thenReturn(0); // 其他实例已持有
+
+            int settled = service.settlePendingClaims();
+
+            assertThat(settled).isEqualTo(0);
+            verify(rewardApplicationService, never()).claim(any(), any());
+        }
+
+        @Test
+        @DisplayName("T18：可重试失败 → 指数退避（next_retry_at 置未来，不占头部）")
+        void settle_retryableFailure_backsOff() {
+            when(claimMapper.selectDuePending(any(), anyInt())).thenReturn(List.of(claim(1, "CLAIM_PENDING")));
+            when(claimMapper.tryLease(any(), any(), any(), any())).thenReturn(1);
+            when(rewardApplicationService.claim(any(), any()))
+                    .thenThrow(new BusinessException("PET_WALLET_MAINTENANCE", "维护中"));
+
+            int settled = service.settlePendingClaims();
+
+            assertThat(settled).isEqualTo(0);
+            // 失败记录：attempts+1、next_retry_at 置未来、不置 NEEDS_ATTENTION
+            verify(claimMapper).update(any(), any());
+        }
+
+        @Test
+        @DisplayName("T18：不可重试错误 → 立即 NEEDS_ATTENTION（可见可处置）")
+        void settle_nonRetryableFailure_needsAttention() {
+            PetSeasonPassClaim pending = claim(1, "CLAIM_PENDING");
+            when(claimMapper.selectDuePending(any(), anyInt())).thenReturn(List.of(pending));
+            when(claimMapper.tryLease(any(), any(), any(), any())).thenReturn(1);
+            when(rewardApplicationService.claim(any(), any()))
+                    .thenThrow(new BusinessException("PET_WALLET_FROZEN", "钱包冻结"));
+
+            int settled = service.settlePendingClaims();
+
+            assertThat(settled).isEqualTo(0);
+            ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetSeasonPassClaim>> cap =
+                    ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
+            verify(claimMapper).update(any(), cap.capture());
+            assertThat(cap.getValue().getParamNameValuePairs())
+                    .containsValue(PetSeasonPassClaim.STATUS_NEEDS_ATTENTION);
+        }
+
+        @Test
+        @DisplayName("T18：重试达上限 → NEEDS_ATTENTION")
+        void settle_maxAttemptsExceeded_needsAttention() {
+            PetSeasonPassClaim pending = claim(1, "CLAIM_PENDING");
+            pending.setAttempts(5); // 已达 maxAttempts-1（默认 6）
+            when(claimMapper.selectDuePending(any(), anyInt())).thenReturn(List.of(pending));
+            when(claimMapper.tryLease(any(), any(), any(), any())).thenReturn(1);
+            when(rewardApplicationService.claim(any(), any()))
+                    .thenThrow(new RuntimeException("db down"));
+
+            int settled = service.settlePendingClaims();
+
+            assertThat(settled).isEqualTo(0);
+            ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetSeasonPassClaim>> cap =
+                    ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
+            verify(claimMapper).update(any(), cap.capture());
+            assertThat(cap.getValue().getParamNameValuePairs())
+                    .containsValue(PetSeasonPassClaim.STATUS_NEEDS_ATTENTION);
+        }
+
+        @Test
+        @DisplayName("T18：人工重试 NEEDS_ATTENTION → 重置为 CLAIM_PENDING（立即待补发）")
+        void retryClaim_resetsToPending() {
+            PetSeasonPassClaim attention = claim(1, "NEEDS_ATTENTION");
+            when(claimMapper.selectById(1L)).thenReturn(attention, claim(1, "CLAIM_PENDING"));
+
+            service.retryClaim(1L, "运营复核");
+
+            ArgumentCaptor<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PetSeasonPassClaim>> cap =
+                    ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper.class);
+            verify(claimMapper).update(any(), cap.capture());
+            assertThat(cap.getValue().getParamNameValuePairs())
+                    .containsValue(PetSeasonPassClaim.STATUS_CLAIM_PENDING);
         }
 
         @Test

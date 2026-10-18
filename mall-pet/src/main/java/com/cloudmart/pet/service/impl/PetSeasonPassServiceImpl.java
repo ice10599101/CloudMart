@@ -27,10 +27,13 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * 赛季通行证（R05 重写）。
@@ -51,6 +54,13 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
     private static final int TIER_EXP_STEP = 5;
     private static final String RULE_VERSION = "V1";
 
+    /** T18：可重试（瞬态）错误码——维护中/处理中/临时不可用/忙碌；其余业务错误按不可重试处置 */
+    private static final Set<String> RETRYABLE_CODES = Set.of(
+            PetErrorCodes.PET_WALLET_MAINTENANCE,
+            PetErrorCodes.PET_REQUEST_IN_PROGRESS,
+            PetErrorCodes.PET_TEMPORARILY_UNAVAILABLE,
+            PetErrorCodes.PET_USER_BUSY);
+
     private final PetSeasonMapper seasonMapper;
     private final PetSeasonPassMapper passMapper;
     private final PetSeasonPassClaimMapper claimMapper;
@@ -60,6 +70,9 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
     private final PetProperties properties;
     /** T17：经验原子累计器（独立 Bean，REQUIRES_NEW 保证事实与累计同事务） */
     private final PetSeasonPassExpAccumulator expAccumulator;
+
+    /** T18：本实例补发租约持有者 ID（多实例并发领取 fenced by tryLease CAS） */
+    private final String leaseOwner = UUID.randomUUID().toString();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -192,30 +205,119 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
         return new PetSeasonPassService.ExpReconciliation(factSum, projected);
     }
 
+    @Override
+    public PetSeasonPassClaim retryClaim(Long claimId, String reason) {
+        PetSeasonPassClaim claim = claimMapper.selectById(claimId);
+        if (claim == null) {
+            throw new BusinessException(PetErrorCodes.PET_NOT_FOUND, "领取事实不存在");
+        }
+        if (PetSeasonPassClaim.STATUS_SETTLED.equals(claim.getStatus())) {
+            return claim; // 已交付，幂等
+        }
+        // 重放原事实（领取时快照，不新造奖励）：重置为立即待补发，释放租约与退避
+        int updated = claimMapper.update(null, new LambdaUpdateWrapper<PetSeasonPassClaim>()
+                .set(PetSeasonPassClaim::getStatus, PetSeasonPassClaim.STATUS_CLAIM_PENDING)
+                .set(PetSeasonPassClaim::getNextRetryAt, null)
+                .set(PetSeasonPassClaim::getLeaseOwner, null)
+                .set(PetSeasonPassClaim::getLeaseUntil, null)
+                .eq(PetSeasonPassClaim::getId, claimId)
+                .in(PetSeasonPassClaim::getStatus, PetSeasonPassClaim.STATUS_NEEDS_ATTENTION,
+                        PetSeasonPassClaim.STATUS_CLAIM_PENDING));
+        if (updated == 1) {
+            log.info("[OPS] 通行证奖励人工重试: claimId={}, season={}, user={}, tier={}, reason={}",
+                    claimId, claim.getSeasonId(), claim.getUserId(), claim.getTier(), reason);
+        }
+        return claimMapper.selectById(claimId);
+    }
+
     // ==================== 定时补发 ====================
 
     @Override
     @Scheduled(fixedDelayString = "${pet.season-pass.reward-sweep-delay-ms:15000}")
     public int settlePendingClaims() {
-        List<PetSeasonPassClaim> pending = claimMapper.selectList(new LambdaQueryWrapper<PetSeasonPassClaim>()
-                .eq(PetSeasonPassClaim::getStatus, PetSeasonPassClaim.STATUS_CLAIM_PENDING)
-                .orderByAsc(PetSeasonPassClaim::getId)
-                .last("LIMIT 20"));
+        PetProperties.SeasonPass cfg = properties.getSeasonPass();
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        // T18 公平扫描：只取「已到期且可执行」，失败行退避后不再占头部
+        List<PetSeasonPassClaim> due = claimMapper.selectDuePending(now, cfg.getSweepBatchSize());
         int settled = 0;
-        for (PetSeasonPassClaim claim : pending) {
+        for (PetSeasonPassClaim claim : due) {
+            LocalDateTime leaseUntil = now.plusSeconds(cfg.getLeaseSeconds());
+            // 租约 CAS：多实例并发只一个胜者，交付由奖励应用服务 uk 幂等兜底
+            if (claimMapper.tryLease(claim.getId(), leaseOwner, leaseUntil, now) != 1) {
+                continue;
+            }
             try {
                 deliver(claim);
-                claim.setStatus(PetSeasonPassClaim.STATUS_SETTLED);
-                claim.setSettledAt(LocalDateTime.now());
-                claimMapper.updateById(claim);
-                syncClaimedProjection(claim.getSeasonId(), claim.getUserId());
+                markSettled(claim);
                 settled++;
             } catch (Exception e) {
-                log.warn("通行证奖励补发未完成（继续等待）: claimId={}, season={}, user={}, tier={}, err={}",
-                        claim.getId(), claim.getSeasonId(), claim.getUserId(), claim.getTier(), e.getMessage());
+                recordFailure(claim, e, now);
             }
         }
         return settled;
+    }
+
+    /** 交付成功后置 SETTLED（fence 内 CAS PENDING→SETTLED，释放租约）并同步投影 */
+    private void markSettled(PetSeasonPassClaim claim) {
+        int updated = claimMapper.update(null, new LambdaUpdateWrapper<PetSeasonPassClaim>()
+                .set(PetSeasonPassClaim::getStatus, PetSeasonPassClaim.STATUS_SETTLED)
+                .set(PetSeasonPassClaim::getSettledAt, LocalDateTime.now(ZoneOffset.UTC))
+                .set(PetSeasonPassClaim::getLeaseOwner, null)
+                .set(PetSeasonPassClaim::getLeaseUntil, null)
+                .eq(PetSeasonPassClaim::getId, claim.getId())
+                .eq(PetSeasonPassClaim::getStatus, PetSeasonPassClaim.STATUS_CLAIM_PENDING));
+        if (updated == 1) {
+            syncClaimedProjection(claim.getSeasonId(), claim.getUserId());
+        }
+    }
+
+    /** 失败记录：指数退避 + 抖动；达上限或不可重试 → NEEDS_ATTENTION（可见可处置） */
+    private void recordFailure(PetSeasonPassClaim claim, Exception cause, LocalDateTime now) {
+        PetProperties.SeasonPass cfg = properties.getSeasonPass();
+        int attempts = (claim.getAttempts() == null ? 0 : claim.getAttempts()) + 1;
+        String errorCode = classifyError(cause);
+        boolean terminal = !isRetryable(cause) || attempts >= cfg.getMaxAttempts();
+        LambdaUpdateWrapper<PetSeasonPassClaim> update = new LambdaUpdateWrapper<PetSeasonPassClaim>()
+                .set(PetSeasonPassClaim::getAttempts, attempts)
+                .set(PetSeasonPassClaim::getLastErrorCode, errorCode)
+                .set(PetSeasonPassClaim::getLeaseOwner, null)
+                .set(PetSeasonPassClaim::getLeaseUntil, null)
+                .set(PetSeasonPassClaim::getLastAttemptAt, now)
+                .eq(PetSeasonPassClaim::getId, claim.getId())
+                .eq(PetSeasonPassClaim::getStatus, PetSeasonPassClaim.STATUS_CLAIM_PENDING);
+        if (terminal) {
+            update.set(PetSeasonPassClaim::getStatus, PetSeasonPassClaim.STATUS_NEEDS_ATTENTION);
+        } else {
+            update.set(PetSeasonPassClaim::getNextRetryAt, now.plusSeconds(backoffSeconds(attempts, cfg)));
+        }
+        claimMapper.update(null, update);
+        log.warn("通行证奖励补发失败: claimId={}, season={}, user={}, tier={}, attempts={}, code={}, terminal={}, err={}",
+                claim.getId(), claim.getSeasonId(), claim.getUserId(), claim.getTier(),
+                attempts, errorCode, terminal, cause.getMessage());
+    }
+
+    /** 指数退避 + 抖动（±25%），封顶 maxRetrySeconds */
+    private long backoffSeconds(int attempts, PetProperties.SeasonPass cfg) {
+        long base = cfg.getBaseRetrySeconds();
+        long exp = base * (1L << Math.min(Math.max(attempts - 1, 0), 20));
+        long capped = Math.min(exp, cfg.getMaxRetrySeconds());
+        return capped + (long) (capped * 0.25 * Math.random());
+    }
+
+    /** 可重试错误：瞬态（维护中/处理中/临时不可用/忙碌）与非业务异常（DB/网络）；其余为不可重试 */
+    private boolean isRetryable(Throwable cause) {
+        if (!(cause instanceof BusinessException be)) {
+            return true;
+        }
+        String code = be.getCode() == null ? "" : be.getCode();
+        return RETRYABLE_CODES.contains(code);
+    }
+
+    private String classifyError(Throwable cause) {
+        if (cause instanceof BusinessException be) {
+            return be.getCode() == null ? "PET_BUSINESS_ERROR" : be.getCode();
+        }
+        return "PET_DELIVERY_UNAVAILABLE";
     }
 
     // ==================== 内部 ====================

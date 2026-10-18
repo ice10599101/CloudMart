@@ -51,6 +51,7 @@ public class PetProperties {
     private final Alert alert = new Alert();
     private final Moderation moderation = new Moderation();
     private final LinkedProduct linkedProduct = new LinkedProduct();
+    private final SeasonPass seasonPass = new SeasonPass();
 
     /**
      * R01：商品权益配置——coupon 兑换码模板 → 宠物食物 itemCode 的服务端推导映射。
@@ -411,5 +412,21 @@ public class PetProperties {
         private int reportDailyLimit = 10;
         /** 补充说明最大长度（§7.2：限制说明 1~1000 字符） */
         private int reportDescriptionMaxLength = 1000;
+    }
+
+    /** 赛季通行证补发调度（T18：公平扫描 + 指数退避 + 租约并发领取 + 失败处置） */
+    @Getter
+    @Setter
+    public static class SeasonPass {
+        /** 每轮扫描可执行领取行数（公平扫描分页大小） */
+        private int sweepBatchSize = 20;
+        /** 交付租约时长（秒）——跨进程崩溃后的租约自愈窗口 */
+        private long leaseSeconds = 120;
+        /** 交付重试上限；达上限置 NEEDS_ATTENTION（人工处置） */
+        private int maxAttempts = 6;
+        /** 首次失败退避基数（秒），此后指数翻倍 + 抖动 */
+        private long baseRetrySeconds = 30;
+        /** 退避上限（秒） */
+        private int maxRetrySeconds = 3600;
     }
 }

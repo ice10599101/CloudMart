@@ -23,6 +23,8 @@ public class PetSeasonPassClaim {
 
     public static final String STATUS_CLAIM_PENDING = "CLAIM_PENDING";
     public static final String STATUS_SETTLED = "SETTLED";
+    /** T18：交付重试达上限或不可重试错误 → 人工处置（可见可处置，不再占补发头部） */
+    public static final String STATUS_NEEDS_ATTENTION = "NEEDS_ATTENTION";
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -34,6 +36,24 @@ public class PetSeasonPassClaim {
     private Integer tier;
 
     private String status;
+
+    /** T18：交付尝试次数（失败累计） */
+    private Integer attempts;
+
+    /** T18：下次重试时间（UTC；NULL=立即可执行） */
+    private LocalDateTime nextRetryAt;
+
+    /** T18：最近失败错误码 */
+    private String lastErrorCode;
+
+    /** T18：交付租约持有者（实例 ID；NULL=空闲） */
+    private String leaseOwner;
+
+    /** T18：租约到期时间（UTC） */
+    private LocalDateTime leaseUntil;
+
+    /** T18：最近一次尝试时间（UTC） */
+    private LocalDateTime lastAttemptAt;
 
     private String rewardSnapshot;
 

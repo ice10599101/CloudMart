@@ -49,4 +49,10 @@ public interface PetSeasonPassService {
             return factSum != projectedExp;
         }
     }
+
+    /**
+     * T18 人工处置：把 NEEDS_ATTENTION（或退避中的 CLAIM_PENDING）领取行重置为立即待补发，
+     * 重放原事实（领取时快照），不新造奖励。已 SETTLED 幂等返回原行。
+     */
+    com.cloudmart.pet.entity.PetSeasonPassClaim retryClaim(Long claimId, String reason);
 }

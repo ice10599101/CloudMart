@@ -48,6 +48,8 @@ public class AdminPetSeasonController {
     private final PetSeasonSettlementService settlementService;
     private final PetConfigGovernanceService governance;
     private final com.cloudmart.pet.repository.PetSkinConfigMapper skinConfigMapper;
+    private final com.cloudmart.pet.repository.PetSeasonPassClaimMapper claimMapper;
+    private final com.cloudmart.pet.service.PetSeasonPassService seasonPassService;
 
     /** R05：最终档赛季皮肤码（与 PetSeasonPassServiceImpl 同一配置源；空=不承诺皮肤） */
     @org.springframework.beans.factory.annotation.Value("${pet.season-pass.final-tier-skin-code:}")
@@ -196,5 +198,36 @@ public class AdminPetSeasonController {
     public ApiResponse<com.cloudmart.pet.entity.PetSeasonSettlementJob> retrySettlement(
             @PathVariable("id") Long id, @PathVariable("jobId") Long jobId) {
         return ApiResponse.ok(settlementService.retrySettlement(id, jobId));
+    }
+
+    @GetMapping("/pass-claims")
+    @Operation(summary = "通行证领取事实台账（T18）", description = "按状态/用户/赛季筛选，倒序；"
+            + "NEEDS_ATTENTION 为交付达上限或不可重试，需人工处置")
+    public ApiResponse<List<com.cloudmart.pet.entity.PetSeasonPassClaim>> passClaims(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long seasonId,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        LambdaQueryWrapper<com.cloudmart.pet.entity.PetSeasonPassClaim> wrapper =
+                new LambdaQueryWrapper<com.cloudmart.pet.entity.PetSeasonPassClaim>()
+                        .eq(status != null && !status.isBlank(),
+                                com.cloudmart.pet.entity.PetSeasonPassClaim::getStatus, status)
+                        .eq(userId != null, com.cloudmart.pet.entity.PetSeasonPassClaim::getUserId, userId)
+                        .eq(seasonId != null, com.cloudmart.pet.entity.PetSeasonPassClaim::getSeasonId, seasonId)
+                        .orderByDesc(com.cloudmart.pet.entity.PetSeasonPassClaim::getId);
+        Page<com.cloudmart.pet.entity.PetSeasonPassClaim> result = claimMapper.selectPage(
+                new Page<>(Math.max(page, 1), Math.min(size, 100)), wrapper);
+        return ApiResponse.ok(result.getRecords(), result.getCurrent(), result.getSize(), result.getTotal());
+    }
+
+    @PostMapping("/pass-claims/{id}/retry")
+    @Operation(summary = "人工重试领取交付（T18）", description = "重放原事实（领取时快照），不新造奖励；"
+            + "已 SETTLED 幂等返回；需填写原因留痕")
+    public ApiResponse<com.cloudmart.pet.entity.PetSeasonPassClaim> retryPassClaim(
+            @PathVariable("id") Long id,
+            @RequestParam(value = "reason", required = false) String reason) {
+        String cause = reason == null || reason.isBlank() ? "人工处置" : reason.strip();
+        return ApiResponse.ok(seasonPassService.retryClaim(id, cause));
     }
 }
