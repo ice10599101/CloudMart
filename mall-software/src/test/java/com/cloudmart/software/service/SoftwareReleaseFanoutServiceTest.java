@@ -185,8 +185,16 @@ class SoftwareReleaseFanoutServiceTest {
     @Test
     @DisplayName("投递重试：<=12 次退避 PENDING，达到 12 次转 FAILED（保留同一去重键）")
     void retryDueDeliveries_backoffAndTerminal() {
-        // 本测试只关心投递重试：无 fanout 任务
+        // 本测试只关心投递重试：无待推进任务，重试用任务冻结的 revisionId
         when(fanoutTaskMapper.findDue(any())).thenReturn(null);
+        com.cloudmart.software.entity.SoftwareFanoutTask task =
+                new com.cloudmart.software.entity.SoftwareFanoutTask();
+        task.setId(7L);
+        task.setSoftwareId(SOFTWARE_ID);
+        task.setPublicationSeq(2);
+        task.setRevisionId(600L);
+        when(fanoutTaskMapper.findBySoftwareAndSeq(SOFTWARE_ID, 2)).thenReturn(task);
+        when(preferenceMapper.selectList(any(Wrapper.class))).thenReturn(List.of());
         SoftwareSubscriptionDelivery tenth = new SoftwareSubscriptionDelivery();
         tenth.setId(11L);
         tenth.setSoftwareId(SOFTWARE_ID);

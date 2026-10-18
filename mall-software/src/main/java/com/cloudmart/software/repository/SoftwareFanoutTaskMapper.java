@@ -75,4 +75,22 @@ public interface SoftwareFanoutTaskMapper extends BaseMapper<SoftwareFanoutTask>
                @Param("lastError") String lastError,
                @Param("leaseVersion") Integer leaseVersion,
                @Param("owner") String owner, @Param("now") LocalDateTime now);
+
+    /** SW10：按软件+发布序号定位任务（投递重试需用任务冻结的 revisionId，不得借用最新指针） */
+    @Select("""
+            SELECT * FROM software_fanout_task
+            WHERE software_id = #{softwareId} AND publication_seq = #{publicationSeq}
+            LIMIT 1
+            """)
+    SoftwareFanoutTask findBySoftwareAndSeq(@Param("softwareId") Long softwareId,
+                                            @Param("publicationSeq") Integer publicationSeq);
+
+    /** SW10：人工重试——保持原 eventId 语义（seq/revisionId 不变），仅重新入队 */
+    @Update("""
+            UPDATE software_fanout_task
+            SET status = 'PENDING', next_retry_at = #{now},
+                lease_owner = NULL, lease_until = NULL, last_error = NULL, updated_at = #{now}
+            WHERE id = #{id} AND status IN ('PENDING', 'RUNNING', 'FAILED')
+            """)
+    int manualRetry(@Param("id") Long id, @Param("now") LocalDateTime now);
 }

@@ -236,6 +236,16 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
                 throw unavailable(cause);
             }
 
+            @Override
+            public ApiResponse<Object> fanoutTasks(int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> retryFanoutTask(Long taskId) {
+                throw unavailable(cause);
+            }
+
             private BusinessException unavailable(Throwable root) {
                 return new BusinessException("SOFTWARE_SERVICE_UNAVAILABLE",
                         "软件服务暂不可用，请稍后重试", root);

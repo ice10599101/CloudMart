@@ -731,3 +731,33 @@ export interface AdminSoftwareStatistics {
 export function getSoftwareStatistics() {
   return request.get<ApiResponse<AdminSoftwareStatistics>>(`${BASE}/statistics`)
 }
+
+/** SW10：通知任务（fanout）运维 */
+export interface AdminFanoutTask {
+  taskId: string
+  softwareId: string
+  revisionId: string
+  publicationSeq: string
+  status: string
+  cursorSubscriptionId: string
+  attempts: string
+  nextRetryAt: string | null
+  lastError: string | null
+  /** 投递聚合：PENDING/SENT/CANCELLED/SUPERSEDED/FAILED → 数量 */
+  deliveryCounts: Record<string, string>
+}
+
+export function listFanoutTasks(page = 1, size = 20) {
+  return request.get<
+    ApiResponse<{ current: number; size: number; total: number; records: AdminFanoutTask[] }>
+  >(`${BASE}/fanout/tasks`, { params: { page, size } })
+}
+
+export function retryFanoutTask(taskId: string, idempotencyKey?: string) {
+  const url = `${BASE}/fanout/tasks/${taskId}/retry`
+  return request.post<ApiResponse<boolean>>(
+    url,
+    {},
+    softwareWriteConfig('POST', url, {}, idempotencyKey),
+  )
+}

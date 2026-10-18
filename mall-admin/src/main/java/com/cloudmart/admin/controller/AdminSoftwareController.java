@@ -506,4 +506,25 @@ public class AdminSoftwareController {
     public ApiResponse<Object> statistics() {
         return softwareFeignClient.statistics();
     }
+
+    // ---------------- 通知任务运维（SW10：software:fanout，权限独立） ----------------
+
+    @GetMapping("/fanout/tasks")
+    @RequiresPermission("software:fanout")
+    @Operation(summary = "通知与检查任务列表",
+            description = "状态/游标/失败原因/下次执行时间/投递聚合（SW10）")
+    public ApiResponse<Object> fanoutTasks(
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return softwareFeignClient.fanoutTasks(page, size);
+    }
+
+    @OperLog(title = "通知任务重试", businessType = 2)
+    @PostMapping("/fanout/tasks/{taskId}/retry")
+    @RequiresPermission("software:fanout")
+    @Operation(summary = "人工重试通知任务",
+            description = "重新入队；沿用原发布事件身份（seq/revisionId 不变）")
+    public ApiResponse<Object> retryFanoutTask(@PathVariable("taskId") Long taskId) {
+        return softwareFeignClient.retryFanoutTask(taskId);
+    }
 }

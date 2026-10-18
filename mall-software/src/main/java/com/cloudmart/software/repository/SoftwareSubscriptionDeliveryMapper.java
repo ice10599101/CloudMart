@@ -58,4 +58,39 @@ public interface SoftwareSubscriptionDeliveryMapper extends BaseMapper<SoftwareS
     int cancelPending(@Param("softwareId") Long softwareId,
                       @Param("publicationSeq") Integer publicationSeq,
                       @Param("now") LocalDateTime now);
+
+    /** SW10：旧发布已被新发布取代——未发投递显式 SUPERSEDED，由最新事件接续（已发送事实保留） */
+    @Update("""
+            UPDATE software_subscription_delivery
+            SET status = 'SUPERSEDED', updated_at = #{now}
+            WHERE software_id = #{softwareId} AND publication_seq = #{publicationSeq}
+              AND status = 'PENDING'
+            """)
+    int markSuperseded(@Param("softwareId") Long softwareId,
+                       @Param("publicationSeq") Integer publicationSeq,
+                       @Param("now") LocalDateTime now);
+
+    /** SW10：重试时核对提醒偏好——已退订/关闭提醒的未发行取消（不新增事后订阅者） */
+    @Update("""
+            <script>UPDATE software_subscription_delivery
+            SET status = 'CANCELLED', updated_at = #{now}
+            WHERE software_id = #{softwareId} AND publication_seq = #{publicationSeq}
+              AND status = 'PENDING'
+              AND user_id IN
+              <foreach collection="userIds" item="uid" open="(" separator="," close=")">#{uid}</foreach>
+            </script>""")
+    int cancelMuted(@Param("softwareId") Long softwareId,
+                    @Param("publicationSeq") Integer publicationSeq,
+                    @Param("userIds") java.util.Collection<Long> userIds,
+                    @Param("now") LocalDateTime now);
+
+    /** SW10：按任务聚合投递结果（运维页签） */
+    @Select("""
+            SELECT status, COUNT(*) AS cnt FROM software_subscription_delivery
+            WHERE software_id = #{softwareId} AND publication_seq = #{publicationSeq}
+            GROUP BY status
+            """)
+    java.util.List<java.util.Map<String, Object>> countByStatusGroup(
+            @Param("softwareId") Long softwareId,
+            @Param("publicationSeq") Integer publicationSeq);
 }

@@ -135,10 +135,35 @@ public class SoftwareReleaseFanoutService {
                 deliveryMapper.cancelPending(head.getSoftwareId(), head.getPublicationSeq(), now);
                 continue;
             }
+            // SW10：以任务冻结的 revisionId 投递——旧发布任务不得借用最新发布指针串线
+            SoftwareFanoutTask task = fanoutTaskMapper.findBySoftwareAndSeq(
+                    head.getSoftwareId(), head.getPublicationSeq());
+            if (task == null || !Objects.equals(task.getPublicationSeq(),
+                    software.getPublicationSeq())) {
+                // 任务丢失或已被新发布取代：未发投递显式 SUPERSEDED，由最新事件接续；
+                // 已发送事实保留，绝不在旧 eventId 下换内容投递
+                deliveryMapper.markSuperseded(head.getSoftwareId(), head.getPublicationSeq(), now);
+                continue;
+            }
+            // SW10：重试时核对提醒偏好——退订/关闭提醒的未发行取消（不新增事后订阅者）
             List<Long> userIds = rows.stream().map(SoftwareSubscriptionDelivery::getUserId)
                     .distinct().toList();
+            Set<Long> mutedUsers = preferenceMapper.selectList(
+                            new LambdaQueryWrapper<SoftwareUserPreference>()
+                                    .in(SoftwareUserPreference::getUserId, userIds)
+                                    .eq(SoftwareUserPreference::getUpdateNotifications, false))
+                    .stream().map(SoftwareUserPreference::getUserId).collect(Collectors.toSet());
+            if (!mutedUsers.isEmpty()) {
+                deliveryMapper.cancelMuted(head.getSoftwareId(), head.getPublicationSeq(),
+                        mutedUsers, now);
+            }
+            List<Long> deliverIds = userIds.stream()
+                    .filter(userId -> !mutedUsers.contains(userId)).toList();
+            if (deliverIds.isEmpty()) {
+                continue;
+            }
             boolean sent = deliver(head.getSoftwareId(), head.getPublicationSeq(),
-                    software.getPublishedRevisionId(), userIds);
+                    task.getRevisionId(), deliverIds);
             markResults(rows, sent, now);
         }
     }
@@ -196,8 +221,9 @@ public class SoftwareReleaseFanoutService {
             }
             renewLease(task, leaseVersion);
         }
-        // 本轮批次数用尽：让出，下轮继续（租约到期后可被接管）
-        finishTask(task, leaseVersion, "PENDING", null, Duration.ofSeconds(30));
+        // SW10：本轮批次数用尽是"正常让出"而非失败——不增加失败次数，
+        // 否则大订阅集合会在无异常时被误判 FAILED
+        yieldTask(task, leaseVersion, Duration.ofSeconds(30));
     }
 
     /**
@@ -281,7 +307,8 @@ public class SoftwareReleaseFanoutService {
             var response = notificationClient.releasePublished(
                     new com.cloudmart.software.dto.software.SoftwareReleaseNotifyRequest(
                             softwareId, publicationSeq, revisionId, userIds));
-            sent = response != null && response.data() != null;
+            // SW10：响应 success 与数据语义都要核对——"新创建数=0"代表已去重成功，不算失败
+            sent = response != null && response.success() && response.data() != null;
             return sent;
         } catch (Exception e) {
             log.warn("订阅提醒投递失败 softwareId={} seq={} users={}: {}",
@@ -321,6 +348,14 @@ public class SoftwareReleaseFanoutService {
         fanoutTaskMapper.renewLease(task.getId(),
                 LocalDateTime.now(clock).plus(LEASE_DURATION), leaseVersion, workerId,
                 LocalDateTime.now(clock));
+    }
+
+    /** SW10：正常让出——游标已推进、无异常，只推迟下次执行，不增加失败次数 */
+    private void yieldTask(SoftwareFanoutTask task, int leaseVersion, Duration defer) {
+        fanoutTaskMapper.finish(task.getId(), "PENDING",
+                task.getAttempts() == null ? 0 : task.getAttempts(),
+                LocalDateTime.now(clock).plus(defer), task.getLastError(),
+                leaseVersion, workerId, LocalDateTime.now(clock));
     }
 
     private void finishTask(SoftwareFanoutTask task, int leaseVersion, String status,

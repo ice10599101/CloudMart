@@ -192,6 +192,15 @@ public interface SoftwareFeignClient {
     @GetMapping("/statistics")
     ApiResponse<Object> statistics();
 
+    /** SW10：通知任务运维（software:fanout） */
+    @GetMapping("/fanout/tasks")
+    ApiResponse<Object> fanoutTasks(@RequestParam("page") int page,
+                                    @RequestParam("size") int size);
+
+    /** SW10：人工重试通知任务（沿用原发布事件身份） */
+    @PostMapping("/fanout/tasks/{taskId}/retry")
+    ApiResponse<Object> retryFanoutTask(@PathVariable("taskId") Long taskId);
+
     @GetMapping("/permission-audits")
     ApiResponse<Object> permissionAudits(
             @RequestParam(value = "userId", required = false) Long userId,
