@@ -18,6 +18,7 @@ import { communityApi } from '@/api/community'
 import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { ExpectedActionType, Notification } from '@/types'
+import { requireList } from '@/api/paging'
 
 const PAGE_SIZE = 20
 
@@ -266,7 +267,7 @@ export default function NotificationsScreen() {
           params.type = activeTab
         }
         const res = await notificationApi.getList(params)
-        const newItems: Notification[] = (res.data as any)?.data?.list || []
+        const newItems = requireList<Notification>(res.data)
         setNotifications(reset ? newItems : [...notifications, ...newItems])
         setHasMore(newItems.length >= PAGE_SIZE)
         setPage(pageNum)

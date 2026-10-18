@@ -90,9 +90,11 @@ public class GrowthController {
     public ApiResponse<List<ExpLogVO>> getExpLogs(
             @Parameter(description = "当前用户ID") @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
-            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size) {
-        Page<ExpLogVO> result = growthService.getExpLogs(userId, page, size);
-        return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @Parameter(description = "每页数量（旧参数名，兼容期保留）") @RequestParam(value = "size", required = false) Integer size) {
+        int resolvedSize = pageSize != null ? pageSize : (size != null ? size : 20);
+        Page<ExpLogVO> result = growthService.getExpLogs(userId, page, resolvedSize);
+        return ApiResponse.ok(result.getRecords(), new Meta(page, resolvedSize, result.getTotal()));
     }
 
     @GetMapping("/level-configs")

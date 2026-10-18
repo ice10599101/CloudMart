@@ -14,6 +14,7 @@ import { marketingApi } from '@/api/marketing'
 import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { GroupActivity, GroupOrder } from '@/types'
+import { toPageResult } from '@/api/paging'
 
 const PAGE_SIZE = 20
 
@@ -187,9 +188,10 @@ export default function GroupBuyPage() {
       setLoading(true)
       try {
         const res = await marketingApi.getGroupActivities({ page: pageNum, pageSize: PAGE_SIZE })
-        const newItems: GroupActivity[] = (res.data as any)?.data?.list || []
+        const pageResult = toPageResult<GroupActivity>(res.data, { page: pageNum, pageSize: PAGE_SIZE })
+        const newItems = pageResult.items
         setActivities(reset ? newItems : (prev) => [...prev, ...newItems])
-        setHasMore(newItems.length >= PAGE_SIZE)
+        setHasMore(pageNum * PAGE_SIZE < pageResult.total)
         setPage(pageNum)
       } catch {
         if (reset) setActivities([])
@@ -232,7 +234,7 @@ export default function GroupBuyPage() {
     setMyLoading(true)
     try {
       const res = await marketingApi.getGroupOrders({ page: 1, pageSize: 50 })
-      setMyGroups((res.data as { data?: { list?: GroupOrder[] } })?.data?.list ?? [])
+      setMyGroups(toPageResult<GroupOrder>(res.data, { page: 1, pageSize: 50 }).items)
     } catch {
       setMyGroups([])
     } finally {

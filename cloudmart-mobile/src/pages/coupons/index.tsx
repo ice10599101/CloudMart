@@ -6,6 +6,7 @@ import { errorMessage, isBusinessError } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { CouponTemplate, UserCoupon } from '@/types'
+import { toPageResult } from '@/api/paging'
 import styles from './index.module.scss'
 
 // 对齐 Web 领券中心：可领取 / 我的优惠券 两大区
@@ -34,7 +35,7 @@ export default function CouponsPage() {
   const loadTemplates = async () => {
     try {
       const res = await marketingApi.getCouponTemplates({ page: 1, pageSize: 50 })
-      setTemplates(res.data?.data?.list || [])
+      setTemplates(toPageResult<CouponTemplate>(res.data, { page: 1, pageSize: 20 }).items)
       setClaimedIds([])
     } catch {
       // API unavailable
@@ -44,7 +45,7 @@ export default function CouponsPage() {
   const loadCoupons = async () => {
     try {
       const res = await marketingApi.getUserCoupons({ status: MY_STATUS_MAP[statusTab], page: 1, pageSize: 50 })
-      setCoupons(res.data?.data?.list || [])
+      setCoupons(toPageResult<UserCoupon>(res.data, { page: 1, pageSize: 20 }).items)
     } catch {
       // API unavailable
     }

@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { orderApi } from '@/api/order'
+import { toPageResult } from '@/api/paging'
 import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Order, OrderItem } from '@/types'
@@ -236,9 +237,11 @@ export default function OrdersScreen() {
           params.status = activeTab
         }
         const res = await orderApi.getList(params)
-        const newOrders: Order[] = (res.data as any)?.data?.list || []
+        // T06：后端返回数组 + meta，页面只读 PageResult.items
+        const pageResult = toPageResult<Order>(res.data, { page: pageNum, pageSize: PAGE_SIZE })
+        const newOrders = pageResult.items
         setOrders(reset ? newOrders : [...orders, ...newOrders])
-        setHasMore(newOrders.length >= PAGE_SIZE)
+        setHasMore(pageNum * PAGE_SIZE < pageResult.total)
         setPage(pageNum)
       } catch {
         if (reset) setOrders([])

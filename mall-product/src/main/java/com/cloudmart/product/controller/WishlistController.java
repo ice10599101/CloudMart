@@ -53,9 +53,11 @@ public class WishlistController {
     @Operation(summary = "收藏列表", description = "分页查询当前用户的收藏列表（含商品信息）")
     public ApiResponse<java.util.List<WishlistDTO>> getUserWishlist(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
-            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size) {
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @Parameter(description = "每页数量（旧参数名，兼容期保留）") @RequestParam(value = "size", required = false) Integer size) {
+        int resolvedSize = pageSize != null ? pageSize : (size != null ? size : 10);
         Long userId = getCurrentUserId();
-        Page<WishlistDTO> result = wishlistService.getUserWishlist(userId, page, size);
+        Page<WishlistDTO> result = wishlistService.getUserWishlist(userId, page, resolvedSize);
         Meta meta = new Meta((int) result.getCurrent(), (int) result.getSize(), result.getTotal());
         return ApiResponse.ok(result.getRecords(), meta);
     }

@@ -10,6 +10,7 @@ import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { Product, UserCoupon } from '@/types'
+import { toPageResult } from '@/api/paging'
 import styles from './index.module.scss'
 
 interface Address {
@@ -137,7 +138,7 @@ export default function CheckoutPage() {
       // 可用优惠券（UNUSED）
       try {
         const couponRes = await marketingApi.getUserCoupons({ status: 'UNUSED', page: 1, pageSize: 50 })
-        setCoupons(couponRes.data?.data?.list ?? [])
+        setCoupons(toPageResult<UserCoupon>(couponRes.data, { page: 1, pageSize: 50 }).items)
       } catch {
         // 券服务不可用时允许无券下单
       }

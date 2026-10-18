@@ -78,10 +78,13 @@ public class PostController {
     public ApiResponse<List<PostVO>> getFeedPosts(
             @Parameter(description = "标签页: recommend/following/latest") @RequestParam(defaultValue = "recommend") String tab,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
-            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @Parameter(description = "每页数量（旧参数名，兼容期保留）") @RequestParam(value = "size", required = false) Integer size,
             @Parameter(description = "当前用户ID") @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long userId) {
-        Page<PostVO> result = postService.getFeedPosts(tab, page, size, userId);
-        return ApiResponse.ok(result.getRecords(), new Meta(page, size, result.getTotal()));
+        // T06：统一 page/pageSize；size 作为兼容别名
+        int resolvedSize = pageSize != null ? pageSize : (size != null ? size : 20);
+        Page<PostVO> result = postService.getFeedPosts(tab, page, resolvedSize, userId);
+        return ApiResponse.ok(result.getRecords(), new Meta(page, resolvedSize, result.getTotal()));
     }
 
     @GetMapping("/feed/following")
@@ -89,12 +92,14 @@ public class PostController {
     public ApiResponse<List<PostVO>> getFollowingFeed(
             @RequestHeader(name = SecurityConstants.USER_ID_HEADER, required = false) Long userId,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @RequestParam(value = "size", required = false) Integer size) {
+        int resolvedSize = pageSize != null ? pageSize : (size != null ? size : 20);
         if (userId == null) {
-            return ApiResponse.ok(List.of(), new ApiResponse.Meta(page, size, 0L));
+            return ApiResponse.ok(List.of(), new ApiResponse.Meta(page, resolvedSize, 0L));
         }
-        Page<PostVO> result = postService.getFollowingFeed(userId, page, size);
-        return ApiResponse.ok(result.getRecords(), new ApiResponse.Meta(page, size, result.getTotal()));
+        Page<PostVO> result = postService.getFollowingFeed(userId, page, resolvedSize);
+        return ApiResponse.ok(result.getRecords(), new ApiResponse.Meta(page, resolvedSize, result.getTotal()));
     }
 
     @GetMapping("/search")

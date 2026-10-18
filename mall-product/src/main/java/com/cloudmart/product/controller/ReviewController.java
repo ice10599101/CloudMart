@@ -49,8 +49,10 @@ public class ReviewController {
     public ApiResponse<List<ReviewVO>> getProductReviews(
             @Parameter(description = "商品ID", required = true) @PathVariable("productId") Long productId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
-            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size) {
-        Page<ReviewDTO> result = reviewService.getProductReviews(productId, page, size);
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @Parameter(description = "每页数量（旧参数名，兼容期保留）") @RequestParam(value = "size", required = false) Integer size) {
+        int resolvedSize = pageSize != null ? pageSize : (size != null ? size : 10);
+        Page<ReviewDTO> result = reviewService.getProductReviews(productId, page, resolvedSize);
         Meta meta = new Meta((int) result.getCurrent(), (int) result.getSize(), result.getTotal());
         return ApiResponse.ok(productConverter.reviewDtoListToVOList(result.getRecords()), meta);
     }

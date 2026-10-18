@@ -5,6 +5,7 @@ import { marketingApi } from '@/api/marketing'
 import { errorMessage } from '@/utils/request'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { GroupActivity, GroupOrder } from '@/types'
+import { toPageResult } from '@/api/paging'
 import styles from './index.module.scss'
 
 interface Countdown {
@@ -70,7 +71,7 @@ export default function GroupBuyPage() {
     setLoading(true)
     try {
       const res = await marketingApi.getGroupActivities({ page: pageNum, pageSize: 20 })
-      const list: GroupActivity[] = res.data?.data?.list || []
+      const list = toPageResult<GroupActivity>(res.data, { page: pageNum, pageSize: 20 }).items
       setActivities((prev) => (reset ? list : [...prev, ...list]))
       setHasMore(list.length >= 20)
       setPage(pageNum)
@@ -131,7 +132,7 @@ export default function GroupBuyPage() {
     setMyLoading(true)
     try {
       const res = await marketingApi.getGroupOrders({ page: 1, pageSize: 50 })
-      setMyGroups(res.data?.data?.list || [])
+      setMyGroups(toPageResult<GroupOrder>(res.data, { page: 1, pageSize: 50 }).items)
     } catch {
       setMyGroups([])
     } finally {

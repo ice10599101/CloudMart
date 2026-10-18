@@ -9,6 +9,7 @@ import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { subscribeNotifications, subscribeUnreadCount } from '@/composables/useNotificationSocket'
 import { useThemeClass } from '@/composables/useThemeClass'
+import { requireList } from '@/api/paging'
 import styles from './index.module.scss'
 
 const TABS = ['全部', '点赞', '评论', '关注', '系统']
@@ -46,7 +47,7 @@ export default function NotificationsPage() {
       const params: { page: number; pageSize: number; type?: number } = { page: 1, pageSize: 20 }
       if (activeTab > 0) params.type = TAB_TYPES[activeTab]
       const res = await notificationApi.getList(params)
-      setNotifications(res.data?.data?.list || [])
+      setNotifications(requireList<Record<string, unknown>>(res.data))
     } catch {
       // API unavailable
     }

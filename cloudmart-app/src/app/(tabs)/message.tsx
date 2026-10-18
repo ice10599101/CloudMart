@@ -8,6 +8,7 @@ import DecoratedAvatar from '@/components/DecoratedAvatar'
 import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Conversation, Notification as AppNotification } from '@/types'
+import { requireList } from '@/api/paging'
 
 function ConversationItem({ item, theme }: { item: Conversation; theme: ReturnType<typeof useTheme> }) {
   return (
@@ -65,8 +66,8 @@ export default function MessagePage() {
         notificationApi.getConversations(),
         notificationApi.getList(),
       ])
-      setConversations(convRes.data?.data?.list || [])
-      setNotifications(notifRes.data?.data?.list || [])
+      setConversations(requireList<Conversation>(convRes.data))
+      setNotifications(requireList<AppNotification>(notifRes.data))
     } catch {
       // ignore
     } finally {

@@ -71,8 +71,11 @@ public class OrderController {
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "订单状态") @RequestParam(value = "status", required = false) String status,
             @Parameter(description = "页码") @RequestParam(value = "page", defaultValue = "1") int page,
-            @Parameter(description = "每页数量") @RequestParam(value = "size", defaultValue = "10") int size) {
-        ApiResponse<List<OrderDTO>> response = orderService.listOrders(userId, status, page, size);
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @Parameter(description = "每页数量（旧参数名，兼容期保留）") @RequestParam(value = "size", required = false) Integer size) {
+        // T06：公开分页参数统一 page/pageSize；size 作为兼容别名保留（管理端与旧前端仍在使用）
+        int resolvedPageSize = pageSize != null ? pageSize : (size != null ? size : 10);
+        ApiResponse<List<OrderDTO>> response = orderService.listOrders(userId, status, page, resolvedPageSize);
         List<OrderVO> voList = orderConverter.orderDtoToVOList(response.data());
         return ApiResponse.ok(voList, response.meta());
     }

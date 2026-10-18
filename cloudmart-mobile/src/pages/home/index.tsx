@@ -13,6 +13,7 @@ import { ICON_BASE64 } from '@/components/Icon'
 import { useThemeClass } from '@/composables/useThemeClass'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import CustomTabBar from '@/components/CustomTabBar'
+import { toPageResult } from '@/api/paging'
 import styles from './index.module.scss'
 
 // 对齐 Web 端 Home：推荐/关注/热门/好物（热门=客户端热度排序、好物=好物帖过滤，与 Web 同逻辑）
@@ -68,7 +69,7 @@ export default function HomePage() {
       } else {
         res = await communityApi.getFeed({ page: pageNum, pageSize: 10 })
       }
-      let newPosts = res.data?.data?.list || []
+      let newPosts = toPageResult<Post>(res.data, { page: pageNum, pageSize: 10 }).items
       // 热门：本地热度排序（对齐 Web 端 fetchTab 逻辑）
       if (activeTab === 2) newPosts = [...newPosts].sort((a, b) => hotScore(b) - hotScore(a))
       // 好物：仅保留关联好物的帖子（对齐 Web 端 goods 过滤）

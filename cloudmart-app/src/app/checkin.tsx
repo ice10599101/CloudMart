@@ -8,6 +8,7 @@ import { storage } from '@/utils/storage'
 import { errorMessage } from '@/utils/request'
 import type { ExpLog, LevelConfig } from '@/types'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
+import { toPageResult } from '@/api/paging'
 
 interface LevelInfo {
   level: number
@@ -70,7 +71,7 @@ export default function CheckInPage() {
       // 等级体系 + 经验变动（对齐 Web 端 UserCenter 面板数据源）
       growthApi.getLevelConfigs().then((res) => setLevelConfigs(res.data?.data ?? [])).catch(() => {})
       growthApi.getExpLogs({ page: 1, pageSize: 20 })
-        .then((res) => setExpLogs(res.data?.data?.list ?? []))
+        .then((res) => setExpLogs(toPageResult<ExpLog>(res.data, { page: 1, pageSize: 20 }).items))
         .catch(() => {})
     } catch {
       // API unavailable

@@ -6,6 +6,7 @@ import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
+import { toPageResult } from '@/api/paging'
 import styles from './index.module.scss'
 
 const TABS = ['关注', '粉丝']
@@ -28,7 +29,7 @@ export default function FollowingPage() {
       const res = activeTab === 0
         ? await communityApi.getUserFollowing(user.id, { page: 1, pageSize: 50 })
         : await communityApi.getUserFollowers(user.id, { page: 1, pageSize: 50 })
-      setUsers(res.data?.data?.list || [])
+      setUsers(toPageResult<Record<string, unknown>>(res.data, { page: 1, pageSize: 50 }).items)
     } catch {
       // API unavailable
     }

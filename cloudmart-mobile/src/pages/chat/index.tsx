@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/auth'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { ChatMessage } from '@/types'
+import { requireList } from '@/api/paging'
 import styles from './index.module.scss'
 
 /** 撤回时限（对齐 Web 端：发送 2 分钟内可撤回） */
@@ -60,7 +61,7 @@ export default function ChatPage() {
   const loadMessages = async (convId: number | string, reset: boolean) => {
     try {
       const msgRes = await notificationApi.getMessages(convId, { page: 1, pageSize: 50 })
-      const list = msgRes.data?.data?.list || []
+      const list = requireList<ChatMessage>(msgRes.data)
       setMessages(list)
       if (list.length > 0) lastLoadedIdRef.current = list[list.length - 1].id
     } catch {
@@ -74,7 +75,7 @@ export default function ChatPage() {
     pollRef.current = setInterval(async () => {
       try {
         const msgRes = await notificationApi.getMessages(convId, { page: 1, pageSize: 50 })
-        const list = msgRes.data?.data?.list || []
+        const list = requireList<ChatMessage>(msgRes.data)
         if (list.length > 0) {
           const latestId = list[list.length - 1].id
           if (latestId !== lastLoadedIdRef.current) {

@@ -10,6 +10,7 @@ import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { Product, Sku } from '@/types'
+import { toPageResult } from '@/api/paging'
 import styles from './index.module.scss'
 
 /** 解析 SKU attributes（JSON 对象，异常时降级为原始字符串展示） */
@@ -145,7 +146,7 @@ export default function ProductDetailPage() {
     setReviewLoading(true)
     try {
       const res = await productApi.getReviews(id, { page, pageSize: 10 })
-      const list = res.data?.data?.list ?? []
+      const list = toPageResult<(typeof reviews)[number]>(res.data, { page: 1, pageSize: 20 }).items
       setReviews((prev) => (append ? [...prev, ...list] : list))
       setReviewPage(page)
       setReviewHasMore(list.length >= 10)

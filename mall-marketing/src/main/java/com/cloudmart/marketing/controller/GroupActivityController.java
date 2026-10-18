@@ -40,8 +40,10 @@ public class GroupActivityController {
     public ApiResponse<IPage<GroupActivityVO>> listActivities(
             @Parameter(description = "状态筛选") @RequestParam(required = false) String status,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
-            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size) {
-        IPage<GroupActivityDTO> dtoPage = groupActivityService.listActivities(status, page, size);
+            @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
+            @Parameter(description = "每页数量（旧参数名，兼容期保留）") @RequestParam(value = "size", required = false) Integer size) {
+        int resolvedSize = pageSize != null ? pageSize : (size != null ? size : 10);
+        IPage<GroupActivityDTO> dtoPage = groupActivityService.listActivities(status, page, resolvedSize);
         IPage<GroupActivityVO> voPage = dtoPage.convert(marketingConverter::groupActivityDtoToVO);
         return ApiResponse.ok(voPage);
     }

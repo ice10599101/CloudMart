@@ -10,6 +10,7 @@ import { marketingApi } from '@/api/marketing'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import { errorMessage } from '@/utils/request'
 import type { Address, CartItem, Product, UserCoupon } from '@/types'
+import { toPageResult } from '@/api/paging'
 
 /** 券抵扣金额（契约对齐后端 Discount：AMOUNT_OFF 直减；PERCENT_OFF=金额×(1-折扣率)） */
 function calcCouponDiscount(coupon: UserCoupon, subtotal: number): number {
@@ -121,7 +122,7 @@ export default function CheckoutPage() {
         isDirectBuy ? loadDirectBuyItems() : loadCartItems(),
         // 可用优惠券（UNUSED；失败允许无券下单）
         marketingApi.getMyCoupons({ status: 'UNUSED', page: 1, pageSize: 50 })
-          .then((res) => setCoupons((res.data as { data?: { list?: UserCoupon[] } })?.data?.list ?? []))
+          .then((res) => setCoupons(toPageResult<UserCoupon>(res.data, { page: 1, pageSize: 50 }).items))
           .catch(() => setCoupons([])),
       ])
     } finally {

@@ -8,6 +8,7 @@ import { productApi } from '@/api/product'
 import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { WishlistItem } from '@/types'
+import { toPageResult } from '@/api/paging'
 
 const PAGE_SIZE = 20
 
@@ -24,9 +25,10 @@ export default function WishlistScreen() {
     setLoading(true)
     try {
       const res = await userApi.getWishlist({ page: pageNum, pageSize: PAGE_SIZE })
-      const newItems: WishlistItem[] = (res.data as any)?.data?.list || []
+      const pageResult = toPageResult<WishlistItem>(res.data, { page: pageNum, pageSize: PAGE_SIZE })
+      const newItems = pageResult.items
       setItems(reset ? newItems : [...items, ...newItems])
-      setHasMore(newItems.length >= PAGE_SIZE)
+      setHasMore(pageNum * PAGE_SIZE < pageResult.total)
       setPage(pageNum)
     } catch {
       if (reset) setItems([])

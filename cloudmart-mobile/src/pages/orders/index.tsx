@@ -6,6 +6,7 @@ import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import type { Order } from '@/types'
+import { toPageResult } from '@/api/paging'
 import styles from './index.module.scss'
 
 // 状态语义对齐 Web 端订单列表：全部/待付款/已付款/已发货/已完成/已取消
@@ -45,7 +46,8 @@ export default function OrdersPage() {
       const params: { page: number; pageSize: number; status?: number } = { page: pageNum, pageSize: PAGE_SIZE }
       if (tab > 0) params.status = STATUS_MAP[tab]
       const res = await orderApi.getList(params)
-      const list = res.data?.data?.list || []
+      const pageResult = toPageResult<Order>(res.data, { page, pageSize: PAGE_SIZE })
+      const list = pageResult.items
       setOrders((prev) => (append ? [...prev, ...list] : list))
       setPage(pageNum)
       setHasMore(list.length >= PAGE_SIZE)

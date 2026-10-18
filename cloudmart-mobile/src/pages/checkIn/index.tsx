@@ -6,6 +6,7 @@ import { useThemeClass } from '@/composables/useThemeClass'
 import { growthApi } from '@/api/growth'
 import { errorMessage } from '@/utils/request'
 import type { ExpLog, LevelConfig } from '@/types'
+import { toPageResult } from '@/api/paging'
 import styles from './index.module.scss'
 
 interface LevelInfo {
@@ -73,7 +74,7 @@ export default function CheckInPage() {
     }
     // 等级体系 + 经验变动 + 头像框（对齐 Web 端 UserCenter 面板数据源）
     growthApi.getLevelConfigs().then((res) => setLevelConfigs(res.data?.data || [])).catch(() => {})
-    growthApi.getExpLogs({ page: 1, pageSize: 20 }).then((res) => setExpLogs(res.data?.data?.list || [])).catch(() => {})
+    growthApi.getExpLogs({ page: 1, pageSize: 20 }).then((res) => setExpLogs(toPageResult<ExpLog>(res.data, { page: 1, pageSize: 20 }).items)).catch(() => {})
     setAvatarFrameState(Taro.getStorageSync('avatar_frame') || 'none')
     loadCalendar(currentYear, currentMonth)
   }

@@ -10,6 +10,7 @@ import { communityApi } from '@/api/community'
 import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Product, Sku } from '@/types'
+import { toPageResult } from '@/api/paging'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const IMAGE_HEIGHT = SCREEN_WIDTH * 0.85
@@ -196,7 +197,7 @@ export default function ProductDetailScreen() {
     setReviewLoading(true)
     try {
       const res = await productApi.getReviews(id, { page, pageSize: 10 })
-      const list = (res.data as { data?: { list?: ReviewItemShape[] } })?.data?.list ?? []
+      const list = toPageResult<ReviewItemShape>(res.data, { page: 1, pageSize: 20 }).items
       setReviews((prev) => (append ? [...prev, ...list] : list))
       setReviewPage(page)
       setReviewHasMore(list.length >= 10)

@@ -7,6 +7,7 @@ import { productApi } from '@/api/product'
 import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
+import { toPageResult } from '@/api/paging'
 import styles from './index.module.scss'
 
 export default function WishlistPage() {
@@ -22,7 +23,7 @@ export default function WishlistPage() {
   const loadWishlist = async () => {
     try {
       const res = await userApi.getWishlist({ page: 1, pageSize: 20 })
-      setWishlist(res.data?.data?.list || [])
+      setWishlist(toPageResult<Record<string, unknown>>(res.data, { page: 1, pageSize: 20 }).items)
     } catch {
       // API unavailable
     } finally {

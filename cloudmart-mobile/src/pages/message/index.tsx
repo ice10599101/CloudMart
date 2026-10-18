@@ -11,6 +11,7 @@ import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import CustomTabBar from '@/components/CustomTabBar'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import type { Conversation } from '@/types'
+import { requireList } from '@/api/paging'
 import styles from './index.module.scss'
 
 const QUICK_ENTRIES = [
@@ -54,7 +55,7 @@ export default function MessagePage() {
       notificationApi.getUnreadCount(),
     ])
     if (convResult.status === 'fulfilled') {
-      setConversations(convResult.value.data?.data?.list || [])
+      setConversations(requireList<Conversation>(convResult.value.data))
     }
     if (countResult.status === 'fulfilled') {
       setUnreadCounts((countResult.value.data?.data as unknown as Record<number, number>) || {})
