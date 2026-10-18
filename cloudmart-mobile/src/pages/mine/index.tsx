@@ -10,12 +10,13 @@ import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import CustomTabBar from '@/components/CustomTabBar'
 import styles from './index.module.scss'
 
+// T07：语义状态与 Web/App 对齐（退款/售后是独立状态轴，不再占用订单筛选位）
 const ORDER_TABS = [
-  { icon: '💳', name: '待付款', status: 0 },
-  { icon: '📦', name: '待发货', status: 1 },
-  { icon: '🚚', name: '待收货', status: 2 },
-  { icon: '✅', name: '已完成', status: 3 },
-  { icon: '↩️', name: '退款', status: 4 },
+  { icon: '💳', name: '待付款', status: 'PENDING_PAYMENT' },
+  { icon: '📦', name: '已付款', status: 'PAID' },
+  { icon: '🚚', name: '已发货', status: 'SHIPPED' },
+  { icon: '✅', name: '已完成', status: 'COMPLETED' },
+  { icon: '❌', name: '已取消', status: 'CANCELLED' },
 ]
 
 const MENU_ITEMS = [

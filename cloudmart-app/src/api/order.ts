@@ -11,7 +11,8 @@ function buildQuery(params?: Record<string, unknown>): string {
 }
 
 export const orderApi = {
-  getList: (params?: { status?: number; page?: number; pageSize?: number }) =>
+  // T07：status 为语义枚举字符串（PENDING_PAYMENT/PAID/...），不再是 0-4 数字
+getList: (params?: { status?: string; page?: number; pageSize?: number }) =>
     request<PaginatedResult<Order>>({ url: `/order/orders${buildQuery(params as Record<string, unknown>)}` }),
   getDetail: (id: number | string) => request<Order>({ url: `/order/orders/${id}` }),
   create: (data: Record<string, unknown>) => request<Order>({ url: '/order/orders', method: 'POST', data }),

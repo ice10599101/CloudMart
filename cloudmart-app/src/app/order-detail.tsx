@@ -18,12 +18,14 @@ import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Order, OrderItem } from '@/types'
 
-const STATUS_CONFIG: Record<number, { icon: string; label: string; colorKey: 'accentOrange' | 'accentRed' | 'accentGreen' | 'primary' | 'textTertiary' }> = {
-  0: { icon: '💰', label: '待付款', colorKey: 'accentOrange' },
-  1: { icon: '📦', label: '待发货', colorKey: 'primary' },
-  2: { icon: '🚚', label: '待收货', colorKey: 'primary' },
-  3: { icon: '✅', label: '已完成', colorKey: 'accentGreen' },
-  4: { icon: '❌', label: '已取消', colorKey: 'textTertiary' },
+const STATUS_CONFIG: Record<string, { icon: string; label: string; colorKey: 'accentOrange' | 'accentRed' | 'accentGreen' | 'primary' | 'textTertiary' }> = {
+  PENDING_PAYMENT: { icon: '💰', label: '待付款', colorKey: 'accentOrange' },
+  PAID: { icon: '📦', label: '已付款', colorKey: 'primary' },
+  SHIPPED: { icon: '🚚', label: '已发货', colorKey: 'primary' },
+  COMPLETED: { icon: '✅', label: '已完成', colorKey: 'accentGreen' },
+  CANCELLED: { icon: '❌', label: '已取消', colorKey: 'textTertiary' },
+  REFUNDING: { icon: '↩️', label: '退款中', colorKey: 'accentOrange' },
+  REFUNDED: { icon: '💸', label: '已退款', colorKey: 'accentRed' },
 }
 
 const SHIPPING_STATUS_TEXT: Record<string, string> = {
@@ -73,7 +75,7 @@ export default function OrderDetailPage() {
 
   /** 已完成订单预载各订单行评价，用于按钮展示「评价/查看评价」；单项失败不阻塞页面 */
   const fetchItemReviews = useCallback(async (currentOrder: Order) => {
-    if (currentOrder.status !== 3) return
+    if (currentOrder.status !== 'COMPLETED') return
     const results = await Promise.allSettled(
       currentOrder.items.map(async (item) => {
         const res = await productApi.getOwnReviewByOrderItem(item.id)
@@ -227,7 +229,7 @@ export default function OrderDetailPage() {
 
   /** 打开弹窗并重置表单；已发货默认退货退款，待发货仅退款（未发货无货可退） */
   const openAfterSale = () => {
-    setAfterSaleType(order?.status === 2 ? 'RETURN_REFUND' : 'REFUND_ONLY')
+    setAfterSaleType(order?.status === 'SHIPPED' ? 'RETURN_REFUND' : 'REFUND_ONLY')
     setAfterSaleItemId(null)
     setAfterSaleQuantity(1)
     setAfterSaleReason('')
@@ -399,7 +401,7 @@ export default function OrderDetailPage() {
     )
   }
 
-  const statusConfig = STATUS_CONFIG[order.status] ?? STATUS_CONFIG[4]
+  const statusConfig = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.CANCELLED
   const statusColor = theme[statusConfig.colorKey]
   const shippingFee: number = 0
   const discount = order.totalAmount - order.payAmount
@@ -432,7 +434,7 @@ export default function OrderDetailPage() {
         </View>
 
         {/* 状态进度条（对齐 Web 端：提交订单→支付成功→已发货→已完成） */}
-        {order.status !== 4 && (
+        {order.status !== 'CANCELLED' && (
           <View style={{
             marginHorizontal: Spacing.lg,
             marginBottom: Spacing.lg,
@@ -536,7 +538,7 @@ export default function OrderDetailPage() {
                       x{item.quantity}
                     </Text>
                   </View>
-                  {order.status === 3 && (
+                  {order.status === 'COMPLETED' && (
                     <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: Spacing.xs }}>
                       <TouchableOpacity
                         activeOpacity={0.7}
@@ -562,7 +564,7 @@ export default function OrderDetailPage() {
         </View>
 
         {/* T05：物流信息（WMS 权威事实；未建包裹显示待出库） */}
-        {order.status >= 1 && order.status <= 3 && (
+        {['PAID', 'SHIPPED', 'COMPLETED'].includes(order.status) && (
           <View style={{
             marginHorizontal: Spacing.lg,
             marginBottom: Spacing.lg,
@@ -736,7 +738,7 @@ export default function OrderDetailPage() {
       </ScrollView>
 
       {/* Bottom Action Bar */}
-      {(order.status === 0 || order.status === 1 || order.status === 2 || order.status === 3) && (
+      {['PENDING_PAYMENT', 'PAID', 'SHIPPED', 'COMPLETED'].includes(order.status) && (
         <View style={{
           position: 'absolute',
           bottom: 0,
@@ -753,7 +755,7 @@ export default function OrderDetailPage() {
           borderTopColor: theme.border,
           gap: Spacing.md,
         }}>
-          {order.status === 0 && (
+          {(order.allowedActions ?? []).includes('CANCEL') && (
             <>
               <TouchableOpacity
                 activeOpacity={0.7}
@@ -787,7 +789,7 @@ export default function OrderDetailPage() {
               </TouchableOpacity>
             </>
           )}
-          {order.status === 1 && (
+          {order.status === 'PAID' && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={actionLoading ? undefined : () => setRefundOpen(true)}
@@ -804,7 +806,7 @@ export default function OrderDetailPage() {
               <Text style={{ fontSize: FontSize.md, color: theme.textSecondary, fontWeight: '500' }}>申请退款</Text>
             </TouchableOpacity>
           )}
-          {(order.status === 1 || order.status === 2) && (
+          {(order.status === 'PAID' || order.status === 'SHIPPED') && (
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={actionLoading ? undefined : openAfterSale}
@@ -821,7 +823,7 @@ export default function OrderDetailPage() {
               <Text style={{ fontSize: FontSize.md, color: theme.textSecondary, fontWeight: '500' }}>申请售后</Text>
             </TouchableOpacity>
           )}
-          {order.status === 2 && (
+          {order.status === 'SHIPPED' && (
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={actionLoading ? undefined : handleConfirmReceive}
@@ -837,7 +839,7 @@ export default function OrderDetailPage() {
               <Text style={{ fontSize: FontSize.md, color: '#FFFFFF', fontWeight: '600' }}>确认收货</Text>
             </TouchableOpacity>
           )}
-          {order.status === 3 && (
+          {order.status === 'COMPLETED' && (
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={handleRebuy}
@@ -915,7 +917,7 @@ export default function OrderDetailPage() {
 
               <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '500', marginTop: Spacing.lg, marginBottom: Spacing.sm }}>售后类型</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm }}>
-                {(['REFUND_ONLY', ...(order?.status === 2 ? (['RETURN_REFUND'] as const) : [])] as const).map((t) => (
+                {(['REFUND_ONLY', ...(order?.status === 'SHIPPED' ? (['RETURN_REFUND'] as const) : [])] as const).map((t) => (
                   <TouchableOpacity
                     key={t}
                     activeOpacity={0.7}

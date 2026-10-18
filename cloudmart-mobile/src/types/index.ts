@@ -136,11 +136,26 @@ export interface CartItem {
 }
 
 // Order
+/** T07：订单状态为服务端语义枚举（禁止 0-4 数字；退款/售后为独立状态轴） */
+export type OrderStatus =
+  | 'PENDING_PAYMENT'
+  | 'PAID'
+  | 'SHIPPED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'REFUNDING'
+  | 'REFUNDED'
+
+/** T07：服务端 allowedActions 的动作常量 */
+export type OrderAction = 'PAY' | 'CANCEL' | 'CONFIRM_RECEIPT' | 'REVIEW'
+
 export interface Order {
   id: number
   orderNo: string
-  status: number
-  statusText: string
+  status: OrderStatus
+  statusText?: string
+  /** T07：服务端计算的可用动作 */
+  allowedActions?: OrderAction[]
   totalAmount: number
   payAmount: number
   /** R11：是否需要走收费渠道支付（false=全额优惠零元单，建单即内部结算完成） */

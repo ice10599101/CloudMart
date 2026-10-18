@@ -52,7 +52,8 @@ export const orderApi = {
   /** TRADE-01：报价下单——无价格字段，金额取报价快照 */
   createFromQuote: (data: { quoteId: number | string; expectedQuoteVersion: number; receiverName: string; receiverPhone: string; receiverAddress: string }) =>
     request<Order>({ url: '/order/orders', method: 'POST', data: data as unknown as Record<string, unknown> }),
-  getList: (params?: { status?: number; page?: number; pageSize?: number }) =>
+  // T07：status 为语义枚举字符串（PENDING_PAYMENT/PAID/...），不再是 0-4 数字
+getList: (params?: { status?: string; page?: number; pageSize?: number }) =>
     request<PaginatedResult<Order>>({ url: `/order/orders${buildQuery(params as Record<string, unknown>)}` }),
   getDetail: (id: number | string) => request<Order>({ url: `/order/orders/${id}` }),
   cancel: (id: number | string) => request<void>({ url: `/order/orders/${id}/cancel`, method: 'PUT' }),

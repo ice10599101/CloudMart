@@ -16,30 +16,41 @@ import { orderApi } from '@/api/order'
 import { toPageResult } from '@/api/paging'
 import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
-import type { Order, OrderItem } from '@/types'
+import type { Order, OrderItem, OrderStatus } from '@/types'
 
 const PAGE_SIZE = 10
 
 const TAB_LIST = [
-  { label: '全部', status: -1 },
-  { label: '待付款', status: 0 },
-  { label: '待发货', status: 1 },
-  { label: '待收货', status: 2 },
-  { label: '已完成', status: 3 },
+  { label: '全部', status: '' },
+  { label: '待付款', status: 'PENDING_PAYMENT' },
+  { label: '已付款', status: 'PAID' },
+  { label: '已发货', status: 'SHIPPED' },
+  { label: '已完成', status: 'COMPLETED' },
   // 状态语义对齐 Web 端订单列表（含已取消）
-  { label: '已取消', status: 4 },
+  { label: '已取消', status: 'CANCELLED' },
 ] as const
+
+/** T07：状态文案（与 Web/Taro 保持一致，避免各端各写一套） */
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  PENDING_PAYMENT: '待付款',
+  PAID: '已付款',
+  SHIPPED: '已发货',
+  COMPLETED: '已完成',
+  CANCELLED: '已取消',
+  REFUNDING: '退款中',
+  REFUNDED: '已退款',
+}
 
 type StatusColorKey = 'accentOrange' | 'accentPurple' | 'primary' | 'accentGreen'
 
-const STATUS_COLOR_MAP: Record<number, StatusColorKey> = {
-  0: 'accentOrange',
-  1: 'accentPurple',
-  2: 'primary',
-  3: 'accentGreen',
+const STATUS_COLOR_MAP: Record<string, StatusColorKey> = {
+  PENDING_PAYMENT: 'accentOrange',
+  PAID: 'accentPurple',
+  SHIPPED: 'primary',
+  COMPLETED: 'accentGreen',
 }
 
-function getStatusColor(theme: ReturnType<typeof useTheme>, status: number): string {
+function getStatusColor(theme: ReturnType<typeof useTheme>, status: string): string {
   const key = STATUS_COLOR_MAP[status]
   return key ? theme[key] : theme.textTertiary
 }
@@ -105,12 +116,19 @@ function OrderCard({
   const renderActions = () => {
     const buttons: { label: string; type: 'default' | 'primary'; onPress: () => void }[] = []
 
-    if (order.status === 0) {
+    // T07：可写动作由服务端 allowedActions 决定，页面不再按状态自行推导
+    const actions = order.allowedActions ?? []
+    if (actions.includes('CANCEL')) {
       buttons.push({ label: '取消订单', type: 'default', onPress: () => onCancel(order.id) })
+    }
+    if (actions.includes('PAY')) {
       buttons.push({ label: '去支付', type: 'primary', onPress: () => router.push(`/order-detail?id=${order.id}`) })
-    } else if (order.status === 2) {
+    }
+    if (actions.includes('CONFIRM_RECEIPT')) {
       buttons.push({ label: '确认收货', type: 'primary', onPress: () => onConfirmReceive(order.id) })
-    } else if (order.status === 3) {
+    }
+    if (order.status === 'COMPLETED') {
+      // 再次购买是纯导航动作，不改变订单状态，无需服务端授权
       buttons.push({ label: '再次购买', type: 'primary', onPress: () => onRebuy(order.id) })
     }
 
@@ -174,7 +192,7 @@ function OrderCard({
             backgroundColor: statusColor,
           }}
         >
-          <Text style={{ fontSize: FontSize.xs, color: '#FFFFFF', fontWeight: '600' }}>{order.statusText}</Text>
+          <Text style={{ fontSize: FontSize.xs, color: '#FFFFFF', fontWeight: '600' }}>{ORDER_STATUS_LABELS[order.status] ?? order.status}</Text>
         </View>
       </View>
 
@@ -216,8 +234,12 @@ export default function OrdersScreen() {
   const theme = useTheme()
   const { status: statusParam } = useLocalSearchParams<{ status?: string }>()
 
-  const initialStatus = statusParam ? Number(statusParam) : -1
-  const [activeTab, setActiveTab] = useState(initialStatus)
+  // T07：兼容旧链接的数字参数，内部统一为语义值
+  const legacyStatusMap: Record<string, OrderStatus> = { '0': 'PENDING_PAYMENT', '1': 'PAID', '2': 'SHIPPED', '3': 'COMPLETED', '4': 'CANCELLED' }
+  const initialStatus: OrderStatus | '' = statusParam
+    ? ((legacyStatusMap[statusParam] ?? statusParam) as OrderStatus)
+    : ''
+  const [activeTab, setActiveTab] = useState<OrderStatus | ''>(initialStatus)
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -229,11 +251,11 @@ export default function OrdersScreen() {
       if (loading) return
       setLoading(true)
       try {
-        const params: { status?: number; page: number; pageSize: number } = {
+        const params: { status?: OrderStatus; page: number; pageSize: number } = {
           page: pageNum,
           pageSize: PAGE_SIZE,
         }
-        if (activeTab !== -1) {
+        if (activeTab) {
           params.status = activeTab
         }
         const res = await orderApi.getList(params)
@@ -271,7 +293,7 @@ export default function OrdersScreen() {
     }
   }, [hasMore, loading, page, loadOrders])
 
-  const handleTabChange = useCallback((status: number) => {
+  const handleTabChange = useCallback((status: OrderStatus | '') => {
     setActiveTab(status)
     setOrders([])
     setPage(1)

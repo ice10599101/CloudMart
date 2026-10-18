@@ -22,6 +22,7 @@ public interface OrderConverter {
     List<OrderItemDTO> toItemDTOList(List<OrderItem> orderItems);
 
     @Mapping(target = "items", source = "items")
+    @Mapping(target = "allowedActions", expression = "java(com.cloudmart.order.domain.OrderActions.of(order.getStatus()))")
     OrderVO toVO(Order order, List<OrderItemVO> items);
 
     @Mapping(source = "skuImage", target = "productImage")
@@ -31,6 +32,7 @@ public interface OrderConverter {
     List<OrderItemVO> toItemVOList(List<OrderItem> orderItems);
 
     @Mapping(source = "items", target = "items")
+    @Mapping(target = "allowedActions", expression = "java(com.cloudmart.order.domain.OrderActions.of(dto.status()))")
     OrderVO orderDtoToVO(OrderDTO dto);
 
     @Mapping(source = "skuImage", target = "productImage")

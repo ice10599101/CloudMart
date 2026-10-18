@@ -23,6 +23,8 @@ public record OrderVO(
     @Schema(description = "发货时间") LocalDateTime shippedAt,
     @Schema(description = "完成时间") LocalDateTime completedAt,
     @Schema(description = "T05：退款汇总状态（NONE/PARTIAL/FULL）") String refundStatus,
-    @Schema(description = "T05：已退累计金额") java.math.BigDecimal refundedAmount
+    @Schema(description = "T05：已退累计金额") java.math.BigDecimal refundedAmount,
+    @Schema(description = "T07：服务端计算的可用动作（PAY/CANCEL/CONFIRM_RECEIPT/REVIEW），"
+            + "售后可用性由 /after-sale eligibility 独立判定") List<String> allowedActions
 ) {
 }

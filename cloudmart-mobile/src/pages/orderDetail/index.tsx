@@ -15,6 +15,7 @@ import { fileApi } from '@/api/file'
 import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
+import type { OrderStatus, OrderAction } from '@/types'
 import styles from './index.module.scss'
 
 /** T05：WMS 物流状态语义（与后端 PENDING/SHIPPED/DELIVERED 对齐） */
@@ -39,7 +40,9 @@ interface OrderItem {
 interface OrderDetail {
   id: number
   orderNo: string
-  status: number
+  /** T07：语义状态 + 服务端 allowedActions */
+  status: OrderStatus
+  allowedActions?: OrderAction[]
   totalAmount: number
   shippingFee: number
   payAmount: number
@@ -56,12 +59,14 @@ interface OrderDetail {
   receivedAt?: string
 }
 
-const STATUS_CONFIG: Record<number, { icon: string; text: string }> = {
-  0: { icon: '💰', text: '待付款' },
-  1: { icon: '📦', text: '待发货' },
-  2: { icon: '🚚', text: '待收货' },
-  3: { icon: '✅', text: '已完成' },
-  4: { icon: '❌', text: '已取消' },
+const STATUS_CONFIG: Record<string, { icon: string; text: string }> = {
+  PENDING_PAYMENT: { icon: '💰', text: '待付款' },
+  PAID: { icon: '📦', text: '已付款' },
+  SHIPPED: { icon: '🚚', text: '已发货' },
+  COMPLETED: { icon: '✅', text: '已完成' },
+  CANCELLED: { icon: '❌', text: '已取消' },
+  REFUNDING: { icon: '↩️', text: '退款中' },
+  REFUNDED: { icon: '💸', text: '已退款' },
 }
 
 function formatDateTime(time?: string) {
@@ -120,11 +125,11 @@ export default function OrderDetailPage() {
       const detail = res.data?.data as unknown as OrderDetail
       setOrder(detail)
       // T05：物流信息随订单加载；未建包裹（404）按“待出库”展示
-      if (detail && detail.status >= 1 && detail.status <= 3) {
+      if (detail && ['PAID', 'SHIPPED', 'COMPLETED'].includes(detail.status)) {
         loadShipping(detail.id)
       }
       // R08：已完成订单预取各订单行评价，用于“评价/查看评价”入口；失败 fail-open，默认显示“评价”
-      if (detail?.status === 3 && detail.items?.length > 0) {
+      if (detail?.status === 'COMPLETED' && detail.items?.length > 0) {
         loadOwnReviews(detail.items)
       }
     } catch (err) {
@@ -253,7 +258,7 @@ export default function OrderDetailPage() {
 
   /** 打开弹窗并重置表单；已发货默认退货退款，待发货仅退款（未发货无货可退） */
   const openAfterSale = () => {
-    setAfterSaleType(order?.status === 2 ? 'RETURN_REFUND' : 'REFUND_ONLY')
+    setAfterSaleType(order?.status === 'SHIPPED' ? 'RETURN_REFUND' : 'REFUND_ONLY')
     setAfterSaleItemId(null)
     setAfterSaleQuantity(1)
     setAfterSaleReason('')
@@ -451,7 +456,7 @@ export default function OrderDetailPage() {
         </View>
 
         {/* 状态进度条（对齐 Web 端订单进度） */}
-        {order.status !== 4 && (
+        {order.status !== 'CANCELLED' && (
           <View className={styles.section}>
             <View className={styles.progressRow}>
               {progressSteps.map((step, i) => (
@@ -482,7 +487,7 @@ export default function OrderDetailPage() {
         </View>
 
         {/* T05：物流信息（WMS 权威事实） */}
-        {order.status >= 1 && order.status <= 3 && (
+        {['PAID', 'SHIPPED', 'COMPLETED'].includes(order.status) && (
           <View className={styles.section}>
             <View className={styles.sectionHeader}>
               <Text className={styles.sectionTitle}>物流信息</Text>
@@ -535,7 +540,7 @@ export default function OrderDetailPage() {
                   <Text className={styles.itemPrice}>¥{item.price}</Text>
                   <View className={styles.itemBottomRight}>
                     <Text className={styles.itemQuantity}>x{item.quantity}</Text>
-                    {order.status === 3 && (
+                    {order.status === 'COMPLETED' && (
                       <View className={styles.itemReviewBtn} onClick={() => openReview(item)}>
                         <Text className={styles.itemReviewText}>{reviewMap[item.id] ? '查看评价' : '评价'}</Text>
                       </View>
@@ -637,9 +642,9 @@ export default function OrderDetailPage() {
       </ScrollView>
 
       {/* 底部操作栏 */}
-      {(order.status === 0 || order.status === 1 || order.status === 2 || order.status === 3) && (
+      {['PENDING_PAYMENT', 'PAID', 'SHIPPED', 'COMPLETED'].includes(order.status) && (
         <View className={styles.bottomBar}>
-          {order.status === 0 && (
+          {(order.allowedActions ?? []).includes('CANCEL') && (
             <>
               <View className={styles.btnSecondary} onClick={handleCancel}>
                 <Text className={styles.btnSecondaryText}>取消订单</Text>
@@ -649,22 +654,22 @@ export default function OrderDetailPage() {
               </View>
             </>
           )}
-          {(order.status === 1) && (
+          {order.status === 'PAID' && (
             <View className={styles.btnSecondary} onClick={handleRefund}>
               <Text className={styles.btnSecondaryText}>申请退款</Text>
             </View>
           )}
-          {(order.status === 1 || order.status === 2) && (
+          {(order.status === 'PAID' || order.status === 'SHIPPED') && (
             <View className={styles.btnSecondary} onClick={openAfterSale}>
               <Text className={styles.btnSecondaryText}>申请售后</Text>
             </View>
           )}
-          {order.status === 2 && (
+          {(order.allowedActions ?? []).includes('CONFIRM_RECEIPT') && (
             <View className={styles.btnPrimary} onClick={handleConfirm}>
               <Text className={styles.btnPrimaryText}>确认收货</Text>
             </View>
           )}
-          {order.status === 3 && (
+          {order.status === 'COMPLETED' && (
             <View className={styles.btnPrimary} onClick={handleRebuy}>
               <Text className={styles.btnPrimaryText}>再次购买</Text>
             </View>
@@ -711,7 +716,7 @@ export default function OrderDetailPage() {
                 >
                   <Text className={afterSaleType === 'REFUND_ONLY' ? styles.afterSaleChipTextActive : styles.afterSaleChipText}>仅退款</Text>
                 </View>
-                {order.status === 2 && (
+                {(order.allowedActions ?? []).includes('CONFIRM_RECEIPT') && (
                   <View
                     className={`${styles.afterSaleChip} ${afterSaleType === 'RETURN_REFUND' ? styles.afterSaleChipActive : ''}`}
                     onClick={() => selectAfterSaleType('RETURN_REFUND')}

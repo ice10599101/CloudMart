@@ -57,7 +57,7 @@ class OrderControllerTest {
         return new OrderVO(1L, "ORD001", status, new BigDecimal("100.00"), new BigDecimal("100.00"),
                 BigDecimal.ZERO, null, "张三", "13800138000", "北京市",
                 List.of(), LocalDateTime.of(2026, 1, 1, 0, 0), null, null,
-                "NONE", BigDecimal.ZERO);
+                "NONE", BigDecimal.ZERO, List.of());
     }
 
     @Nested
