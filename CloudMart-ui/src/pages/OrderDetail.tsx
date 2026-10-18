@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons'
 import { history, useParams } from 'umi'
 import { fetchOrderById, cancelOrder, confirmReceipt } from '@/api/order'
+import { fetchOrderShipping, fetchOrderTrackings, type OrderShipping, type OrderTracking } from '@/api/shipping'
 import {
   applyAfterSale,
   cancelAfterSale,
@@ -57,8 +58,14 @@ const STATUS_BANNER_STYLE: Record<string, { color: string; bg: string; icon: Rea
   REFUNDED: { color: '#FF4D4F', bg: 'rgba(255,77,79,0.1)', icon: <ExclamationCircleOutlined /> },
 }
 
-const STEP_ITEMS = [
-  { title: '提交订单', desc: '下单成功' },
+/** T05：WMS 物流状态语义（与后端 PENDING/SHIPPED/DELIVERED 对齐） */
+const SHIPPING_STATUS_LABELS: Record<string, string> = {
+  PENDING: '待出库',
+  SHIPPED: '已出库',
+  DELIVERED: '已签收',
+}
+
+const STEP_ITEMS = [  { title: '提交订单', desc: '下单成功' },
   { title: '支付成功', desc: '等待发货' },
   { title: '已发货', desc: '运输中' },
   { title: '已完成', desc: '交易完成' },
@@ -193,6 +200,27 @@ export default function OrderDetail() {
   const [afterSaleCases, setAfterSaleCases] = useState<AfterSaleCase[]>([])
   const [afterSaleSubmitting, setAfterSaleSubmitting] = useState(false)
   const [cancellingCaseId, setCancellingCaseId] = useState<number | string | null>(null)
+  // T05：物流事实（待出库/已发货/轨迹）——数据来自 WMS，前端不推断
+  const [shipping, setShipping] = useState<OrderShipping | null>(null)
+  const [trackings, setTrackings] = useState<OrderTracking[]>([])
+
+  const loadShipping = useCallback(async (orderId: number | string, status: OrderStatus) => {
+    if (status !== 'PAID' && status !== 'SHIPPED' && status !== 'COMPLETED') {
+      setShipping(null)
+      setTrackings([])
+      return
+    }
+    try {
+      const { data: res } = await fetchOrderShipping(orderId)
+      setShipping(res.data ?? null)
+      const { data: trackRes } = await fetchOrderTrackings(orderId)
+      setTrackings(trackRes.data ?? [])
+    } catch {
+      // PAID 但尚未建包裹（404）属正常“待出库”，不打断详情页
+      setShipping(null)
+      setTrackings([])
+    }
+  }, [])
 
   const loadAfterSales = useCallback(async (orderId: number) => {
     try {
@@ -286,6 +314,7 @@ export default function OrderDetail() {
       setOrder(loadedOrder)
       if (loadedOrder) {
         await loadAfterSales(loadedOrder.id)
+        await loadShipping(loadedOrder.id, loadedOrder.status)
       }
     } catch {
       message.error('加载订单失败')
@@ -298,7 +327,6 @@ export default function OrderDetail() {
     loadOrder()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, loadAfterSales])
-
   const handleCancel = async () => {
     if (!order) return
     try {
@@ -543,6 +571,57 @@ export default function OrderDetail() {
                 {order.receiverAddress}
               </span>
             </div>
+          </SectionCard>
+        )}
+
+        {(order.status === 'PAID' || order.status === 'SHIPPED' || order.status === 'COMPLETED') && (
+          <SectionCard
+            title="物流信息"
+            icon={<CarOutlined style={{ color: 'var(--color-primary)', fontSize: 16 }} />}
+          >
+            {shipping ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '12px 16px' }}>
+                <span style={{ color: 'var(--color-text-tertiary)', fontSize: 14 }}>承运商</span>
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: 14, fontWeight: 500 }}>
+                  {shipping.carrier || '-'}
+                </span>
+                <span style={{ color: 'var(--color-text-tertiary)', fontSize: 14 }}>运单号</span>
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>
+                  {shipping.trackingNo || '-'}
+                </span>
+                <span style={{ color: 'var(--color-text-tertiary)', fontSize: 14 }}>物流状态</span>
+                <span style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>
+                  {SHIPPING_STATUS_LABELS[shipping.status] ?? shipping.status}
+                </span>
+                {shipping.shippedAt && (
+                  <>
+                    <span style={{ color: 'var(--color-text-tertiary)', fontSize: 14 }}>发货时间</span>
+                    <span style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>{shipping.shippedAt}</span>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div style={{ color: 'var(--color-text-tertiary)', fontSize: 14 }}>
+                待出库（商家尚未创建包裹）
+              </div>
+            )}
+            {trackings.length > 0 && (
+              <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--color-border)' }}>
+                {trackings.map((tracking) => (
+                  <div
+                    key={tracking.id}
+                    style={{ display: 'flex', gap: 12, padding: '8px 0', alignItems: 'baseline' }}
+                  >
+                    <span style={{ color: 'var(--color-text-tertiary)', fontSize: 12, minWidth: 150 }}>
+                      {tracking.happenedAt || ''}
+                    </span>
+                    <span style={{ color: 'var(--color-text-secondary)', fontSize: 13 }}>
+                      {[tracking.location, tracking.description].filter(Boolean).join(' · ') || '-'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </SectionCard>
         )}
 

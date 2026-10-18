@@ -13,6 +13,7 @@ import {
 } from '@/api/after-sale'
 import { fileApi, createUploadForm } from '@/api/file'
 import { productApi, type OwnReview } from '@/api/product'
+import { shippingApi, type OrderShipping, type OrderTracking } from '@/api/shipping'
 import { errorMessage } from '@/utils/request'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
 import type { Order, OrderItem } from '@/types'
@@ -23,6 +24,12 @@ const STATUS_CONFIG: Record<number, { icon: string; label: string; colorKey: 'ac
   2: { icon: '🚚', label: '待收货', colorKey: 'primary' },
   3: { icon: '✅', label: '已完成', colorKey: 'accentGreen' },
   4: { icon: '❌', label: '已取消', colorKey: 'textTertiary' },
+}
+
+const SHIPPING_STATUS_TEXT: Record<string, string> = {
+  PENDING: '待出库',
+  SHIPPED: '已出库',
+  DELIVERED: '已签收',
 }
 
 function formatTime(dateStr?: string): string {
@@ -37,6 +44,8 @@ export default function OrderDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>()
 
   const [order, setOrder] = useState<Order | null>(null)
+  const [shipping, setShipping] = useState<OrderShipping | null>(null)
+  const [trackings, setTrackings] = useState<OrderTracking[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [refundOpen, setRefundOpen] = useState(false)
@@ -80,6 +89,24 @@ export default function OrderDetailPage() {
     setReviewMap(map)
   }, [])
 
+  /** T05：物流事实来自 WMS；未建包裹（404）按“待出库”展示，不打断详情 */
+  const fetchShipping = useCallback(async (orderId: string) => {
+    try {
+      const res = await shippingApi.getByOrder(orderId)
+      const shippingData = (res.data as { data?: OrderShipping })?.data ?? null
+      setShipping(shippingData)
+      if (shippingData) {
+        const trackRes = await shippingApi.getTrackings(orderId)
+        setTrackings((trackRes.data as { data?: OrderTracking[] })?.data ?? [])
+      } else {
+        setTrackings([])
+      }
+    } catch {
+      setShipping(null)
+      setTrackings([])
+    }
+  }, [])
+
   const fetchOrder = useCallback(async () => {
     if (!id) return
     setLoading(true)
@@ -89,13 +116,14 @@ export default function OrderDetailPage() {
       if (data?.data) {
         setOrder(data.data)
         await fetchItemReviews(data.data)
+        await fetchShipping(String(data.data.id))
       }
     } catch (error) {
       Alert.alert('错误', errorMessage(error, '加载订单失败'))
     } finally {
       setLoading(false)
     }
-  }, [id, fetchItemReviews])
+  }, [id, fetchItemReviews, fetchShipping])
 
   const fetchAfterSaleCases = useCallback(async () => {
     if (!id) return
@@ -532,6 +560,55 @@ export default function OrderDetailPage() {
             ))}
           </View>
         </View>
+
+        {/* T05：物流信息（WMS 权威事实；未建包裹显示待出库） */}
+        {order.status >= 1 && order.status <= 3 && (
+          <View style={{
+            marginHorizontal: Spacing.lg,
+            marginBottom: Spacing.lg,
+            backgroundColor: theme.bgContainer,
+            borderRadius: BorderRadius.lg,
+            padding: Spacing.lg,
+          }}>
+            <Text style={{ fontSize: FontSize.md, color: theme.text, fontWeight: '600', marginBottom: Spacing.sm }}>
+              物流信息
+            </Text>
+            {shipping ? (
+              <>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs }}>
+                  <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>承运商</Text>
+                  <Text style={{ fontSize: FontSize.sm, color: theme.text }}>{shipping.carrier || '-'}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs }}>
+                  <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>运单号</Text>
+                  <Text style={{ fontSize: FontSize.sm, color: theme.text }}>{shipping.trackingNo || '-'}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xs }}>
+                  <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>状态</Text>
+                  <Text style={{ fontSize: FontSize.sm, color: theme.text }}>
+                    {SHIPPING_STATUS_TEXT[shipping.status] ?? shipping.status}
+                  </Text>
+                </View>
+                {trackings.length > 0 && (
+                  <View style={{ marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: theme.border }}>
+                    {trackings.map((tracking) => (
+                      <View key={String(tracking.id)} style={{ flexDirection: 'row', marginBottom: Spacing.xs }}>
+                        <Text style={{ width: 140, fontSize: FontSize.xs, color: theme.textTertiary }}>
+                          {formatTime(tracking.happenedAt ?? undefined)}
+                        </Text>
+                        <Text style={{ flex: 1, fontSize: FontSize.xs, color: theme.textSecondary }}>
+                          {[tracking.location, tracking.description].filter(Boolean).join(' · ') || '-'}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            ) : (
+              <Text style={{ fontSize: FontSize.sm, color: theme.textTertiary }}>待出库（商家尚未创建包裹）</Text>
+            )}
+          </View>
+        )}
 
         {/* Price Breakdown */}
         <View style={{

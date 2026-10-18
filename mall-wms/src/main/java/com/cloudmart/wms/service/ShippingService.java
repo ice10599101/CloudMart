@@ -17,6 +17,11 @@ public interface ShippingService {
      */
     ShippingOrderVO getByOrderId(Long orderId, Long callerUserId);
 
+    /**
+     * T05：订单物流轨迹（同一对象归属口径）。无包裹时返回空列表，由前端显示“待出库”。
+     */
+    java.util.List<ShippingTrackingDTO> listTrackingsByOrderId(Long orderId, Long callerUserId);
+
     ShippingOrderVO updateStatus(Long id, String status);
 
     IPage<ShippingOrderVO> listShipping(String status, Long warehouseId, Long orderId, int page, int size);

@@ -46,13 +46,15 @@ class ShippingServiceImplTest {
 
     private ShippingServiceImpl shippingService;
     private com.cloudmart.common.async.outbox.OutboxService outboxService;
+    private com.cloudmart.wms.feign.OrderInfoFeignClient orderInfoFeignClient;
 
     @BeforeEach
     void setUp() {
         outboxService = org.mockito.Mockito.mock(com.cloudmart.common.async.outbox.OutboxService.class);
+        orderInfoFeignClient = org.mockito.Mockito.mock(com.cloudmart.wms.feign.OrderInfoFeignClient.class);
         shippingService = new ShippingServiceImpl(shippingOrderMapper, shippingTrackingMapper,
-                wmsConverter, org.mockito.Mockito.mock(com.cloudmart.wms.feign.OrderInfoFeignClient.class),
-                outboxService, warehouseMapper);
+                wmsConverter, orderInfoFeignClient,
+                outboxService, warehouseMapper, new tools.jackson.databind.ObjectMapper());
     }
 
     private static final Long SHIPPING_ORDER_ID = 1L;
@@ -172,6 +174,136 @@ class ShippingServiceImplTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting("code")
                     .isEqualTo("SHIPPING_ORDER_NOT_FOUND");
+        }
+
+        @Test
+        @DisplayName("T05：禁止 PENDING 直接 DELIVERED（跳过出库事实）")
+        void updateShippingStatus_pendingToDelivered_rejected() {
+            ShippingOrder order = new ShippingOrder();
+            order.setId(SHIPPING_ORDER_ID);
+            order.setOrderId(ORDER_ID);
+            order.setStatus("PENDING");
+            order.setTrackingNo("SF1234567890");
+            when(shippingOrderMapper.selectById(SHIPPING_ORDER_ID)).thenReturn(order);
+
+            assertThatThrownBy(() -> shippingService.updateStatus(SHIPPING_ORDER_ID, "DELIVERED"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code")
+                    .isEqualTo("SHIPPING_STATUS_TRANSITION_INVALID");
+            verify(outboxService, org.mockito.Mockito.never()).record(any());
+        }
+
+        @Test
+        @DisplayName("T05：出库写稳定事件 ID 与类型化载荷（含 shipmentId）")
+        void updateShippingStatus_shipped_recordsTypedEvent() {
+            ShippingOrder pending = new ShippingOrder();
+            pending.setId(SHIPPING_ORDER_ID);
+            pending.setOrderId(ORDER_ID);
+            pending.setCarrier("顺丰\"特快\"");   // 含引号：手工拼 JSON 会坏消息
+            pending.setTrackingNo("SF1234567890");
+            pending.setStatus("PENDING");
+
+            ShippingOrder shipped = new ShippingOrder();
+            shipped.setId(SHIPPING_ORDER_ID);
+            shipped.setOrderId(ORDER_ID);
+            shipped.setCarrier("顺丰\"特快\"");
+            shipped.setTrackingNo("SF1234567890");
+            shipped.setStatus("SHIPPED");
+
+            when(shippingOrderMapper.selectById(SHIPPING_ORDER_ID))
+                    .thenReturn(pending, shipped, shipped);
+            when(shippingOrderMapper.updateStatusIfMatch(SHIPPING_ORDER_ID, "PENDING", "SHIPPED"))
+                    .thenReturn(1);
+            when(orderInfoFeignClient.getOrderInfo(ORDER_ID)).thenReturn(
+                    com.cloudmart.common.api.ApiResponse.ok(
+                            new com.cloudmart.wms.dto.OrderInternalInfoDTO(ORDER_ID, 1L, "PAID")));
+            when(shippingTrackingMapper.selectList(any(LambdaQueryWrapper.class)))
+                    .thenReturn(Collections.emptyList());
+            when(wmsConverter.fromShippingOrderDTO(any(ShippingOrderDTO.class)))
+                    .thenReturn(new ShippingOrderVO(SHIPPING_ORDER_ID, ORDER_ID, 1L, "SF1",
+                            "SF1234567890", "顺丰\"特快\"", "SHIPPED", null, null));
+
+            shippingService.updateStatus(SHIPPING_ORDER_ID, "SHIPPED");
+
+            org.mockito.ArgumentCaptor<com.cloudmart.common.async.EventEnvelope> captor =
+                    org.mockito.ArgumentCaptor.forClass(com.cloudmart.common.async.EventEnvelope.class);
+            verify(outboxService).record(captor.capture());
+            com.cloudmart.common.async.EventEnvelope envelope = captor.getValue();
+            assertThat(envelope.eventId()).isEqualTo("ORDER_SHIPPED:" + ORDER_ID);
+            assertThat(envelope.schemaVersion()).isEqualTo(2);
+            assertThat(envelope.payload()).contains("\"shipmentId\":" + SHIPPING_ORDER_ID);
+            assertThat(envelope.payload()).contains("顺丰\\\"特快\\\"");
+        }
+
+        @Test
+        @DisplayName("T05：订单已取消时禁止出库，且不写 Outbox")
+        void updateShippingStatus_orderCancelled_rejected() {
+            ShippingOrder pending = new ShippingOrder();
+            pending.setId(SHIPPING_ORDER_ID);
+            pending.setOrderId(ORDER_ID);
+            pending.setTrackingNo("SF1234567890");
+            pending.setStatus("PENDING");
+            when(shippingOrderMapper.selectById(SHIPPING_ORDER_ID)).thenReturn(pending);
+            when(orderInfoFeignClient.getOrderInfo(ORDER_ID)).thenReturn(
+                    com.cloudmart.common.api.ApiResponse.ok(
+                            new com.cloudmart.wms.dto.OrderInternalInfoDTO(ORDER_ID, 1L, "CANCELLED")));
+
+            assertThatThrownBy(() -> shippingService.updateStatus(SHIPPING_ORDER_ID, "SHIPPED"))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code")
+                    .isEqualTo("SHIPPING_ORDER_NOT_SHIPPABLE");
+            verify(outboxService, org.mockito.Mockito.never()).record(any());
+            verify(shippingOrderMapper, org.mockito.Mockito.never())
+                    .updateStatusIfMatch(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("T05：Outbox 记录失败必须上抛（触发状态回滚），不得返回成功")
+        void updateShippingStatus_outboxFails_propagates() {
+            ShippingOrder pending = new ShippingOrder();
+            pending.setId(SHIPPING_ORDER_ID);
+            pending.setOrderId(ORDER_ID);
+            pending.setTrackingNo("SF1234567890");
+            pending.setStatus("PENDING");
+
+            ShippingOrder shipped = new ShippingOrder();
+            shipped.setId(SHIPPING_ORDER_ID);
+            shipped.setOrderId(ORDER_ID);
+            shipped.setTrackingNo("SF1234567890");
+            shipped.setStatus("SHIPPED");
+
+            when(shippingOrderMapper.selectById(SHIPPING_ORDER_ID))
+                    .thenReturn(pending, shipped, shipped);
+            when(shippingOrderMapper.updateStatusIfMatch(SHIPPING_ORDER_ID, "PENDING", "SHIPPED"))
+                    .thenReturn(1);
+            when(orderInfoFeignClient.getOrderInfo(ORDER_ID)).thenReturn(
+                    com.cloudmart.common.api.ApiResponse.ok(
+                            new com.cloudmart.wms.dto.OrderInternalInfoDTO(ORDER_ID, 1L, "PAID")));
+            org.mockito.Mockito.doThrow(new IllegalStateException("outbox down"))
+                    .when(outboxService).record(any());
+
+            assertThatThrownBy(() -> shippingService.updateStatus(SHIPPING_ORDER_ID, "SHIPPED"))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("T05：重复相同终态按业务键返回原结果（幂等，不报错）")
+        void updateShippingStatus_sameStatus_idempotent() {
+            ShippingOrder shipped = new ShippingOrder();
+            shipped.setId(SHIPPING_ORDER_ID);
+            shipped.setOrderId(ORDER_ID);
+            shipped.setStatus("DELIVERED");
+            when(shippingOrderMapper.selectById(SHIPPING_ORDER_ID)).thenReturn(shipped);
+            when(shippingTrackingMapper.selectList(any(LambdaQueryWrapper.class)))
+                    .thenReturn(Collections.emptyList());
+            when(wmsConverter.fromShippingOrderDTO(any(ShippingOrderDTO.class)))
+                    .thenReturn(new ShippingOrderVO(SHIPPING_ORDER_ID, ORDER_ID, 1L, "SF1",
+                            "SF1234567890", "顺丰", "DELIVERED", null, null));
+
+            ShippingOrderVO result = shippingService.updateStatus(SHIPPING_ORDER_ID, "DELIVERED");
+
+            assertThat(result.status()).isEqualTo("DELIVERED");
+            verify(outboxService, org.mockito.Mockito.never()).record(any());
         }
     }
 

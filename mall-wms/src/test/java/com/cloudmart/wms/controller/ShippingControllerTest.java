@@ -27,12 +27,14 @@ class ShippingControllerTest {
     private MockMvc mockMvc;
 
     private final ShippingService shippingService = Mockito.mock(ShippingService.class);
+    private final com.cloudmart.wms.converter.WmsConverter wmsConverter =
+            Mockito.mock(com.cloudmart.wms.converter.WmsConverter.class);
 
     private static final LocalDateTime FIXED_TIME = LocalDateTime.of(2026, 5, 29, 10, 0);
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new ShippingController(shippingService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new ShippingController(shippingService, wmsConverter))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -78,6 +80,29 @@ class ShippingControllerTest {
         org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
                 org.springframework.security.authentication.UsernamePasswordAuthenticationToken.authenticated(
                         userId, null, java.util.List.of()));
+    }
+
+    @Test
+    @DisplayName("T05：查询订单物流轨迹 - 返回时间线")
+    void listTrackings_ShouldReturnEnvelope() throws Exception {
+        com.cloudmart.wms.dto.ShippingTrackingDTO dto = new com.cloudmart.wms.dto.ShippingTrackingDTO(
+                1L, 10L, "北京分拨中心", "已揽收", FIXED_TIME, FIXED_TIME, FIXED_TIME);
+        com.cloudmart.wms.vo.ShippingTrackingVO vo = new com.cloudmart.wms.vo.ShippingTrackingVO(
+                1L, 10L, "北京分拨中心", "已揽收", FIXED_TIME, FIXED_TIME);
+
+        given(shippingService.listTrackingsByOrderId(100L, 42L)).willReturn(java.util.List.of(dto));
+        given(wmsConverter.toTrackingVO(dto)).willReturn(vo);
+        setUserAuthentication("42");
+
+        try {
+            mockMvc.perform(get("/shipping/order/100/trackings"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data[0].location").value("北京分拨中心"))
+                    .andExpect(jsonPath("$.data[0].description").value("已揽收"));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     @Test

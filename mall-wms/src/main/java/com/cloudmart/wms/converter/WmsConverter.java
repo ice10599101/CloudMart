@@ -44,4 +44,11 @@ public interface WmsConverter {
     // ---- 物流：内部出库单号与承运商运单号分列（修复旧映射把 shippingNo 冒充 trackingNo） ----
 
     ShippingOrderVO fromShippingOrderDTO(ShippingOrderDTO dto);
+
+    /** T05：轨迹时间线（详情页独立查询，附带订单归属校验）。 */
+    com.cloudmart.wms.vo.ShippingTrackingVO toTrackingVO(
+            com.cloudmart.wms.dto.ShippingTrackingDTO dto);
+
+    List<com.cloudmart.wms.vo.ShippingTrackingVO> toTrackingVOList(
+            List<com.cloudmart.wms.dto.ShippingTrackingDTO> dtos);
 }

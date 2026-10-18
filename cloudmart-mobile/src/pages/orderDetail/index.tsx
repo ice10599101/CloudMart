@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, Image, ScrollView, Textarea } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { orderApi } from '@/api/order'
+import { shippingApi, type OrderShipping, type OrderTracking } from '@/api/shipping'
 import { productApi, type OwnReview } from '@/api/product'
 import {
   applyAfterSale,
@@ -15,6 +16,13 @@ import { errorMessage } from '@/utils/request'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useThemeClass } from '@/composables/useThemeClass'
 import styles from './index.module.scss'
+
+/** T05：WMS 物流状态语义（与后端 PENDING/SHIPPED/DELIVERED 对齐） */
+const SHIPPING_STATUS_TEXT: Record<string, string> = {
+  PENDING: '待出库',
+  SHIPPED: '已出库',
+  DELIVERED: '已签收',
+}
 
 interface OrderItem {
   id: number
@@ -69,6 +77,9 @@ export default function OrderDetailPage() {
 
   const id = Taro.getCurrentInstance().router?.params?.id || ''
   const [order, setOrder] = useState<OrderDetail | null>(null)
+  // T05：物流事实（待出库/已发货/轨迹）——数据来自 WMS
+  const [shipping, setShipping] = useState<OrderShipping | null>(null)
+  const [trackings, setTrackings] = useState<OrderTracking[]>([])
   const [loading, setLoading] = useState(true)
   const [refundReason, setRefundReason] = useState('')
   const [refundOpen, setRefundOpen] = useState(false)
@@ -108,6 +119,10 @@ export default function OrderDetailPage() {
       const res = await orderApi.getDetail(id)
       const detail = res.data?.data as unknown as OrderDetail
       setOrder(detail)
+      // T05：物流信息随订单加载；未建包裹（404）按“待出库”展示
+      if (detail && detail.status >= 1 && detail.status <= 3) {
+        loadShipping(detail.id)
+      }
       // R08：已完成订单预取各订单行评价，用于“评价/查看评价”入口；失败 fail-open，默认显示“评价”
       if (detail?.status === 3 && detail.items?.length > 0) {
         loadOwnReviews(detail.items)
@@ -119,8 +134,25 @@ export default function OrderDetailPage() {
     }
   }
 
-  /** R08：并发拉取已完成订单各订单行的本人评价（单项失败按未评价处理，不阻塞页面） */
-  const loadOwnReviews = async (items: OrderItem[]) => {
+  /** T05：物流信息（WMS 权威事实）；未建包裹/查询失败按“待出库”处理，不阻塞详情 */
+  const loadShipping = async (orderId: number | string) => {
+    try {
+      const res = await shippingApi.getByOrder(orderId)
+      const shippingData = (res.data?.data as unknown as OrderShipping) ?? null
+      setShipping(shippingData)
+      if (shippingData) {
+        const trackRes = await shippingApi.getTrackings(orderId)
+        setTrackings((trackRes.data?.data as unknown as OrderTracking[]) ?? [])
+      } else {
+        setTrackings([])
+      }
+    } catch {
+      setShipping(null)
+      setTrackings([])
+    }
+  }
+
+  /** R08：并发拉取已完成订单各订单行的本人评价（单项失败按未评价处理，不阻塞页面） */  const loadOwnReviews = async (items: OrderItem[]) => {
     const entries = await Promise.all(
       items.map(async (item) => {
         try {
@@ -448,6 +480,45 @@ export default function OrderDetailPage() {
             <Text className={styles.addressDetail}>{order.recipientAddress}</Text>
           </View>
         </View>
+
+        {/* T05：物流信息（WMS 权威事实） */}
+        {order.status >= 1 && order.status <= 3 && (
+          <View className={styles.section}>
+            <View className={styles.sectionHeader}>
+              <Text className={styles.sectionTitle}>物流信息</Text>
+            </View>
+            {shipping ? (
+              <View>
+                <View style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12rpx' }}>
+                  <Text style={{ fontSize: '26rpx', color: '#8B9DC3' }}>承运商</Text>
+                  <Text style={{ fontSize: '26rpx' }}>{shipping.carrier || '-'}</Text>
+                </View>
+                <View style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12rpx' }}>
+                  <Text style={{ fontSize: '26rpx', color: '#8B9DC3' }}>运单号</Text>
+                  <Text style={{ fontSize: '26rpx' }}>{shipping.trackingNo || '-'}</Text>
+                </View>
+                <View style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12rpx' }}>
+                  <Text style={{ fontSize: '26rpx', color: '#8B9DC3' }}>状态</Text>
+                  <Text style={{ fontSize: '26rpx' }}>
+                    {SHIPPING_STATUS_TEXT[shipping.status] ?? shipping.status}
+                  </Text>
+                </View>
+                {trackings.map((tracking) => (
+                  <View key={String(tracking.id)} style={{ display: 'flex', marginTop: '12rpx' }}>
+                    <Text style={{ width: '220rpx', fontSize: '22rpx', color: '#8B9DC3' }}>
+                      {tracking.happenedAt || ''}
+                    </Text>
+                    <Text style={{ flex: 1, fontSize: '24rpx', color: '#C8D3E8' }}>
+                      {[tracking.location, tracking.description].filter(Boolean).join(' · ') || '-'}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={{ fontSize: '26rpx', color: '#8B9DC3' }}>待出库（商家尚未创建包裹）</Text>
+            )}
+          </View>
+        )}
 
         {/* 商品列表 */}
         <View className={styles.section}>

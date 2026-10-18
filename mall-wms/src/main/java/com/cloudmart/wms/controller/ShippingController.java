@@ -16,9 +16,12 @@ import org.springframework.web.bind.annotation.*;
 public class ShippingController {
 
     private final ShippingService shippingService;
+    private final com.cloudmart.wms.converter.WmsConverter wmsConverter;
 
-    public ShippingController(ShippingService shippingService) {
+    public ShippingController(ShippingService shippingService,
+                              com.cloudmart.wms.converter.WmsConverter wmsConverter) {
         this.shippingService = shippingService;
+        this.wmsConverter = wmsConverter;
     }
 
     @PostMapping
@@ -32,6 +35,15 @@ public class ShippingController {
     @Operation(summary = "根据订单ID查询物流信息", description = "用户调用校验订单归属；管理员/服务调用方跳过")
     public ApiResponse<ShippingOrderVO> getByOrderId(@PathVariable Long orderId) {
         return ApiResponse.ok(shippingService.getByOrderId(orderId, resolveCallerUserIdOrNull()));
+    }
+
+    /** T05：订单轨迹时间线（三端订单详情）；无包裹返回空列表，前端显示“待出库”。 */
+    @GetMapping("/order/{orderId}/trackings")
+    @Operation(summary = "根据订单ID查询物流轨迹", description = "用户调用校验订单归属；无包裹返回空列表")
+    public ApiResponse<java.util.List<com.cloudmart.wms.vo.ShippingTrackingVO>> listTrackings(
+            @PathVariable Long orderId) {
+        return ApiResponse.ok(shippingService.listTrackingsByOrderId(orderId, resolveCallerUserIdOrNull())
+                .stream().map(wmsConverter::toTrackingVO).toList());
     }
 
     @PutMapping("/{id}/status")
