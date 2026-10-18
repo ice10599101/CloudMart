@@ -215,6 +215,36 @@ class PetSeasonPassServiceImplTest {
         }
 
         @Test
+        @DisplayName("T16：补发按领取快照发皮肤（目标宠物），不读当前配置")
+        void settle_deliversSkinFromSnapshotNotCurrentConfig() {
+            service.finalTierSkinCode = "CURRENT_SKIN"; // 当前配置已变更
+            PetSeasonPassClaim pending = claim(10, "CLAIM_PENDING");
+            pending.setRewardSnapshot(
+                    "{\"tier\":10,\"coins\":200,\"skin\":\"SNAP_SKIN\",\"ruleVersion\":\"V1\",\"targetPetId\":42}");
+            when(claimMapper.selectList(any())).thenReturn(List.of(pending));
+            when(passMapper.selectOne(any())).thenReturn(pass(200));
+            when(passMapper.update(any(), any())).thenReturn(1);
+            Pet pet = new Pet();
+            pet.setId(42L);
+            when(petService.requireOwnedPet(USER_ID, 42L)).thenReturn(pet);
+            // 让 mock 真正调用 resolver，从而走到 grantSkin（否则皮肤分支不执行）
+            when(rewardApplicationService.claim(any(), any())).thenAnswer(inv -> {
+                var resolver = inv.getArgument(1, PetRewardApplicationService.RewardResolver.class);
+                resolver.resolve(inv.getArgument(0));
+                return new PetRewardApplicationService.RewardClaimResult(
+                        "c1", 200, 200, "op1", List.of(), false);
+            });
+
+            int settled = service.settlePendingClaims();
+
+            assertThat(settled).isEqualTo(1);
+            ArgumentCaptor<PetInventory> cap = ArgumentCaptor.forClass(PetInventory.class);
+            verify(inventoryMapper).insert(cap.capture());
+            assertThat(cap.getValue().getItemCode()).isEqualTo("SNAP_SKIN");
+            assertThat(cap.getValue().getPetId()).isEqualTo(42L);
+        }
+
+        @Test
         @DisplayName("经验不足/无赛季/领奖截止 → 明确拒绝")
         void claimTier_guards() {
             when(seasonMapper.selectOne(any())).thenReturn(null);

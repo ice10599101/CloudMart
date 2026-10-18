@@ -124,7 +124,8 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
         claim.setUserId(userId);
         claim.setTier(tier);
         claim.setStatus(PetSeasonPassClaim.STATUS_CLAIM_PENDING);
-        claim.setRewardSnapshot(rewardSnapshot(tier));
+        // T16：领取时冻结奖励快照（币/皮肤/规则版本/目标宠物），补发只读快照
+        claim.setRewardSnapshot(rewardSnapshot(tier, resolveTargetPet(userId, tier)));
         try {
             claimMapper.insert(claim);
         } catch (DuplicateKeyException duplicate) {
@@ -140,7 +141,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
 
         // 交付：奖励应用服务（uk 防重 + 钱包冻结/维护检查）；失败留 CLAIM_PENDING 可恢复
         try {
-            deliver(season.getId(), userId, tier);
+            deliver(claim);
         } catch (Exception e) {
             log.warn("通行证档位奖励交付失败（待补发）: season={}, user={}, tier={}, err={}",
                     season.getId(), userId, tier, e.getMessage());
@@ -209,7 +210,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
         int settled = 0;
         for (PetSeasonPassClaim claim : pending) {
             try {
-                deliver(claim.getSeasonId(), claim.getUserId(), claim.getTier());
+                deliver(claim);
                 claim.setStatus(PetSeasonPassClaim.STATUS_SETTLED);
                 claim.setSettledAt(LocalDateTime.now());
                 claimMapper.updateById(claim);
@@ -225,23 +226,31 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
 
     // ==================== 内部 ====================
 
-    /** 交付：币经奖励应用服务（uk PASS_TIER:season:tier 防重）；最终档皮肤同事务直发 */
-    private void deliver(Long seasonId, Long userId, int tier) {
-        String bizId = seasonId + ":" + tier;
+    /**
+     * T16：交付严格反序列化领取时的奖励快照（币/皮肤/规则版本/目标宠物），
+     * 不再读取当前 finalTierSkinCode/tierCoins/RULE_VERSION——赛季配置或主宠
+     * 在领取后变化不得改变已承诺的奖励。
+     */
+    private void deliver(PetSeasonPassClaim claim) {
+        RewardSnapshot snap = parseSnapshot(claim.getRewardSnapshot());
+        String bizId = claim.getSeasonId() + ":" + claim.getTier();
         rewardApplicationService.claim(
-                new PetRewardApplicationService.RewardClaimCommand(userId, null, "PASS_TIER", bizId, "MAIN", null),
+                new PetRewardApplicationService.RewardClaimCommand(
+                        claim.getUserId(), null, "PASS_TIER", bizId, "MAIN", null),
                 command -> {
-                    if (tier == TIER_COUNT && skinConfigured()) {
-                        grantSkin(userId, finalTierSkinCode.trim());
+                    if (snap.skin() != null && !snap.skin().isBlank()) {
+                        grantSkin(claim.getUserId(), snap.skin(), snap.targetPetId());
                     }
                     return new PetRewardApplicationService.ResolvedReward(
-                            tierCoins(tier), "", List.of(), RULE_VERSION);
+                            snap.coins(), "", List.of(), snap.ruleVersion());
                 });
     }
 
-    /** 最终档皮肤：按当前主宠直插 inventory（重复幂等：exists 检查；随 claim 事务回滚） */
-    private void grantSkin(Long userId, String skinCode) {
-        var pet = petOwned(userId);
+    /** 最终档皮肤：按快照目标宠物直插 inventory（重复幂等：exists 检查；随 claim 事务回滚） */
+    private void grantSkin(Long userId, String skinCode, Long targetPetId) {
+        Pet pet = targetPetId != null
+                ? petService.requireOwnedPet(userId, targetPetId)
+                : petOwned(userId);
         long exists = inventoryMapper.selectCount(new LambdaQueryWrapper<PetInventory>()
                 .eq(PetInventory::getPetId, pet.getId())
                 .eq(PetInventory::getItemType, "SKIN")
@@ -263,6 +272,18 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
 
     private Pet petOwned(Long userId) {
         return petService.requireOwnedPet(userId);
+    }
+
+    /** 最终档皮肤的承诺目标宠物（领取时冻结；无主宠时留空由补发时兜底） */
+    private Long resolveTargetPet(Long userId, int tier) {
+        if (tier != TIER_COUNT || !skinConfigured()) {
+            return null;
+        }
+        try {
+            return petService.requireOwnedPet(userId).getId();
+        } catch (Exception noPet) {
+            return null;
+        }
     }
 
     private boolean skinConfigured() {
@@ -419,14 +440,38 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
         return 20L * tier;
     }
 
-    private String rewardSnapshot(int tier) {
+    private String rewardSnapshot(int tier, Long targetPetId) {
         try {
-            return objectMapper.writeValueAsString(Map.of(
-                    "tier", tier, "coins", tierCoins(tier),
-                    "skin", tier == TIER_COUNT && skinConfigured() ? finalTierSkinCode.trim() : "",
-                    "ruleVersion", RULE_VERSION));
+            Map<String, Object> snap = new HashMap<>();
+            snap.put("tier", tier);
+            snap.put("coins", tierCoins(tier));
+            snap.put("skin", tier == TIER_COUNT && skinConfigured() ? finalTierSkinCode.trim() : "");
+            snap.put("ruleVersion", RULE_VERSION);
+            if (targetPetId != null) {
+                snap.put("targetPetId", targetPetId);
+            }
+            return objectMapper.writeValueAsString(snap);
         } catch (Exception e) {
             return "{}";
+        }
+    }
+
+    /** 领取奖励快照（T16）：补发只读此快照，不读当前配置 */
+    private record RewardSnapshot(long coins, String skin, String ruleVersion, Long targetPetId) {}
+
+    private RewardSnapshot parseSnapshot(String json) {
+        if (json == null || json.isBlank()) {
+            return new RewardSnapshot(0, "", RULE_VERSION, null);
+        }
+        try {
+            var node = objectMapper.readTree(json);
+            long coins = node.path("coins").asLong(0);
+            String skin = node.path("skin").asText("");
+            String ruleVersion = node.hasNonNull("ruleVersion") ? node.path("ruleVersion").asText() : RULE_VERSION;
+            Long targetPetId = node.hasNonNull("targetPetId") ? node.path("targetPetId").asLong() : null;
+            return new RewardSnapshot(coins, skin, ruleVersion, targetPetId);
+        } catch (Exception e) {
+            return new RewardSnapshot(0, "", RULE_VERSION, null);
         }
     }
 
