@@ -98,7 +98,8 @@ class OrderRiskCheckTest {
                 new tools.jackson.databind.ObjectMapper(),
                 mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
                 mock(com.cloudmart.order.repository.OrderQuoteItemMapper.class),
-                mock(org.springframework.beans.factory.ObjectProvider.class));
+                new QuoteDiscountCalculator(mock(com.cloudmart.order.feign.MarketingFeignClient.class),
+                        new OrderCouponPolicy(couponFeignClient), new tools.jackson.databind.ObjectMapper()));
     }
 
     private CreateOrderRequest request() {

@@ -108,7 +108,8 @@ class OrderServiceImplTest {
                 new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteItemMapper.class),
-                org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class));
+                new QuoteDiscountCalculator(mock(com.cloudmart.order.feign.MarketingFeignClient.class),
+                        new OrderCouponPolicy(couponFeignClient), new tools.jackson.databind.ObjectMapper()));
     }
 
     private Order buildOrder(Long id, Long userId, String status) {

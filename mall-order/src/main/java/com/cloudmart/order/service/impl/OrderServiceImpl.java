@@ -87,8 +87,8 @@ public class OrderServiceImpl implements OrderService {
     private final ObjectMapper objectMapper;
     private final com.cloudmart.order.repository.OrderQuoteMapper orderQuoteMapper;
     private final com.cloudmart.order.repository.OrderQuoteItemMapper orderQuoteItemMapper;
-    /** 自代理：createOrderFromQuote 经代理调用 createOrder，保证其事务/Seata 注解生效 */
-    private final org.springframework.beans.factory.ObjectProvider<OrderService> selfProvider;
+    /** T01：报价生成与下单复核共用同一优惠计算器（满减→券），不允许第三套算法 */
+    private final QuoteDiscountCalculator discountCalculator;
 
     @Override
     @SentinelResource(value = "createOrder", blockHandler = "createOrderBlockHandler", fallback = "createOrderFallback")
@@ -139,6 +139,21 @@ public class OrderServiceImpl implements OrderService {
                     request.seckillRequestId(), request.groupOrderId());
         }
 
+        // T01：金额只来自权威计价结果（普通报价=报价快照复核；秒杀/拼团=活动快照+券），
+        // 持久化执行器不再自行重算价格或优惠。
+        OrderPricing pricing = priceActivityOrder(userId, request);
+        return persistOrder(userId, request, pricing, payloadHash);
+    }
+
+    /**
+     * T01：下单持久化执行器（报价路径与活动路径共用）。
+     *
+     * <p>金额、优惠额、优惠明细、应付全部来自入参 {@link OrderPricing}：报价路径是已复核的
+     * 报价快照，活动路径是活动价 + 券的确定性结果。此处不再拉商品价、不再二次计算优惠——
+     * 旧的“再取商品价 + 仅算券”分支是“报价 80、建单 100”的根因。</p>
+     */
+    private OrderDTO persistOrder(Long userId, CreateOrderRequest request, OrderPricing pricing,
+                                  String payloadHash) {
         List<CreateOrderRequest.OrderItemInput> deductedItems = new ArrayList<>();
 
         Order order = new Order();
@@ -149,22 +164,12 @@ public class OrderServiceImpl implements OrderService {
         order.setReceiverPhone(request.receiverPhone());
         order.setReceiverAddress(request.receiverAddress());
 
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        for (CreateOrderRequest.OrderItemInput item : request.items()) {
-            totalAmount = totalAmount.add(item.price().multiply(BigDecimal.valueOf(item.quantity())));
-        }
-
-        BigDecimal discountAmount = BigDecimal.ZERO;
-        UserCouponDTO validatedCoupon = null;
-        if (request.couponId() != null) {
-            validatedCoupon = validateAndGetCoupon(request.couponId(), userId, totalAmount);
-            discountAmount = calculateDiscount(validatedCoupon, totalAmount);
-        }
-
-        order.setTotalAmount(totalAmount);
-        order.setDiscountAmount(discountAmount);
+        order.setTotalAmount(pricing.totalAmount());
+        order.setDiscountAmount(pricing.discountAmount());
         // COUPON-01：应付金额下限保护，禁止负数订单
-        order.setPayAmount(totalAmount.subtract(discountAmount).max(BigDecimal.ZERO));
+        order.setPayAmount(pricing.payAmount());
+        // T01：订单保存优惠行快照，前台/后台/售后退款读取同一事实
+        order.setDiscountLines(pricing.discountLinesJson());
         order.setCouponId(request.couponId());
         order.setActivityId(request.activityId());
         // T03：幂等三元组落库（uk(user_id,request_key) 兜底并发；quote_id uk 兜底一报价一单）
@@ -219,7 +224,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("STOCK_DEDUCT_FAILED", "库存扣减失败，请重试");
         }
 
-        if (validatedCoupon != null) {
+        if (request.couponId() != null) {
             try {
                 UseCouponRequest useReq = new UseCouponRequest(request.couponId(), order.getId());
                 ApiResponse<Void> useResult = couponFeignClient.useCoupon(useReq);
@@ -291,6 +296,45 @@ public class OrderServiceImpl implements OrderService {
                 new LambdaQueryWrapper<OrderItem>().eq(OrderItem::getOrderId, order.getId())
         );
         return orderConverter.toDTO(order, orderConverter.toItemDTOList(orderItems));
+    }
+
+    /**
+     * 下单价格快照（T01）。
+     *
+     * @param totalAmount       商品总额
+     * @param discountAmount    优惠总额（满减 + 券）
+     * @param payAmount         应付金额
+     * @param discountLinesJson 优惠行快照 JSON（订单、后台、售后共用）
+     */
+    private record OrderPricing(BigDecimal totalAmount, BigDecimal discountAmount,
+                                BigDecimal payAmount, String discountLinesJson) {
+    }
+
+    /**
+     * T01：活动订单（秒杀/拼团/旧接口）计价——商品价为活动快照价，优惠只含券。
+     *
+     * <p>活动价本身已经是优惠结果，不能再叠加普通满减（否则秒杀价被二次减免）；
+     * 普通报价订单不经过本方法，金额直接取报价快照。</p>
+     */
+    private OrderPricing priceActivityOrder(Long userId, CreateOrderRequest request) {
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        for (CreateOrderRequest.OrderItemInput item : request.items()) {
+            totalAmount = totalAmount.add(item.price().multiply(BigDecimal.valueOf(item.quantity())));
+        }
+
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        String linesJson = null;
+        if (request.couponId() != null) {
+            UserCouponDTO validatedCoupon = validateAndGetCoupon(request.couponId(), userId, totalAmount);
+            discountAmount = calculateDiscount(validatedCoupon, totalAmount);
+            if (discountAmount.compareTo(BigDecimal.ZERO) > 0) {
+                linesJson = discountCalculator.writeLines(List.of(
+                        com.cloudmart.order.dto.DiscountLine.coupon(
+                                validatedCoupon.id(), validatedCoupon.templateName(), discountAmount)));
+            }
+        }
+        BigDecimal payAmount = totalAmount.subtract(discountAmount).max(BigDecimal.ZERO);
+        return new OrderPricing(totalAmount, discountAmount, payAmount, linesJson);
     }
 
     @Override
@@ -1270,6 +1314,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
+    @GlobalTransactional(timeoutMills = 30000, name = "createOrderFromQuote")
     public OrderDTO createOrderFromQuote(Long userId, Long quoteId, Integer expectedQuoteVersion,
                                          String requestKey, String receiverName,
                                          String receiverPhone, String receiverAddress) {
@@ -1319,7 +1364,11 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("QUOTE_NOT_AVAILABLE", "报价已过期，请重新报价");
         }
 
-        // T03：可售/价格/优惠复核——报价是快照权威，但现实变化必须显式 STALE（QA09）
+        // RISK-01：下单前置风控（旧实现由 createOrder 内部执行；T01 改为报价路径自行调用，
+        // 避免把“风控通过”隐式绑定在被删除的二次计价入口上）
+        performRiskCheck(userId, "ORDER_CREATE");
+
+        // T03：可售/价格/整单优惠复核——报价是快照权威，但现实变化必须显式 STALE（QA09）
         verifyQuoteFreshness(userId, quote);
 
         // CAS 消费报价（与建单同事务：建单失败回滚后报价自动恢复 ACTIVE）；
@@ -1328,8 +1377,11 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException("QUOTE_NOT_AVAILABLE", "报价已使用或已过期，请重新报价");
         }
 
+        // T01：建单金额直接取“已通过复核”的报价快照，不再经过 createOrder 的二次计价
+        OrderPricing pricing = new OrderPricing(quote.getTotalAmount(), quote.getDiscountAmount(),
+                quote.getPayAmount(), quote.getDiscountLines());
         try {
-            OrderDTO order = selfProvider.getObject().createOrder(userId, request);
+            OrderDTO order = persistOrder(userId, request, pricing, payloadHash);
             if (order == null) {
                 throw new BusinessException("ORDER_CREATE_FAILED", "订单创建失败，请稍后重试");
             }
@@ -1391,12 +1443,18 @@ public class OrderServiceImpl implements OrderService {
                         "报价中商品价格已变化: SKU " + item.getSkuId() + "，请重新报价");
             }
         }
-        if (quote.getCouponId() != null) {
-            UserCouponDTO coupon = couponPolicy.validate(quote.getCouponId(), userId, quote.getTotalAmount());
-            BigDecimal freshDiscount = couponPolicy.calculate(coupon, quote.getTotalAmount());
-            if (freshDiscount.compareTo(quote.getDiscountAmount()) != 0) {
-                throw new BusinessException("QUOTE_STALE", "优惠券可用状态或折扣已变化，请重新报价");
-            }
+        // T01：整单优惠重算（满减→券）并与报价快照比对。
+        // 旧实现只把“当前券优惠”与“报价总优惠”比较——满减变化漏检，且“券 10 + 满减 20”
+        // 会被误判为不一致而假报 STALE。
+        QuoteDiscountCalculator.Result fresh =
+                discountCalculator.calculate(userId, quote.getTotalAmount(), quote.getCouponId());
+        BigDecimal quotedDiscount = quote.getDiscountAmount() == null
+                ? BigDecimal.ZERO : quote.getDiscountAmount();
+        BigDecimal quotedPay = quote.getPayAmount() == null
+                ? quote.getTotalAmount() : quote.getPayAmount();
+        if (fresh.totalDiscount().compareTo(quotedDiscount) != 0
+                || fresh.payAmount().compareTo(quotedPay) != 0) {
+            throw new BusinessException("QUOTE_STALE", "优惠活动或优惠券已变化，请重新报价后确认");
         }
     }
 

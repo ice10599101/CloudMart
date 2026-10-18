@@ -121,7 +121,8 @@ class OrderServiceTest {
                 outboxService, compensationTaskService, new ObjectMapper(),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteItemMapper.class),
-                org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class)
+                new QuoteDiscountCalculator(marketingFeignClient,
+                        new OrderCouponPolicy(couponFeignClient), new tools.jackson.databind.ObjectMapper())
         );
     }
 
