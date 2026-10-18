@@ -55,6 +55,22 @@ class BrowseHistoryControllerTest {
     }
 
     @Test
+    @DisplayName("POST /browse-history - 软件类型正常上报成功")
+    void record_WithSoftwareTargetType_ShouldReturnSuccess() throws Exception {
+        willDoNothing().given(browseHistoryService)
+                .recordBrowse(1L, "SOFTWARE", 112L, "IntelliJ IDEA", "http://x/2.jpg");
+
+        mockMvc.perform(post("/browse-history")
+                        .header(USER_ID_HEADER, 1)
+                        .contentType("application/json")
+                        .content("{\"targetType\":\"SOFTWARE\",\"targetId\":112,\"title\":\"IntelliJ IDEA\",\"cover\":\"http://x/2.jpg\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(browseHistoryService).recordBrowse(1L, "SOFTWARE", 112L, "IntelliJ IDEA", "http://x/2.jpg");
+    }
+
+    @Test
     @DisplayName("POST /browse-history - 缺少X-User-Id头返回401")
     void record_WithoutUserId_ShouldReturn401() throws Exception {
         mockMvc.perform(post("/browse-history")

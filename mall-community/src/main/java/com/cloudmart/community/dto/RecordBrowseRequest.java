@@ -7,11 +7,11 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 /**
- * 浏览足迹上报请求。targetType ∈ {PRODUCT, POST, WISH}；
+ * 浏览足迹上报请求。targetType ∈ {PRODUCT, POST, WISH, SOFTWARE}；
  * title/cover 为展示用标题与封面快照，可为空。
  */
 public record RecordBrowseRequest(
-        @NotBlank @Pattern(regexp = "PRODUCT|POST|WISH", message = "targetType 必须为 PRODUCT/POST/WISH")
+        @NotBlank @Pattern(regexp = "PRODUCT|POST|WISH|SOFTWARE", message = "targetType 必须为 PRODUCT/POST/WISH/SOFTWARE")
         String targetType,
         @NotNull @Positive Long targetId,
         @Size(max = 200) String title,

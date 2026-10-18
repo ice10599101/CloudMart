@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 浏览足迹：商品/帖子/心愿详情页打开时上报，个人中心历史页签分页展示。
+ * 浏览足迹：商品/帖子/心愿/软件详情页打开时上报，个人中心历史页签分页展示。
  * 上报与查询均要求登录（X-User-Id 必填），仅允许操作本人的足迹数据。
  */
 @RestController
@@ -35,7 +35,7 @@ public class BrowseHistoryController {
     private final BrowseHistoryService browseHistoryService;
 
     @PostMapping
-    @Operation(summary = "上报浏览足迹", description = "打开商品/帖子/心愿详情页时上报；同一对象重复浏览仅刷新时间与快照")
+    @Operation(summary = "上报浏览足迹", description = "打开商品/帖子/心愿/软件详情页时上报；同一对象重复浏览仅刷新时间与快照")
     @SentinelResource("BROWSE_HISTORY_RECORD")
     public ApiResponse<Void> record(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)
