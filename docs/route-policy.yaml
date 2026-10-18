@@ -245,7 +245,7 @@ mall-software:
 
 
 # -----------------------------------------------------------------------------
-# mall-auth / mall-admin / mall-job / mall-gen / mall-file
+# mall-auth / mall-admin / mall-job / mall-file
 # （S05：mall-auth 只保留一个顶层键，合并发卡方匿名路由与内部令牌撤销路由）
 # -----------------------------------------------------------------------------
 mall-auth:
@@ -263,8 +263,6 @@ mall-admin:
 mall-job:
   - { method: "*",    path: /**,                 subjectType: ADMIN, note: "管理员 JWT 直连；@RequiresPermission 已由统一拦截器执行（JOB-01）" }
 
-mall-gen:
-  - { method: "*",    path: /**,                 subjectType: ADMIN, note: "开发工具：管理员 JWT；生产建议仅内网入口" }
 
 mall-file:
   - { method: POST,   path: "/assets",           subjectType: "USER,ADMIN", ownerCheck: true, note: "S01：唯一资产入口（配额+内容校验+可见性分域+归属台账）" }

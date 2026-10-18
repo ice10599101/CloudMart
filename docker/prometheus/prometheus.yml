@@ -103,11 +103,6 @@ scrape_configs:
     static_configs:
       - targets: ['host.docker.internal:9040']
 
-  - job_name: 'mall-gen'
-    metrics_path: '/actuator/prometheus'
-    static_configs:
-      - targets: ['host.docker.internal:9050']
-
   - job_name: 'mall-software'
     metrics_path: '/actuator/prometheus'
     static_configs:

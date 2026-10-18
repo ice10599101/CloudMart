@@ -211,18 +211,6 @@ test.describe('Admin - Monitor Pages', () => {
   }
 })
 
-test.describe('Admin - Tool Pages', () => {
-  test('code generator page loads or redirects to admin login', async ({ page }) => {
-    await page.goto('/admin/tool/gen')
-    await page.waitForTimeout(3000)
-
-    const currentUrl = page.url()
-    const onGen = currentUrl.includes('/admin/tool/gen')
-    const onLogin = currentUrl.includes('/admin/login')
-    expect(onGen || onLogin).toBeTruthy()
-  })
-})
-
 test.describe('Admin - Layout & Navigation', () => {
   test('admin root redirects to dashboard or login', async ({ page }) => {
     await page.goto('/admin')

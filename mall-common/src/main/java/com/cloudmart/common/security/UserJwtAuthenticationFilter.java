@@ -56,7 +56,7 @@ import java.util.Set;
  *   <li>{@code user} → ROLE_USER；</li>
  *   <li>{@code admin} → ROLE_ADMIN，并按令牌声明填充 {@link AdminSecurityContext}
  *       （userId/username/permissions），使 @RequiresPermission 注解在
- *       管理员上下文缺失的模块（如 mall-job/mall-gen）真正生效；</li>
+ *       管理员上下文缺失的模块（如 mall-job）真正生效；</li>
  *   <li>其他取值或缺失 → 拒绝建立身份（未知身份域不允许冒充用户）。</li>
  * </ul>
  *

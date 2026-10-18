@@ -236,7 +236,6 @@ export default defineConfig({
         { path: '/admin/monitor/server', component: '@/pages/admin/monitor/Server' },
         { path: '/admin/monitor/cache', component: '@/pages/admin/monitor/Cache' },
         { path: '/admin/monitor/online', component: '@/pages/admin/monitor/Online' },
-        { path: '/admin/tool/gen', component: '@/pages/admin/tool/Gen' },
       ],
     },
     { path: '/login', component: '@/pages/Login' },

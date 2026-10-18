@@ -26,7 +26,6 @@ resources:
   - base/mall-admin.yaml
   - base/mall-file.yaml
   - base/mall-job.yaml
-  - base/mall-gen.yaml
   - base/mall-pet.yaml
   - base/mall-wish.yaml
   - base/mall-community.yaml

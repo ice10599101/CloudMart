@@ -177,15 +177,13 @@ describe('FE-01 身份域选择与 403 规则', () => {
     vi.clearAllMocks()
   })
 
-  it('admin 前缀之外，/job 与 /gen 同样归管理员域取 admin token', () => {
+  it('admin 前缀之外，/job 同样归管理员域取 admin token', () => {
     localStorage.setItem('admin_access_token', 'admin-token')
     localStorage.setItem('access_token', 'user-token')
 
     const jobConfig = runRequestInterceptor({ url: '/job/list', method: 'get' })
-    const genConfig = runRequestInterceptor({ url: '/gen/tables', method: 'get' })
 
     expect(jobConfig.headers.Authorization).toBe('Bearer admin-token')
-    expect(genConfig.headers.Authorization).toBe('Bearer admin-token')
   })
 
   it('403 携带业务码直接透传，不触发刷新流程', async () => {

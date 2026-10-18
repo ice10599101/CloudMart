@@ -68,13 +68,9 @@ function isAdminDomain(config: { url?: string; adminAuth?: boolean }): boolean {
 }
 
 function isAdminRequest(url: string): boolean {
-  // FE-01：/job、/gen 是管理后台页面使用的服务，必须归入管理员域取 admin token
-  return (
-    url.startsWith('/admin/') ||
-    url.startsWith('/auth/admin/') ||
-    url.startsWith('/job') ||
-    url.startsWith('/gen')
-  )
+  // FE-01：/job 是管理后台页面使用的服务，必须归入管理员域取 admin token
+  // T09：/gen 已随代码生成器退役删除，不再作为管理员域前缀
+  return url.startsWith('/admin/') || url.startsWith('/auth/admin/') || url.startsWith('/job')
 }
 
 /** 解码 JWT payload 的 sub（稳定 subjectId），不引依赖；非法令牌返回空串 */

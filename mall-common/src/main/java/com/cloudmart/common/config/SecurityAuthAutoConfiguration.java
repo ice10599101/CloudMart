@@ -32,7 +32,7 @@ import java.time.Clock;
  *   <li>{@link ServiceTokenProvider}：RestClient 等非 Feign 调用方的手工签名；</li>
  *   <li>{@link RedisAuthRevocationChecker}：直连服务撤销状态检查（默认装配）；</li>
  *   <li>{@link AdminPermissionInterceptor} 注册：使 @RequiresPermission /
- *       @RequiresAdmin 注解在 mall-job/mall-gen 等模块真正生效。</li>
+ *       @RequiresAdmin 注解在 mall-job 等模块真正生效。</li>
  * </ul>
  *
  * <p>装配条件由 {@code cloudmart.security.*} 驱动：配置了 {@code service-id}
@@ -45,7 +45,7 @@ import java.time.Clock;
  * 用字符串引用避免 mall-common 对 redis autoconfigure 类名的编译依赖。</p>
  *
  * <p>注意：本类不得出现任何引用 openfeign 类型的 Bean 方法——没有 feign 依赖的
- * 模块（如 mall-product/mall-file/mall-gen）在 Spring 反射推断
+ * 模块（如 mall-product/mall-file）在 Spring 反射推断
  * {@code @ConditionalOnMissingBean} 返回类型时会触发
  * {@code NoClassDefFoundError: feign/RequestInterceptor}。Feign 相关 Bean 全部
  * 收敛在 {@link FeignBeanConfiguration}（类级 @ConditionalOnClass 守护）。</p>
