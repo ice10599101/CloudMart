@@ -3,6 +3,7 @@ package com.cloudmart.software.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
+import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.software.dto.software.AdminContactSaveRequest;
 import com.cloudmart.software.dto.software.AdminGrantRequest;
 import com.cloudmart.software.dto.software.AdminGrantRevokeRequest;
@@ -36,6 +37,32 @@ import java.util.Map;
 public class AdminSoftwarePermissionController {
 
     private final AdminSoftwarePermissionService adminSoftwarePermissionService;
+    private final com.cloudmart.software.service.SoftwarePublisherApplicationService applicationService;
+
+    /** SF03：发布者申请分页（状态筛选） */
+    @GetMapping("/publisher-applications")
+    @Operation(summary = "发布者申请列表", description = "按状态筛选：PENDING/APPROVED/REJECTED/CANCELLED")
+    public ApiResponse<Page<Map<String, Object>>> applications(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(applicationService.adminPage(status, page, size));
+    }
+
+    public record ApplicationDecisionRequest(boolean approve, String reason) {
+    }
+
+    /** SF03：申请决定（通过同事务授予资格并写 targetUserId 审计；拒绝写可公开原因） */
+    @PostMapping("/publisher-applications/{applicationId}/decision")
+    @Operation(summary = "申请审核决定")
+    public ApiResponse<Boolean> decide(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @PathVariable("applicationId") Long applicationId,
+            @RequestBody ApplicationDecisionRequest request) {
+        return ApiResponse.ok(applicationService.decide(adminId, applicationId,
+                request.approve(), request.reason(), idempotencyKey));
+    }
 
     @GetMapping("/publisher-permissions")
     @Operation(summary = "发布资格分页", description = "mall-admin 侧拼装会员资料后展示")

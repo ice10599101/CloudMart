@@ -507,6 +507,28 @@ public class AdminSoftwareController {
         return softwareFeignClient.statistics();
     }
 
+    // ---------------- 发布者申请（SF03：software:publisher:list / manage） ----------------
+
+    @GetMapping("/publisher-applications")
+    @RequiresPermission("software:publisher:list")
+    @Operation(summary = "发布者申请列表", description = "按状态筛选：PENDING/APPROVED/REJECTED/CANCELLED")
+    public ApiResponse<Object> publisherApplications(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return softwareFeignClient.publisherApplications(status, page, size);
+    }
+
+    @OperLog(title = "发布者申请决定", businessType = 2)
+    @PostMapping("/publisher-applications/{applicationId}/decision")
+    @RequiresPermission("software:publisher:manage")
+    @Operation(summary = "发布者申请决定", description = "通过同事务授予资格并写 targetUserId 审计")
+    public ApiResponse<Object> decidePublisherApplication(
+            @PathVariable("applicationId") Long applicationId,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.decidePublisherApplication(applicationId, body);
+    }
+
     // ---------------- 通知任务运维（SW10：software:fanout，权限独立） ----------------
 
     @GetMapping("/fanout/tasks")

@@ -761,3 +761,40 @@ export function retryFanoutTask(taskId: string, idempotencyKey?: string) {
     softwareWriteConfig('POST', url, {}, idempotencyKey),
   )
 }
+
+/** SF03：发布者申请审核 */
+export interface AdminPublisherApplication {
+  applicationId: string;
+  userId: string;
+  status: string;
+  intro: string;
+  intendedCategories: string;
+  reason: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+}
+
+export function listPublisherApplications(params?: {
+  status?: string;
+  page?: number;
+  size?: number;
+}) {
+  return request.get<ApiResponse<PageResult<AdminPublisherApplication>>>(
+    `${BASE}/publisher-applications`,
+    { params },
+  );
+}
+
+export function decidePublisherApplication(
+  applicationId: string,
+  payload: { approve: boolean; reason: string },
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/publisher-applications/${applicationId}/decision`;
+  return request.post<ApiResponse<boolean>>(
+    url,
+    payload,
+    softwareWriteConfig("POST", url, payload, idempotencyKey),
+  );
+}

@@ -242,6 +242,17 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> publisherApplications(String status, int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> decidePublisherApplication(Long applicationId,
+                                                                  java.util.Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> retryFanoutTask(Long taskId) {
                 throw unavailable(cause);
             }

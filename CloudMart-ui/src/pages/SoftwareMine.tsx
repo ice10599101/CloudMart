@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "umi";
-import { App, Button, Empty, List, Pagination, Popconfirm, Space, Spin, Switch, Tabs, Tag } from "antd";
+import { App, Button, Empty, Input, List, Modal, Pagination, Popconfirm, Space, Spin, Switch, Tabs, Tag, Typography } from "antd";
 import { history } from "umi";
 import {
   deleteMySoftware,
@@ -9,6 +9,11 @@ import {
   unsubscribeSoftware,
   updateSoftwarePreferences,
   type SoftwareMineItem,
+  getPublisherStatus,
+  submitPublisherApplication,
+  listMyPublisherApplications,
+  cancelPublisherApplication,
+  type SoftwarePublisherApplication,
 } from "@/api/software";
 import { useAuthStore } from "@/stores/auth";
 import styles from "./SoftwareMine.module.css";
@@ -63,6 +68,13 @@ export default function SoftwareMine() {
   const PAGE_SIZE = 20;
   /** P1 更新提醒总开关（缺省开启；与订阅关系相互独立） */
   const [updateNotify, setUpdateNotify] = useState(true);
+  /** SF03：发布资格与申请状态 */
+  const [pubStatus, setPubStatus] = useState<{ canPublish: boolean } | null>(null);
+  const [myApplications, setMyApplications] = useState<SoftwarePublisherApplication[]>([]);
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyIntro, setApplyIntro] = useState("");
+  const [applyCategories, setApplyCategories] = useState("");
+  const [applySubmitting, setApplySubmitting] = useState(false);
   const [notifySaving, setNotifySaving] = useState(false);
 
   const load = useCallback(
@@ -97,7 +109,53 @@ export default function SoftwareMine() {
     getSoftwarePreferences()
       .then((res) => setUpdateNotify(res.data.data?.updateNotifications ?? true))
       .catch(() => undefined);
+    // SF03：资格状态与申请记录
+    getPublisherStatus()
+      .then((res) => setPubStatus(res.data.data ?? null))
+      .catch(() => undefined);
+    listMyPublisherApplications(1, 10)
+      .then((res) => setMyApplications(res.data.data?.records ?? []))
+      .catch(() => undefined);
   }, [isAuthenticated]);
+
+  const latestApplication = myApplications[0] ?? null;
+
+  const handleApply = async () => {
+    if (!applyIntro.trim() || !applyCategories.trim()) {
+      message.warning("请填写发布用途与拟投分类");
+      return;
+    }
+    setApplySubmitting(true);
+    try {
+      await submitPublisherApplication({
+        intro: applyIntro.trim(),
+        intendedCategories: applyCategories.trim(),
+      });
+      message.success("申请已提交，等待管理员审核");
+      setApplyOpen(false);
+      setApplyIntro("");
+      setApplyCategories("");
+      listMyPublisherApplications(1, 10)
+        .then((res) => setMyApplications(res.data.data?.records ?? []))
+        .catch(() => undefined);
+    } catch {
+      // 拦截器统一提示
+    } finally {
+      setApplySubmitting(false);
+    }
+  };
+
+  const handleCancelApplication = async (applicationId: string) => {
+    try {
+      await cancelPublisherApplication(applicationId);
+      message.success("已撤回申请");
+      listMyPublisherApplications(1, 10)
+        .then((res) => setMyApplications(res.data.data?.records ?? []))
+        .catch(() => undefined);
+    } catch {
+      // 拦截器统一提示
+    }
+  };
 
   const handleToggleNotify = async (enabled: boolean) => {
     setNotifySaving(true);
@@ -165,6 +223,42 @@ export default function SoftwareMine() {
           </Button>
         </Space>
       </div>
+      {/* SF03：发布资格与申请状态 */}
+      {!pubStatus?.canPublish && (
+        <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+          <Space direction="vertical" size={4} style={{ width: "100%" }}>
+            <Typography.Text strong>
+              {latestApplication?.status === "PENDING"
+                ? "发布资格申请审核中"
+                : latestApplication?.status === "REJECTED"
+                  ? "发布资格申请未通过"
+                  : "尚未获得发布资格"}
+            </Typography.Text>
+            {latestApplication?.status === "REJECTED" && latestApplication.reason && (
+              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                原因：{latestApplication.reason}
+              </Typography.Text>
+            )}
+            {latestApplication?.status === "PENDING" ? (
+              <Space size={8}>
+                <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                  提交于 {latestApplication.submittedAt.replace("T", " ").slice(0, 16)}
+                </Typography.Text>
+                <Button
+                  size="small"
+                  onClick={() => void handleCancelApplication(latestApplication.applicationId)}
+                >
+                  撤回申请
+                </Button>
+              </Space>
+            ) : (
+              <Button size="small" type="primary" onClick={() => setApplyOpen(true)}>
+                {latestApplication?.status === "REJECTED" ? "重新申请" : "申请发布资格"}
+              </Button>
+            )}
+          </Space>
+        </div>
+      )}
       <Tabs
         activeKey={tab}
         onChange={(key) => setTab(key as TabKey)}
@@ -285,6 +379,34 @@ export default function SoftwareMine() {
             />
           </div>
         )}
+
+        <Modal
+          title="申请发布资格"
+          open={applyOpen}
+          onCancel={() => setApplyOpen(false)}
+          onOk={() => void handleApply()}
+          confirmLoading={applySubmitting}
+          okText="提交申请"
+          destroyOnHidden
+        >
+          <Typography.Paragraph type="secondary">
+            说明你的发布用途与来源渠道，管理员会据此审核；通过后即可创建软件并提交。
+          </Typography.Paragraph>
+          <Input.TextArea
+            rows={3}
+            maxLength={1000}
+            placeholder="发布用途与来源说明（1~1000 字）"
+            value={applyIntro}
+            onChange={(e) => setApplyIntro(e.target.value)}
+            style={{ marginBottom: 12 }}
+          />
+          <Input
+            maxLength={500}
+            placeholder="拟投分类（如：工具, 效率, 开发）"
+            value={applyCategories}
+            onChange={(e) => setApplyCategories(e.target.value)}
+          />
+        </Modal>
       </Spin>
     </div>
   );

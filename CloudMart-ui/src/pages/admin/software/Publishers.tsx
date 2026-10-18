@@ -1,8 +1,12 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Input, Modal, Radio, Space, Tag, Typography } from 'antd'
-import { listPublisherPermissions, togglePublisherPermission } from '@/api/admin/software'
+import { Button, Input, Modal, Radio, Space, Tabs, Tag, Typography } from 'antd'
+import { listPublisherPermissions, togglePublisherPermission ,
+  listPublisherApplications,
+  decidePublisherApplication,
+  type AdminPublisherApplication,
+} from '@/api/admin/software';
 import type { AdminPublisherPermission } from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
@@ -19,6 +23,17 @@ export default function SoftwarePublishers() {
   const [grantOpen, setGrantOpen] = useState(false)
   /** SW12：全链路字符串 ID——大整数（如 9007199254740993）不丢精度 */
   const [grantUserId, setGrantUserId] = useState<string>('')
+  /** SF03：申请队列页签 */
+  const [view, setView] = useState<'grants' | 'applications'>('grants')
+  const [applications, setApplications] = useState<AdminPublisherApplication[]>([])
+  const [appLoading, setAppLoading] = useState(false)
+  const [appStatus, setAppStatus] = useState<string | undefined>('PENDING')
+  const [decisionTarget, setDecisionTarget] = useState<{
+    applicationId: string
+    approve: boolean
+    userId: string
+  } | null>(null)
+  const [decisionReason, setDecisionReason] = useState('')
   const [enable, setEnable] = useState(true)
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -37,6 +52,48 @@ export default function SoftwarePublishers() {
       okText: '确认变更',
       cancelText: '取消',
       onOk: () => doSubmit(),
+    })
+  }
+
+  /** SF03：申请队列加载 */
+  const loadApplications = useCallback(() => {
+    setAppLoading(true)
+    listPublisherApplications({ status: appStatus, page: 1, size: 50 })
+      .then((res) => setApplications(res.data.data?.records ?? []))
+      .catch(() => message.error('申请加载失败'))
+      .finally(() => setAppLoading(false))
+  }, [appStatus])
+
+  useEffect(() => {
+    if (view === 'applications') loadApplications()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, appStatus])
+
+  const confirmDecision = () => {
+    if (!decisionTarget) return
+    if (!decisionReason.trim()) {
+      message.warning('请填写决定说明（审计要求）')
+      return
+    }
+    Modal.confirm({
+      title: decisionTarget.approve ? '通过发布者申请' : '拒绝发布者申请',
+      content: decisionTarget.approve
+        ? '通过将同事务授予该会员发布资格并写 targetUserId 审计。'
+        : '拒绝原因会对申请人展示（可公开）。',
+      okText: '确认',
+      cancelText: '取消',
+      onOk: () =>
+        decidePublisherApplication(
+          decisionTarget.applicationId,
+          { approve: decisionTarget.approve, reason: decisionReason.trim() },
+        )
+          .then(() => {
+            message.success('已处理')
+            setDecisionTarget(null)
+            setDecisionReason('')
+            loadApplications()
+          })
+          .catch(() => undefined),
     })
   }
 
@@ -105,6 +162,100 @@ export default function SoftwarePublishers() {
 
   return (
     <>
+      <Tabs
+        activeKey={view}
+        onChange={(key) => setView(key as 'grants' | 'applications')}
+        items={[
+          { key: 'grants', label: '资格列表' },
+          { key: 'applications', label: '申请队列（SF03）' },
+        ]}
+        style={{ marginBottom: 8 }}
+      />
+      {view === 'applications' && (
+      <>
+      <Space style={{ marginBottom: 12 }} wrap>
+        {['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map((st) => (
+          <Button
+            key={st}
+            size="small"
+            type={appStatus === st ? 'primary' : 'default'}
+            onClick={() => setAppStatus(st)}
+          >
+            {st}
+          </Button>
+        ))}
+        <Button size="small" onClick={() => setAppStatus(undefined)}>全部</Button>
+      </Space>
+      <div style={{ marginBottom: 16 }}>
+        {appLoading ? (
+          <Typography.Text type="secondary">加载中…</Typography.Text>
+        ) : applications.length === 0 ? (
+          <Typography.Text type="secondary">暂无申请</Typography.Text>
+        ) : (
+          applications.map((application) => (
+            <div
+              key={application.applicationId}
+              style={{ padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 8 }}
+            >
+              <Space size={8} wrap>
+                <Typography.Text strong>会员 {application.userId}</Typography.Text>
+                <Tag color={application.status === 'PENDING' ? 'processing' : application.status === 'APPROVED' ? 'success' : 'default'}>
+                  {application.status}
+                </Tag>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {application.submittedAt.replace('T', ' ').slice(0, 16)}
+                </Typography.Text>
+              </Space>
+              <Typography.Paragraph style={{ marginBottom: 4, marginTop: 4 }}>
+                {application.intro}
+              </Typography.Paragraph>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                拟投分类：{application.intendedCategories}
+                {application.reason ? ` · 处理说明：${application.reason}` : ''}
+              </Typography.Text>
+              {application.status === 'PENDING' && (
+                <div style={{ marginTop: 8 }}>
+                  <Space size={8}>
+                    <Button
+                      size="small"
+                      type="primary"
+                      onClick={() => {
+                        setDecisionTarget({
+                          applicationId: application.applicationId,
+                          approve: true,
+                          userId: application.userId,
+                        })
+                        setDecisionReason('发布用途与来源说明符合要求')
+                      }}
+                    >
+                      通过并授予资格
+                    </Button>
+                    <Button
+                      size="small"
+                      danger
+                      onClick={() => {
+                        setDecisionTarget({
+                          applicationId: application.applicationId,
+                          approve: false,
+                          userId: application.userId,
+                        })
+                        setDecisionReason('')
+                      }}
+                    >
+                      拒绝
+                    </Button>
+                  </Space>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+      </>
+      )}
+
+      {view === 'grants' && (
+      <>
       <Space style={{ marginBottom: 12 }} wrap>
         <Button
           type="primary"
@@ -188,6 +339,8 @@ export default function SoftwarePublishers() {
           onChange={(e) => setReason(e.target.value)}
         />
       </Modal>
+      </>
+      )}
     </>
   )
 }

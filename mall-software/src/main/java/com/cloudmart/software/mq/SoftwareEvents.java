@@ -20,6 +20,8 @@ public final class SoftwareEvents {
     public static final String TAG_REPLY_VISIBLE = "SOFTWARE_REPLY_VISIBLE";
     public static final String TAG_SOURCE_REPORTED = "SOFTWARE_SOURCE_REPORTED";
     public static final String TAG_RELEASE_PUBLISHED = "SOFTWARE_RELEASE_PUBLISHED";
+    /** SF03：发布者申请审核结果（通过/拒绝），载荷 {userId,status,reason} */
+    public static final String TAG_PUBLISHER_APPLICATION = "SOFTWARE_PUBLISHER_APPLICATION";
 
     private SoftwareEvents() {
     }

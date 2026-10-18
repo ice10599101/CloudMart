@@ -192,6 +192,17 @@ public interface SoftwareFeignClient {
     @GetMapping("/statistics")
     ApiResponse<Object> statistics();
 
+    /** SF03：发布者申请分页 */
+    @GetMapping("/publisher-applications")
+    ApiResponse<Object> publisherApplications(@RequestParam("status") String status,
+                                              @RequestParam("page") int page,
+                                              @RequestParam("size") int size);
+
+    /** SF03：发布者申请决定（通过同事务授予资格） */
+    @PostMapping("/publisher-applications/{applicationId}/decision")
+    ApiResponse<Object> decidePublisherApplication(@PathVariable("applicationId") Long applicationId,
+                                                   @RequestBody Map<String, Object> body);
+
     /** SW10：通知任务运维（software:fanout） */
     @GetMapping("/fanout/tasks")
     ApiResponse<Object> fanoutTasks(@RequestParam("page") int page,

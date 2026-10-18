@@ -719,6 +719,49 @@ export function getPublisherStatus() {
   );
 }
 
+/** SF03：发布者申请（申请/我的申请/撤回） */
+export interface SoftwarePublisherApplication {
+  applicationId: string;
+  userId: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  intro: string;
+  intendedCategories: string;
+  reason: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+}
+
+export function submitPublisherApplication(
+  payload: { intro: string; intendedCategories: string },
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/publisher-applications`;
+  return request.post<ApiResponse<SoftwarePublisherApplication>>(
+    url,
+    payload,
+    softwareWriteConfig("POST", url, payload, idempotencyKey),
+  );
+}
+
+export function listMyPublisherApplications(page = 1, size = 10) {
+  return request.get<ApiResponse<PageResult<SoftwarePublisherApplication>>>(
+    `${BASE}/publisher-applications/mine`,
+    { params: { page, size } },
+  );
+}
+
+export function cancelPublisherApplication(
+  applicationId: string,
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/publisher-applications/${applicationId}/cancel`;
+  return request.post<ApiResponse<boolean>>(
+    url,
+    {},
+    softwareWriteConfig("POST", url, {}, idempotencyKey),
+  );
+}
+
 export function createSoftware(
   payload?: SoftwareSnapshotInput,
   idempotencyKey?: string,

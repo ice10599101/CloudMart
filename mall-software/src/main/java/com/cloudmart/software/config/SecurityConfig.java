@@ -71,7 +71,12 @@ public class SecurityConfig {
                 // 登录端点：固定路径必须先于 /software/{id} 动态匹配（7.3；不得落入匿名通配）
                 .requestMatchers(HttpMethod.GET, "/software/mine", "/software/publisher-status",
                         "/software/preferences", "/software/access-contacts",
-                        "/software/level-options").authenticated()
+                        "/software/level-options",
+                        "/software/publisher-applications/mine").authenticated()
+                // SF03：发布者申请（登录必达；固定路径先于动态 {id}）
+                .requestMatchers(HttpMethod.POST, "/software/publisher-applications",
+                        "/software/publisher-applications/{applicationId}/cancel")
+                .authenticated()
                 .requestMatchers(HttpMethod.GET, "/software/{id}/access-state",
                         "/software/{id}/editor").authenticated()
                 // 公开浏览：软件广场/分类/标签/榜单/专题（7.2，可见性由业务层过滤）

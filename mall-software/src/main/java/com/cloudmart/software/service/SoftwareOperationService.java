@@ -44,6 +44,9 @@ public class SoftwareOperationService {
     public static final String OP_CONTACT_SAVE = "ACCESS_CONTACT_SAVE";
     public static final String OP_REPORT_HANDLE = "REPORT_HANDLE";
     public static final String OP_FEEDBACK_MARK = "LINK_FEEDBACK_MARK";
+    /** SF03：发布者申请提交/取消（幂等主体=申请人） */
+    public static final String OP_PUBLISHER_APPLY = "PUBLISHER_APPLY";
+    public static final String OP_PUBLISHER_CANCEL = "PUBLISHER_APPLICATION_CANCEL";
     public static final String OP_COMMENT_MODERATE = "COMMENT_MODERATE";
     public static final String OP_ITEM_BAN = "SOFTWARE_BAN";
     public static final String OP_ITEM_UNBAN = "SOFTWARE_UNBAN";
