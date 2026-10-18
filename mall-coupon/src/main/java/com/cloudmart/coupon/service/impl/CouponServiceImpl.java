@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -141,7 +142,7 @@ public class CouponServiceImpl implements CouponService {
                 .gt(CouponTemplate::getRemainingQuantity, 0)
                 .eq(type != null && !type.isEmpty(), CouponTemplate::getType, type)
                 .and(w -> w.isNull(CouponTemplate::getEndTime)
-                        .or().gt(CouponTemplate::getEndTime, LocalDateTime.now()))
+                        .or().gt(CouponTemplate::getEndTime, LocalDateTime.now(ZoneOffset.UTC)))
                 .orderByDesc(CouponTemplate::getCreatedAt);
     }
 
@@ -245,7 +246,7 @@ public class CouponServiceImpl implements CouponService {
         }
 
         if ("FIXED_DATE".equals(template.getValidityType())) {
-            if (template.getEndTime() != null && template.getEndTime().isBefore(LocalDateTime.now())) {
+            if (template.getEndTime() != null && template.getEndTime().isBefore(LocalDateTime.now(ZoneOffset.UTC))) {
                 throw new BusinessException("TEMPLATE_EXPIRED", "优惠券模板已过期");
             }
         }
@@ -275,12 +276,13 @@ public class CouponServiceImpl implements CouponService {
         userCoupon.setUserId(userId);
         userCoupon.setTemplateId(templateId);
         userCoupon.setStatus("UNUSED");
-        userCoupon.setReceivedAt(LocalDateTime.now());
+        userCoupon.setReceivedAt(LocalDateTime.now(ZoneOffset.UTC));
 
         if ("FIXED_DATE".equals(template.getValidityType())) {
             userCoupon.setExpiredAt(template.getEndTime());
         } else if ("FIXED_DAYS".equals(template.getValidityType()) && template.getValidDays() != null) {
-            userCoupon.setExpiredAt(LocalDateTime.now().plusDays(template.getValidDays()));
+            // T20：领取/过期时刻统一 UTC（与报价、邀请口径一致；服务器默认时区非 UTC 时偏移）
+            userCoupon.setExpiredAt(LocalDateTime.now(ZoneOffset.UTC).plusDays(template.getValidDays()));
         }
 
         userCouponMapper.insert(userCoupon);
@@ -363,7 +365,7 @@ public class CouponServiceImpl implements CouponService {
         if (!"UNUSED".equals(userCoupon.getStatus())) {
             throw new BusinessException("COUPON_STATUS_ERROR", "优惠券状态不允许使用");
         }
-        if (userCoupon.getExpiredAt() != null && userCoupon.getExpiredAt().isBefore(LocalDateTime.now())) {
+        if (userCoupon.getExpiredAt() != null && userCoupon.getExpiredAt().isBefore(LocalDateTime.now(ZoneOffset.UTC))) {
             throw new BusinessException("COUPON_EXPIRED", "优惠券已过期");
         }
 
@@ -390,7 +392,7 @@ public class CouponServiceImpl implements CouponService {
             throw new BusinessException("COUPON_STATUS_ERROR", "优惠券不在本订单的预留状态");
         }
         int updated = userCouponMapper.updateStatusIfMatch(
-                userCouponId, "RESERVED", "USED", orderId, LocalDateTime.now());
+                userCouponId, "RESERVED", "USED", orderId, LocalDateTime.now(ZoneOffset.UTC));
         if (updated == 0) {
             throw new BusinessException("COUPON_STATUS_ERROR", "优惠券状态已变更，请刷新重试");
         }
@@ -467,7 +469,7 @@ public class CouponServiceImpl implements CouponService {
                         .eq(UserCoupon::getUserId, userId)
                         .eq(UserCoupon::getStatus, "UNUSED")
                         .isNotNull(UserCoupon::getExpiredAt)
-                        .lt(UserCoupon::getExpiredAt, LocalDateTime.now())
+                        .lt(UserCoupon::getExpiredAt, LocalDateTime.now(ZoneOffset.UTC))
         );
 
         for (UserCoupon coupon : unusedCoupons) {

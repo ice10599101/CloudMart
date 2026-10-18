@@ -24,7 +24,7 @@ public interface GroupOrderMapper extends BaseMapper<GroupOrder> {
      * T11：条件含 status=OPEN 语义（PENDING）且未到期，到期同时加入被拒绝。 */
     @Update("UPDATE group_orders SET current_number = current_number + 1 "
             + "WHERE id = #{groupOrderId} AND status = 'PENDING' AND current_number < target_number "
-            + "AND expire_time > NOW()")
+            + "AND expire_time > UTC_TIMESTAMP()")
     int incrementMemberCount(@Param("groupOrderId") Long groupOrderId);
 
     /**
@@ -34,7 +34,7 @@ public interface GroupOrderMapper extends BaseMapper<GroupOrder> {
      */
     @Update("UPDATE group_orders SET status = 'SUCCESS', success_time = #{successTime} "
             + "WHERE id = #{groupOrderId} AND status = 'PENDING' AND current_number >= target_number "
-            + "AND expire_time > NOW()")
+            + "AND expire_time > UTC_TIMESTAMP()")
     int markSuccess(@Param("groupOrderId") Long groupOrderId, @Param("successTime") LocalDateTime successTime);
 
     /** CAS PENDING → EXPIRED 过期（0 = 已终态；与成团竞争只允许一方生效） */

@@ -213,7 +213,9 @@ public class GroupActivityServiceImpl implements GroupActivityService {
             groupOrder.setCurrentNumber(0);
             groupOrder.setTargetNumber(activity.getTargetNumber());
             groupOrder.setStatus("PENDING");
-            groupOrder.setExpireTime(now.plus(GROUP_TTL));
+            // T20：expire_time 用 UTC 写入（下游 GroupOrderMapper 以 UTC_TIMESTAMP 比较，
+            // 服务器默认时区非 UTC 时拼团 TTL 不偏移）
+            groupOrder.setExpireTime(java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plus(GROUP_TTL));
             groupOrderMapper.insert(groupOrder);
             isLeader = true;
 
