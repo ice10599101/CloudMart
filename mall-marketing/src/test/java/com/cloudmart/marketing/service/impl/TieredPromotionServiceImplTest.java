@@ -2,11 +2,13 @@ package com.cloudmart.marketing.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.marketing.converter.MarketingConverter;
 import com.cloudmart.marketing.dto.*;
 import com.cloudmart.marketing.entity.TieredPromotion;
 import com.cloudmart.marketing.entity.TieredPromotionRule;
+import com.cloudmart.marketing.feign.ProductSkuFeignClient;
 import com.cloudmart.marketing.repository.TieredPromotionMapper;
 import com.cloudmart.marketing.repository.TieredPromotionRuleMapper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -44,6 +46,9 @@ class TieredPromotionServiceImplTest {
 
     @Mock
     private MarketingConverter converter;
+
+    @Mock
+    private com.cloudmart.marketing.feign.ProductSkuFeignClient productSkuFeignClient;
 
     @InjectMocks
     private TieredPromotionServiceImpl service;
@@ -436,6 +441,93 @@ class TieredPromotionServiceImplTest {
 
             assertThat(result.matched()).isTrue();
             assertThat(result.discountAmount()).isEqualByComparingTo("50");
+        }
+    }
+
+    @Nested
+    @DisplayName("T10 preview 试算")
+    class PreviewTests {
+
+        @Test
+        @DisplayName("DISABLED 活动：命中规则但明确告知用户侧不可用")
+        void preview_disabled_reportsBlockingReason() {
+            TieredPromotion promotion = buildPromotion(5L, "DISABLED");
+            when(promotionMapper.selectById(5L)).thenReturn(promotion);
+            when(ruleMapper.selectList(any())).thenReturn(List.of(
+                    buildRule(501L, 5L, new BigDecimal("100"), new BigDecimal("20")),
+                    buildRule(502L, 5L, new BigDecimal("200"), new BigDecimal("50"))));
+
+            TieredPreviewResult result = service.preview(5L,
+                    new TieredPreviewRequest(null, new BigDecimal("150"), null));
+
+            assertThat(result.matched()).isTrue();
+            assertThat(result.userVisible()).isFalse();
+            assertThat(result.discountAmount()).isEqualByComparingTo("20");
+            assertThat(result.reasons()).anyMatch(reason -> reason.contains("达到门槛"));
+            assertThat(result.blockingReasons()).anyMatch(reason -> reason.contains("DISABLED"));
+        }
+
+        @Test
+        @DisplayName("未达最低门槛：明确给出差额说明且不命中")
+        void preview_belowLowestThreshold_explainsNoMatch() {
+            TieredPromotion promotion = buildPromotion(5L, "ENABLED");
+            when(promotionMapper.selectById(5L)).thenReturn(promotion);
+            when(ruleMapper.selectList(any())).thenReturn(List.of(
+                    buildRule(501L, 5L, new BigDecimal("100"), new BigDecimal("20"))));
+
+            TieredPreviewResult result = service.preview(5L,
+                    new TieredPreviewRequest(null, new BigDecimal("60"), null));
+
+            assertThat(result.matched()).isFalse();
+            assertThat(result.discountAmount()).isEqualByComparingTo("0");
+            assertThat(result.reasons()).anyMatch(reason -> reason.contains("未达最低门槛"));
+        }
+
+        @Test
+        @DisplayName("SKU+数量：按商品权威价换算购物篮金额（合并同 SKU）")
+        void preview_itemsUseAuthorityPrice() {
+            TieredPromotion promotion = buildPromotion(5L, "ENABLED");
+            when(promotionMapper.selectById(5L)).thenReturn(promotion);
+            when(ruleMapper.selectList(any())).thenReturn(List.of(
+                    buildRule(501L, 5L, new BigDecimal("100"), new BigDecimal("20"))));
+            when(productSkuFeignClient.getSkusBatch(any())).thenReturn(ApiResponse.ok(List.of(
+                    new ProductSkuFeignClient.SkuBatchItem(10L, 1L, "商品", null,
+                            new BigDecimal("50.00"), 1))));
+
+            TieredPreviewResult result = service.preview(5L, new TieredPreviewRequest(
+                    List.of(new TieredPreviewRequest.PreviewItem(10L, 2),
+                            new TieredPreviewRequest.PreviewItem(10L, 1)),
+                    null, null));
+
+            assertThat(result.orderAmount()).isEqualByComparingTo("150.00");
+            assertThat(result.matched()).isTrue();
+        }
+
+        @Test
+        @DisplayName("SKU 不存在 → SKU_NOT_FOUND")
+        void preview_missingSku_rejected() {
+            TieredPromotion promotion = buildPromotion(5L, "ENABLED");
+            when(promotionMapper.selectById(5L)).thenReturn(promotion);
+            when(productSkuFeignClient.getSkusBatch(any())).thenReturn(ApiResponse.ok(List.of()));
+
+            assertThatThrownBy(() -> service.preview(5L, new TieredPreviewRequest(
+                    List.of(new TieredPreviewRequest.PreviewItem(10L, 1)), null, null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("SKU_NOT_FOUND");
+        }
+
+        @Test
+        @DisplayName("合并后数量超上限 → INVALID_QUANTITY（不请求商品服务）")
+        void preview_mergedQuantityOverLimit_rejected() {
+            TieredPromotion promotion = buildPromotion(5L, "ENABLED");
+            when(promotionMapper.selectById(5L)).thenReturn(promotion);
+
+            assertThatThrownBy(() -> service.preview(5L, new TieredPreviewRequest(
+                    List.of(new TieredPreviewRequest.PreviewItem(10L, 600),
+                            new TieredPreviewRequest.PreviewItem(10L, 600)), null, null)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("INVALID_QUANTITY");
+            verify(productSkuFeignClient, times(0)).getSkusBatch(any());
         }
     }
 }

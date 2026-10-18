@@ -6,6 +6,8 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.common.handler.GlobalExceptionHandler;
 import com.cloudmart.marketing.converter.MarketingConverter;
 import com.cloudmart.marketing.dto.CreateTieredPromotionRequest;
+import com.cloudmart.marketing.dto.TieredPreviewRequest;
+import com.cloudmart.marketing.dto.TieredPreviewResult;
 import com.cloudmart.marketing.dto.TieredPromotionDTO;
 import com.cloudmart.marketing.dto.TieredRuleDTO;
 import com.cloudmart.marketing.repository.TieredPromotionMapper;
@@ -44,6 +46,37 @@ class AdminTieredPromotionControllerTest {
         mockMvc = MockMvcBuilders.standaloneSetup(new AdminTieredPromotionController(tieredPromotionService, marketingConverter, tieredPromotionMapper))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+    }
+
+    @Test
+    @DisplayName("T10 试算：返回命中规则、优惠与原因")
+    void previewPromotion_ShouldReturnResult() throws Exception {
+        TieredPreviewResult result = new TieredPreviewResult(true, false, 1L, "满减活动", "DISABLED",
+                11L, new BigDecimal("100.00"), new BigDecimal("20.00"), new BigDecimal("150.00"),
+                List.of("购物篮 ¥150 达到门槛 ¥100，命中第 1 档，减 ¥20"),
+                List.of("活动状态为 DISABLED，用户侧不可用"),
+                LocalDateTime.now(), LocalDateTime.now());
+        given(tieredPromotionService.preview(Mockito.eq(1L), Mockito.any(TieredPreviewRequest.class)))
+                .willReturn(result);
+
+        mockMvc.perform(post("/admin/marketing/tiered/promotions/1/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"orderAmount\":150}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matched").value(true))
+                .andExpect(jsonPath("$.data.discountAmount").value(20.00))
+                .andExpect(jsonPath("$.data.userVisible").value(false))
+                .andExpect(jsonPath("$.data.reasons[0]").value("购物篮 ¥150 达到门槛 ¥100，命中第 1 档，减 ¥20"));
+    }
+
+    @Test
+    @DisplayName("T10 试算：数量非法 → 400 校验错误")
+    void previewPromotion_invalidQuantity_ShouldReturn400() throws Exception {
+        mockMvc.perform(post("/admin/marketing/tiered/promotions/1/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[{\"skuId\":10,\"quantity\":0}]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
     @Test

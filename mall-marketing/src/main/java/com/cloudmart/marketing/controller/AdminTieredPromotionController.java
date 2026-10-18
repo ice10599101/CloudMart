@@ -119,16 +119,15 @@ public class AdminTieredPromotionController {
     }
 
     /**
-     * R12：发布前预览指定购物篮在该活动下的命中结果——忽略活动状态/时间窗，
-     * DISABLED/未开始的活动同样可试算，辅助运营发布决策。
+     * T10：发布前试算——支持 SKU+数量（服务端取权威价）或购物篮金额，返回命中规则、
+     * 门槛、优惠、命中/不可用原因与配置版本。忽略活动状态/时间窗（草稿可试算），
+     * 纯只读：不预占券/库存、不写订单、不消耗活动额度。
      */
-    public record PreviewRequest(java.math.BigDecimal orderAmount) {}
-
-    @Operation(summary = "R12 发布前预览：按购物篮金额试算活动命中结果")
+    @Operation(summary = "T10 发布前试算：命中规则/门槛/优惠/原因")
     @PostMapping("/promotions/{id}/preview")
-    public ApiResponse<com.cloudmart.marketing.dto.CalculateDiscountResult> previewPromotion(
+    public ApiResponse<com.cloudmart.marketing.dto.TieredPreviewResult> previewPromotion(
             @Parameter(description = "活动ID") @PathVariable Long id,
-            @Valid @RequestBody PreviewRequest request) {
-        return ApiResponse.ok(tieredPromotionService.previewDiscount(id, request.orderAmount()));
+            @Valid @RequestBody com.cloudmart.marketing.dto.TieredPreviewRequest request) {
+        return ApiResponse.ok(tieredPromotionService.preview(id, request));
     }
 }

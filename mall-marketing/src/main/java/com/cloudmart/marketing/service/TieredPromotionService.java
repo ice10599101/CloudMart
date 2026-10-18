@@ -28,4 +28,10 @@ public interface TieredPromotionService {
      * 在该活动下的命中结果（DISABLED/未开始活动同样可预览）。
      */
     CalculateDiscountResult previewDiscount(Long promotionId, java.math.BigDecimal orderAmount);
+
+    /**
+     * T10：发布前试算（只读）——支持 SKU+数量（服务端取权威价）或直接金额，
+     * 返回命中规则、门槛、优惠、命中/不可用原因与配置版本；不写任何业务数据。
+     */
+    TieredPreviewResult preview(Long promotionId, TieredPreviewRequest request);
 }

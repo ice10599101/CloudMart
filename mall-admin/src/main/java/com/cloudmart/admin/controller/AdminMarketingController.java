@@ -151,6 +151,14 @@ public class AdminMarketingController {
         return marketingFeignClient.getTieredPromotion(id);
     }
 
+    @PostMapping("/marketing/tiered/promotions/{id}/preview")
+    @RequiresPermission("business:marketing:query")
+    @Operation(summary = "满减试算预览", description = "T10：发布前试算命中规则/门槛/优惠/原因；纯只读，不写订单、不预占券库存")
+    public ApiResponse<Object> previewTieredPromotion(@PathVariable Long id,
+                                                      @RequestBody Map<String, Object> body) {
+        return marketingFeignClient.previewTieredPromotion(id, body);
+    }
+
     @DeleteMapping("/marketing/tiered/promotions/{id}")
     @OperLog(title = "满减活动", businessType = 3)
     @RequiresPermission("business:marketing:remove")

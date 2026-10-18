@@ -363,11 +363,32 @@ export function disableTieredPromotion(id: number | string) {
   return request.put(`/admin/business/marketing/tiered/promotions/${id}/disable`)
 }
 
-/** R12：发布前按购物篮金额预览指定活动命中结果（忽略活动状态/时间窗） */
-export function previewTieredPromotion(id: number | string, orderAmount: number) {
-  return request.post<
-    ApiResponse<{ matchedRuleId: number | null; minAmount: number | null; discountAmount: number; matched: boolean }>
-  >(`/admin/business/marketing/tiered/promotions/${id}/preview`, { orderAmount })
+/** T10：满减试算结果（支持 SKU+数量或购物篮金额；纯只读，不产生业务副作用） */
+export interface TieredPreviewResult {
+  matched: boolean
+  userVisible: boolean
+  promotionId?: number | string
+  promotionName?: string
+  promotionStatus?: string
+  matchedRuleId?: number | string | null
+  minAmount?: number | null
+  discountAmount: number
+  orderAmount: number
+  reasons: string[]
+  blockingReasons: string[]
+  configUpdatedAt?: string | null
+  previewAt?: string | null
+}
+
+/** T10：按购物篮金额或 SKU 明细试算指定活动的命中结果（草稿/过期活动同样可试算） */
+export function previewTieredPromotion(
+  id: number | string,
+  payload: { orderAmount?: number; items?: Array<{ skuId: number | string; quantity: number }>; previewAt?: string },
+) {
+  return request.post<ApiResponse<TieredPreviewResult>>(
+    `/admin/business/marketing/tiered/promotions/${id}/preview`,
+    payload,
+  )
 }
 
 export function deleteTieredPromotion(id: number | string) {

@@ -63,8 +63,8 @@ public interface MarketingFeignClient {
     @DeleteMapping("/tiered/promotions/{id}")
     ApiResponse<Void> deleteTieredPromotion(@PathVariable("id") Long id);
 
-    // ===== BASE-02 断链修复：阶梯优惠预览 =====
-    @org.springframework.web.bind.annotation.PostMapping("/marketing/tiered/promotions/{id}/preview")
+    // ===== T10：阶梯优惠试算（类级 path=/admin/marketing，方法路径不得重复前缀）=====
+    @org.springframework.web.bind.annotation.PostMapping("/tiered/promotions/{id}/preview")
     ApiResponse<Object> previewTieredPromotion(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
                                                @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
 }

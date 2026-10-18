@@ -18,6 +18,7 @@ import {
   disableTieredPromotion,
   deleteTieredPromotion,
   previewTieredPromotion,
+  type TieredPreviewResult,
 } from '@/api/admin/business'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
@@ -54,7 +55,7 @@ export default function TieredPromotion() {
   // R12：发布前试算
   const [previewRecord, setPreviewRecord] = useState<TieredPromotionRecord | null>(null)
   const [previewAmount, setPreviewAmount] = useState<number | null>(100)
-  const [previewResult, setPreviewResult] = useState<{ matched: boolean; discountAmount?: number; minAmount?: number | null } | null>(null)
+  const [previewResult, setPreviewResult] = useState<TieredPreviewResult | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
 
@@ -65,7 +66,7 @@ export default function TieredPromotion() {
     }
     setPreviewLoading(true)
     try {
-      const res = await previewTieredPromotion(id, amount)
+      const res = await previewTieredPromotion(id, { orderAmount: amount })
       setPreviewResult(res.data.data)
     } catch {
       setPreviewResult(null)
@@ -323,12 +324,25 @@ export default function TieredPromotion() {
         {previewResult && (
           <Alert
             style={{ marginTop: 12 }}
-            type={previewResult.matched ? 'success' : 'warning'}
+            type={previewResult.matched ? (previewResult.userVisible ? 'success' : 'info') : 'warning'}
             showIcon
             message={
               previewResult.matched
                 ? `命中阶梯（满 ¥${previewResult.minAmount}），本单减 ¥${previewResult.discountAmount}`
                 : '该金额未达到任何阶梯门槛，无减免'
+            }
+            description={
+              <div style={{ fontSize: 12 }}>
+                {(previewResult.reasons ?? []).map((reason) => (
+                  <div key={reason}>{reason}</div>
+                ))}
+                {!previewResult.userVisible &&
+                  (previewResult.blockingReasons ?? []).map((reason) => (
+                    <div key={reason} style={{ color: 'var(--color-text-tertiary)' }}>
+                      用户侧暂不可用：{reason}
+                    </div>
+                  ))}
+              </div>
             }
           />
         )}

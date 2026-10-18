@@ -3,11 +3,13 @@ package com.cloudmart.marketing.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.marketing.converter.MarketingConverter;
 import com.cloudmart.marketing.dto.*;
 import com.cloudmart.marketing.entity.TieredPromotion;
 import com.cloudmart.marketing.entity.TieredPromotionRule;
+import com.cloudmart.marketing.feign.ProductSkuFeignClient;
 import com.cloudmart.marketing.repository.TieredPromotionMapper;
 import com.cloudmart.marketing.repository.TieredPromotionRuleMapper;
 import com.cloudmart.marketing.service.TieredPromotionService;
@@ -16,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,13 +29,17 @@ public class TieredPromotionServiceImpl implements TieredPromotionService {
     private final TieredPromotionMapper promotionMapper;
     private final TieredPromotionRuleMapper ruleMapper;
     private final MarketingConverter converter;
+    /** T10：试算取价（SKU+数量 → 购物篮金额），价格必须取商品权威值 */
+    private final ProductSkuFeignClient productSkuFeignClient;
 
     public TieredPromotionServiceImpl(TieredPromotionMapper promotionMapper,
                                       TieredPromotionRuleMapper ruleMapper,
-                                      MarketingConverter converter) {
+                                      MarketingConverter converter,
+                                      ProductSkuFeignClient productSkuFeignClient) {
         this.promotionMapper = promotionMapper;
         this.ruleMapper = ruleMapper;
         this.converter = converter;
+        this.productSkuFeignClient = productSkuFeignClient;
     }
 
     @Override
@@ -220,6 +228,127 @@ public class TieredPromotionServiceImpl implements TieredPromotionService {
                                         TieredPromotion promotion) {
         return current.matched() && current.promotionId().equals(promotion.getId())
                 && candidate.getDiscountAmount().compareTo(current.discountAmount()) <= 0;
+    }
+
+    @Override
+    public TieredPreviewResult preview(Long promotionId, TieredPreviewRequest request) {
+        if (request == null) {
+            throw new BusinessException("INVALID_ARGUMENT", "试算请求不能为空");
+        }
+        TieredPromotion promotion = promotionMapper.selectById(promotionId);
+        if (promotion == null) {
+            throw new BusinessException("PROMOTION_NOT_FOUND", "满减活动不存在");
+        }
+        BigDecimal orderAmount = resolvePreviewAmount(request);
+        LocalDateTime previewAt = request.previewAt() == null ? LocalDateTime.now() : request.previewAt();
+
+        List<TieredPromotionRule> rules = ruleMapper.selectList(
+                new LambdaQueryWrapper<TieredPromotionRule>()
+                        .eq(TieredPromotionRule::getPromotionId, promotionId)
+                        .orderByAsc(TieredPromotionRule::getMinAmount));
+
+        TieredPromotionRule best = null;
+        int matchedIndex = -1;
+        for (int i = 0; i < rules.size(); i++) {
+            if (rules.get(i).getMinAmount().compareTo(orderAmount) <= 0) {
+                best = rules.get(i);
+                matchedIndex = i;
+            }
+        }
+
+        List<String> reasons = new ArrayList<>();
+        if (best == null) {
+            reasons.add(rules.isEmpty()
+                    ? "该活动未配置阶梯规则，用户侧不会命中"
+                    : "购物篮 ¥" + plain(orderAmount) + " 未达最低门槛 ¥" + plain(rules.getFirst().getMinAmount()));
+        } else {
+            reasons.add("购物篮 ¥" + plain(orderAmount) + " 达到门槛 ¥" + plain(best.getMinAmount())
+                    + "，命中第 " + (matchedIndex + 1) + " 档，减 ¥" + plain(best.getDiscountAmount()));
+        }
+
+        List<String> blockingReasons = new ArrayList<>();
+        if (!"ENABLED".equals(promotion.getStatus())) {
+            blockingReasons.add("活动状态为 " + promotion.getStatus() + "，用户侧不可用");
+        }
+        if (promotion.getStartTime() != null && previewAt.isBefore(promotion.getStartTime())) {
+            blockingReasons.add("试算时点早于活动开始时间 " + promotion.getStartTime());
+        }
+        if (promotion.getEndTime() != null && previewAt.isAfter(promotion.getEndTime())) {
+            blockingReasons.add("试算时点晚于活动结束时间 " + promotion.getEndTime());
+        }
+
+        boolean matched = best != null;
+        return new TieredPreviewResult(
+                matched,
+                blockingReasons.isEmpty(),
+                promotion.getId(),
+                promotion.getName(),
+                promotion.getStatus(),
+                matched ? best.getId() : null,
+                matched ? best.getMinAmount() : null,
+                matched ? best.getDiscountAmount() : BigDecimal.ZERO,
+                orderAmount,
+                List.copyOf(reasons),
+                List.copyOf(blockingReasons),
+                promotion.getUpdatedAt(),
+                previewAt);
+    }
+
+    /** T10：购物篮金额解析——优先 SKU+数量（权威价），否则使用显式金额。 */
+    private BigDecimal resolvePreviewAmount(TieredPreviewRequest request) {
+        if (request.items() != null && !request.items().isEmpty()) {
+            if (request.items().size() > 100) {
+                throw new BusinessException("PREVIEW_TOO_MANY_ITEMS", "单次试算最多 100 行");
+            }
+            Map<Long, Integer> merged = new LinkedHashMap<>();
+            for (TieredPreviewRequest.PreviewItem item : request.items()) {
+                if (item == null || item.skuId() == null) {
+                    throw new BusinessException("SKU_NOT_FOUND", "SKU 不能为空");
+                }
+                merged.merge(item.skuId(), item.quantity(), Integer::sum);
+            }
+            for (Map.Entry<Long, Integer> entry : merged.entrySet()) {
+                if (entry.getValue() > 999) {
+                    throw new BusinessException("INVALID_QUANTITY",
+                            "SKU " + entry.getKey() + " 合并数量超过单行上限（999）");
+                }
+            }
+            ApiResponse<List<ProductSkuFeignClient.SkuBatchItem>> response =
+                    productSkuFeignClient.getSkusBatch(List.copyOf(merged.keySet()));
+            if (response == null || !response.success() || response.data() == null) {
+                throw new BusinessException("PREVIEW_PRODUCT_UNAVAILABLE", "商品服务暂不可用，无法试算");
+            }
+            Map<Long, ProductSkuFeignClient.SkuBatchItem> skuIndex = new LinkedHashMap<>();
+            for (ProductSkuFeignClient.SkuBatchItem sku : response.data()) {
+                if (sku != null && sku.skuId() != null) {
+                    skuIndex.put(sku.skuId(), sku);
+                }
+            }
+            BigDecimal total = BigDecimal.ZERO;
+            for (Map.Entry<Long, Integer> entry : merged.entrySet()) {
+                ProductSkuFeignClient.SkuBatchItem sku = skuIndex.get(entry.getKey());
+                if (sku == null) {
+                    throw new BusinessException("SKU_NOT_FOUND", "商品不存在: SKU " + entry.getKey());
+                }
+                if (!Integer.valueOf(1).equals(sku.status())) {
+                    throw new BusinessException("SKU_OFF_SALE", "商品已下架: SKU " + entry.getKey());
+                }
+                if (sku.price() == null || sku.price().compareTo(BigDecimal.ZERO) < 0) {
+                    throw new BusinessException("SKU_PRICE_INVALID", "商品价格异常: SKU " + entry.getKey());
+                }
+                total = total.add(sku.price().multiply(BigDecimal.valueOf(entry.getValue())));
+            }
+            return total;
+        }
+        BigDecimal amount = request.orderAmount();
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("INVALID_AMOUNT", "请提供商品明细或有效的购物篮金额");
+        }
+        return amount;
+    }
+
+    private String plain(BigDecimal value) {
+        return value == null ? "0" : value.stripTrailingZeros().toPlainString();
     }
 
     @Override
