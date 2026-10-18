@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Rate, InputNumber, Spin, Empty } from 'antd'
 import { message } from '@/utils/appMessage'
 import DOMPurify from 'dompurify'
-import { history, useParams } from 'umi'
+import { history, useParams, useSearchParams } from 'umi'
 import { getProductById, listCategories } from '@/api/product'
 import { recordBrowseHistory } from '@/api/community'
 import { getProductReviews, getReviewStats } from '@/api/review'
@@ -125,7 +125,12 @@ export default function ProductDetail() {
   const [reviews, setReviews] = useState<ReviewItem[]>([])
   const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'detail' | 'reviews' | 'qa'>('detail')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<'detail' | 'reviews' | 'qa'>(() => {
+    // T13：从“我的提问”回跳时定位到「问大家」页签
+    const tab = searchParams.get('tab')
+    return tab === 'qa' || tab === 'reviews' ? tab : 'detail'
+  })
   const [mainImage, setMainImage] = useState<string>('')
 
   const addItem = useCartStore((s) => s.addItem)

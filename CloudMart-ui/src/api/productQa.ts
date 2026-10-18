@@ -61,9 +61,9 @@ export function answerProductQuestion(
   )
 }
 
-/** 我的问答（本人提问，含回答进度） */
+/** 我的问答（本人提问，含回答进度；跨商品，T13 独立路由，返回数组+meta） */
 export function listMyProductQuestions(page = 1, size = 10) {
-  return request.get<ApiResponse<ProductQuestionPage>>('/product/products/questions/my', {
+  return request.get<ApiResponse<ProductQuestionItem[]>>('/product/products/questions/my', {
     params: { page, size },
   })
 }

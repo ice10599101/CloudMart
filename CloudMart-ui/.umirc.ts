@@ -59,6 +59,7 @@ export default defineConfig({
         { path: '/search', component: '@/pages/Search' },
         { path: '/cart', component: '@/pages/Cart' },
         { path: '/wishlist', component: '@/pages/Wishlist' },
+        { path: '/questions/mine', component: '@/pages/MyProductQuestions' },
         { path: '/checkout', component: '@/pages/Checkout' },
         { path: '/orders', component: '@/pages/OrderList' },
         // WEB-01：我的售后（列表 + 详情；订单详情申请入口与售后记录区共同指向）
