@@ -49,6 +49,8 @@ class InviteEligibilityTest {
     private UserRewardObligationService rewardObligationService;
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private InviteQuotaService inviteQuotaService;
 
     private InviteServiceImpl service;
     private UserInviteProperties properties;
@@ -75,7 +77,7 @@ class InviteEligibilityTest {
     void setUp() {
         properties = new UserInviteProperties();
         service = new InviteServiceImpl(inviteCodeMapper, inviteRelationMapper,
-                rewardObligationService, userMapper, properties);
+                rewardObligationService, userMapper, properties, inviteQuotaService);
     }
 
     @Test
@@ -109,7 +111,8 @@ class InviteEligibilityTest {
     void eligible_grantedOnce() {
         when(inviteRelationMapper.selectOne(any())).thenReturn(relation("PENDING_ELIGIBILITY"));
         when(userMapper.selectById(INVITEE)).thenReturn(user(72, 1));
-        when(inviteRelationMapper.selectList(any())).thenReturn(List.of()); // 无已发放
+        when(inviteQuotaService.reserve(anyLong(), anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(InviteQuotaService.ReserveOutcome.ok());
         when(inviteRelationMapper.updateById(any(UserInviteRelation.class))).thenReturn(1);
 
         Map<String, Object> result = service.eligibilityCheck(INVITEE, 2);
@@ -129,10 +132,8 @@ class InviteEligibilityTest {
     void quotaExceeded_rejected() {
         when(inviteRelationMapper.selectOne(any())).thenReturn(relation("PENDING_ELIGIBILITY"));
         when(userMapper.selectById(INVITEE)).thenReturn(user(72, 1));
-        UserInviteRelation used = relation("GRANTED");
-        used.setEligibleAt(LocalDateTime.now(java.time.ZoneOffset.UTC).minusMinutes(5));
-        when(inviteRelationMapper.selectList(any())).thenReturn(List.of(
-                used, used, used, used, used)); // 已发 5 个=每日上限
+        when(inviteQuotaService.reserve(anyLong(), anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(InviteQuotaService.ReserveOutcome.limitReached(5, 5, 5, 20));
 
         Map<String, Object> result = service.eligibilityCheck(INVITEE, 5);
 

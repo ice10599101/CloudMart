@@ -51,6 +51,7 @@ public class InviteServiceImpl implements InviteService {
     private final UserRewardObligationService rewardObligationService;
     private final UserMapper userMapper;
     private final UserInviteProperties inviteProperties;
+    private final InviteQuotaService inviteQuotaService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${invite.reward-inviter:" + INVITER_REWARD + "}")
@@ -169,25 +170,20 @@ public class InviteServiceImpl implements InviteService {
         relation.setRewardReason(null);
         inviteRelationMapper.updateById(relation);
 
-        final var grantedList = inviteRelationMapper.selectList(
-                new LambdaQueryWrapper<UserInviteRelation>()
-                        .eq(UserInviteRelation::getInviterId, relation.getInviterId())
-                        .eq(UserInviteRelation::getRewardStatus, "GRANTED"));
+        // T15：额度原子预占（行锁 + 唯一键），不再用“扫描已 GRANTED 数量”判额度（并发可越过日/月上限）。
+        // 业务日/月按 Asia/Shanghai 从 UTC 瞬间归期，修正“UTC LocalDateTime 直接当上海时区解释”导致的跨日边界错。
         final var shanghai = java.time.ZoneId.of("Asia/Shanghai");
-        long dailyGranted = grantedList.stream()
-                .filter(r -> r.getEligibleAt() != null
-                        && LocalDate.now(shanghai).equals(r.getEligibleAt().atZone(shanghai).toLocalDate()))
-                .count();
-        long monthlyGranted = grantedList.stream()
-                .filter(r -> r.getEligibleAt() != null
-                        && YearMonth.from(r.getEligibleAt().atZone(shanghai)).equals(YearMonth.now(shanghai)))
-                .count();
-        if (dailyGranted >= inviteProperties.getDailyLimit()
-                || monthlyGranted >= inviteProperties.getMonthlyLimit()) {
+        final java.time.LocalDate bizDate = com.cloudmart.common.time.UserBusinessCalendar.businessDate(
+                now.toInstant(java.time.ZoneOffset.UTC), shanghai);
+        final String dayPeriod = bizDate.toString();
+        final String monthPeriod = java.time.YearMonth.from(bizDate).toString();
+        final var outcome = inviteQuotaService.reserve(relation.getInviterId(), dayPeriod, monthPeriod,
+                inviteProperties.getDailyLimit(), inviteProperties.getMonthlyLimit());
+        if (!outcome.reserved()) {
             relation.setRewardStatus("REJECTED_LIMIT");
-            relation.setRewardReason("邀请人当日/当月额度已满（日 " + dailyGranted + "/"
-                    + inviteProperties.getDailyLimit() + "，月 " + monthlyGranted + "/"
-                    + inviteProperties.getMonthlyLimit() + "）");
+            relation.setRewardReason("邀请人当日/当月额度已满（日 " + outcome.dailyUsed() + "/"
+                    + outcome.dailyLimit() + "，月 " + outcome.monthlyUsed() + "/"
+                    + outcome.monthlyLimit() + "）");
             inviteRelationMapper.updateById(relation);
             return Map.of("result", "rejected", "reason", "QUOTA_EXCEEDED");
         }
@@ -203,9 +199,8 @@ public class InviteServiceImpl implements InviteService {
                 UserRewardObligation.TYPE_STARLIGHT, rewardInvitee, "受邀奖励（资格达标）");
         relation.setRewardStatus("GRANTED");
         inviteRelationMapper.updateById(relation);
-        log.info("[WISH04] 邀请奖励发放: relationId={}, inviter={}, invitee={}, daily={}/{}",
-                relation.getId(), relation.getInviterId(), inviteeId, dailyGranted,
-                inviteProperties.getDailyLimit());
+        log.info("[WISH04] 邀请奖励发放: relationId={}, inviter={}, invitee={}, dayPeriod={}, monthPeriod={}",
+                relation.getId(), relation.getInviterId(), inviteeId, dayPeriod, monthPeriod);
         return Map.of("result", "granted", "relationId", relation.getId());
     }
 
