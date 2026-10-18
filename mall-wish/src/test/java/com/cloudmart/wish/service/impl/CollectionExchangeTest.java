@@ -252,6 +252,22 @@ class CollectionExchangeTest {
     // ---------------- WISH-03 品牌池风险缓解 ----------------
 
     @Test
+    @DisplayName("T11：brandId 与池归属不一致 → 404（改 URL 不能加入其他品牌池）")
+    void joinPoolBrandMismatch_returnsNotFound() {
+        brandPoolProperties.setEnabled(true);
+        com.cloudmart.wish.entity.BrandPool pool = new com.cloudmart.wish.entity.BrandPool();
+        pool.setId(1L);
+        pool.setBrandId(7L);
+        pool.setStatus("ACTIVE");
+        when(poolMapper.selectById(1L)).thenReturn(pool);
+
+        assertThatThrownBy(() -> collectionService.joinPool(USER, 8L, 1L))
+                .isInstanceOfSatisfying(BusinessException.class, e ->
+                        assertThat(e.getCode()).isEqualTo(WishErrorCodes.WISH_NOT_FOUND));
+        verify(poolMemberMapper, never()).insert(any(com.cloudmart.wish.entity.BrandPoolMember.class));
+    }
+
+    @Test
     @DisplayName("WISH-03：开关关闭（默认）时参加品牌池 → 503 WISH_BRAND_POOL_MAINTENANCE，零成员/计数事实")
     void joinPoolDisabled_returnsMaintenance() {
         // 默认 properties.enabled=false（生产配置默认关闭，修复完成前不开放）

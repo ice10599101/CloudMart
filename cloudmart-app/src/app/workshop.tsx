@@ -112,19 +112,19 @@ export default function WorkshopScreen() {
 
   const loadPools = async (brand: BrandItem) => {
     try {
-      const res = await wishApi.listBrandPools(brand.brandId)
-      setPoolsByBrand((prev) => ({ ...prev, [brand.brandId]: res.data.data ?? [] }))
+      const res = await wishApi.listBrandPools(brand.id)
+      setPoolsByBrand((prev) => ({ ...prev, [brand.id]: res.data.data ?? [] }))
     } catch (error) {
       toastError(error, '加载许愿池失败')
     }
   }
 
   const handleJoinPool = async (brand: BrandItem, pool: BrandPoolItem) => {
-    const key = `${brand.brandId}:${pool.poolId}`
+    const key = `${brand.id}:${pool.id}`
     setJoiningPool(key)
     try {
-      await wishApi.joinBrandPool(brand.brandId, pool.poolId)
-      Alert.alert('虚拟工坊', `已加入「${pool.poolName}」，达成后可获品牌奖励`)
+      await wishApi.joinBrandPool(brand.id, pool.id)
+      Alert.alert('虚拟工坊', `已加入「${pool.name}」，达成后可获品牌奖励`)
       loadPools(brand)
     } catch (error) {
       toastError(error, '加入失败，请稍后重试')
@@ -316,10 +316,10 @@ export default function WorkshopScreen() {
           <Text style={{ textAlign: 'center', marginTop: Spacing.xl, color: WishColors.textTertiary }}>暂无合作品牌</Text>
         ) : (
           brands.map((brand) => {
-            const pools = poolsByBrand[brand.brandId]
+            const pools = poolsByBrand[brand.id]
             return (
               <View
-                key={brand.brandId}
+                key={brand.id}
                 style={{
                   backgroundColor: WishColors.bgElevated,
                   borderRadius: BorderRadius.xl,
@@ -327,7 +327,7 @@ export default function WorkshopScreen() {
                   marginBottom: Spacing.md,
                 }}
               >
-                <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.text }}>👑 {brand.brandName}</Text>
+                <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: WishColors.text }}>👑 {brand.name}</Text>
                 <Text style={{ fontSize: FontSize.sm, color: WishColors.textTertiary, marginVertical: Spacing.xs }}>
                   {brand.description ?? '—'}
                 </Text>
@@ -341,11 +341,11 @@ export default function WorkshopScreen() {
                       pool.targetCount > 0 ? Math.min(Math.round((pool.currentCount / pool.targetCount) * 100), 100) : 0
                     return (
                       <View
-                        key={pool.poolId}
+                        key={pool.id}
                         style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)', paddingTop: Spacing.sm, marginTop: Spacing.sm }}
                       >
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: WishColors.text }}>{pool.poolName}</Text>
+                          <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: WishColors.text }}>{pool.name}</Text>
                           <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary }}>{pool.status}</Text>
                         </View>
                         <View style={{ height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
@@ -357,7 +357,7 @@ export default function WorkshopScreen() {
                           </Text>
                           <TouchableOpacity
                             activeOpacity={0.8}
-                            disabled={joiningPool === `${brand.brandId}:${pool.poolId}`}
+                            disabled={joiningPool === `${brand.id}:${pool.id}`}
                             onPress={() => handleJoinPool(brand, pool)}
                             style={{
                               paddingHorizontal: Spacing.lg,
@@ -367,7 +367,7 @@ export default function WorkshopScreen() {
                             }}
                           >
                             <Text style={{ fontSize: FontSize.xs, fontWeight: '600', color: WishColors.accentGold }}>
-                              {joiningPool === `${brand.brandId}:${pool.poolId}` ? '加入中...' : '加入'}
+                              {joiningPool === `${brand.id}:${pool.id}` ? '加入中...' : '加入'}
                             </Text>
                           </TouchableOpacity>
                         </View>

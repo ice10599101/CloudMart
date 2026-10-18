@@ -323,25 +323,36 @@ public interface WishFeignClient {
 
     // ===== WISH-03：品牌许愿池运营（发布/结算重试/奖励记录/审计） =====
 
-    @org.springframework.web.bind.annotation.PostMapping("/wish/brand/{brandId}/pools/{poolId}/publish")
+    @org.springframework.web.bind.annotation.PostMapping("/brand/{brandId}/pools/{poolId}/publish")
     ApiResponse<Object> publishBrandPool(@org.springframework.web.bind.annotation.PathVariable("brandId") Long brandId,
                                           @org.springframework.web.bind.annotation.PathVariable("poolId") Long poolId);
 
-    @org.springframework.web.bind.annotation.PostMapping("/wish/brand/{brandId}/pools/{poolId}/settlement-retry")
+    @org.springframework.web.bind.annotation.PostMapping("/brand/{brandId}/pools/{poolId}/settlement-retry")
     ApiResponse<Object> retryBrandPoolSettlement(@org.springframework.web.bind.annotation.PathVariable("brandId") Long brandId,
                                                   @org.springframework.web.bind.annotation.PathVariable("poolId") Long poolId);
 
-    @org.springframework.web.bind.annotation.GetMapping("/wish/brand/{brandId}/pools/{poolId}/rewards")
+    @org.springframework.web.bind.annotation.GetMapping("/brand/{brandId}/pools/{poolId}/rewards")
     ApiResponse<Object> listBrandPoolRewards(@org.springframework.web.bind.annotation.PathVariable("brandId") Long brandId,
                                              @org.springframework.web.bind.annotation.PathVariable("poolId") Long poolId);
 
-    @org.springframework.web.bind.annotation.GetMapping("/wish/brand/{brandId}/audit-logs")
+    @org.springframework.web.bind.annotation.GetMapping("/brand/{brandId}/audit-logs")
     ApiResponse<Object> listBrandAuditLogs(@org.springframework.web.bind.annotation.PathVariable("brandId") Long brandId);
 
     /** T23：创建品牌奖池（预算/奖项库存/规则版本由 wish 服务端校验） */
     @PostMapping("/brand/{brandId}/pools")
     ApiResponse<Object> createBrandPool(@PathVariable("brandId") Long brandId,
                                         @RequestBody Map<String, Object> body);
+
+    /** T11：更新品牌池（name/targetCount/rewardJson/endAt，null 不变；发布后规则冻结） */
+    @PutMapping("/brand/{brandId}/pools/{poolId}")
+    ApiResponse<Object> updateBrandPool(@PathVariable("brandId") Long brandId,
+                                        @PathVariable("poolId") Long poolId,
+                                        @RequestBody Map<String, Object> body);
+
+    /** T11：结束品牌池（ACTIVE→ENDED，不再接受加入） */
+    @PostMapping("/brand/{brandId}/pools/{poolId}/end")
+    ApiResponse<Object> endBrandPool(@PathVariable("brandId") Long brandId,
+                                     @PathVariable("poolId") Long poolId);
 
     // ---- 擦肩而过风控（Sprint 3.3 管理后台，代理 /admin/encounter）----
 

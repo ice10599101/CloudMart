@@ -109,20 +109,20 @@ export default function WorkshopPage() {
 
   const loadPools = (brand: BrandItem) => {
     wishApi
-      .listBrandPools(brand.brandId)
+      .listBrandPools(brand.id)
       .then((res) => {
-        setPoolsByBrand((prev) => ({ ...prev, [brand.brandId]: res.data.data ?? [] }))
+        setPoolsByBrand((prev) => ({ ...prev, [brand.id]: res.data.data ?? [] }))
       })
       .catch((err) => toastError(err, '加载许愿池失败'))
   }
 
   const handleJoinPool = (brand: BrandItem, pool: BrandPoolItem) => {
-    const key = `${brand.brandId}:${pool.poolId}`
+    const key = `${brand.id}:${pool.id}`
     setJoiningPool(key)
     wishApi
-      .joinBrandPool(brand.brandId, pool.poolId)
+      .joinBrandPool(brand.id, pool.id)
       .then(() => {
-        Taro.showToast({ title: `已加入「${pool.poolName}」`, icon: 'none' })
+        Taro.showToast({ title: `已加入「${pool.name}」`, icon: 'none' })
         loadPools(brand)
       })
       .catch((err) => toastError(err, '加入失败，请稍后重试'))
@@ -240,11 +240,11 @@ export default function WorkshopPage() {
           </View>
         ) : (
           brands.map((brand) => {
-            const pools = poolsByBrand[brand.brandId]
+            const pools = poolsByBrand[brand.id]
             return (
-              <View key={brand.brandId} className={styles.card}>
+              <View key={brand.id} className={styles.card}>
                 <Text className={styles.brandTitle}>
-                  👑 {brand.brandName}
+                  👑 {brand.name}
                 </Text>
                 <Text className={styles.brandDesc}>{brand.description ?? '—'}</Text>
                 {!pools ? (
@@ -256,9 +256,9 @@ export default function WorkshopPage() {
                     const percent =
                       pool.targetCount > 0 ? Math.min(Math.round((pool.currentCount / pool.targetCount) * 100), 100) : 0
                     return (
-                      <View key={pool.poolId} className={styles.poolBlock}>
+                      <View key={pool.id} className={styles.poolBlock}>
                         <View className={styles.poolHeader}>
-                          <Text className={styles.poolName}>{pool.poolName}</Text>
+                          <Text className={styles.poolName}>{pool.name}</Text>
                           <Text className={styles.poolStatus}>{pool.status}</Text>
                         </View>
                         <View className={styles.progressTrack}>
@@ -272,12 +272,12 @@ export default function WorkshopPage() {
                           <View
                             className={styles.joinBtn}
                             onClick={() => {
-                              if (joiningPool === `${brand.brandId}:${pool.poolId}`) return
+                              if (joiningPool === `${brand.id}:${pool.id}`) return
                               handleJoinPool(brand, pool)
                             }}
                           >
                             <Text>
-                              {joiningPool === `${brand.brandId}:${pool.poolId}` ? '加入中...' : '加入'}
+                              {joiningPool === `${brand.id}:${pool.id}` ? '加入中...' : '加入'}
                             </Text>
                           </View>
                         </View>

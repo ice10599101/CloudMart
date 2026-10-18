@@ -810,6 +810,16 @@ public class CollectionServiceImpl implements CollectionService {
     }
 
     @Override
+    public void joinPool(Long userId, Long brandId, Long poolId) {
+        // T11：品牌/池关联校验——改了 URL 里的 brandId 不能访问其他品牌的池
+        BrandPool pool = poolMapper.selectById(poolId);
+        if (pool == null || brandId == null || !brandId.equals(pool.getBrandId())) {
+            throw new BusinessException(WishErrorCodes.WISH_NOT_FOUND, "许愿池不存在");
+        }
+        joinPool(userId, poolId);
+    }
+
+    @Override
     @Transactional
     public void joinPool(Long userId, Long poolId) {
         // WISH-03 风险缓解：参加入口关闭时返回明确维护态（503），不产生成员/计数事实

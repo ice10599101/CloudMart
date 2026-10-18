@@ -121,7 +121,7 @@ public class CollectionController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "品牌 ID", required = true) @PathVariable Long brandId,
             @Parameter(description = "许愿池 ID", required = true) @PathVariable Long poolId) {
-        collectionService.joinPool(userId, poolId);
+        collectionService.joinPool(userId, brandId, poolId);
         return ApiResponse.ok(null);
     }
 

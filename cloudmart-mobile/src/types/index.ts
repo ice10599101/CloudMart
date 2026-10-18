@@ -1149,17 +1149,19 @@ export interface CollectionAssetGroup {
 }
 
 export interface BrandItem {
-  brandId: number
-  brandName: string
+  /** T11：服务端契约 id/name（禁止使用 brandId/brandName，undefined 会进入请求 URL） */
+  id: number
+  name: string
   logo: string | null
   description: string | null
   status: string
 }
 
 export interface BrandPoolItem {
-  poolId: number
+  /** T11：服务端契约 id/name + 所属 brandId */
+  id: number
   brandId: number
-  poolName: string
+  name: string
   targetCount: number
   currentCount: number
   rewardDescription: string | null

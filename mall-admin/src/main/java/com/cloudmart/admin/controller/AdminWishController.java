@@ -758,6 +758,23 @@ public class AdminWishController {
 
     // ===== WISH-03：品牌许愿池运营 =====
 
+    @PutMapping("/wish/brand/{brandId}/pools/{poolId}")
+    @OperLog(title = "品牌奖池", businessType = 2)
+    @RequiresPermission("business:wishBrand:audit")
+    @Operation(summary = "WISH-03：更新品牌许愿池", description = "name/targetCount/rewardJson/endAt 可变；发布后规则冻结，修改走新版本/新池")
+    public ApiResponse<Object> updateBrandPool(@PathVariable Long brandId, @PathVariable Long poolId,
+                                               @RequestBody Map<String, Object> body) {
+        return wishFeignClient.updateBrandPool(brandId, poolId, body);
+    }
+
+    @PostMapping("/wish/brand/{brandId}/pools/{poolId}/end")
+    @OperLog(title = "品牌奖池", businessType = 2)
+    @RequiresPermission("business:wishBrand:audit")
+    @Operation(summary = "WISH-03：结束品牌许愿池", description = "ACTIVE→ENDED，不再接受加入；结果由服务端结算事实决定")
+    public ApiResponse<Object> endBrandPool(@PathVariable Long brandId, @PathVariable Long poolId) {
+        return wishFeignClient.endBrandPool(brandId, poolId);
+    }
+
     @PostMapping("/wish/brand/{brandId}/pools/{poolId}/publish")
     @OperLog(title = "品牌奖池", businessType = 2)
     @RequiresPermission("business:wishBrand:audit")

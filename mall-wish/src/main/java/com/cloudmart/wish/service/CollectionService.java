@@ -103,6 +103,11 @@ public interface CollectionService {
 
     void joinPool(Long userId, Long poolId);
 
+    /**
+     * T11：按 path.brandId 加入——池必须属于该品牌，错误关联按 404 处理（不泄露其他品牌池）。
+     */
+    void joinPool(Long userId, Long brandId, Long poolId);
+
     /** 许愿池详情（含当前进度） */
     BrandPool getPoolDetail(Long poolId);
 

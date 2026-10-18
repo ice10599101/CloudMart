@@ -411,6 +411,16 @@ public class WishFeignClientFallbackFactory implements FallbackFactory<WishFeign
             }
 
             @Override
+            public ApiResponse<Object> updateBrandPool(Long brandId, Long poolId, Map<String, Object> body) {
+                throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
+            public ApiResponse<Object> endBrandPool(Long brandId, Long poolId) {
+                throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
+            }
+
+            @Override
             public ApiResponse<Object> listSuspicious(Long userId) {
                 throw FeignBusinessErrors.parse(cause, "WISH_SERVICE_UNAVAILABLE", "心愿服务不可用，请稍后重试");
             }
