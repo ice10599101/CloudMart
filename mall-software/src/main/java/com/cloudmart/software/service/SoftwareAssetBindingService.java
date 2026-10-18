@@ -18,9 +18,21 @@ public interface SoftwareAssetBindingService {
     void bindRevisionAssets(Long revisionId, Long ownerUserId, List<Long> assetIds);
 
     /**
-     * 登记解绑补偿任务（本地事务回滚后调用；task_id 幂等）。
+     * SW08：登记"按操作归属"的解绑意图（先于本地事务持久化，崩溃可恢复）。
+     *
+     * @param operationId 保存/局部保存操作标识（每次尝试唯一）
+     * @param kind        rollback=本地回滚后解绑本次新增；release=提交后释放被移除旧资产。
+     *                    执行器解绑前会重新核对当前引用集合，过期意图自然跳过。
      */
-    void registerUnbindCompensation(Long revisionId, List<Long> assetIds);
+    void registerUnbindCompensation(String operationId, Long revisionId,
+                                    List<Long> assetIds, String kind);
+
+    /**
+     * SW08：撤销仍为 PENDING 的解绑意图（加入调用方事务一起提交；
+     * 保存成功后撤销 rollback 意图，避免无谓解绑）。
+     */
+    void cancelUnbindCompensation(String operationId, Long revisionId,
+                                  List<Long> assetIds, String kind);
 
     /**
      * 登记重绑补偿任务（克隆/保存后绑定失败自愈；task_id 幂等）。

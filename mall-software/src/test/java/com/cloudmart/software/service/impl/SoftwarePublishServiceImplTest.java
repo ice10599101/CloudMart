@@ -57,6 +57,8 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import java.util.List;
+
 import static org.mockito.Mockito.when;
 
 /**
@@ -116,6 +118,8 @@ class SoftwarePublishServiceImplTest {
     @Mock
     private SoftwareRateLimiter rateLimiter;
     @Mock
+    private com.cloudmart.software.service.SoftwareAssetBindingService assetBindingService;
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private SoftwarePublishServiceImpl service;
@@ -159,7 +163,7 @@ class SoftwarePublishServiceImplTest {
                         com.cloudmart.software.repository.SoftwareAccessContactMapper.class),
                 lockMapper,
                 publisherPolicy, assembler, operationService, auditService,
-                org.mockito.Mockito.mock(com.cloudmart.software.service.SoftwareAssetBindingService.class),
+                assetBindingService,
                 outboxService,
                 communitySupportFeignClient, userSupportFeignClient, softwareProperties,
                 rateLimiter,
@@ -453,5 +457,105 @@ class SoftwarePublishServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "SOFTWARE_STATE_CONFLICT");
         verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
+    }
+
+    // ------------------------------------------------------------------
+    // SW08：素材绑定补偿按操作归属
+    // ------------------------------------------------------------------
+
+    private com.cloudmart.software.entity.SoftwareRevision sw08Draft(Long icon) {
+        com.cloudmart.software.entity.SoftwareRevision revision =
+                new com.cloudmart.software.entity.SoftwareRevision();
+        revision.setId(REVISION_ID);
+        revision.setSoftwareId(SOFTWARE_ID);
+        revision.setReviewStatus(SoftwareReviewStatus.DRAFT);
+        revision.setIconAssetId(icon);
+        return revision;
+    }
+
+    private com.cloudmart.software.entity.SoftwareRevisionMedia sw08Media(long assetId) {
+        com.cloudmart.software.entity.SoftwareRevisionMedia media =
+                new com.cloudmart.software.entity.SoftwareRevisionMedia();
+        media.setRevisionId(REVISION_ID);
+        media.setAssetId(assetId);
+        return media;
+    }
+
+    private com.cloudmart.software.dto.software.SoftwareSnapshotInput sw08Input(long icon, Long... screenshots) {
+        com.cloudmart.software.dto.software.SoftwareSnapshotInput input =
+                new com.cloudmart.software.dto.software.SoftwareSnapshotInput();
+        input.setIconAssetId(icon);
+        input.setScreenshots(java.util.Arrays.stream(screenshots).map(a -> {
+            com.cloudmart.software.dto.software.SoftwareSnapshotInput.MediaInput media =
+                    new com.cloudmart.software.dto.software.SoftwareSnapshotInput.MediaInput();
+            media.setAssetId(a);
+            return media;
+        }).toList());
+        return input;
+    }
+
+    @Test
+    @DisplayName("SW08：本地保存失败只对本次新增资产排回滚解绑，原有图标/截图不被误拆")
+    void save_rollbackUnbindsOnlyAddedAssets() {
+        Software software = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(sw08Draft(1L));
+        when(revisionMediaMapper.selectList(any()))
+                .thenReturn(List.of(sw08Media(2L), sw08Media(3L)));
+        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(sw08Draft(1L));
+        org.mockito.Mockito.doThrow(new IllegalStateException("db down"))
+                .when(assembler).applyInput(any(), any());
+
+        assertThatThrownBy(() -> service.saveDraft(USER_ID, SOFTWARE_ID, REVISION_ID,
+                sw08Input(1L, 3L, 9L)))
+                .isInstanceOf(IllegalStateException.class);
+
+        org.mockito.ArgumentCaptor<String> opId =
+                org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.ArgumentCaptor<List<Long>> assets =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        org.mockito.ArgumentCaptor<String> kind =
+                org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(assetBindingService, org.mockito.Mockito.times(1)).registerUnbindCompensation(
+                opId.capture(), eq(REVISION_ID), assets.capture(), kind.capture());
+        assertThat(kind.getValue()).isEqualTo("rollback");
+        assertThat(assets.getValue()).containsExactly(9L);
+        verify(assetBindingService, never()).cancelUnbindCompensation(
+                any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("SW08：保存成功撤销回滚意图，并按提交后的引用差量释放被移除旧资产")
+    void save_successCancelsRollbackAndReleasesRemoved() {
+        Software software = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
+        when(revisionMapper.selectById(REVISION_ID))
+                .thenReturn(sw08Draft(1L), sw08Draft(1L));
+        when(revisionMediaMapper.selectList(any()))
+                .thenReturn(List.of(sw08Media(2L), sw08Media(3L)))
+                .thenReturn(List.of(sw08Media(3L), sw08Media(9L)));
+        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(sw08Draft(1L));
+
+        service.saveDraft(USER_ID, SOFTWARE_ID, REVISION_ID, sw08Input(1L, 3L, 9L));
+
+        org.mockito.ArgumentCaptor<String> opId =
+                org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.ArgumentCaptor<List<Long>> rollbackAssets =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(assetBindingService).registerUnbindCompensation(
+                opId.capture(), eq(REVISION_ID), rollbackAssets.capture(), eq("rollback"));
+        assertThat(rollbackAssets.getValue()).containsExactly(9L);
+
+        verify(assetBindingService).cancelUnbindCompensation(
+                eq(opId.getValue()), eq(REVISION_ID), eq(List.of(9L)), eq("rollback"));
+
+        org.mockito.ArgumentCaptor<String> releaseOp =
+                org.mockito.ArgumentCaptor.forClass(String.class);
+        org.mockito.ArgumentCaptor<List<Long>> releaseAssets =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(assetBindingService).registerUnbindCompensation(
+                releaseOp.capture(), eq(REVISION_ID), releaseAssets.capture(), eq("release"));
+        assertThat(releaseOp.getValue()).isEqualTo(opId.getValue());
+        assertThat(releaseAssets.getValue()).containsExactly(2L);
     }
 }

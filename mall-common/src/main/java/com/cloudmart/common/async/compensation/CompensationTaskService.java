@@ -66,6 +66,17 @@ public class CompensationTaskService {
     }
 
     /**
+     * SW08：取消仍为 PENDING 的意图任务。不标注事务——加入调用方当前事务一起提交
+     * （保存成功与撤销回滚解绑意图原子生效）；无事务时由调用方保证。
+     */
+    public int cancelIfPending(java.util.Collection<String> taskIds) {
+        if (taskIds == null || taskIds.isEmpty()) {
+            return 0;
+        }
+        return mapper.cancelIfPending(taskIds);
+    }
+
+    /**
      * ASYNC-01：补偿执行轮询——可配置 fixedDelay（默认 5 秒）。
      * 此前方法无 @Scheduled 且无生产调用入口，补偿任务永远不被执行。
      */

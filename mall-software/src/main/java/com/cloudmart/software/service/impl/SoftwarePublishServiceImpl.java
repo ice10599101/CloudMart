@@ -49,7 +49,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -352,22 +351,18 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         Software software = ownedSoftware(userId, softwareId);
         SoftwareRevision precheck = revisionOfSoftware(software, revisionId);
         requireEditableStatus(precheck);
+        // SW08：解绑意图先于本地事务持久化（进程在远程绑定后、本地事务前崩溃也可恢复），
+        // 且只覆盖"本次新增"的资产——草稿原本使用的图标/截图不受回滚影响
+        String operationId = newOperationId(revisionId);
+        List<Long> before = collectSnapshotAssets(precheck);
+        List<Long> after = collectInputAssets(input);
+        List<Long> added = after.stream().filter(a -> !before.contains(a)).distinct().toList();
+        assetBindingService.registerUnbindCompensation(operationId, revisionId, added, "rollback");
         // 8.2：绑定在软件库事务外幂等执行（含 icon）；失败保留草稿重试（A21），
         // 绝不在绑定未成功时写 media 行
-        List<Long> assets = collectInputAssets(input);
-        assetBindingService.bindRevisionAssets(revisionId, userId, assets);
+        assetBindingService.bindRevisionAssets(revisionId, userId, after);
 
-        SoftwareEditorVO editor = transactionTemplate.execute(status -> {
-            TransactionSynchronizationManager.registerSynchronization(
-                    new org.springframework.transaction.support.TransactionSynchronization() {
-                        @Override
-                        public void afterCompletion(int code) {
-                            if (code == org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK) {
-                                // 本地回滚：预绑定引用经补偿任务幂等解绑（8.2.4）
-                                assetBindingService.registerUnbindCompensation(revisionId, assets);
-                            }
-                        }
-                    });
+        transactionTemplate.execute(status -> {
             SoftwareRevision revision = lockMapper.lockRevision(revisionId);
             if (revision == null || !softwareId.equals(revision.getSoftwareId())) {
                 throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
@@ -378,8 +373,12 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             auditService.record(softwareId, revisionId, userId, "USER",
                     "SAVE_DRAFT", revision.getReviewStatus().name(), revision.getReviewStatus().name(),
                     "保存草稿", null);
+            // 成功路径：撤销回滚解绑意图（与本事务同提交）；释放意图由扫描器在提交后核对执行
+            assetBindingService.cancelUnbindCompensation(operationId, revisionId, added, "rollback");
             return null;
         });
+        // SW08：提交后差量释放被移除的旧资产（按提交后的最新引用集合计算，执行器再核对一次）
+        releaseRemovedAssets(operationId, revisionId, before);
         return buildEditor(software, revisionId);
     }
 
@@ -393,21 +392,19 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         Software software = ownedSoftware(userId, softwareId);
         SoftwareRevision precheck = revisionOfSoftware(software, revisionId);
         requireEditableStatus(precheck);
-        List<Long> assets = collectPatchAssets(patch);
-        if (!assets.isEmpty()) {
-            assetBindingService.bindRevisionAssets(revisionId, userId, assets);
+        // SW08：与全量保存同策略——意图先持久化、只覆盖本次新增、提交后差量释放
+        String operationId = newOperationId(revisionId);
+        List<Long> before = collectSnapshotAssets(precheck);
+        List<Long> patchAssets = collectPatchAssets(patch);
+        List<Long> added = patchAssets.stream().filter(a -> !before.contains(a)).distinct().toList();
+        if (!added.isEmpty()) {
+            assetBindingService.registerUnbindCompensation(operationId, revisionId, added, "rollback");
+        }
+        if (!patchAssets.isEmpty()) {
+            assetBindingService.bindRevisionAssets(revisionId, userId, patchAssets);
         }
 
         transactionTemplate.execute(status -> {
-            TransactionSynchronizationManager.registerSynchronization(
-                    new org.springframework.transaction.support.TransactionSynchronization() {
-                        @Override
-                        public void afterCompletion(int code) {
-                            if (code == org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK) {
-                                assetBindingService.registerUnbindCompensation(revisionId, assets);
-                            }
-                        }
-                    });
             SoftwareRevision revision = lockMapper.lockRevision(revisionId);
             if (revision == null || !softwareId.equals(revision.getSoftwareId())) {
                 throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
@@ -418,8 +415,12 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             auditService.record(softwareId, revisionId, userId, "USER",
                     "SAVE_DRAFT", revision.getReviewStatus().name(), revision.getReviewStatus().name(),
                     "局部保存草稿", null);
+            if (!added.isEmpty()) {
+                assetBindingService.cancelUnbindCompensation(operationId, revisionId, added, "rollback");
+            }
             return null;
         });
+        releaseRemovedAssets(operationId, revisionId, before);
         return buildEditor(software, revisionId);
     }
 
@@ -438,6 +439,21 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             }
         }
         return assetIds.stream().filter(Objects::nonNull).distinct().toList();
+    }
+
+    /** SW08：保存操作标识——每次尝试唯一，解绑意图按操作归属，互不覆盖 */
+    private String newOperationId(Long revisionId) {
+        return "SAVE-" + revisionId + "-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+    }
+
+    /**
+     * SW08：提交后差量释放——按提交后的最新引用集合计算被移除资产并登记解绑意图；
+     * 执行器解绑前会再次核对当前引用，旧操作意图不会撤销后续成功保存的绑定。
+     */
+    private void releaseRemovedAssets(String operationId, Long revisionId, List<Long> before) {
+        List<Long> current = collectSnapshotAssets(revisionMapper.selectById(revisionId));
+        List<Long> removed = before.stream().filter(a -> !current.contains(a)).distinct().toList();
+        assetBindingService.registerUnbindCompensation(operationId, revisionId, removed, "release");
     }
 
     /** 快照当前绑定资产清单：icon + 截图/正文媒体（submit 自愈重绑用） */

@@ -51,17 +51,33 @@ public class SoftwareAssetBindingServiceImpl implements SoftwareAssetBindingServ
     }
 
     @Override
-    public void registerUnbindCompensation(Long revisionId, List<Long> assetIds) {
+    public void registerUnbindCompensation(String operationId, Long revisionId,
+                                           List<Long> assetIds, String kind) {
         if (assetIds == null || assetIds.isEmpty()) {
             return;
         }
         for (Long assetId : assetIds.stream().distinct().toList()) {
+            // SW08：补偿键含操作归属（operationId+kind），同一资产的不同保存操作
+            // 各有独立意图，旧补偿不会被复用/覆盖；执行器另行核对当前引用
             compensationTaskService.createIfAbsent(
-                    "software-ref-unbind:" + revisionId + ":" + assetId,
+                    "software-ref-unbind:" + operationId + ":" + kind + ":" + assetId,
                     ACTION_UNBIND, String.valueOf(revisionId),
                     toJson(Map.of("assetId", assetId, "bizType", BIZ_TYPE,
-                            "bizId", String.valueOf(revisionId))));
+                            "bizId", String.valueOf(revisionId),
+                            "operationId", operationId, "kind", kind)));
         }
+    }
+
+    @Override
+    public void cancelUnbindCompensation(String operationId, Long revisionId,
+                                         List<Long> assetIds, String kind) {
+        if (assetIds == null || assetIds.isEmpty()) {
+            return;
+        }
+        List<String> taskIds = assetIds.stream().distinct()
+                .map(assetId -> "software-ref-unbind:" + operationId + ":" + kind + ":" + assetId)
+                .toList();
+        compensationTaskService.cancelIfPending(taskIds);
     }
 
     /** 本地保存失败后的重绑补偿（自愈 submit 前缺口；幂等同引用键） */

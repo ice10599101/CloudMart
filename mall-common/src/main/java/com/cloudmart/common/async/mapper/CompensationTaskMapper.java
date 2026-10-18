@@ -78,4 +78,17 @@ public interface CompensationTaskMapper {
             WHERE id = #{id} AND status = 'DEAD_LETTER'
             """)
     int retryDeadLetter(@Param("id") Long id);
+
+    /**
+     * SW08：取消仍为 PENDING 的意图任务（保存成功后撤销"回滚解绑"意图）。
+     * 已被认领/已成功的任务不受影响；加入调用方事务一起提交。
+     */
+    @Update("""
+            <script>UPDATE compensation_task
+            SET status = 'CANCELLED', updated_at = NOW(3)
+            WHERE status = 'PENDING'
+              AND task_id IN
+              <foreach collection="taskIds" item="tid" open="(" separator="," close=")">#{tid}</foreach>
+            </script>""")
+    int cancelIfPending(@Param("taskIds") java.util.Collection<String> taskIds);
 }
