@@ -118,9 +118,11 @@ cloudmart:
     clock-skew-seconds: 30
     service-token-ttl-seconds: 60
     service-token-paths:
-      - prefix: /admin
-        issuers: [mall-admin]
-        scope: risk:admin
+      # T02：本节只描述“如何校验服务令牌”，不是授权规则。所有管理域 Controller 另加
+      # hasRole('INTERNAL') 显式守卫（BlacklistController/RiskRuleController/RiskRecordController），
+      # 因此持有效用户 JWT 经网关 /api/risk/** 直达时一律 403。
+      # 原 /admin 前缀映射已删除：mall-risk 不存在 /admin/** 端点，管理链路是
+      # mall-admin → /blacklist、/rules、/records 的服务令牌直连。
       # RISK-01：主链路风控检查（下单/领券/支付创建）。
       # 控制器实际路径为 /check/internal（RiskCheckController 类级 @RequestMapping("/check")），
       # 前缀必须与真实 URI 一致，否则内部调用无法建立 INTERNAL 身份，全链路 401。

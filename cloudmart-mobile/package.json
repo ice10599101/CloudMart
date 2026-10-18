@@ -28,6 +28,7 @@
     "dev:qq": "npm run build:qq -- --watch",
     "dev:jd": "npm run build:jd -- --watch",
     "dev:harmony-hybrid": "npm run build:harmony-hybrid -- --watch",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },

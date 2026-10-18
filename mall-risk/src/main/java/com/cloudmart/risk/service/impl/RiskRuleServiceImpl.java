@@ -9,12 +9,19 @@ import com.cloudmart.risk.entity.RiskRule;
 import com.cloudmart.risk.repository.RiskRuleMapper;
 import com.cloudmart.risk.service.RiskRuleService;
 import com.cloudmart.risk.vo.RiskRuleVO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
 public class RiskRuleServiceImpl implements RiskRuleService {
+
+    private static final Logger log = LoggerFactory.getLogger(RiskRuleServiceImpl.class);
 
     private final RiskRuleMapper riskRuleMapper;
     private final RiskConverter riskConverter;
@@ -35,6 +42,7 @@ public class RiskRuleServiceImpl implements RiskRuleService {
         entity.setStatus(request.status() != null ? request.status() : 0);
         entity.setDescription(request.description());
         riskRuleMapper.insert(entity);
+        audit("create", null, entity);
         return riskConverter.toRiskRuleVO(entity);
     }
 
@@ -61,6 +69,7 @@ public class RiskRuleServiceImpl implements RiskRuleService {
         if (entity == null) {
             throw new BusinessException("RISK_RULE_NOT_FOUND", "风控规则不存在");
         }
+        RiskRule before = copyOf(entity);
         if (request.name() != null) {
             entity.setName(request.name());
         }
@@ -83,11 +92,65 @@ public class RiskRuleServiceImpl implements RiskRuleService {
             entity.setDescription(request.description());
         }
         riskRuleMapper.updateById(entity);
+        audit("update", before, entity);
         return riskConverter.toRiskRuleVO(entity);
     }
 
     @Override
     public void deleteRule(Long id) {
+        RiskRule entity = riskRuleMapper.selectById(id);
+        if (entity == null) {
+            throw new BusinessException("RISK_RULE_NOT_FOUND", "风控规则不存在");
+        }
         riskRuleMapper.deleteById(id);
+        audit("delete", entity, null);
+    }
+
+    /**
+     * T02 审计：规则变更直接改变下单/领券/支付的放行结果，必须留下前后差异、服务主体与请求 ID。
+     *
+     * <p>operator 是服务令牌主体（mall-admin）；提出变更的管理员身份与原因由 mall-admin 的
+     * {@code @OperLog} 记录，两者通过同一 {@code requestId}（Feign 透传）关联。</p>
+     */
+    private void audit(String action, RiskRule before, RiskRule after) {
+        log.info("[AUDIT] risk-rule.{} requestId={} operator={} before={} after={}",
+                action, MDC.get("requestId"), currentOperator(), snapshot(before), snapshot(after));
+    }
+
+    private String currentOperator() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication == null ? "unknown" : authentication.getName();
+    }
+
+    private String snapshot(RiskRule rule) {
+        if (rule == null) {
+            return "null";
+        }
+        return "{id=" + rule.getId()
+                + ", name=" + rule.getName()
+                + ", actionType=" + rule.getActionType()
+                + ", riskLevel=" + rule.getRiskLevel()
+                + ", threshold=" + rule.getThreshold()
+                + ", timeWindowMinutes=" + rule.getTimeWindowMinutes()
+                + ", status=" + rule.getStatus()
+                + ", priority=" + rule.getPriority()
+                + ", description=" + rule.getDescription()
+                + "}";
+    }
+
+    private RiskRule copyOf(RiskRule source) {
+        RiskRule copy = new RiskRule();
+        copy.setId(source.getId());
+        copy.setName(source.getName());
+        copy.setActionType(source.getActionType());
+        copy.setRiskLevel(source.getRiskLevel());
+        copy.setThreshold(source.getThreshold());
+        copy.setTimeWindowMinutes(source.getTimeWindowMinutes());
+        copy.setStatus(source.getStatus());
+        copy.setPriority(source.getPriority());
+        copy.setDescription(source.getDescription());
+        copy.setCreatedAt(source.getCreatedAt());
+        copy.setUpdatedAt(source.getUpdatedAt());
+        return copy;
     }
 }

@@ -19,10 +19,12 @@
 # 报告落 target/failsafe-reports；CI 同口径执行并校验"执行数>0 且 skipped=0"）
 ./mvnw -B -ntp -Pintegration-test verify
 
-# 三端前端（锁文件严格安装 → 类型检查 → Web 单测 → 各端生产构建）
-(cd CloudMart-ui && npm ci && npx tsc --noEmit && npx vitest run && npm run build)
-(cd cloudmart-app && npm ci && npx tsc --noEmit && npx expo export --platform web)
-(cd cloudmart-mobile && npm ci && npx tsc --noEmit && npm run build:h5 && npm run build:weapp)
+# 三端前端（锁文件严格安装 → 类型检查 → 单测 → 各端生产构建）
+# T25：统一使用各端 package.json 的 typecheck 脚本；App 的脚本内含 typegen:routes，
+# 不得用裸 tsc 代替（否则 typedRoutes 类型缺失会静默退回宽 string）
+(cd CloudMart-ui && npm ci && npm run typecheck && npx vitest run && npm run build)
+(cd cloudmart-app && npm ci && npm run typecheck && npx expo export --platform web)
+(cd cloudmart-mobile && npm ci && npm run typecheck && npm run build:h5 && npm run build:weapp)
 ```
 
 CI（`.github/workflows/ci.yml`）执行同一命令集：push/PR 到 master 自动触发，

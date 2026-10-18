@@ -10,6 +10,9 @@ import com.cloudmart.file.service.UploadQuotaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,7 +42,8 @@ import java.util.Map;
 @Tag(name = "文件管理", description = "文件资产上传、删除与授权下载")
 public class FileController {
 
-    private static final String ADMIN_SCOPE = "admin";
+    /** 与 mall-common UserJwtAuthenticationFilter 一致：管理员令牌验签后授予的角色。 */
+    private static final String ROLE_ADMIN = "ROLE_ADMIN";
 
     private final FileService fileService;
     private final UploadQuotaService uploadQuotaService;
@@ -66,10 +70,8 @@ public class FileController {
             @Parameter(description = "业务用途（后台上传必填：GIFT_IMAGE/WISH_BGM/SOFTWARE_ASSET/ADMIN_ASSET）")
             @RequestParam(value = "purpose", required = false) String purpose,
             @Parameter(description = "用户 ID（已验签令牌主体）", hidden = true)
-            @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) String userId,
-            @Parameter(description = "管理员角色（网关注入，admin 即管理员）", hidden = true)
-            @RequestHeader(value = SecurityConstants.ADMIN_ROLE_HEADER, required = false) String adminRole) {
-        boolean isAdmin = ADMIN_SCOPE.equals(adminRole);
+            @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) String userId) {
+        boolean isAdmin = isAdminRequest();
         if (!isAdmin && (userId == null || userId.isBlank())) {
             throw new BusinessException("UNAUTHORIZED", "请先登录");
         }
@@ -143,11 +145,9 @@ public class FileController {
     public ApiResponse<Void> deleteAsset(
             @Parameter(description = "资产ID", required = true) @PathVariable("id") Long id,
             @Parameter(description = "用户 ID（已验签令牌主体）", hidden = true)
-            @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) String userId,
-            @Parameter(description = "管理员角色（网关注入）", hidden = true)
-            @RequestHeader(value = SecurityConstants.ADMIN_ROLE_HEADER, required = false) String adminRole) {
+            @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) String userId) {
         Long requesterId = userId == null || userId.isBlank() ? null : Long.valueOf(userId);
-        FileAsset asset = fileAssetService.authorizeDelete(id, requesterId, ADMIN_SCOPE.equals(adminRole));
+        FileAsset asset = fileAssetService.authorizeDelete(id, requesterId, isAdminRequest());
         fileService.deleteByStorageKey(asset.getStorageKey());
         fileAssetService.markDeleted(id);
         return ApiResponse.ok(null);
@@ -159,13 +159,28 @@ public class FileController {
     public ApiResponse<Map<String, Object>> downloadUrl(
             @Parameter(description = "资产ID", required = true) @PathVariable("id") Long id,
             @Parameter(description = "用户 ID（已验签令牌主体）", hidden = true)
-            @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) String userId,
-            @Parameter(description = "管理员角色（网关注入）", hidden = true)
-            @RequestHeader(value = SecurityConstants.ADMIN_ROLE_HEADER, required = false) String adminRole) {
+            @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) String userId) {
         Long requesterId = userId == null || userId.isBlank() ? null : Long.valueOf(userId);
         String path = fileAssetService.buildDownloadPath(id, requesterId,
-                ADMIN_SCOPE.equals(adminRole), java.time.Instant.now());
+                isAdminRequest(), java.time.Instant.now());
         return ApiResponse.ok(Map.of("downloadPath", path, "expiresInSeconds", 600));
+    }
+
+    /**
+     * T04：管理员身份只取已验签的 SecurityContext 角色。
+     *
+     * <p>X-Admin-Role 由网关在验签后注入，但服务端口可直连；把它当授权依据等于让调用方自证身份。
+     * mall-common 的 UserJwtAuthenticationFilter 已按令牌角色改写/清空该头，这里再以
+     * ROLE_ADMIN 权威裁决，两层一致。</p>
+     */
+    private boolean isAdminRequest() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(ROLE_ADMIN::equals);
     }
 
     /** S01：签名授权下载（PRIVATE 附件唯一读取通道）——正确的 Content-Type、nosniff、attachment */

@@ -79,7 +79,11 @@ class ServiceInternalRouteBlockFilterTest {
             "http://gw/api/software/%61dmin/software/items",
             "http://gw/api/software/admin;x=1/software/reviews",
             "http://gw/api/software/./admin/software/reviews",
-            "http://gw/api/software/admin/../internal/account-erasure"
+            "http://gw/api/software/admin/../internal/account-erasure",
+            // T02：风控检查内部入口（控制器实际路径 /check/internal）
+            "http://gw/api/risk/check/internal",
+            "http://gw/api/risk/check/INTERNAL",
+            "http://gw/api/risk/check;x=1/internal"
     })
     @DisplayName("wish/pet/software 管理端/内部端点全形态外部访问一律 404")
     void blockedPaths_return404(String uri) {
@@ -131,7 +135,10 @@ class ServiceInternalRouteBlockFilterTest {
             "/api/pet/administration, false",
             "/api/pet/internal/jobs, true",
             "/api/pet/internalx, false",
-            "/api/pet/me, false"
+            "/api/pet/me, false",
+            "/api/risk/check/internal, true",
+            "/api/risk/check/internalx, false",
+            "/api/risk/blacklist, false"
     })
     @DisplayName("前缀匹配必须落在完整段边界上（入参为规范化后路径）")
     void isBlocked_respectsSegmentBoundary(String path, boolean expected) {

@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -241,11 +242,26 @@ class RiskRuleServiceImplTest {
     class DeleteRuleTests {
 
         @Test
-        @DisplayName("should delete rule by id")
+        @DisplayName("should delete existing rule by id")
         void deleteRule_deletesById() {
+            RiskRule existing = new RiskRule();
+            existing.setId(RULE_ID);
+            when(riskRuleMapper.selectById(RULE_ID)).thenReturn(existing);
+
             riskRuleService.deleteRule(RULE_ID);
 
-            verify(riskRuleMapper).deleteById(anyLong());
+            verify(riskRuleMapper).deleteById(RULE_ID);
+        }
+
+        @Test
+        @DisplayName("should reject deleting a rule that does not exist")
+        void deleteRule_missing_throws() {
+            when(riskRuleMapper.selectById(RULE_ID)).thenReturn(null);
+
+            assertThatThrownBy(() -> riskRuleService.deleteRule(RULE_ID))
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("风控规则不存在");
+            verify(riskRuleMapper, never()).deleteById(anyLong());
         }
     }
 }

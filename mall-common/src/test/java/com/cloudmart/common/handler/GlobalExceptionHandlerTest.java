@@ -7,8 +7,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @DisplayName("GlobalExceptionHandler 业务码 → HTTP 状态映射")
 class GlobalExceptionHandlerTest {
@@ -48,6 +56,27 @@ class GlobalExceptionHandlerTest {
     void shouldNotMisMapSimilarPrefixes() {
         // WISH_AI_UNAVAILABLE 不以 _SERVICE_UNAVAILABLE 结尾，走显式分支
         assertThat(statusOf("WISH_AI_UNAVAILABLE")).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    @Test
+    @DisplayName("方法级授权拒绝必须是 HTTP 403，不得以 200 + success=false 掩盖")
+    void accessDeniedShouldReturn403() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new DeniedController())
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
+
+        mockMvc.perform(get("/denied"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
+    }
+
+    @RestController
+    static class DeniedController {
+        @GetMapping("/denied")
+        ApiResponse<Void> denied() {
+            throw new AccessDeniedException("denied");
+        }
     }
 
     @Test

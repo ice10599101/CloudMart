@@ -94,22 +94,35 @@ class CouponUserControllerTest {
     }
 
     @Test
-    @DisplayName("查询用户优惠券详情 - 成功返回信封格式")
+    @DisplayName("查询用户优惠券详情 - 按本人过滤并返回信封格式")
     void getUserCouponById_ShouldReturn200WithEnvelope() throws Exception {
         UserCouponDTO dto = new UserCouponDTO(1L, 1L, 10L, "UNUSED", null,
                 LocalDateTime.now(), null, LocalDateTime.now().plusDays(30),
                 "满100减20", "AMOUNT_OFF", new BigDecimal("100.00"), new BigDecimal("20.00"), null);
 
-        given(couponService.getUserCouponById(1L)).willReturn(dto);
+        given(couponService.getUserCouponByIdAndUser(1L, 1L)).willReturn(dto);
 
         UserCouponVO vo = new UserCouponVO(1L, 1L, 10L, "满100减20", "AMOUNT_OFF",
                 new BigDecimal("20.00"), null, new BigDecimal("100.00"), "UNUSED", null, null, null, null);
         given(userCouponConverter.dtoToVO(dto)).willReturn(vo);
 
-        mockMvc.perform(get("/user-coupons/1"))
+        mockMvc.perform(get("/user-coupons/1").header("X-User-Id", 1))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(1));
+    }
+
+    @Test
+    @DisplayName("T03：读取他人优惠券 - 统一 404")
+    void getUserCouponById_WhenNotOwned_ShouldReturn404() throws Exception {
+        given(couponService.getUserCouponByIdAndUser(1L, 2L))
+                .willThrow(new com.cloudmart.common.exception.BusinessException(
+                        "USER_COUPON_NOT_FOUND", "用户优惠券不存在"));
+
+        mockMvc.perform(get("/user-coupons/1").header("X-User-Id", 2))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("USER_COUPON_NOT_FOUND"));
     }
 
     @Test

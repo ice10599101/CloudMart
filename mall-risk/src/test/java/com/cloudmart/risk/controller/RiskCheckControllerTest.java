@@ -17,6 +17,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 风控检查只剩内部入口（T02）：公开 POST /check 已删除，调用方必须携带服务令牌。
+ * 服务令牌本身由过滤器校验，本测试覆盖控制器契约与校验行为。
+ */
 class RiskCheckControllerTest {
 
     private MockMvc mockMvc;
@@ -31,13 +35,13 @@ class RiskCheckControllerTest {
     }
 
     @Test
-    @DisplayName("执行风控检查 - 通过返回信封")
-    void check_WhenPassed_ShouldReturnEnvelope() throws Exception {
+    @DisplayName("内部风控检查 - 通过返回信封")
+    void checkInternal_WhenPassed_ShouldReturnEnvelope() throws Exception {
         RiskCheckVO vo = new RiskCheckVO(true, "LOW", null, null);
 
         given(riskCheckService.check(Mockito.any(RiskCheckRequest.class))).willReturn(vo);
 
-        mockMvc.perform(post("/check")
+        mockMvc.perform(post("/check/internal")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":1,\"actionType\":\"ORDER\"}"))
                 .andExpect(status().isOk())
@@ -47,13 +51,13 @@ class RiskCheckControllerTest {
     }
 
     @Test
-    @DisplayName("执行风控检查 - 未通过返回信封")
-    void check_WhenBlocked_ShouldReturnEnvelope() throws Exception {
+    @DisplayName("内部风控检查 - 未通过返回信封")
+    void checkInternal_WhenBlocked_ShouldReturnEnvelope() throws Exception {
         RiskCheckVO vo = new RiskCheckVO(false, "HIGH", "频繁下单", "频率限制");
 
         given(riskCheckService.check(Mockito.any(RiskCheckRequest.class))).willReturn(vo);
 
-        mockMvc.perform(post("/check")
+        mockMvc.perform(post("/check/internal")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":1,\"actionType\":\"ORDER\"}"))
                 .andExpect(status().isOk())
@@ -65,9 +69,9 @@ class RiskCheckControllerTest {
     }
 
     @Test
-    @DisplayName("执行风控检查 - 缺少必填字段返回校验错误")
-    void check_WhenMissingRequiredField_ShouldReturnValidationError() throws Exception {
-        mockMvc.perform(post("/check")
+    @DisplayName("内部风控检查 - 缺少必填字段返回校验错误")
+    void checkInternal_WhenMissingRequiredField_ShouldReturnValidationError() throws Exception {
+        mockMvc.perform(post("/check/internal")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())

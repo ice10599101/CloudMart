@@ -59,6 +59,9 @@ public class ServiceInternalRouteBlockFilter implements GlobalFilter, Ordered {
             "/api/live/admin", "/api/live/internal",
             "/api/ai/admin", "/api/ai/internal",
             "/api/risk/admin", "/api/risk/internal",
+            // T02：风控检查的内部入口实际路径是 /check/internal（不是 /internal），
+            // 网关通配路由 /api/risk/** 会把它暴露到公网，必须显式阻断。
+            "/api/risk/check/internal",
             "/api/file/admin", "/api/file/internal",
             "/api/job/admin", "/api/job/internal",
             "/api/gen/admin", "/api/gen/internal",

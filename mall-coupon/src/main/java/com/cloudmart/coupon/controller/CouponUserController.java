@@ -65,10 +65,11 @@ public class CouponUserController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "查询用户优惠券详情", description = "根据ID查询用户优惠券详情（内部调用）")
+    @Operation(summary = "查询用户优惠券详情", description = "按当前登录用户查询本人优惠券详情，他人券返回不存在")
     public ApiResponse<UserCouponVO> getUserCouponById(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "用户优惠券ID") @PathVariable("id") Long id) {
-        UserCouponDTO dto = couponService.getUserCouponById(id);
+        UserCouponDTO dto = couponService.getUserCouponByIdAndUser(id, userId);
         return ApiResponse.ok(userCouponConverter.dtoToVO(dto));
     }
 

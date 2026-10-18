@@ -6,14 +6,20 @@ import com.cloudmart.file.entity.FileAsset;
 import com.cloudmart.file.service.FileAssetService;
 import com.cloudmart.file.service.FileService;
 import com.cloudmart.file.service.UploadQuotaService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -48,6 +54,18 @@ class FileControllerTest {
                 fileAssetService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
+    /** T04：管理员身份来自已验签上下文，不再由请求头决定。 */
+    private void authenticateAs(String userId, String role) {
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(
+                        userId, null, List.of(new SimpleGrantedAuthority(role))));
     }
 
     private MockMultipartFile imageFile() {
@@ -140,6 +158,7 @@ class FileControllerTest {
     @Test
     @DisplayName("ADMIN-04：管理员上传必须声明用途，台账记录 ADMIN 域与操作者")
     void uploadAsset_admin_requiresPurposeAndRecordsOperator() throws Exception {
+        authenticateAs("9001", "ROLE_ADMIN");
         given(fileAssetService.validateContent(any(), anyString())).willReturn("image/jpeg");
         given(fileService.store(any(), anyString(), anyString())).willReturn("public/pic/20261017/a.jpg");
         given(fileService.publicUrlOf("public/pic/20261017/a.jpg")).willReturn("/files/pic/20261017/a.jpg");
@@ -150,8 +169,7 @@ class FileControllerTest {
         // 缺 purpose → 400（不得静默归入管理员域）
         mockMvc.perform(multipart("/assets").file(imageFile())
                         .param("visibility", "PUBLIC")
-                        .header("X-User-Id", "9001")
-                        .header("X-Admin-Role", "admin"))
+                        .header("X-User-Id", "9001"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("FILE_PURPOSE_REQUIRED"));
 
@@ -159,12 +177,34 @@ class FileControllerTest {
         mockMvc.perform(multipart("/assets").file(imageFile())
                         .param("visibility", "PUBLIC")
                         .param("purpose", "GIFT_IMAGE")
-                        .header("X-User-Id", "9001")
-                        .header("X-Admin-Role", "admin"))
+                        .header("X-User-Id", "9001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.fileId").value("50"));
 
         verify(fileAssetService).persist(any(), eq("ADMIN"), eq(9001L), eq("GIFT_IMAGE"),
+                anyString(), anyString(), anyLong(), anyString(), anyString(), eq("PUBLIC"));
+    }
+
+    @Test
+    @DisplayName("T04：普通用户直连带伪造 X-Admin-Role 头不得获得管理员语义")
+    void uploadAsset_userWithForgedAdminHeader_isNotAdmin() throws Exception {
+        authenticateAs("10001", "ROLE_USER");
+        given(fileAssetService.validateContent(any(), anyString())).willReturn("image/jpeg");
+        given(fileService.store(any(), anyString(), anyString())).willReturn("public/pic/20261017/u.jpg");
+        given(fileService.publicUrlOf(anyString())).willReturn("/files/pic/20261017/u.jpg");
+        given(fileAssetService.persist(any(), anyString(), any(), any(), anyString(), anyString(), anyLong(),
+                anyString(), anyString(), anyString()))
+                .willReturn(asset(60L, "PUBLIC"));
+
+        // 用户域上传：不要求 purpose、占用配额、ownerType=USER
+        mockMvc.perform(multipart("/assets").file(imageFile())
+                        .param("visibility", "PUBLIC")
+                        .header("X-User-Id", "10001")
+                        .header("X-Admin-Role", "admin"))
+                .andExpect(status().isOk());
+
+        verify(uploadQuotaService).reserve("10001", "test.jpg");
+        verify(fileAssetService).persist(any(), eq("USER"), eq(10001L), any(),
                 anyString(), anyString(), anyLong(), anyString(), anyString(), eq("PUBLIC"));
     }
 
@@ -197,8 +237,9 @@ class FileControllerTest {
         }
 
         @Test
-        @DisplayName("管理员（X-Admin-Role: admin）- 豁免配额直接上传")
+        @DisplayName("管理员（已验签 ROLE_ADMIN）- 豁免配额直接上传")
         void shouldExemptAdminFromQuota() throws Exception {
+            authenticateAs("9001", "ROLE_ADMIN");
             given(fileAssetService.validateContent(any(), anyString())).willReturn("image/jpeg");
             given(fileService.store(any(), anyString(), anyString())).willReturn("public/pic/20261001/b.jpg");
             given(fileService.publicUrlOf(anyString())).willReturn("/files/pic/20261001/b.jpg");
@@ -210,7 +251,7 @@ class FileControllerTest {
             mockMvc.perform(multipart("/assets").file(imageFile())
                             .param("visibility", "PUBLIC")
                             .param("purpose", "ADMIN_ASSET")
-                            .header("X-Admin-Role", "admin"))
+                            .header("X-User-Id", "9001"))
                     .andExpect(status().isOk());
 
             verify(uploadQuotaService, never()).reserve(anyString(), anyString());

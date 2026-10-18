@@ -3,21 +3,29 @@ package com.cloudmart.coupon.controller;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.api.ApiResponse.Meta;
 import com.cloudmart.coupon.converter.CouponTemplateConverter;
-import com.cloudmart.coupon.dto.CreateCouponTemplateRequest;
 import com.cloudmart.coupon.dto.CouponTemplateDTO;
 import com.cloudmart.coupon.service.CouponService;
 import com.cloudmart.coupon.vo.CouponTemplateVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 领券中心（用户侧，只读）。
+ *
+ * <p>T03：原公开的模板创建（POST）与禁用（PUT /{id}/disable）已删除——它们只要求登录即可执行，
+ * 属于公开写入口。模板增改启停统一走 {@code AdminCouponController}（/admin/coupon-templates，
+ * mall-admin 服务令牌 + 管理权限码）。</p>
+ *
+ * <p>本控制器只返回用户可领/可见模板（ENABLED、未过期、有库存），不接受 status 参数读取
+ * 草稿或已禁用配置；全状态查询属于管理接口职责。</p>
+ */
 @RestController
 @RequestMapping("/coupon-templates")
-@Tag(name = "优惠券模板管理", description = "优惠券模板的创建、查询、禁用接口")
+@Tag(name = "领券中心", description = "用户可见优惠券模板查询（只读）")
 public class CouponController {
 
     private final CouponService couponService;
@@ -28,39 +36,22 @@ public class CouponController {
         this.couponTemplateConverter = couponTemplateConverter;
     }
 
-    @PostMapping
-    @Operation(summary = "创建优惠券模板", description = "创建新的优惠券模板，支持满减券和折扣券")
-    public ApiResponse<CouponTemplateVO> createTemplate(
-            @Valid @RequestBody CreateCouponTemplateRequest request) {
-        CouponTemplateDTO dto = couponService.createTemplate(request);
-        return ApiResponse.ok(couponTemplateConverter.dtoToVO(dto));
-    }
-
     @GetMapping
-    @Operation(summary = "查询优惠券模板列表", description = "分页查询优惠券模板，支持按类型和状态筛选")
+    @Operation(summary = "查询可领优惠券模板", description = "分页查询当前用户可领取的优惠券模板")
     public ApiResponse<List<CouponTemplateVO>> listTemplates(
             @Parameter(description = "优惠券类型") @RequestParam(value = "type", required = false) String type,
-            @Parameter(description = "状态") @RequestParam(value = "status", required = false) String status,
             @Parameter(description = "页码") @RequestParam(value = "page", defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(value = "pageSize", defaultValue = "20") int pageSize) {
-        List<CouponTemplateDTO> dtos = couponService.listTemplates(type, status, page, pageSize);
-        long total = couponService.countTemplates(type, status);
+        List<CouponTemplateDTO> dtos = couponService.listClaimableTemplates(type, page, pageSize);
+        long total = couponService.countClaimableTemplates(type);
         return ApiResponse.ok(couponTemplateConverter.dtoListToVOList(dtos), new Meta(page, pageSize, total));
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "查询优惠券模板详情", description = "根据ID查询优惠券模板详情")
+    @Operation(summary = "查询可领优惠券模板详情", description = "根据ID查询可领取的优惠券模板，不可领按不存在处理")
     public ApiResponse<CouponTemplateVO> getTemplateById(
             @Parameter(description = "模板ID") @PathVariable("id") Long id) {
-        CouponTemplateDTO dto = couponService.getTemplateById(id);
-        return ApiResponse.ok(couponTemplateConverter.dtoToVO(dto));
-    }
-
-    @PutMapping("/{id}/disable")
-    @Operation(summary = "禁用优惠券模板", description = "将启用的优惠券模板设为禁用状态")
-    public ApiResponse<CouponTemplateVO> disableTemplate(
-            @Parameter(description = "模板ID") @PathVariable("id") Long id) {
-        CouponTemplateDTO dto = couponService.disableTemplate(id);
+        CouponTemplateDTO dto = couponService.getClaimableTemplateById(id);
         return ApiResponse.ok(couponTemplateConverter.dtoToVO(dto));
     }
 }

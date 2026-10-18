@@ -129,7 +129,7 @@ public class UserJwtAuthenticationFilter extends OncePerRequestFilter {
                 VerifiedIdentity identity = verify(authorization.substring(
                         SecurityConstants.BEARER_PREFIX.length()), request.getRequestURI());
                 if (identity != null) {
-                    requestToUse = new ForcedUserIdHeaderRequest(request, identity.subject());
+                    requestToUse = new ForcedIdentityHeadersRequest(request, identity.subject(), identity.authority());
                     UsernamePasswordAuthenticationToken authentication =
                             UsernamePasswordAuthenticationToken.authenticated(
                                     identity.subject(), null,
@@ -269,20 +269,34 @@ public class UserJwtAuthenticationFilter extends OncePerRequestFilter {
     private record VerifiedIdentity(String subject, String authority, AdminSecurityContext adminContext) {
     }
 
-    /** 把 X-User-Id 强制改写为已验证令牌主体，封堵直连服务实例时的身份头伪造 */
-    private static final class ForcedUserIdHeaderRequest extends HttpServletRequestWrapper {
+    /**
+     * 把 X-User-Id / X-Admin-Role 强制改写为已验证令牌派生值，封堵直连服务实例时的身份头伪造。
+     *
+     * <p>T04：仅凭 X-Admin-Role=admin 不能获得管理语义——普通用户令牌会把该头清空，
+     * 只有验签通过的管理员令牌才会写入 {@code admin}。直连服务与经网关的语义由此一致，
+     * 不再依赖“网关已剥离伪造头”这一外部前提。</p>
+     */
+    private static final class ForcedIdentityHeadersRequest extends HttpServletRequestWrapper {
+
+        private static final String ADMIN_ROLE_VALUE = "admin";
 
         private final String userId;
+        /** null 表示该请求没有管理身份：读取该头必须返回空，而不是透传客户端输入 */
+        private final String adminRole;
 
-        ForcedUserIdHeaderRequest(HttpServletRequest request, String userId) {
+        ForcedIdentityHeadersRequest(HttpServletRequest request, String userId, String authority) {
             super(request);
             this.userId = userId;
+            this.adminRole = ROLE_ADMIN.equals(authority) ? ADMIN_ROLE_VALUE : null;
         }
 
         @Override
         public String getHeader(String name) {
             if (SecurityConstants.USER_ID_HEADER.equalsIgnoreCase(name)) {
                 return userId;
+            }
+            if (SecurityConstants.ADMIN_ROLE_HEADER.equalsIgnoreCase(name)) {
+                return adminRole;
             }
             return super.getHeader(name);
         }
@@ -291,6 +305,11 @@ public class UserJwtAuthenticationFilter extends OncePerRequestFilter {
         public Enumeration<String> getHeaders(String name) {
             if (SecurityConstants.USER_ID_HEADER.equalsIgnoreCase(name)) {
                 return java.util.Collections.enumeration(List.of(userId));
+            }
+            if (SecurityConstants.ADMIN_ROLE_HEADER.equalsIgnoreCase(name)) {
+                return adminRole == null
+                        ? java.util.Collections.emptyEnumeration()
+                        : java.util.Collections.enumeration(List.of(adminRole));
             }
             return super.getHeaders(name);
         }

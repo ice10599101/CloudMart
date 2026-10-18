@@ -253,7 +253,8 @@ jobs:
             # 已开启），否则 Href 静默回退宽 string，错误路由无法在类型期发现
             cmds: npm run typecheck && npm test && npx expo export --platform web
           - dir: cloudmart-mobile
-            cmds: npx tsc --noEmit && npm test && npm run build:h5 && npm run build:weapp
+            # T25：使用 package.json 的统一类型检查脚本，禁止用裸 tsc 绕过脚本变更
+            cmds: npm run typecheck && npm test && npm run build:h5 && npm run build:weapp
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

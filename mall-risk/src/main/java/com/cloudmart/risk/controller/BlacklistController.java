@@ -7,14 +7,23 @@ import com.cloudmart.risk.service.BlacklistService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 黑名单管理（T02）：整个域只服务于 mall-admin 服务令牌链路。
+ *
+ * <p>类级 {@code hasRole('INTERNAL')} 是真实授权边界：{@code service-token-paths} 只回答
+ * “如何校验服务令牌”，不会拒绝持有效用户 JWT 的调用方；缺少本守卫时普通登录用户可读写黑名单。
+ * 外部经网关 {@code /api/risk/**} 直达时，用户/管理员 JWT 均为 ROLE_USER/ROLE_ADMIN，一律 403。</p>
+ */
 @RestController
 @RequestMapping("/blacklist")
-@Tag(name = "黑名单管理", description = "黑名单增删查接口")
+@PreAuthorize("hasRole('INTERNAL')")
+@Tag(name = "黑名单管理", description = "黑名单增删查接口（仅内部服务）")
 public class BlacklistController {
 
     private final BlacklistService blacklistService;

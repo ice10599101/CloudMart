@@ -9,13 +9,19 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 风控规则管理（T02）：仅 mall-admin 服务令牌（ROLE_INTERNAL）可读写。
+ * 规则直接决定下单/领券/支付的放行与拦截，不允许普通用户读取或篡改。
+ */
 @RestController
 @RequestMapping("/rules")
-@Tag(name = "风控规则", description = "风控规则的增删改查接口")
+@PreAuthorize("hasRole('INTERNAL')")
+@Tag(name = "风控规则", description = "风控规则的增删改查接口（仅内部服务）")
 public class RiskRuleController {
 
     private final RiskRuleService riskRuleService;

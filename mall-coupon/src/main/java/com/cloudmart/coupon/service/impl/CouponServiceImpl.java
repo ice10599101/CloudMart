@@ -109,6 +109,43 @@ public class CouponServiceImpl implements CouponService {
     }
 
     @Override
+    public List<CouponTemplateDTO> listClaimableTemplates(String type, int page, int size) {
+        Page<CouponTemplate> templatePage = couponTemplateMapper.selectPage(
+                new Page<CouponTemplate>(page, size), claimableWrapper(type));
+        return couponTemplateConverter.toDTOList(templatePage.getRecords());
+    }
+
+    @Override
+    public long countClaimableTemplates(String type) {
+        return couponTemplateMapper.selectCount(claimableWrapper(type));
+    }
+
+    @Override
+    public CouponTemplateDTO getClaimableTemplateById(Long id) {
+        CouponTemplate template = couponTemplateMapper.selectOne(
+                claimableWrapper(null).eq(CouponTemplate::getId, id));
+        if (template == null) {
+            // 禁用/过期/领完的模板对用户统一按不存在处理，不泄露后台配置状态
+            throw new BusinessException("TEMPLATE_NOT_FOUND", "优惠券模板不存在");
+        }
+        return couponTemplateConverter.toDTO(template);
+    }
+
+    /**
+     * 用户可见模板条件：与 {@code doClaimCoupon} 的领券校验保持一致——
+     * 已启用、仍有库存、未到结束时间。status/有效期只能由服务端判定，不接受客户端传参。
+     */
+    private LambdaQueryWrapper<CouponTemplate> claimableWrapper(String type) {
+        return new LambdaQueryWrapper<CouponTemplate>()
+                .eq(CouponTemplate::getStatus, "ENABLED")
+                .gt(CouponTemplate::getRemainingQuantity, 0)
+                .eq(type != null && !type.isEmpty(), CouponTemplate::getType, type)
+                .and(w -> w.isNull(CouponTemplate::getEndTime)
+                        .or().gt(CouponTemplate::getEndTime, LocalDateTime.now()))
+                .orderByDesc(CouponTemplate::getCreatedAt);
+    }
+
+    @Override
     @Transactional
     public CouponTemplateDTO disableTemplate(Long id) {
         CouponTemplate template = couponTemplateMapper.selectById(id);
@@ -289,6 +326,19 @@ public class CouponServiceImpl implements CouponService {
     @Override
     public UserCouponDTO getUserCouponById(Long id) {
         UserCoupon userCoupon = userCouponMapper.selectById(id);
+        if (userCoupon == null) {
+            throw new BusinessException("USER_COUPON_NOT_FOUND", "用户优惠券不存在");
+        }
+        CouponTemplate template = couponTemplateMapper.selectById(userCoupon.getTemplateId());
+        return userCouponConverter.toDTO(userCoupon, template);
+    }
+
+    @Override
+    public UserCouponDTO getUserCouponByIdAndUser(Long id, Long userId) {
+        // T03：归属条件进查询本身，避免先查后判的越权窗口；他人券与不存在统一 404 语义
+        UserCoupon userCoupon = userCouponMapper.selectOne(new LambdaQueryWrapper<UserCoupon>()
+                .eq(UserCoupon::getId, id)
+                .eq(UserCoupon::getUserId, userId));
         if (userCoupon == null) {
             throw new BusinessException("USER_COUPON_NOT_FOUND", "用户优惠券不存在");
         }

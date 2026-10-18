@@ -131,6 +131,42 @@ class RouteGuardTest {
     }
 
     /**
+     * T02：风控管理域只能由内部服务令牌访问。
+     *
+     * <p>覆盖 /blacklist、/rules、/records 与 /check 内部入口：这些接口能读写黑名单、风控规则和
+     * 用户风险记录，必须整域 hasRole('INTERNAL')，不能只依赖 gateway 路径或菜单隐藏。
+     * 同时确认公开的 POST /check（用户可提交任意 userId 触发判定）已删除。</p>
+     */
+    @Test
+    @DisplayName("T02：风控管理域全部端点必须 hasRole('INTERNAL')，公开 /check 已删除")
+    void riskManagementEndpointsRequireInternalRole() {
+        List<RouteRef> routes = collectRoutes();
+        List<String> managementPrefixes = List.of("/blacklist", "/rules", "/records", "/check");
+        List<String> failures = new ArrayList<>();
+        int matched = 0;
+
+        for (RouteRef r : routes) {
+            boolean inManagementDomain = managementPrefixes.stream()
+                    .anyMatch(prefix -> r.path.equals(prefix) || r.path.startsWith(prefix + "/"));
+            if (!inManagementDomain) {
+                continue;
+            }
+            matched++;
+            if (r.preAuth == null || !r.preAuth.contains("INTERNAL")) {
+                failures.add(r.method + " " + r.path + " @ " + r.handler + " preAuth=" + r.preAuth);
+            }
+        }
+
+        assertThat(matched).as("没有匹配到风控管理路由，说明扫描器失效").isGreaterThan(0);
+        assertThat(failures)
+                .as("风控管理端点缺 INTERNAL 守卫（用户 JWT 可直达）")
+                .isEmpty();
+        assertThat(routes)
+                .as("公开 POST /check 必须删除，只保留 /check/internal")
+                .noneMatch(r -> "/check".equals(r.path));
+    }
+
+    /**
      * 解析器特性自检：全限定注解、value/path、多路径、类级继承、无注解方法忽略。
      * 故意删守卫时这些断言保证是"解析能力"在起作用，而非测试空转。
      */

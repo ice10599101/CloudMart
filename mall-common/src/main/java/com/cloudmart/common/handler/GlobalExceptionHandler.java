@@ -71,6 +71,16 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail("NOT_FOUND", "资源不存在");
     }
 
+    /**
+     * 无匹配 handler（例如已删除的旧写入口）：语义是资源不存在，不能落到 500。
+     * 与 {@link NoResourceFoundException}（无静态资源）区分开，但对外都是 404。
+     */
+    @ExceptionHandler(org.springframework.web.servlet.NoHandlerFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleNoHandlerFound(org.springframework.web.servlet.NoHandlerFoundException ex) {
+        return ApiResponse.fail("NOT_FOUND", "资源不存在");
+    }
+
     @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleMissingParam(org.springframework.web.bind.MissingServletRequestParameterException ex) {
@@ -114,8 +124,12 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail("METHOD_NOT_ALLOWED", "请求方法不支持: " + ex.getMethod());
     }
 
-    /** Spring Security 方法级授权拒绝：统一 403 语义（不得落入 500） */
+    /**
+     * Spring Security 方法级授权拒绝：统一 403 语义（不得落入 500，也不得以 HTTP 200 + success=false 假装成功）。
+     * 前端按 HTTP 403 判定“已认证但无权限”，不触发刷新/重新登录流程（见各端 request 拦截器）。
+     */
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
     public ApiResponse<Void> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
         return ApiResponse.fail("FORBIDDEN", "无权执行该操作");
     }
@@ -160,6 +174,8 @@ public class GlobalExceptionHandler {
             case "USER_NOT_FOUND", "ROLE_NOT_FOUND", "MENU_NOT_FOUND",
                  "ACTIVITY_NOT_FOUND", "PRODUCT_NOT_FOUND", "TABLE_NOT_FOUND",
                  "ORDER_NOT_FOUND", "COUPON_NOT_FOUND", "TAG_NOT_FOUND",
+                 // T03：用户券详情按 id+本人查询，他人券与不存在统一 404
+                 "USER_COUPON_NOT_FOUND",
                  "AFTER_SALE_NOT_FOUND",
                  "BADGE_NOT_FOUND", "REPORT_NOT_FOUND", "COMMENT_NOT_FOUND",
                  "POST_NOT_FOUND", "CATEGORY_NOT_FOUND", "BRAND_NOT_FOUND",

@@ -3,7 +3,6 @@ package com.cloudmart.coupon.controller;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.common.handler.GlobalExceptionHandler;
 import com.cloudmart.coupon.converter.CouponTemplateConverter;
-import com.cloudmart.coupon.dto.CreateCouponTemplateRequest;
 import com.cloudmart.coupon.dto.CouponTemplateDTO;
 import com.cloudmart.coupon.service.CouponService;
 import com.cloudmart.coupon.vo.CouponTemplateVO;
@@ -26,6 +25,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * T03：领券中心只读。公开写入口（创建模板、禁用模板）已删除，
+ * 只暴露“可领模板”查询，禁用/草稿配置不可通过 status 参数读取。
+ */
 class CouponControllerTest {
 
     private MockMvc mockMvc;
@@ -41,37 +44,14 @@ class CouponControllerTest {
     }
 
     @Test
-    @DisplayName("创建优惠券模板 - 成功返回信封格式")
-    void createTemplate_ShouldReturn200WithEnvelope() throws Exception {
-        CouponTemplateDTO dto = new CouponTemplateDTO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("100.00"), new BigDecimal("20.00"), null,
-                1000, 980, 1, "FIXED_DAYS", null, null, 30, "ENABLED", LocalDateTime.now());
-
-        given(couponService.createTemplate(Mockito.any(CreateCouponTemplateRequest.class))).willReturn(dto);
-
-        CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
-                null, null, null, null, "ENABLED");
-        given(couponTemplateConverter.dtoToVO(dto)).willReturn(vo);
-
-        mockMvc.perform(post("/coupon-templates")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"满100减20\",\"type\":\"AMOUNT_OFF\",\"thresholdAmount\":100,\"discountAmount\":20,\"totalQuantity\":1000,\"perUserLimit\":1,\"validityType\":\"FIXED_DAYS\",\"validDays\":30}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.name").value("满100减20"));
-    }
-
-    @Test
-    @DisplayName("查询优惠券模板列表 - 成功返回信封格式带分页")
+    @DisplayName("查询可领优惠券模板 - 成功返回信封格式带分页")
     void listTemplates_ShouldReturn200WithMeta() throws Exception {
         CouponTemplateDTO dto = new CouponTemplateDTO(1L, "满100减20", "AMOUNT_OFF",
                 new BigDecimal("100.00"), new BigDecimal("20.00"), null,
                 1000, 980, 1, "FIXED_DAYS", null, null, 30, "ENABLED", LocalDateTime.now());
 
-        given(couponService.listTemplates(null, null, 1, 20)).willReturn(List.of(dto));
-        given(couponService.countTemplates(null, null)).willReturn(1L);
+        given(couponService.listClaimableTemplates(null, 1, 20)).willReturn(List.of(dto));
+        given(couponService.countClaimableTemplates(null)).willReturn(1L);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
                 new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
@@ -89,13 +69,13 @@ class CouponControllerTest {
     }
 
     @Test
-    @DisplayName("查询优惠券模板详情 - 成功返回信封格式")
+    @DisplayName("查询可领优惠券模板详情 - 成功返回信封格式")
     void getTemplateById_ShouldReturn200WithEnvelope() throws Exception {
         CouponTemplateDTO dto = new CouponTemplateDTO(1L, "满100减20", "AMOUNT_OFF",
                 new BigDecimal("100.00"), new BigDecimal("20.00"), null,
                 1000, 980, 1, "FIXED_DAYS", null, null, 30, "ENABLED", LocalDateTime.now());
 
-        given(couponService.getTemplateById(1L)).willReturn(dto);
+        given(couponService.getClaimableTemplateById(1L)).willReturn(dto);
 
         CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
                 new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
@@ -110,46 +90,32 @@ class CouponControllerTest {
     }
 
     @Test
-    @DisplayName("禁用优惠券模板 - 成功返回信封格式")
-    void disableTemplate_ShouldReturn200WithEnvelope() throws Exception {
-        CouponTemplateDTO dto = new CouponTemplateDTO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("100.00"), new BigDecimal("20.00"), null,
-                1000, 980, 1, "FIXED_DAYS", null, null, 30, "DISABLED", LocalDateTime.now());
-
-        given(couponService.disableTemplate(1L)).willReturn(dto);
-
-        CouponTemplateVO vo = new CouponTemplateVO(1L, "满100减20", "AMOUNT_OFF",
-                new BigDecimal("100.00"), new BigDecimal("20.00"), null, 1000, 980, 1,
-                null, null, null, null, "DISABLED");
-        given(couponTemplateConverter.dtoToVO(dto)).willReturn(vo);
-
-        mockMvc.perform(put("/coupon-templates/1/disable"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.status").value("DISABLED"));
-    }
-
-    @Test
-    @DisplayName("查询不存在的优惠券模板 - 返回错误信封")
-    void getTemplateById_WhenNotFound_ShouldReturnErrorEnvelope() throws Exception {
-        given(couponService.getTemplateById(999L))
-                .willThrow(new BusinessException("COUPON_NOT_FOUND", "优惠券模板不存在"));
+    @DisplayName("查询不可领/不存在的模板 - 404")
+    void getTemplateById_WhenNotFound_ShouldReturn404() throws Exception {
+        given(couponService.getClaimableTemplateById(999L))
+                .willThrow(new BusinessException("TEMPLATE_NOT_FOUND", "优惠券模板不存在"));
 
         mockMvc.perform(get("/coupon-templates/999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("COUPON_NOT_FOUND"))
-                .andExpect(jsonPath("$.error.message").value("优惠券模板不存在"));
+                .andExpect(jsonPath("$.error.code").value("TEMPLATE_NOT_FOUND"));
     }
 
     @Test
-    @DisplayName("创建优惠券模板 - 缺少必填字段返回校验错误")
-    void createTemplate_WhenMissingRequiredFields_ShouldReturnValidationError() throws Exception {
+    @DisplayName("T03：公开创建模板入口已删除（405）")
+    void createTemplate_IsNoLongerExposed() throws Exception {
         mockMvc.perform(post("/coupon-templates")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"type\":\"AMOUNT_OFF\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+                        .content("{\"name\":\"越权模板\",\"type\":\"AMOUNT_OFF\"}"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("T03：公开禁用模板入口已删除（无匹配路由 → 404）")
+    void disableTemplate_IsNoLongerExposed() throws Exception {
+        mockMvc.perform(put("/coupon-templates/1/disable"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false));
     }
 }

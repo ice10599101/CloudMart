@@ -9,20 +9,21 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.math.BigDecimal;
 
-@FeignClient(contextId = "orderCouponFeignClient", name = "mall-coupon", path = "/user-coupons", fallbackFactory = CouponFeignClientFallbackFactory.class)
+@FeignClient(contextId = "orderCouponFeignClient", name = "mall-coupon", fallbackFactory = CouponFeignClientFallbackFactory.class)
 public interface CouponFeignClient {
 
-    @PostMapping("/use")
+    @PostMapping("/user-coupons/use")
     ApiResponse<Void> useCoupon(@RequestBody UseCouponRequest request);
 
-    /** T06：支付成功核销确认（RESERVED→USED）。C36：path 已含 /user-coupons，方法路径不得重复前缀 */
-    @PostMapping("/confirm")
+    /** T06：支付成功核销确认（RESERVED→USED）。 */
+    @PostMapping("/user-coupons/confirm")
     ApiResponse<Void> confirmCoupon(@RequestBody UseCouponRequest request);
 
-    @PostMapping("/return")
+    @PostMapping("/user-coupons/return")
     ApiResponse<Void> returnCoupon(@RequestBody ReturnCouponRequest request);
 
-    @GetMapping("/{id}")
+    /** T03：用户侧 GET /user-coupons/{id} 已改为本人过滤，订单侧改走内部查询（mall-order + coupon:trade）。 */
+    @GetMapping("/internal/user-coupons/{id}")
     ApiResponse<UserCouponDTO> getCouponById(@PathVariable("id") Long id);
 
     record UseCouponRequest(Long userCouponId, Long orderId) {}
