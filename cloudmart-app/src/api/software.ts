@@ -337,9 +337,10 @@ export function descriptionHtmlToText(html: string | null): string {
 export const softwarePublishApi = {
   publisherStatus: () => request<PublisherStatus>({ url: `${BASE}/publisher-status` }),
 
-  mine: (page = 1, size = 20) =>
+  mine: (page = 1, size = 20, tab: 'published' | 'draft' | 'pending' | 'rejected'
+    | 'favorites' | 'subscriptions' = 'published') =>
     request<SoftwarePage<SoftwareMineItem>>({
-      url: `${BASE}/mine${buildQuery({ tab: 'mine', page, size })}`,
+      url: `${BASE}/mine${buildQuery({ tab, page, size })}`,
     }),
 
   contacts: () => request<SoftwareContact[]>({ url: `${BASE}/access-contacts` }),

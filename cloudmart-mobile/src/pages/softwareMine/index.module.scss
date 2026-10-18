@@ -136,3 +136,49 @@
 .btnDisabled {
   opacity: 0.55;
 }
+
+/* SW11：页签与加载更多 */
+.tabBar {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.tabRow {
+  display: flex;
+  flex-direction: row;
+  gap: 12rpx;
+  padding: 8rpx 24rpx 12rpx;
+}
+
+.tabItem {
+  padding: 8rpx 24rpx;
+  border-radius: 999rpx;
+  background: #f1f5f9;
+}
+
+.tabText {
+  font-size: 24rpx;
+  color: #475569;
+}
+
+.tabActive {
+  background: #3d5afe;
+}
+
+.tabActiveText {
+  font-size: 24rpx;
+  color: #ffffff;
+}
+
+.loadMoreBtn {
+  margin: 16rpx 24rpx 0;
+  padding: 16rpx 0;
+  border-radius: 999rpx;
+  background: #eef2ff;
+  text-align: center;
+}
+
+.loadMoreText {
+  font-size: 26rpx;
+  color: #3d5afe;
+}

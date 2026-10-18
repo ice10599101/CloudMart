@@ -9,7 +9,7 @@ import {
 } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { softwarePublishApi } from '@/api/software'
+import { softwareApi, softwarePublishApi } from '@/api/software'
 import type { SoftwareMineItem } from '@/api/software'
 import { useTheme } from '@/hooks/use-theme-context'
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme'
@@ -33,36 +33,72 @@ const STATUS_COLOR: Record<string, string> = {
   REJECTED: '#d3392f',
 }
 
+const MINE_TABS: { key: TabKey; label: string }[] = [
+  { key: 'published', label: '已发布' },
+  { key: 'draft', label: '草稿' },
+  { key: 'pending', label: '审核中' },
+  { key: 'rejected', label: '已退回' },
+  { key: 'favorites', label: '收藏' },
+  { key: 'subscriptions', label: '订阅' },
+]
+type TabKey =
+  | 'published'
+  | 'draft'
+  | 'pending'
+  | 'rejected'
+  | 'favorites'
+  | 'subscriptions'
+
+const PAGE_SIZE = 20
+
 export default function SoftwareMineScreen() {
   const insets = useSafeAreaInsets()
   const theme = useTheme()
   const params = useLocalSearchParams<{ refreshed?: string }>()
+  const [tab, setTab] = useState<TabKey>('published')
   const [items, setItems] = useState<SoftwareMineItem[]>([])
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const isOwnTab = tab === 'published' || tab === 'draft' || tab === 'pending'
+    || tab === 'rejected'
+
+  /** SW11：分页加载——首页覆盖，加载更多追加；切换页签重置游标 */
+  const load = useCallback(async (nextTab: TabKey, nextPage: number) => {
+    if (nextPage === 1) setLoading(true)
+    else setLoadingMore(true)
     try {
-      const res = await softwarePublishApi.mine(1, 50)
-      setItems(res.data.data?.records ?? [])
+      const res = await softwarePublishApi.mine(nextPage, PAGE_SIZE, nextTab)
+      const records = res.data.data?.records ?? []
+      const total = res.data.data?.total ?? 0
+      setItems((prev) =>
+        nextPage === 1 ? records : [...prev, ...records.filter(
+          (row) => !prev.some((p) => p.softwareId === row.softwareId),
+        )],
+      )
+      setHasMore(records.length > 0 && (nextPage - 1) * PAGE_SIZE + records.length < total)
+      setPage(nextPage)
     } catch {
       Alert.alert('提示', '加载失败，请稍后再试')
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }, [])
 
   useEffect(() => {
-    void load()
-  }, [load, params.refreshed])
+    void load(tab, 1)
+  }, [load, tab, params.refreshed])
 
   const gate = async (fn: () => Promise<unknown>, doneTip: string) => {
     setBusy(true)
     try {
       await fn()
       Alert.alert('提示', doneTip)
-      await load()
+      await load(tab, 1)
     } catch {
       Alert.alert('提示', '操作失败，请稍后再试')
     } finally {
@@ -115,7 +151,34 @@ export default function SoftwareMineScreen() {
         <Text style={{ marginTop: 4, fontSize: FontSize.xs, color: '#d3392f' }}>被退回：修改后可再次提交</Text>
       )}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: theme.border }}>
-        {(item.status === 'DRAFT' || item.status === 'REJECTED' || item.status === 'PUBLISHED' || item.status === 'UNLISTED') && (
+        {!isOwnTab && (
+          <TouchableOpacity
+            disabled={busy}
+            onPress={() => router.push(`/software-detail?id=${item.softwareId}`)}
+            style={{ paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: '#eef2ff' }}
+          >
+            <Text style={{ fontSize: FontSize.xs, color: '#3d5afe' }}>查看详情</Text>
+          </TouchableOpacity>
+        )}
+        {!isOwnTab && tab === 'favorites' && (
+          <TouchableOpacity
+            disabled={busy}
+            onPress={() => void gate(() => softwareApi.unfavorite(item.softwareId), '已取消收藏')}
+            style={{ paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: '#fdecec' }}
+          >
+            <Text style={{ fontSize: FontSize.xs, color: '#d3392f' }}>取消收藏</Text>
+          </TouchableOpacity>
+        )}
+        {!isOwnTab && tab === 'subscriptions' && (
+          <TouchableOpacity
+            disabled={busy}
+            onPress={() => void gate(() => softwareApi.unsubscribe(item.softwareId), '已退订')}
+            style={{ paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: '#fdecec' }}
+          >
+            <Text style={{ fontSize: FontSize.xs, color: '#d3392f' }}>退订</Text>
+          </TouchableOpacity>
+        )}
+        {isOwnTab && (item.status === 'DRAFT' || item.status === 'REJECTED' || item.status === 'PUBLISHED' || item.status === 'UNLISTED') && (
           <TouchableOpacity
             disabled={busy}
             onPress={() => router.push(`/software-edit?id=${item.softwareId}`)}
@@ -162,30 +225,56 @@ export default function SoftwareMineScreen() {
           <Text style={{ fontSize: FontSize.md, color: theme.text }}>‹ 返回</Text>
         </TouchableOpacity>
         <Text style={{ fontSize: FontSize.lg, fontWeight: '600', color: theme.text }}>我的软件</Text>
-        <TouchableOpacity
-          disabled={busy}
-          onPress={() => {
-            void (async () => {
-              setBusy(true)
-              try {
-                const created = await softwarePublishApi.create()
-                router.push(`/software-edit?id=${created.data.data.softwareId}`)
-              } catch {
-                Alert.alert('提示', '创建失败，请稍后再试')
-              } finally {
-                setBusy(false)
-              }
-            })()
-          }}
-        >
-          <Text style={{ fontSize: FontSize.sm, color: '#3d5afe', fontWeight: '600' }}>＋ 新建</Text>
-        </TouchableOpacity>
+        {tab === 'published' && (
+          <TouchableOpacity
+            disabled={busy}
+            onPress={() => {
+              void (async () => {
+                setBusy(true)
+                try {
+                  const created = await softwarePublishApi.create()
+                  router.push(`/software-edit?id=${created.data.data.softwareId}`)
+                } catch {
+                  Alert.alert('提示', '创建失败，请稍后再试')
+                } finally {
+                  setBusy(false)
+                }
+              })()
+            }}
+          >
+            <Text style={{ fontSize: FontSize.sm, color: '#3d5afe', fontWeight: '600' }}>＋ 新建</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      {/* SW11：页签——投稿/收藏/订阅 + 翻页加载更多 */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: Spacing.md, paddingBottom: Spacing.xs, gap: Spacing.xs }}>
+        {MINE_TABS.map((entry) => {
+          const active = entry.key === tab
+          return (
+            <TouchableOpacity
+              key={entry.key}
+              onPress={() => setTab(entry.key)}
+              style={{
+                paddingHorizontal: Spacing.sm,
+                paddingVertical: 6,
+                borderRadius: BorderRadius.full,
+                backgroundColor: active ? '#3d5afe' : (theme.bgElevated ?? '#fff'),
+                borderWidth: 1,
+                borderColor: active ? '#3d5afe' : (theme.border ?? '#e2e8f0'),
+              }}
+            >
+              <Text style={{ fontSize: FontSize.xs, color: active ? '#fff' : theme.text }}>
+                {entry.label}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
       </View>
       {loading ? (
         <ActivityIndicator style={{ marginTop: 48 }} />
       ) : items.length === 0 ? (
         <Text style={{ textAlign: 'center', marginTop: 48, color: theme.textSecondary }}>
-          还没有发布过软件，点右上角「＋ 新建」开始
+          {isOwnTab ? '这里还没有内容，点右上角「＋ 新建」开始' : '暂无内容'}
         </Text>
       ) : (
         <FlatList
@@ -193,6 +282,13 @@ export default function SoftwareMineScreen() {
           keyExtractor={(item) => item.softwareId}
           renderItem={renderItem}
           contentContainerStyle={{ padding: Spacing.md, paddingBottom: 48 }}
+          onEndReachedThreshold={0.4}
+          onEndReached={() => {
+            if (!loadingMore && hasMore) void load(tab, page + 1)
+          }}
+          ListFooterComponent={
+            loadingMore ? <ActivityIndicator style={{ marginVertical: 12 }} /> : null
+          }
         />
       )}
     </View>

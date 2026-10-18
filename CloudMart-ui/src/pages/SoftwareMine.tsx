@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "umi";
-import { App, Button, Empty, List, Popconfirm, Space, Spin, Switch, Tabs, Tag } from "antd";
+import { App, Button, Empty, List, Pagination, Popconfirm, Space, Spin, Switch, Tabs, Tag } from "antd";
 import { history } from "umi";
 import {
   deleteMySoftware,
@@ -49,6 +49,7 @@ export default function SoftwareMine() {
   );
   const setTab = (next: TabKey) => {
     setTabState(next);
+    setPage(1);
     // tab 写入 URL：每次切换成为一条浏览器历史，后退/前进可还原
     const params = new URLSearchParams();
     if (next !== "published") params.set("tab", next);
@@ -56,17 +57,27 @@ export default function SoftwareMine() {
   };
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<SoftwareMineItem[]>([]);
+  /** SW11：翻页——不再固定 1/50，后端 size 上限 50 */
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const PAGE_SIZE = 20;
   /** P1 更新提醒总开关（缺省开启；与订阅关系相互独立） */
   const [updateNotify, setUpdateNotify] = useState(true);
   const [notifySaving, setNotifySaving] = useState(false);
 
   const load = useCallback(
-    async (nextTab: TabKey) => {
+    async (nextTab: TabKey, nextPage = 1) => {
       setLoading(true);
       try {
-        const res = await listMySoftware({ tab: nextTab, page: 1, size: 50 });
+        const res = await listMySoftware({
+          tab: nextTab,
+          page: nextPage,
+          size: PAGE_SIZE,
+        });
         if (!res.data.success) return;
         setItems(res.data.data?.records ?? []);
+        setTotal(res.data.data?.total ?? 0);
+        setPage(nextPage);
       } catch {
         message.error("加载失败，请稍后重试");
       } finally {
@@ -262,6 +273,17 @@ export default function SoftwareMine() {
               </List.Item>
             )}
           />
+        )}
+        {items.length > 0 && (
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+            <Pagination
+              current={page}
+              pageSize={PAGE_SIZE}
+              total={total}
+              showSizeChanger={false}
+              onChange={(next) => void load(tab, next)}
+            />
+          </div>
         )}
       </Spin>
     </div>

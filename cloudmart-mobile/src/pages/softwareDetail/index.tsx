@@ -47,9 +47,27 @@ export default function SoftwareDetailPage() {
   const [commentText, setCommentText] = useState('')
   const [sending, setSending] = useState(false)
 
-  const loadComments = useCallback(async () => {
-    const res = await softwareApi.comments(id, 1, 20)
-    setComments(res.data.data?.records ?? [])
+  /** SW11：评论分页——加载更多追加，不再固定首批 20 条 */
+  const [commentsPage, setCommentsPage] = useState(1)
+  const [commentsHasMore, setCommentsHasMore] = useState(false)
+  const [commentsLoading, setCommentsLoading] = useState(false)
+
+  const loadComments = useCallback(async (nextPage = 1) => {
+    setCommentsLoading(true)
+    try {
+      const res = await softwareApi.comments(id, nextPage, 20)
+      const records = res.data.data?.records ?? []
+      const total = res.data.data?.total ?? 0
+      setComments((prev) =>
+        nextPage === 1 ? records : [...prev, ...records.filter(
+          (row) => !prev.some((p) => p.id === row.id),
+        )],
+      )
+      setCommentsPage(nextPage)
+      setCommentsHasMore(records.length > 0 && (nextPage - 1) * 20 + records.length < total)
+    } finally {
+      setCommentsLoading(false)
+    }
   }, [id])
 
   const loadAll = useCallback(async () => {
@@ -373,6 +391,18 @@ export default function SoftwareDetailPage() {
             {sending ? '发送中' : '发送'}
           </Text>
         </View>
+        {commentsHasMore && (
+          <View
+            className={styles.loadMore}
+            onClick={() => {
+              if (!commentsLoading) void loadComments(commentsPage + 1)
+            }}
+          >
+            <Text className={styles.loadMoreText}>
+              {commentsLoading ? '加载中…' : '加载更多评论'}
+            </Text>
+          </View>
+        )}
         {comments.length === 0 ? (
           <Text className={styles.emptyText}>还没有评论</Text>
         ) : (

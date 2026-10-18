@@ -389,9 +389,10 @@ export const softwarePublishApi = {
     request<PublisherStatus>({ url: `${BASE}/publisher-status` }),
 
   /** 我的软件（tab=mine） */
-  mine: (page = 1, size = 20) =>
+  mine: (page = 1, size = 20, tab: 'published' | 'draft' | 'pending' | 'rejected'
+    | 'favorites' | 'subscriptions' = 'published') =>
     request<SoftwarePage<SoftwareMineItem>>({
-      url: `${BASE}/mine${buildQuery({ tab: 'mine', page, size })}`,
+      url: `${BASE}/mine${buildQuery({ tab, page, size })}`,
     }),
 
   /** 作者可见的联系入口（ADMIN_PAID 查看条件用） */

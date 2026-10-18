@@ -309,3 +309,17 @@
 .bottomSpace {
   height: 80px;
 }
+
+/* SW11：评论加载更多 */
+.loadMore {
+  margin: 8rpx 0 16rpx;
+  padding: 12rpx 0;
+  border-radius: 999rpx;
+  background: #eef2ff;
+  text-align: center;
+}
+
+.loadMoreText {
+  font-size: 26rpx;
+  color: #3d5afe;
+}
