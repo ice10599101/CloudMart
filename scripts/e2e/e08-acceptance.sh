@@ -176,24 +176,26 @@ S1=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID3" -H "$U1H" -H "
 check "第二版保存" "true" "$(echo "$S1" | ok_of)"
 SUB1=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/submit" -H "$U1H" -H "Idempotency-Key: e08-submit2a-$RUN")
 WD=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/withdraw" -H "$U1H")
-check "seq1 撤回（回 DRAFT 才能重提）" "true" "$(echo "$WD" | ok_of)"
-S2=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID3" -H "$U1H" -H "Content-Type: application/json" -d '{
+check "seq1 撤回并生成新草稿" "true" "$(echo "$WD" | ok_of)"
+RIDW=$(echo "$WD" | jq_get "print(d['data']['revisionId'])")
+check "撤回返回新草稿 ID（旧提交保持不变）" "true" "$([ "$RIDW" != "$RID3" ] && echo true || echo false)"
+S2=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RIDW" -H "$U1H" -H "Content-Type: application/json" -d '{
   "name":"E08 验收工具","summary":"A04-A51 验收用","categoryId":"1",
   "descriptionHtml":"<p>E08 验收 v3。</p>","licenseType":"FREE","attributionType":"ORIGINAL","accessMode":"REGISTERED",
   "releases":[{"versionName":"1.1.0","channel":"STABLE","recommended":true,"changelog":"第三版",
     "sources":[{"sourceType":"NETDISK","platform":"WINDOWS","arch":"X64","label":"E08 网盘再改",
       "url":"https://pan.baidu.com/s/1e08abc?pwd=e08x","extractionCode":"e08secret","sizeLabel":"9MB"}]}]}')
 check "撤回后再次保存" "true" "$(echo "$S2" | ok_of)"
-SUB2=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/submit" -H "$U1H" -H "Idempotency-Key: e08-submit2b-$RUN")
+SUB2=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RIDW/submit" -H "$U1H" -H "Idempotency-Key: e08-submit2b-$RUN")
 check "seq2 提交" "true" "$(echo "$SUB2" | ok_of)"
-RD=$(get_admin "/revisions/$RID3")
+RD=$(get_admin "/revisions/$RIDW")
 check "A14 审核详情含待审与线上快照" "true" "$(echo "$RD" | jq_get "print(str(d['data'].get('target') is not None and d['data'].get('published') is not None).lower())")"
 check "A14 来源标签变化可辨" "true" "$(echo "$RD" | jq_get "
 t=d['data']['target'] or {}; p=d['data']['published'] or {}
 ts=[s.get('label') for r in (t.get('releases') or []) for s in (r.get('sources') or [])]
 ps=[s.get('label') for r in (p.get('releases') or []) for s in (r.get('sources') or [])]
 print(str(bool(ts) and bool(ps) and ts!=ps).lower())")"
-DEC2=$(post_admin "/revisions/$RID3/decision" "{\"softwareId\":$SID,\"approve\":true,\"reason\":\"E08 当前提交\"}" "e08-dec2-$RUN")
+DEC2=$(post_admin "/revisions/$RIDW/decision" "{\"softwareId\":$SID,\"approve\":true,\"reason\":\"E08 当前提交\"}" "e08-dec2-$RUN")
 check "审核绑定当前不可变快照并通过" "APPROVED" "$(echo "$DEC2" | jq_get "print(d['data']['decision'])")"
 DUP_HTTP=$(curl -s -m 20 -o /tmp/e08_dup.json -w "%{http_code}" -X POST "$GW/api/admin/software/revisions/$RID3/decision" -H "$AH" -H "Content-Type: application/json" -H "Idempotency-Key: e08-dec-dup-$RUN" -d "{\"softwareId\":$SID,\"approve\":true,\"reason\":\"重复决定\"}")
 check "已完成的提交不能被旧页面再次决定（4xx）" "404" "$DUP_HTTP"

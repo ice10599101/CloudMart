@@ -34,6 +34,7 @@ const STATUS_LABEL: Record<string, string> = {
   PUBLISHED: "已发布",
   DRAFT: "草稿",
   PENDING: "待审核",
+  WITHDRAWN: "已撤回",
   REJECTED: "已退回",
 };
 

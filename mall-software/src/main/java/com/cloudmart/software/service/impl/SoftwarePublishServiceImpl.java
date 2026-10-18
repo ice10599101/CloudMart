@@ -474,23 +474,33 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     @Override
     public SoftwareSubmittedVO submit(Long userId, Long softwareId, Long revisionId,
                                       String idempotencyKey) {
-        // 幂等重试返回旧结果前也要检查资格与开关（4.0/11.2）
+        // 身份/资格/开关先于重放：重放也不得绕过（4.0/11.2）
         publisherPolicy.requireForRestrictedWrite(userId);
         if (!softwareProperties.isPublishEnabled()) {
             throw new BusinessException("SOFTWARE_PUBLISH_DISABLED", "软件投稿功能暂未开放");
         }
-        // 11.2 限频：单用户每日提交审核上限（在资格/开关校验之后，不改变错误优先级）
+        Software software = ownedSoftware(userId, softwareId);
+        SoftwareRevision snapshot = revisionOfSoftware(software, revisionId);
+
+        // SW04：稳定意图只含操作类型/软件/工作副本；不含 contentHash、checkedAt、时间/随机值
+        Map<String, Object> intent = Map.of(
+                "softwareId", softwareId, "revisionId", revisionId, "intent", "SUBMIT");
+        // 重放必须发生在限频、素材绑定与远程检查之前，超时重试不再重复扣次数/重复审核
+        java.util.Optional<SoftwareSubmittedVO> replay = operationService.replay(
+                "USER", userId, SoftwareOperationService.OP_SUBMIT, idempotencyKey, intent,
+                json -> objectMapper.readValue(json, SoftwareSubmittedVO.class));
+        if (replay.isPresent()) {
+            return replay.get();
+        }
+
+        // 11.2 限频：仅首次认领的新提交扣一次
         if (!rateLimiter.allowSubmit(userId)) {
             throw new BusinessException("SOFTWARE_RATE_LIMITED", "今日提交次数已达上限，请明天再试");
         }
-        Software software = ownedSoftware(userId, softwareId);
-        SoftwareRevision snapshot = revisionOfSoftware(software, revisionId);
-        requireEditableStatus(snapshot);
-
         // 8.2.3：所有引用绑定成功才允许 submit——幂等自愈重绑（覆盖补偿缺口）
         assetBindingService.bindRevisionAssets(revisionId, userId, collectSnapshotAssets(snapshot));
 
-        // 远程阶段（事务外，9.7）：文本审核绑定 contentHash/checkedAt + 账号可用性
+        // 远程阶段（事务外，9.7）：文本审核绑定 contentHash + 账号可用性
         List<String> texts = collectReviewTexts(snapshot);
         String contentHash = sha256(String.join("\u0001", texts));
         long mediaCount = revisionMediaMapper.selectCount(
@@ -500,22 +510,14 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 new SoftwareReviewRequest(idempotencyKey, contentHash, texts,
                         Math.toIntExact(mediaCount))).data();
         if (outcome == null || !outcome.approved()) {
-            // 审核失败不得发布（9.6）：拒绝级违规词直接拒绝提交
             throw new BusinessException("CONTENT_REJECTED",
                     outcome == null ? "内容审核不可用" : outcome.reason());
         }
         requireAccountAvailable(userId);
 
-        Map<String, Object> submitHashPayload = new HashMap<>();
-        submitHashPayload.put("softwareId", softwareId);
-        submitHashPayload.put("revisionId", revisionId);
-        submitHashPayload.put("contentHash", contentHash);
-        submitHashPayload.put("checkedAt", String.valueOf(outcome.checkedAt()));
-        String operationHash = operationService.requestHash(submitHashPayload);
-        // 短本地事务（9.7：本地事务绝不跨远程调用）——远程审核已完成，
-        // 此处锁资格行→软件→快照复核并冻结；operation 结果记录同事务提交
+        // 短本地事务（9.7）：冻结前复核被审内容与当前内容一致；operation 结果同事务提交
         return transactionTemplate.execute(status -> operationService.execute("USER", userId,
-                SoftwareOperationService.OP_SUBMIT, idempotencyKey, operationHash, softwareId,
+                SoftwareOperationService.OP_SUBMIT, idempotencyKey, intent, softwareId,
                 () -> doSubmitLocked(userId, softwareId, revisionId, contentHash, outcome),
                 json -> objectMapper.readValue(json, SoftwareSubmittedVO.class)));
     }
@@ -541,8 +543,15 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
 
         // 冻结前完整校验（快照必须可发布）
         assembler.validateForSubmit(lockedRevision);
+        // SW04：远程检查针对的内容必须与即将冻结的内容一致（防止检查旧内容、冻结新内容）
+        String frozenHash = sha256(String.join("\u0001", collectReviewTexts(lockedRevision)));
+        if (!contentHash.equals(frozenHash)) {
+            throw new BusinessException("SOFTWARE_SUBMIT_STALE",
+                    "内容在审核期间发生变化，请重新提交");
+        }
 
         lockedRevision.setReviewStatus(SoftwareReviewStatus.PENDING);
+        lockedRevision.setContentDigest(contentHash);
         lockedRevision.setSubmittedAt(LocalDateTime.now(clock));
         revisionMapper.updateById(lockedRevision);
         auditService.record(softwareId, revisionId, userId, "USER",
@@ -603,16 +612,32 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     @Override
     @Transactional
     public SoftwareEditorVO withdraw(Long userId, Long softwareId, Long revisionId) {
-        Software software = ownedSoftware(userId, softwareId);
-        SoftwareRevision revision = lockRevisionOfSoftware(software, revisionId);
+        ownedSoftware(userId, softwareId);
+        Software locked = lockMapper.lockSoftware(softwareId);
+        SoftwareRevision revision = lockMapper.lockRevision(revisionId);
+        if (revision == null || !softwareId.equals(revision.getSoftwareId())) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "快照不存在");
+        }
+        // 幂等：已撤回的旧提交重复调用返回当前工作副本
+        if (revision.getReviewStatus() == SoftwareReviewStatus.WITHDRAWN) {
+            Long working = locked.getWorkingRevisionId();
+            return buildEditor(locked, working != null ? working : revisionId);
+        }
         if (revision.getReviewStatus() != SoftwareReviewStatus.PENDING) {
             throw new BusinessException("SOFTWARE_STATE_CONFLICT", "仅待审快照可撤回");
         }
-        revision.setReviewStatus(SoftwareReviewStatus.DRAFT);
+        // 旧提交记录内容保持不变，只记录终态；编辑在新 DRAFT 上进行（旧审核页无法再作用于新稿）
+        revision.setReviewStatus(SoftwareReviewStatus.WITHDRAWN);
         revisionMapper.updateById(revision);
+
+        SoftwareRevision draft = assembler.cloneInto(revision, softwareId, userId);
+        revisionMapper.insert(draft);
+        assembler.cloneChildren(revisionId, draft.getId());
+        locked.setWorkingRevisionId(draft.getId());
+        softwareMapper.updateById(locked);
         auditService.record(softwareId, revisionId, userId, "USER",
-                "WITHDRAW", "PENDING", "DRAFT", "撤回待审", null);
-        return buildEditor(software, revisionId);
+                "WITHDRAW", "PENDING", "WITHDRAWN", "撤回待审并生成新草稿", null);
+        return buildEditor(locked, draft.getId());
     }
 
     @Override
@@ -746,6 +771,14 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         if (revision.getReviewStatus() != SoftwareReviewStatus.PENDING) {
             throw new BusinessException("SOFTWARE_SUBMIT_STALE",
                     "该提交已不在待审状态，请刷新后处理");
+        }
+        // SW04：审核结论必须对应提交时冻结的内容摘要
+        if (revision.getContentDigest() != null) {
+            String actualDigest = sha256(String.join("\u0001", collectReviewTexts(revision)));
+            if (!revision.getContentDigest().equals(actualDigest)) {
+                throw new BusinessException("SOFTWARE_STATE_CONFLICT",
+                        "提交内容与审核时内容不一致，请退回后重新提交");
+            }
         }
 
         revision.setReviewedAt(LocalDateTime.now(clock));
@@ -983,14 +1016,6 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     }
 
     /** 锁定快照并校验归属（调用方持有软件主行锁或已做归属校验） */
-    private SoftwareRevision lockRevisionOfSoftware(Software software, Long revisionId) {
-        SoftwareRevision revision = lockMapper.lockRevision(revisionId);
-        if (revision == null || !software.getId().equals(revision.getSoftwareId())) {
-            throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
-        }
-        return revision;
-    }
-
     private void requireEditableStatus(SoftwareRevision revision) {
         if (revision.getReviewStatus() != SoftwareReviewStatus.DRAFT
                 && revision.getReviewStatus() != SoftwareReviewStatus.REJECTED) {

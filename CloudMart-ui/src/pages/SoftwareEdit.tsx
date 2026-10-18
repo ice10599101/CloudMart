@@ -102,6 +102,7 @@ const REVIEW_LABEL: Record<string, string> = {
   DRAFT: "草稿",
   PENDING: "待审核",
   APPROVED: "已通过",
+  WITHDRAWN: "已撤回",
   REJECTED: "已退回",
 };
 

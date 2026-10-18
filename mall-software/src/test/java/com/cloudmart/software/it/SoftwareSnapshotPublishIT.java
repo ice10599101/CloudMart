@@ -161,22 +161,27 @@ class SoftwareSnapshotPublishIT extends SoftwareIntegrationTestBase {
         SoftwareSubmittedVO submitted = publishService.submit(OWNER, sid, rid, "it-submit-1");
         assertThat(submitted.reviewStatus()).isEqualTo("PENDING");
 
+        // SW04：撤回不原地改旧提交，而是生成内容相同的新 DRAFT
         SoftwareEditorVO withdrawn = publishService.withdraw(OWNER, sid, rid);
+        long draftId = withdrawn.revisionId();
+        assertThat(draftId).isNotEqualTo(rid);
         assertThat(revisionMapper.selectById(rid).getReviewStatus())
+                .isEqualTo(SoftwareReviewStatus.WITHDRAWN);
+        assertThat(revisionMapper.selectById(draftId).getReviewStatus())
                 .isEqualTo(SoftwareReviewStatus.DRAFT);
 
-        // 重提后审核：published 指向该快照、working 指针清空（写 NULL 必须落库）
+        // 重提后审核：published 指向新快照、working 指针清空（写 NULL 必须落库）
         SoftwareSnapshotInput v3 = baseInput();
         v3.setName("IT 快照工具三版");
-        publishService.saveDraft(OWNER, sid, rid, v3);
-        SoftwareSubmittedVO resubmitted = publishService.submit(OWNER, sid, rid, "it-submit-2");
+        publishService.saveDraft(OWNER, sid, draftId, v3);
+        SoftwareSubmittedVO resubmitted = publishService.submit(OWNER, sid, draftId, "it-submit-2");
         assertThat(resubmitted.reviewStatus()).isEqualTo("PENDING");
 
-        publishService.reviewDecision(ADMIN, "it-decide-ok", sid, rid,
+        publishService.reviewDecision(ADMIN, "it-decide-ok", sid, draftId,
                 true, "通过", "it-req-2");
 
         Software after = softwareMapper.selectById(sid);
-        assertThat(after.getPublishedRevisionId()).isEqualTo(rid);
+        assertThat(after.getPublishedRevisionId()).isEqualTo(draftId);
         assertThat(after.getWorkingRevisionId()).as("审核通过后 working 指针必须清空").isNull();
         assertThat(after.getLifecycle().name()).isEqualTo("ACTIVE");
         assertThat(after.getPublicationSeq()).isEqualTo(1);

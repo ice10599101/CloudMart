@@ -275,7 +275,7 @@ export interface SoftwareEditorMedia {
 export interface SoftwareEditor {
   softwareId: string
   revisionId: string
-  reviewStatus: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewStatus: 'DRAFT' | 'PENDING' | 'WITHDRAWN' | 'APPROVED' | 'REJECTED'
   name: string
   summary: string
   categoryId: string | null
@@ -309,7 +309,7 @@ export interface SoftwareCreated {
 export interface SoftwareSubmitted {
   softwareId: string
   revisionId: string
-  reviewStatus: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewStatus: 'DRAFT' | 'PENDING' | 'WITHDRAWN' | 'APPROVED' | 'REJECTED'
 }
 
 /** 移动端纯文本 → 后端 HTML（服务端消毒） */

@@ -20,6 +20,7 @@ const STATUS_LABEL: Record<string, string> = {
   BANNED: '已封禁',
   DRAFT: '草稿',
   PENDING: '审核中',
+  WITHDRAWN: '已撤回',
   REJECTED: '已退回',
 }
 

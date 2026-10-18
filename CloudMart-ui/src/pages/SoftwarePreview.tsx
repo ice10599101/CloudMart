@@ -136,7 +136,8 @@ export default function SoftwarePreview() {
     DRAFT: "草稿",
     PENDING: "待审核",
     APPROVED: "已通过",
-    REJECTED: "已退回",
+    WITHDRAWN: "已撤回",
+  REJECTED: "已退回",
   };
 
   return (

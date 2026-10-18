@@ -26,7 +26,7 @@ export type SoftwareSourceType = "NETDISK" | "MAGNET" | "TORRENT_URL";
 export type SoftwareLifecycle = "ACTIVE" | "BANNED" | "UNLISTED";
 /** 快照审核状态 */
 export type SoftwareReviewStatus =
-  "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
+  "DRAFT" | "PENDING" | "WITHDRAWN" | "APPROVED" | "REJECTED";
 
 export interface PageResult<T> {
   current: number;

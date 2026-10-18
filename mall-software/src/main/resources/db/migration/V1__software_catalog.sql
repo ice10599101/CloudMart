@@ -43,7 +43,8 @@ CREATE TABLE `software_revision` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
   `software_id` bigint unsigned NOT NULL COMMENT '所属软件',
   `editor_id` bigint unsigned NOT NULL COMMENT '编辑人（前台会员ID）',
-  `review_status` varchar(16) NOT NULL DEFAULT 'DRAFT' COMMENT '审核状态:DRAFT/PENDING/APPROVED/REJECTED（PENDING 冻结，可撤回 DRAFT）',
+  `review_status` varchar(16) NOT NULL DEFAULT 'DRAFT' COMMENT '审核状态:DRAFT/PENDING/WITHDRAWN/APPROVED/REJECTED',
+  `content_digest` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL COMMENT '提交时冻结的内容摘要（审核检查与冻结内容一致性校验）',
   `name` varchar(80) NOT NULL DEFAULT '' COMMENT '软件名（草稿可空，提交审核时 2~80 字）',
   `summary` varchar(160) NOT NULL DEFAULT '' COMMENT '一句话简介（提交时 10~160 字）',
   `category_id` bigint unsigned DEFAULT NULL COMMENT '运营分类（逻辑引用 software_category）',
@@ -76,7 +77,7 @@ CREATE TABLE `software_revision` (
     OR (`access_mode` = 'COMMUNITY_LEVEL' AND `access_contact_id` IS NULL)
     OR (`access_mode` = 'ADMIN_PAID' AND `min_community_level` IS NULL)
   ),
-  CONSTRAINT `chk_revision_status` CHECK (`review_status` IN ('DRAFT','PENDING','APPROVED','REJECTED'))
+  CONSTRAINT `chk_revision_status` CHECK (`review_status` IN ('DRAFT','PENDING','WITHDRAWN','APPROVED','REJECTED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='软件内容快照（草稿/待审/线上整体切换单元）';
 
 -- -----------------------------------------------------------------------------

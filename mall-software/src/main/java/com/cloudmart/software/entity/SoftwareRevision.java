@@ -32,6 +32,9 @@ public class SoftwareRevision {
 
     private SoftwareReviewStatus reviewStatus;
 
+    /** 提交时冻结的内容摘要（审核检查与最终冻结必须一致） */
+    private String contentDigest;
+
     /** 软件名（草稿可空，提交时 2~80 字） */
     private String name;
 

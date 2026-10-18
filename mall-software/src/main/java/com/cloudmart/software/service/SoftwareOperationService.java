@@ -103,6 +103,22 @@ public class SoftwareOperationService {
         return result;
     }
 
+    /**
+     * 副作用前的重放检查（SW04）：同键同请求直接返回历史结果，异体 409；
+     * 未命中返回 empty。调用方须先完成身份/归属校验。
+     */
+    public <T> java.util.Optional<T> replay(String actorType, Long actorId,
+                                            String operationType, String operationKey,
+                                            Object request, Function<String, T> resultReader) {
+        String requestHash = requestHash(request);
+        validate(actorType, actorId, operationKey, requestHash);
+        SoftwareOperation existing = find(actorType, actorId, operationType, operationKey);
+        if (existing == null) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(replayOrConflict(existing, requestHash, resultReader));
+    }
+
     /** 同键重放：同请求返回原结果；异体 409（绝不重复执行业务动作） */
     private <T> T replayOrConflict(SoftwareOperation existing, String requestHash,
                                    Function<String, T> resultReader) {

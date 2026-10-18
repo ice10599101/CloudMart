@@ -387,4 +387,71 @@ class SoftwarePublishServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "SOFTWARE_NOT_FOUND");
     }
+
+    @Test
+    @DisplayName("SW04：同键超时重试直接返回历史结果，不重复限频/远程审核")
+    void submit_replayReturnsStoredResultBeforeSideEffects() {
+        Software software = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(
+                revision(SoftwareReviewStatus.PENDING, 0, 0));
+        when(operationService.replay(anyString(), any(), anyString(), anyString(), any(), any()))
+                .thenReturn(java.util.Optional.of(new SoftwareSubmittedVO(
+                        SOFTWARE_ID, REVISION_ID, "PENDING")));
+
+        SoftwareSubmittedVO result = service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-key-replay");
+
+        assertThat(result.reviewStatus()).isEqualTo("PENDING");
+        verify(communitySupportFeignClient, never()).review(any());
+        verify(rateLimiter, never()).allowSubmit(any());
+    }
+
+    @Test
+    @DisplayName("SW04：远程审核后内容被改，冻结前摘要不一致拒绝提交")
+    void submit_contentChangedBeforeFreezeRejected() {
+        Software software = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
+        SoftwareRevision snapshot = revision(SoftwareReviewStatus.DRAFT, 0, 1);
+        snapshot.setDescriptionText("审核时内容 A");
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(snapshot);
+        when(releaseMapper.selectList(any())).thenReturn(java.util.List.of());
+        when(revisionMediaMapper.selectCount(any())).thenReturn(0L);
+        when(communitySupportFeignClient.review(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
+                new SoftwareReviewOutcomeVO("hash", true, false, java.util.List.of(), null, NOW)));
+        when(userSupportFeignClient.profiles(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
+                java.util.List.of(new com.cloudmart.software.dto.software.SoftwareProfileVO(
+                        USER_ID, "昵称", null, true))));
+        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission(true));
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+        SoftwareRevision locked = revision(SoftwareReviewStatus.DRAFT, 0, 1);
+        locked.setDescriptionText("冻结时内容 B");
+        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(locked);
+
+        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-key-race"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_SUBMIT_STALE");
+        verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
+    }
+
+    @Test
+    @DisplayName("SW04：审核时内容摘要与冻结摘要不一致拒绝通过")
+    void review_contentDigestMismatchRejected() {
+        SoftwareRevision pending = revision(SoftwareReviewStatus.PENDING, 0, 0);
+        pending.setContentDigest("a".repeat(64));
+        pending.setDescriptionText("已被篡改的内容");
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(pending);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission(true));
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(pending);
+
+        assertThatThrownBy(() -> service.reviewDecision(ADMIN_ID, "review-key-digest",
+                SOFTWARE_ID, REVISION_ID, true, "ok", "req-digest"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_STATE_CONFLICT");
+        verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
+    }
 }
