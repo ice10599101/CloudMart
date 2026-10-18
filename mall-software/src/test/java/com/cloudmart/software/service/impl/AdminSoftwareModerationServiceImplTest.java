@@ -96,6 +96,10 @@ class AdminSoftwareModerationServiceImplTest {
     @Mock
     private SoftwareOperationService operationService;
     @Mock
+    private com.cloudmart.software.service.SoftwarePlatformActionService platformActionService;
+    @Mock
+    private com.cloudmart.software.service.SoftwareCommentStatusService commentStatusService;
+    @Mock
     private OutboxService outboxService;
 
     private AdminSoftwareModerationServiceImpl service;
@@ -105,7 +109,8 @@ class AdminSoftwareModerationServiceImplTest {
         service = new AdminSoftwareModerationServiceImpl(softwareMapper, lockMapper, reportMapper,
                 commentMapper, feedbackMapper, auditLogMapper, userSupportFeignClient,
                 revisionMapper, releaseMapper, sourceMapper, sourceStateMapper,
-                operationService, outboxService, new ObjectMapper(),
+                operationService, platformActionService, commentStatusService,
+                outboxService, new ObjectMapper(),
                 Clock.fixed(Instant.parse("2026-10-15T12:00:00Z"), ZoneId.systemDefault()));
         // operationService.execute 直通业务动作（幂等语义属 SW05 职责，这里只测 doMark）
         lenient().when(operationService.execute(anyString(), eq(ADMIN_ID), anyString(),

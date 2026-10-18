@@ -35,6 +35,7 @@ import com.cloudmart.software.repository.SoftwareSourceMapper;
 import com.cloudmart.software.repository.SoftwareSourceStateMapper;
 import com.cloudmart.software.service.AdminSoftwareModerationService;
 import com.cloudmart.software.service.SoftwareOperationService;
+import com.cloudmart.software.service.SoftwarePlatformActionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -76,6 +77,8 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
     private final SoftwareSourceMapper sourceMapper;
     private final SoftwareSourceStateMapper sourceStateMapper;
     private final SoftwareOperationService operationService;
+    private final SoftwarePlatformActionService platformActionService;
+    private final com.cloudmart.software.service.SoftwareCommentStatusService commentStatusService;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -147,10 +150,17 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
 
     private void doHandle(Long adminId, Long reportId, String status, String action, String note) {
         SoftwareReport report = reportMapper.selectById(reportId);
-        if (report == null || report.getStatus() == SoftwareReportStatus.RESOLVED
+        if (report == null) {
+            // SW09：不存在要明确报错，不能所有情况都 true
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "举报不存在");
+        }
+        if (report.getStatus() == SoftwareReportStatus.RESOLVED
                 || report.getStatus() == SoftwareReportStatus.REJECTED) {
-            // 幂等：无举报或已终态
-            return;
+            if (report.getStatus().name().equals(status)) {
+                return; // 终态重复同意图：幂等返回
+            }
+            throw new BusinessException("SOFTWARE_REPORT_TERMINAL",
+                    "举报已终态（" + report.getStatus().name() + "），不能静默改为 " + status);
         }
         report.setStatus(SoftwareReportStatus.valueOf(status));
         report.setHandlerId(adminId);
@@ -161,7 +171,9 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
 
         if ("RESOLVED".equals(status)) {
             switch (action) {
-                case "BAN_SOFTWARE" -> banSoftware(adminId, report.getSoftwareId(), note);
+                // SW09：统一走平台动作服务，杜绝双实现与重复事件
+                case "BAN_SOFTWARE" -> platformActionService.ban(adminId,
+                        report.getSoftwareId(), note);
                 case "HIDE_COMMENT" -> hideComment(adminId, report.getSoftwareId(),
                         report.getTargetId(), note);
                 default -> {
@@ -173,25 +185,7 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
                 null, status, note);
     }
 
-    /** 显式封禁：BANNED（作者不可自行恢复）；平台处置留审计 + 通知事件 */
-    private void banSoftware(Long adminId, Long softwareId, String reason) {
-        Software software = lockMapper.lockSoftware(softwareId);
-        if (software == null || software.getLifecycle() == SoftwareLifecycle.BANNED) {
-            return;
-        }
-        String fromStatus = software.getLifecycle().name();
-        software.setLifecycle(SoftwareLifecycle.BANNED);
-        softwareMapper.updateById(software);
-        writeAudit(softwareId, null, adminId, "BAN", fromStatus, "BANNED", reason);
-        outboxService.record(EventEnvelope.of(SoftwareEvents.TAG_SOFTWARE_BANNED, 1,
-                String.valueOf(softwareId), 0, null,
-                objectMapper.writeValueAsString(Map.of(
-                        "softwareId", String.valueOf(softwareId),
-                        "authorId", String.valueOf(software.getOwnerId()),
-                        "reason", reason == null ? "" : reason))));
-    }
-
-    /** 隐藏评论：VISIBLE→HIDDEN 计数-1；HIDDEN 不回传原文（前台一致语义） */
+    /** 隐藏评论（SW09）：与评论管理共用条件迁移——两个举报并发只扣一次计数 */
     private void hideComment(Long adminId, Long softwareId, Long targetId, String reason) {
         if (targetId == null) {
             throw new BusinessException("SOFTWARE_REPORT_INVALID", "HIDE_COMMENT 需要目标评论 ID");
@@ -200,14 +194,10 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
         if (comment == null || !softwareId.equals(comment.getSoftwareId())) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "目标评论不存在或不属于该软件");
         }
-        if (comment.getStatus() == SoftwareCommentStatus.VISIBLE) {
-            comment.setStatus(SoftwareCommentStatus.HIDDEN);
-            comment.setLockVersion(comment.getLockVersion() + 1);
-            commentMapper.updateById(comment);
-            softwareMapper.incrementCommentCount(softwareId, -1);
-            writeAudit(softwareId, comment.getId(), adminId, "COMMENT_HIDE",
-                    "VISIBLE", "HIDDEN", reason);
-        }
+        // 已隐藏则跳过（并发举报只有第一个迁移成功并扣计数）
+        commentStatusService.transition(softwareId, targetId,
+                SoftwareCommentStatus.VISIBLE, SoftwareCommentStatus.HIDDEN,
+                -1, adminId, "COMMENT_HIDE", reason);
     }
 
     @Override

@@ -57,6 +57,7 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
     private final SoftwareReleaseMapper releaseMapper;
     private final SoftwareSourceMapper sourceMapper;
     private final SoftwareOperationService operationService;
+    private final com.cloudmart.software.service.SoftwareCommentStatusService commentStatusService;
     private final SoftwarePublishService softwarePublishService;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
@@ -383,18 +384,17 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
             default -> throw new BusinessException("SOFTWARE_COMMENT_MODERATE_INVALID",
                     "action 非法");
         }
-        comment.setStatus(to);
-        comment.setLockVersion(comment.getLockVersion() + 1);
-        commentMapper.updateById(comment);
-        if (countDelta != 0) {
-            softwareMapper.incrementCommentCount(softwareId, countDelta);
+        // SW09：条件迁移是唯一写入路径——并发处置只发生一次，计数不会重复扣
+        boolean migrated = commentStatusService.transition(softwareId, commentId,
+                from, to, countDelta, adminId, "COMMENT_" + action, reason);
+        if (!migrated) {
+            throw new BusinessException("SOFTWARE_STATE_CONFLICT",
+                    "评论状态已被其他操作改变，请刷新后重试");
         }
         // 可见化（APPROVE/RESTORE）写可见通知事件；重复处置由 operation 幂等吸收（4.4）
         if (to == SoftwareCommentStatus.VISIBLE) {
             publishVisibleEvent(comment);
         }
-        auditServiceRecord(adminId, softwareId, commentId, "COMMENT_" + action,
-                from.name(), to.name(), reason);
     }
 
     private void publishVisibleEvent(SoftwareComment comment) {
@@ -422,18 +422,4 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
         }
     }
 
-    private void auditServiceRecord(Long adminId, Long softwareId, Long commentId,
-                                    String action, String from, String to, String reason) {
-        SoftwareAuditLog logEntry = new SoftwareAuditLog();
-        logEntry.setSoftwareId(softwareId);
-        logEntry.setRevisionId(commentId);
-        logEntry.setActorId(adminId);
-        logEntry.setActorType("ADMIN");
-        logEntry.setAction(action);
-        logEntry.setFromStatus(from);
-        logEntry.setToStatus(to);
-        logEntry.setReason(reason);
-        logEntry.setCreatedAt(LocalDateTime.now(clock));
-        auditLogMapper.insert(logEntry);
-    }
 }

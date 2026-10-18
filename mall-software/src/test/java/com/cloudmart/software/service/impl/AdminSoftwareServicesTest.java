@@ -56,6 +56,7 @@ import java.util.function.Supplier;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
@@ -84,6 +85,10 @@ class AdminSoftwareServicesTest {
     private com.cloudmart.software.repository.SoftwareSourceMapper sourceMapper;
     @org.mockito.Mock
     private com.cloudmart.software.repository.SoftwareSourceStateMapper sourceStateMapper;
+    @org.mockito.Mock
+    private com.cloudmart.software.service.SoftwarePlatformActionService platformActionService;
+    @org.mockito.Mock
+    private com.cloudmart.software.service.SoftwareCommentStatusService commentStatusService;
     @Mock
     private SoftwarePublisherPermissionMapper publisherPermissionMapper;
     @Mock
@@ -133,11 +138,12 @@ class AdminSoftwareServicesTest {
         moderationService = new AdminSoftwareModerationServiceImpl(softwareMapper, lockMapper, reportMapper,
                 commentMapper, feedbackMapper, auditLogMapper, userSupportFeignClient,
                 revisionMapper, releaseMapper, sourceMapper, sourceStateMapper,
-                operationService, outboxService,
-                new ObjectMapper(), fixedClock());
+                operationService, platformActionService, commentStatusService,
+                outboxService, new ObjectMapper(), fixedClock());
         queryService = new AdminSoftwareQueryServiceImpl(softwareMapper, userSupportFeignClient,
                 revisionMapper, commentMapper, auditLogMapper, releaseMapper, sourceMapper,
-                operationService, null, outboxService, new ObjectMapper(), fixedClock());
+                operationService, commentStatusService, null, outboxService,
+                new ObjectMapper(), fixedClock());
     }
 
     private Clock fixedClock() {
@@ -277,7 +283,7 @@ class AdminSoftwareServicesTest {
     }
 
     @Test
-    @DisplayName("A39：举报成立+BAN_SOFTWARE 显式封禁（审计+SOFTWARE_BANNED 事件）；NONE 不隐式封禁")
+    @DisplayName("SW09：举报处置统一走平台动作/评论状态服务；终态幂等与拒绝")
     void handleReport_explicitActions() {
         SoftwareReport report = new SoftwareReport();
         report.setId(1L);
@@ -285,39 +291,50 @@ class AdminSoftwareServicesTest {
         report.setStatus(SoftwareReportStatus.OPEN);
         report.setLockVersion(0);
         when(reportMapper.selectById(1L)).thenReturn(report);
-        Software software = new Software();
-        software.setId(SOFTWARE_ID);
-        software.setOwnerId(7L);
-        software.setLifecycle(SoftwareLifecycle.ACTIVE);
-        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(software);
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
 
-        AdminReportHandleRequest request = new AdminReportHandleRequest();
-        request.setStatus("RESOLVED");
-        request.setAction("BAN_SOFTWARE");
-        request.setNote("恶意软件");
-        moderationService.handleReport(ADMIN_ID, 1L, "report-key-1", request);
+        AdminReportHandleRequest ban = new AdminReportHandleRequest();
+        ban.setStatus("RESOLVED");
+        ban.setAction("BAN_SOFTWARE");
+        ban.setNote("恶意软件");
+        moderationService.handleReport(ADMIN_ID, 1L, "report-key-1", ban);
 
-        assertThat(software.getLifecycle()).isEqualTo(SoftwareLifecycle.BANNED);
-        verify(outboxService).record(any());
+        // 封禁委托统一平台动作服务（列表封禁与举报封禁同一状态机，事件只发一次）
+        verify(platformActionService).ban(ADMIN_ID, SOFTWARE_ID, "恶意软件");
+        verify(reportMapper).updateById(any(com.cloudmart.software.entity.SoftwareReport.class));
 
-        // NONE：仅标记成立，不隐式封禁
-        SoftwareReport report2 = new SoftwareReport();
-        report2.setId(2L);
-        report2.setSoftwareId(SOFTWARE_ID);
-        report2.setStatus(SoftwareReportStatus.OPEN);
-        report2.setLockVersion(0);
-        when(reportMapper.selectById(2L)).thenReturn(report2);
-        AdminReportHandleRequest none = new AdminReportHandleRequest();
-        none.setStatus("RESOLVED");
-        none.setAction("NONE");
-        none.setNote("标记成立");
-        moderationService.handleReport(ADMIN_ID, 2L, "report-key-2", none);
-        assertThat(software.getLifecycle()).isEqualTo(SoftwareLifecycle.BANNED); // 未再变化
+        // 举报不存在 → 明确报错，不能所有情况都 true
+        when(reportMapper.selectById(99L)).thenReturn(null);
+        AdminReportHandleRequest ghost = new AdminReportHandleRequest();
+        ghost.setStatus("RESOLVED");
+        ghost.setAction("NONE");
+        ghost.setNote("x");
+        assertThatThrownBy(() -> moderationService.handleReport(ADMIN_ID, 99L, "report-key-g", ghost))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_NOT_FOUND");
+
+        // 终态同意图幂等；不同意图拒绝
+        SoftwareReport done = new SoftwareReport();
+        done.setId(3L);
+        done.setSoftwareId(SOFTWARE_ID);
+        done.setStatus(SoftwareReportStatus.RESOLVED);
+        done.setLockVersion(0);
+        when(reportMapper.selectById(3L)).thenReturn(done);
+        AdminReportHandleRequest same = new AdminReportHandleRequest();
+        same.setStatus("RESOLVED");
+        same.setAction("NONE");
+        same.setNote("重复");
+        moderationService.handleReport(ADMIN_ID, 3L, "report-key-same", same);
+        AdminReportHandleRequest flip = new AdminReportHandleRequest();
+        flip.setStatus("REJECTED");
+        flip.setAction("NONE");
+        flip.setNote("改判");
+        assertThatThrownBy(() -> moderationService.handleReport(ADMIN_ID, 3L, "report-key-flip", flip))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_REPORT_TERMINAL");
     }
 
     @Test
-    @DisplayName("6.8：评论 APPROVE 计数+1+可见事件；HIDE 计数-1；REJECT 不计数")
+    @DisplayName("SW09：评论审核走条件迁移——成功发可见事件，并发已处置返回冲突")
     void moderateComment_stateMachineAndCounting() {
         Software software = new Software();
         software.setId(SOFTWARE_ID);
@@ -331,21 +348,21 @@ class AdminSoftwareServicesTest {
         pending.setStatus(SoftwareCommentStatus.PENDING);
         pending.setLockVersion(0);
         when(commentMapper.selectById(1L)).thenReturn(pending);
+        when(commentStatusService.transition(eq(SOFTWARE_ID), eq(1L),
+                eq(SoftwareCommentStatus.PENDING), eq(SoftwareCommentStatus.VISIBLE),
+                eq(1), eq(ADMIN_ID), anyString(), anyString())).thenReturn(true);
 
         queryService.moderateComment(ADMIN_ID, SOFTWARE_ID, 1L, "cm-key-1", "APPROVE", "内容合格");
-        assertThat(pending.getStatus()).isEqualTo(SoftwareCommentStatus.VISIBLE);
-        verify(softwareMapper).incrementCommentCount(SOFTWARE_ID, 1);
+        verify(commentStatusService).transition(eq(SOFTWARE_ID), eq(1L),
+                eq(SoftwareCommentStatus.PENDING), eq(SoftwareCommentStatus.VISIBLE),
+                eq(1), eq(ADMIN_ID), eq("COMMENT_APPROVE"), eq("内容合格"));
         verify(outboxService).record(any());
 
-        // HIDE：VISIBLE→HIDDEN 计数-1
-        when(commentMapper.selectById(1L)).thenReturn(pending);
-        queryService.moderateComment(ADMIN_ID, SOFTWARE_ID, 1L, "cm-key-2", "HIDE", "违规");
-        assertThat(pending.getStatus()).isEqualTo(SoftwareCommentStatus.HIDDEN);
-        verify(softwareMapper).incrementCommentCount(SOFTWARE_ID, -1);
-
-        // REJECT 只能作用于 PENDING
+        when(commentStatusService.transition(any(), any(), any(), any(),
+                org.mockito.ArgumentMatchers.anyInt(), any(), anyString(), anyString()))
+                .thenReturn(false);
         assertThatThrownBy(() -> queryService.moderateComment(ADMIN_ID, SOFTWARE_ID, 1L,
-                "cm-key-3", "REJECT", "拒绝"))
+                "cm-key-2", "HIDE", "违规"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "SOFTWARE_STATE_CONFLICT");
     }
