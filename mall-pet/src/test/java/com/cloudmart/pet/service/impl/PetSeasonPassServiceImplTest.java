@@ -13,7 +13,6 @@ import com.cloudmart.pet.entity.PetSeasonPassExpFact;
 import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.repository.PetSeasonMapper;
 import com.cloudmart.pet.repository.PetSeasonPassClaimMapper;
-import com.cloudmart.pet.repository.PetSeasonPassExpFactMapper;
 import com.cloudmart.pet.repository.PetSeasonPassMapper;
 import com.cloudmart.pet.service.PetService;
 import com.cloudmart.pet.vo.PetSeasonPassVO;
@@ -38,6 +37,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -62,13 +62,13 @@ class PetSeasonPassServiceImplTest {
     @Mock
     private PetSeasonPassClaimMapper claimMapper;
     @Mock
-    private PetSeasonPassExpFactMapper expFactMapper;
-    @Mock
     private PetInventoryMapper inventoryMapper;
     @Mock
     private PetRewardApplicationService rewardApplicationService;
     @Mock
     private PetService petService;
+    @Mock
+    private PetSeasonPassExpAccumulator expAccumulator;
 
     private PetSeasonPassServiceImpl service;
 
@@ -86,8 +86,8 @@ class PetSeasonPassServiceImplTest {
     @BeforeEach
     void setUp() {
         service = new PetSeasonPassServiceImpl(seasonMapper, passMapper, claimMapper,
-                expFactMapper, inventoryMapper, rewardApplicationService, petService,
-                new com.cloudmart.pet.config.PetProperties());
+                inventoryMapper, rewardApplicationService, petService,
+                new com.cloudmart.pet.config.PetProperties(), expAccumulator);
         service.finalTierSkinCode = "";
         when(rewardApplicationService.claim(any(), any()))
                 .thenReturn(new PetRewardApplicationService.RewardClaimResult(
@@ -284,23 +284,18 @@ class PetSeasonPassServiceImplTest {
     }
 
     @Nested
-    @DisplayName("经验事实去重")
+    @DisplayName("经验事实（T17 委托原子累计器）")
     class ExpFactTests {
 
         @Test
-        @DisplayName("同一任务事实重复上报 → 只计一次（uk 去重，pass_exp 只加一次）")
-        void addExp_sameFactCountedOnce() {
-            when(seasonMapper.selectOne(any())).thenReturn(activeSeason());
-            when(passMapper.selectOne(any())).thenReturn(pass(10));
-            when(expFactMapper.insert(any(PetSeasonPassExpFact.class)))
-                    .thenReturn(1)
-                    .thenThrow(new DuplicateKeyException("uk_fact"));
+        @DisplayName("委托独立累计器完成事实+累加（来源/事实 ID 原样传递）")
+        void addExp_delegatesToAccumulator() {
+            when(expAccumulator.accumulate(USER_ID, 5, PetSeasonPassExpFact.SOURCE_QUEST, "q-100"))
+                    .thenReturn(true);
 
             service.addExp(USER_ID, 5, PetSeasonPassExpFact.SOURCE_QUEST, "q-100");
-            service.addExp(USER_ID, 5, PetSeasonPassExpFact.SOURCE_QUEST, "q-100");
 
-            // 第二次命中去重不再累加
-            verify(passMapper, times(1)).update(any(), any());
+            verify(expAccumulator).accumulate(USER_ID, 5, PetSeasonPassExpFact.SOURCE_QUEST, "q-100");
         }
 
         @Test
@@ -311,13 +306,13 @@ class PetSeasonPassServiceImplTest {
         }
 
         @Test
-        @DisplayName("无进行中赛季 → 忽略（不记事实不累积）")
-        void addExp_noActiveSeason_ignored() {
-            when(seasonMapper.selectOne(any())).thenReturn(null);
+        @DisplayName("累计器失败不阻断主流程（best-effort：异常被吞，原子回滚由累计器保证）")
+        void addExp_accumulatorFailure_swallowed() {
+            when(expAccumulator.accumulate(any(), anyInt(), any(), any()))
+                    .thenThrow(new RuntimeException("db down"));
 
+            // 不抛异常：任务领取主流程不受经验累计失败影响
             service.addExp(USER_ID, 5, PetSeasonPassExpFact.SOURCE_QUEST, "q-1");
-
-            verify(expFactMapper, never()).insert(any(PetSeasonPassExpFact.class));
         }
     }
 

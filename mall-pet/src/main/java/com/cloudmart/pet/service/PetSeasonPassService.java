@@ -35,4 +35,18 @@ public interface PetSeasonPassService {
      * @return 本次补发完成的领取行数
      */
     int settlePendingClaims();
+
+    /**
+     * T17 校验任务：按经验事实重算某赛季某用户的累计经验，返回（事实累计, 当前投影）。
+     * 只读校验、不自动修正累计数（禁止人工随意加累计数）——发现漂移由运维核实后
+     * 按事实重建。
+     */
+    ExpReconciliation reconcileExp(Long seasonId, Long userId);
+
+    /** T17 校验结果：factSum=按事实表重算的累计经验；projectedExp=通行证当前投影。 */
+    record ExpReconciliation(long factSum, int projectedExp) {
+        public boolean drifted() {
+            return factSum != projectedExp;
+        }
+    }
 }

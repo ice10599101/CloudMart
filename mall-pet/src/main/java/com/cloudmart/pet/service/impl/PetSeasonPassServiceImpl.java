@@ -9,11 +9,9 @@ import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.entity.PetSeason;
 import com.cloudmart.pet.entity.PetSeasonPass;
 import com.cloudmart.pet.entity.PetSeasonPassClaim;
-import com.cloudmart.pet.entity.PetSeasonPassExpFact;
 import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.repository.PetSeasonMapper;
 import com.cloudmart.pet.repository.PetSeasonPassClaimMapper;
-import com.cloudmart.pet.repository.PetSeasonPassExpFactMapper;
 import com.cloudmart.pet.repository.PetSeasonPassMapper;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.service.PetSeasonPassService;
@@ -28,9 +26,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -54,16 +50,16 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
     private static final int BASE_TIER_EXP = 10;
     private static final int TIER_EXP_STEP = 5;
     private static final String RULE_VERSION = "V1";
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final PetSeasonMapper seasonMapper;
     private final PetSeasonPassMapper passMapper;
     private final PetSeasonPassClaimMapper claimMapper;
-    private final PetSeasonPassExpFactMapper expFactMapper;
     private final PetInventoryMapper inventoryMapper;
     private final PetRewardApplicationService rewardApplicationService;
     private final PetService petService;
     private final PetProperties properties;
+    /** T17：经验原子累计器（独立 Bean，REQUIRES_NEW 保证事实与累计同事务） */
+    private final PetSeasonPassExpAccumulator expAccumulator;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -171,31 +167,29 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
                     + ", sourceBizId=" + sourceBizId);
         }
         try {
-            PetSeason season = activeSeason();
-            if (season == null) {
-                return;
-            }
-            PetSeasonPassExpFact fact = new PetSeasonPassExpFact();
-            fact.setSeasonId(season.getId());
-            fact.setUserId(userId);
-            fact.setSource(source);
-            fact.setSourceBizId(sourceBizId);
-            fact.setExp(exp);
-            fact.setBusinessDate(LocalDate.now(BUSINESS_ZONE));
-            fact.setRuleVersion(RULE_VERSION);
-            try {
-                expFactMapper.insert(fact);
-            } catch (DuplicateKeyException counted) {
-                // 同一来源事实已计入（幂等），不重复累加
-                return;
-            }
-            PetSeasonPass pass = requirePass(season.getId(), userId);
-            passMapper.update(null, new LambdaUpdateWrapper<PetSeasonPass>()
-                    .eq(PetSeasonPass::getId, pass.getId())
-                    .setSql("pass_exp = pass_exp + " + exp));
+            // T17：事实插入与累加在独立 Bean 的 REQUIRES_NEW 事务内原子完成；
+            // 失败整体回滚（事实也不落库），重放重新插入并累加，不再出现"事实在、经验丢"。
+            expAccumulator.accumulate(userId, exp, source, sourceBizId);
         } catch (Exception e) {
-            log.warn("赛季通行证经验累积失败（不阻断任务主流程）: userId={}, err={}", userId, e.getMessage());
+            log.warn("赛季通行证经验累积失败（已原子回滚，待重放，不阻断任务主流程）: userId={}, err={}",
+                    userId, e.getMessage());
         }
+    }
+
+    // ==================== 校验 ====================
+
+    @Override
+    public PetSeasonPassService.ExpReconciliation reconcileExp(Long seasonId, Long userId) {
+        long factSum = expAccumulator.expSumFromFacts(seasonId, userId);
+        PetSeasonPass pass = passMapper.selectOne(new LambdaQueryWrapper<PetSeasonPass>()
+                .eq(PetSeasonPass::getSeasonId, seasonId)
+                .eq(PetSeasonPass::getUserId, userId));
+        int projected = pass == null || pass.getPassExp() == null ? 0 : pass.getPassExp();
+        if (factSum != projected) {
+            log.warn("通行证经验投影漂移（需运维核实按事实重建，禁止直接加数）: season={}, user={}, factSum={}, projected={}",
+                    seasonId, userId, factSum, projected);
+        }
+        return new PetSeasonPassService.ExpReconciliation(factSum, projected);
     }
 
     // ==================== 定时补发 ====================
