@@ -103,6 +103,9 @@ public interface CollectionService {
 
     void joinPool(Long userId, Long poolId);
 
+    /** T11：管理端按品牌查询全部状态的许愿池（DRAFT/ACTIVE/ENDED/SETTLING/CONFIG_ERROR…）。 */
+    java.util.List<com.cloudmart.wish.entity.BrandPool> listPoolsForAdmin(Long brandId);
+
     /**
      * T11：按 path.brandId 加入——池必须属于该品牌，错误关联按 404 处理（不泄露其他品牌池）。
      */

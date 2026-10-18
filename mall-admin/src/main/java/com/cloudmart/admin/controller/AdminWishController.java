@@ -758,6 +758,13 @@ public class AdminWishController {
 
     // ===== WISH-03：品牌许愿池运营 =====
 
+    @GetMapping("/wish/brand/{brandId}/pools")
+    @RequiresPermission("business:wishBrand:audit")
+    @Operation(summary = "WISH-03：品牌许愿池生命周期列表", description = "管理端全部状态（草稿/进行中/已结束/结算中/失败）")
+    public ApiResponse<Object> listBrandPoolsForAdmin(@PathVariable Long brandId) {
+        return wishFeignClient.listBrandPoolsForAdmin(brandId);
+    }
+
     @PutMapping("/wish/brand/{brandId}/pools/{poolId}")
     @OperLog(title = "品牌奖池", businessType = 2)
     @RequiresPermission("business:wishBrand:audit")

@@ -77,6 +77,12 @@ public class AdminCollectionController {
         return ApiResponse.ok(null);
     }
 
+    @GetMapping("/admin/brand/{brandId}/pools")
+    @Operation(summary = "T11：品牌许愿池生命周期列表", description = "管理端返回全部状态（草稿/进行中/已结束/结算中/失败）")
+    public ApiResponse<Object> listPoolsForAdmin(@PathVariable Long brandId) {
+        return ApiResponse.ok(collectionService.listPoolsForAdmin(brandId));
+    }
+
     @PostMapping("/admin/brand/{brandId}/pools")
     @Operation(summary = "创建品牌许愿池", description = "brandId 须为 APPROVED 品牌；BASE-01：类型化 DTO，Long 由 Jackson 解析十进制字符串")
     public ApiResponse<Object> createPool(

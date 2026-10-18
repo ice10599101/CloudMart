@@ -339,6 +339,10 @@ public interface WishFeignClient {
     ApiResponse<Object> listBrandAuditLogs(@org.springframework.web.bind.annotation.PathVariable("brandId") Long brandId);
 
     /** T23：创建品牌奖池（预算/奖项库存/规则版本由 wish 服务端校验） */
+    /** T11：管理端品牌池全状态列表 */
+    @GetMapping("/brand/{brandId}/pools")
+    ApiResponse<Object> listBrandPoolsForAdmin(@PathVariable("brandId") Long brandId);
+
     @PostMapping("/brand/{brandId}/pools")
     ApiResponse<Object> createBrandPool(@PathVariable("brandId") Long brandId,
                                         @RequestBody Map<String, Object> body);

@@ -428,6 +428,14 @@ public class CollectionServiceImpl implements CollectionService {
     }
 
     @Override
+    public List<BrandPool> listPoolsForAdmin(Long brandId) {
+        // T11：后台生命周期视图——不按状态过滤，草稿/已结束/结算中/失败都要可见
+        return poolMapper.selectList(new LambdaQueryWrapper<BrandPool>()
+                .eq(BrandPool::getBrandId, brandId)
+                .orderByDesc(BrandPool::getId));
+    }
+
+    @Override
     public List<BrandPool> listPools(Long brandId) {
         return poolMapper.selectList(new LambdaQueryWrapper<BrandPool>()
                 .eq(BrandPool::getBrandId, brandId)

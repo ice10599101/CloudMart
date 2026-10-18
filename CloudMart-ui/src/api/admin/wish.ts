@@ -1072,6 +1072,62 @@ export function listAdminWishBrands() {
   return request.get<ApiResponse<AdminWishBrand[]>>('/admin/wish/brand/list')
 }
 
+
+
+// ===== T11：品牌奖励池生命周期（管理端） =====
+
+export interface AdminBrandPool {
+  id: number
+  brandId: number
+  name: string
+  targetCount: number
+  currentCount: number
+  rewardJson?: string | null
+  ruleVersion?: number | null
+  endAt?: string | null
+  status: string
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+/** 管理端品牌池全状态列表（草稿/进行中/已结束/结算中/失败） */
+export function listAdminBrandPools(brandId: number | string) {
+  return request.get<ApiResponse<AdminBrandPool[]>>(`/admin/wish/brand/${brandId}/pools`)
+}
+
+/** 更新池（name/targetCount/rewardJson/endAt；null 不变；发布后规则冻结） */
+export function updateAdminBrandPool(
+  brandId: number | string,
+  poolId: number | string,
+  data: { name?: string; targetCount?: number; rewardJson?: string; endAt?: string },
+) {
+  return request.put<ApiResponse<unknown>>(`/admin/wish/brand/${brandId}/pools/${poolId}`, data)
+}
+
+/** 发布（DRAFT→ACTIVE，冻结规则版本） */
+export function publishAdminBrandPool(brandId: number | string, poolId: number | string) {
+  return request.post<ApiResponse<unknown>>(`/admin/wish/brand/${brandId}/pools/${poolId}/publish`)
+}
+
+/** 结束（ACTIVE→ENDED，不再接受加入） */
+export function endAdminBrandPool(brandId: number | string, poolId: number | string) {
+  return request.post<ApiResponse<unknown>>(`/admin/wish/brand/${brandId}/pools/${poolId}/end`)
+}
+
+/** 结算重试（仅 CONFIG_ERROR 可用） */
+export function retryAdminBrandPoolSettlement(brandId: number | string, poolId: number | string) {
+  return request.post<ApiResponse<unknown>>(
+    `/admin/wish/brand/${brandId}/pools/${poolId}/settlement-retry`,
+  )
+}
+
+/** 池奖励记录（结算状态/承诺/实际入账/重试次数） */
+export function listAdminBrandPoolRewards(brandId: number | string, poolId: number | string) {
+  return request.get<ApiResponse<Array<Record<string, unknown>>>>(
+    `/admin/wish/brand/${brandId}/pools/${poolId}/rewards`,
+  )
+}
+
 export function auditAdminWishBrand(brandId: number, status: 'APPROVED' | 'REJECTED') {
   return request.post<ApiResponse<null>>(
     `/admin/wish/brand/${brandId}/audit`, undefined, { params: { status } },
