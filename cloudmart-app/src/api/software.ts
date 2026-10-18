@@ -117,6 +117,24 @@ export interface SoftwareResolveResult {
   availabilityTip: string | null
 }
 
+export interface SoftwareTopicSummary {
+  topicId: string
+  slug: string
+  title: string
+  summary: string | null
+  coverAssetId: string | null
+  sortOrder: number
+}
+
+export interface SoftwareTopicDetail {
+  topicId: string
+  slug: string
+  title: string
+  summary: string | null
+  coverAssetId: string | null
+  items: SoftwareCard[]
+}
+
 export interface SoftwareComment {
   id: string
   parentId: string | null
@@ -233,6 +251,12 @@ export const softwareApi = {
     request<SoftwarePage<SoftwareCard>>({
       url: `${BASE}/rankings${buildQuery({ type, page, size })}`,
     }),
+
+  /** SW11-3：专题列表（只返回 PUBLISHED） */
+  topics: () => request<SoftwareTopicSummary[]>({ url: `${BASE}/topics` }),
+  /** SW11-3：专题详情（清单按实时可见性过滤） */
+  topic: (slug: string) =>
+    request<SoftwareTopicDetail>({ url: `${BASE}/topics/${slug}` }),
 
   /** SW11：更新提醒偏好（与订阅关系相互独立） */
   preferences: () => request<{ updateNotifications: boolean }>({ url: `${BASE}/preferences` }),

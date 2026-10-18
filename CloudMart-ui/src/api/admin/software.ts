@@ -634,7 +634,7 @@ export function listLinkFeedbacks(params?: {
 
 export function markLinkFeedback(
   feedbackId: string,
-  payload: { status: string; resolvedRevisionId?: number | null; note?: string },
+  payload: { status: string; resolvedRevisionId?: string | null; note?: string },
   idempotencyKey?: string,
 ) {
   const url = `${BASE}/link-feedbacks/${feedbackId}/mark`

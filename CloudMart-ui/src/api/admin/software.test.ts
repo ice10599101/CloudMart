@@ -262,7 +262,7 @@ describe('admin software API', () => {
     await listSoftwareReports({ status: 'OPEN', page: 1, size: 20 })
     await handleSoftwareReport('1', { status: 'RESOLVED', action: 'BAN_SOFTWARE', note: '侵权' }, 'r-1')
     await listLinkFeedbacks({ status: 'OPEN', page: 1, size: 20 })
-    await markLinkFeedback('2', { status: 'RESOLVED', resolvedRevisionId: 900, note: '已换链' }, 'f-1')
+    await markLinkFeedback('2', { status: 'RESOLVED', resolvedRevisionId: '900', note: '已换链' }, 'f-1')
     await setSourceState(
       '100',
       { sourceKey: 'src-1', availability: 'INVALID', reason: '多次反馈失效' },
@@ -284,7 +284,7 @@ describe('admin software API', () => {
     expect(request.post).toHaveBeenNthCalledWith(
       2,
       '/admin/software/link-feedbacks/2/mark',
-      { status: 'RESOLVED', resolvedRevisionId: 900, note: '已换链' },
+      { status: 'RESOLVED', resolvedRevisionId: '900', note: '已换链' },
       { headers: { 'Idempotency-Key': 'f-1' } }
     )
     expect(request.post).toHaveBeenNthCalledWith(

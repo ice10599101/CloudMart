@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Input, InputNumber, Modal, Radio, Space, Tag, Typography } from 'antd'
+import { Button, Input, Modal, Radio, Space, Tag, Typography } from 'antd'
 import { listPublisherPermissions, togglePublisherPermission } from '@/api/admin/software'
 import type { AdminPublisherPermission } from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
@@ -17,7 +17,8 @@ export default function SoftwarePublishers() {
   const actionRef = useRef<ActionType>(null)
   const [target, setTarget] = useState<AdminPublisherPermission | null>(null)
   const [grantOpen, setGrantOpen] = useState(false)
-  const [grantUserId, setGrantUserId] = useState<number | null>(null)
+  /** SW12：全链路字符串 ID——大整数（如 9007199254740993）不丢精度 */
+  const [grantUserId, setGrantUserId] = useState<string>('')
   const [enable, setEnable] = useState(true)
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -40,9 +41,9 @@ export default function SoftwarePublishers() {
   }
 
   const doSubmit = async () => {
-    const userId = grantOpen ? grantUserId : target?.userId
-    if (!userId) {
-      message.warning('请输入会员ID')
+    const userId = grantOpen ? grantUserId.trim() : target?.userId
+    if (!userId || !/^\d{1,20}$/.test(userId)) {
+      message.warning('请输入合法的会员ID（纯数字，最长 20 位）')
       return
     }
     if (!reason.trim()) {
@@ -51,11 +52,11 @@ export default function SoftwarePublishers() {
     }
     setSubmitting(true)
     try {
-      await togglePublisherPermission(String(userId), { enable, reason: reason.trim() })
+      await togglePublisherPermission(userId, { enable, reason: reason.trim() })
       message.success(enable ? '已开通发布资格' : '已关闭发布资格')
       setTarget(null)
       setGrantOpen(false)
-      setGrantUserId(null)
+      setGrantUserId('')
       actionRef.current?.reload()
     } catch {
       // 会员不可用/服务降级等已由全局提示
@@ -111,7 +112,7 @@ export default function SoftwarePublishers() {
             setGrantOpen(true)
             setTarget(null)
             setEnable(true)
-            setGrantUserId(null)
+            setGrantUserId('')
             setReason('')
           }}
         >
@@ -153,13 +154,18 @@ export default function SoftwarePublishers() {
           开通后该会员可创建软件并提交审核；关闭后已发布内容保留，但不能再提交/重新上架。
         </Typography.Paragraph>
         {grantOpen ? (
-          <InputNumber
-            placeholder="会员ID（前台 userId）"
-            value={grantUserId}
-            onChange={(value) => setGrantUserId(value)}
-            style={{ width: '100%', marginBottom: 12 }}
-            min={1}
-          />
+          <>
+            <Input
+              placeholder="会员ID（前台 userId，纯数字字符串）"
+              value={grantUserId}
+              onChange={(e) => setGrantUserId(e.target.value.replace(/[^0-9]/g, ''))}
+              maxLength={20}
+              style={{ width: '100%', marginBottom: 8 }}
+            />
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+              从列表复制会员列显示的 ID；会员列同时显示昵称，便于核对目标。
+            </Typography.Paragraph>
+          </>
         ) : (
           <Typography.Paragraph>
             会员：<Typography.Text strong>{target?.userId}</Typography.Text>

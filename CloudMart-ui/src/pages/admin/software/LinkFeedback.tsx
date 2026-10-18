@@ -33,7 +33,7 @@ export default function SoftwareLinkFeedback() {
   const actionRef = useRef<ActionType>(null)
   const [markTarget, setMarkTarget] = useState<AdminLinkFeedback | null>(null)
   const [markStatus, setMarkStatus] = useState<'VERIFYING' | 'RESOLVED' | 'REJECTED'>('VERIFYING')
-  const [resolvedRevisionId, setResolvedRevisionId] = useState<number | null>(null)
+  const [resolvedRevisionId, setResolvedRevisionId] = useState<string | null>(null)
   /** SW07：结案只能引用本软件当前已发布的修复快照（后端强校验） */
   const [publishedRevision, setPublishedRevision] = useState<string | null>(null)
   const [markNote, setMarkNote] = useState('')
@@ -199,7 +199,7 @@ export default function SoftwareLinkFeedback() {
             style={{ width: '100%', marginBottom: 12 }}
             options={
               publishedRevision
-                ? [{ value: Number(publishedRevision), label: `已发布快照 ${publishedRevision}` }]
+                ? [{ value: publishedRevision, label: `已发布快照 ${publishedRevision}` }]
                 : []
             }
           />

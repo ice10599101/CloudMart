@@ -67,6 +67,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
     private final SoftwareOperationService operationService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     // ------------------------------------------------------------------
     // 发布资格（4.0）
@@ -165,7 +166,6 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
     }
 
     @Override
-    @Transactional
     public boolean togglePermission(Long adminId, Long userId, String idempotencyKey,
                                      AdminPermissionToggleRequest request) {
         if (request.getEnable() == null) {
@@ -178,7 +178,8 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         if (userId == null || userId <= 0) {
             throw new BusinessException("SOFTWARE_PERMISSION_INVALID", "userId 非法");
         }
-        // 开通先核对会员存在且可用（4.0：查询失败 503，不创建未知用户授权）
+        // SW12：远程校验与本地写事务拆开——会员存在且可用核对在事务外完成
+        //（4.0：查询失败 503，不创建未知用户授权），避免 @Transactional 内长时间等待远程
         var profiles = userSupportFeignClient.profiles(Map.of("userIds", List.of(userId))).data();
         if (profiles == null || profiles.isEmpty()) {
             throw new BusinessException("USER_SERVICE_UNAVAILABLE", "会员状态不可用，请稍后重试");
@@ -186,33 +187,35 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         if (!profiles.get(0).accountAvailable()) {
             throw new BusinessException("ACCOUNT_UNAVAILABLE", "会员账号状态异常，不能变更发布资格");
         }
-        String before = null;
-        // 事务内锁资格行（唯一键首开幂等；缺失记录视为未开通）
-        SoftwarePublisherPermission permission = lockMapper.lockPublisherByUser(userId);
-        boolean enabling = request.getEnable();
-        if (permission == null) {
-            if (!enabling) {
+        // 本地写事务：锁资格行 + 幂等占位 + 审计同事务提交；事务内重新验证必要本地条件
+        transactionTemplate.execute(status -> {
+            SoftwarePublisherPermission permission = lockMapper.lockPublisherByUser(userId);
+            boolean enabling = request.getEnable();
+            if (permission == null && !enabling) {
                 throw new BusinessException("SOFTWARE_PERMISSION_INVALID",
                         "该会员尚无发布资格记录，无需关闭");
             }
-            before = null;
-        } else {
-            before = toSnapshotJson(snapshotMap("canPublish", permission.getCanPublish()));
-        }
-        String beforeSnapshot = before;
-        operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_PERMISSION_TOGGLE,
-                idempotencyKey,
-                Map.of("userId", userId, "enable", enabling, "reason", request.getReason()),
-                null,
-                (Supplier<Void>) () -> {
-                    doToggle(adminId, userId, enabling, request.getReason(), beforeSnapshot);
-                    return null;
-                },
-                json -> null);
+            String before = permission == null
+                    ? null
+                    : toSnapshotJson(snapshotMap("canPublish", permission.getCanPublish()));
+            operationService.execute("ADMIN", adminId,
+                    SoftwareOperationService.OP_PERMISSION_TOGGLE,
+                    idempotencyKey,
+                    Map.of("userId", userId, "enable", enabling, "reason", request.getReason()),
+                    null,
+                    (Supplier<Void>) () -> {
+                        doToggle(adminId, userId, enabling, request.getReason(), before,
+                                idempotencyKey);
+                        return null;
+                    },
+                    json -> null);
+            return null;
+        });
         return true;
     }
 
-    private void doToggle(Long adminId, Long userId, boolean enable, String reason, String before) {
+    private void doToggle(Long adminId, Long userId, boolean enable, String reason, String before,
+                          String requestId) {
         SoftwarePublisherPermission permission = publisherPermissionMapper.selectOne(
                 new LambdaQueryWrapper<SoftwarePublisherPermission>()
                         .eq(SoftwarePublisherPermission::getUserId, userId));
@@ -238,9 +241,10 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
             permission.setLockVersion(permission.getLockVersion() + 1);
             publisherPermissionMapper.updateById(permission);
         }
-        writePermissionAudit(null, null, null, adminId, enable
+        // SW12：按目标用户可定位——targetUserId 必填，requestId 贯穿幂等键
+        writePermissionAudit(userId, null, null, adminId, enable
                         ? "PUBLISH_ENABLE" : "PUBLISH_DISABLE",
-                before, after, reason, null);
+                before, after, reason, requestId);
     }
 
     private void writePermissionAudit(Long targetUserId, Long softwareId, Long contactId,

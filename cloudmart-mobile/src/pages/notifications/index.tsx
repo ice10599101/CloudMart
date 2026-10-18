@@ -82,8 +82,8 @@ export default function NotificationsPage() {
       return
     }
     if (n.bizType === 'SOFTWARE') {
-      // 审核结果/封禁：进软件广场（移动端暂未提供"我的软件"管理页）
-      Taro.navigateTo({ url: '/pages/software/index' })
+      // SW11-3：我的投稿页已上线，作者类通知（审核结果/封禁）直达"我的软件"投稿页签
+      Taro.navigateTo({ url: '/pages/softwareMine/index' })
       return
     }
     if (n.bizType === 'STARLIGHT_TRANSFER') {

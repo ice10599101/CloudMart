@@ -72,6 +72,7 @@ export default defineAppConfig({
     'pages/softwareDetail/index',
     'pages/softwareMine/index',
     'pages/softwareEdit/index',
+    'pages/softwareTopic/index',
     'pages/wishMap/index',
     'pages/encounter/index',
     'pages/workshop/index',

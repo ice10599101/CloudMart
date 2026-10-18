@@ -134,7 +134,8 @@ class AdminSoftwareServicesTest {
         permissionService = new AdminSoftwarePermissionServiceImpl(publisherPermissionMapper,
                 accessGrantMapper, accessContactMapper, permissionAuditMapper, lockMapper,
                 softwareMapper, revisionMapper, userSupportFeignClient, operationService,
-                new ObjectMapper(), fixedClock());
+                new ObjectMapper(), fixedClock(),
+                transactionTemplate);
         moderationService = new AdminSoftwareModerationServiceImpl(softwareMapper, lockMapper, reportMapper,
                 commentMapper, feedbackMapper, auditLogMapper, userSupportFeignClient,
                 revisionMapper, releaseMapper, sourceMapper, sourceStateMapper,

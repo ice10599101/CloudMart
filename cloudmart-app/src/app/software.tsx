@@ -12,7 +12,7 @@ import {
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { softwareApi } from '@/api/software'
-import type { SoftwareCard, SoftwareCategory } from '@/api/software'
+import type { SoftwareCard, SoftwareCategory, SoftwareTopicSummary } from '@/api/software'
 import { useTheme } from '@/hooks/use-theme-context'
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme'
 
@@ -47,6 +47,14 @@ export default function SoftwareScreen() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  // SW11-3：广场三模式——软件 / 榜单 / 专题
+  const [mode, setMode] = useState<'list' | 'rankings' | 'topics'>('list')
+  const [rankingType, setRankingType] = useState<'access' | 'favorite' | 'rating'>('access')
+  const [rankItems, setRankItems] = useState<SoftwareCard[]>([])
+  const [rankPage, setRankPage] = useState(1)
+  const [rankTotal, setRankTotal] = useState(0)
+  const [topics, setTopics] = useState<SoftwareTopicSummary[]>([])
+  const [topicsLoaded, setTopicsLoaded] = useState(false)
 
   const load = useCallback(
     async (nextPage: number, replace: boolean) => {
@@ -82,6 +90,47 @@ export default function SoftwareScreen() {
   useEffect(() => {
     void load(1, true)
   }, [load])
+
+  const loadRankings = useCallback(
+    async (nextPage: number, replace: boolean) => {
+      setLoading(true)
+      try {
+        const res = await softwareApi.rankings(rankingType, nextPage, PAGE_SIZE)
+        const records = res.data.data?.records ?? []
+        setRankItems((prev) => (replace ? records : [...prev, ...records]))
+        setRankTotal(res.data.data?.total ?? 0)
+        setRankPage(nextPage)
+      } catch {
+        // 错误提示由 request 层统一处理
+      } finally {
+        setLoading(false)
+      }
+    },
+    [rankingType],
+  )
+
+  const loadTopics = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await softwareApi.topics()
+      setTopics(res.data.data ?? [])
+      setTopicsLoaded(true)
+    } catch {
+      // 错误提示由 request 层统一处理
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (mode === 'rankings') void loadRankings(1, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, rankingType])
+
+  useEffect(() => {
+    if (mode === 'topics' && !topicsLoaded) void loadTopics()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, topicsLoaded])
 
   const renderCard = ({ item }: { item: SoftwareCard }) => (
     <TouchableOpacity
@@ -143,6 +192,27 @@ export default function SoftwareScreen() {
         </Text>
       </View>
 
+      {/* SW11-3：广场三模式——软件 / 榜单 / 专题 */}
+      <View style={{ flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginTop: Spacing.sm }}>
+        {([
+          { key: 'list', label: '软件' },
+          { key: 'rankings', label: '榜单' },
+          { key: 'topics', label: '专题' },
+        ] as const).map((entry) => (
+          <TouchableOpacity key={entry.key} onPress={() => setMode(entry.key)}>
+            <Text
+              style={{
+                fontSize: FontSize.md,
+                fontWeight: mode === entry.key ? '700' : '400',
+                color: mode === entry.key ? theme.primary : theme.textTertiary,
+              }}
+            >
+              {entry.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <View style={{ flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, marginTop: Spacing.sm }}>
         <TextInput
           value={keyword}
@@ -167,6 +237,7 @@ export default function SoftwareScreen() {
         </TouchableOpacity>
       </View>
 
+      {mode === 'list' && (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -196,7 +267,9 @@ export default function SoftwareScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
+      )}
 
+      {mode === 'list' && (
       <View style={{ flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.md, marginTop: Spacing.sm }}>
         {SORT_OPTIONS.map((option) => (
           <TouchableOpacity key={option.value} onPress={() => setSort(option.value)}>
@@ -212,7 +285,9 @@ export default function SoftwareScreen() {
           </TouchableOpacity>
         ))}
       </View>
+      )}
 
+      {mode === 'list' && (
       <FlatList
         data={cards}
         keyExtractor={(item) => item.id}
@@ -234,6 +309,83 @@ export default function SoftwareScreen() {
           </Text>
         }
       />
+      )}
+
+      {mode === 'rankings' && (
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', gap: Spacing.md, paddingHorizontal: Spacing.md, marginTop: Spacing.sm }}>
+          {([
+            { key: 'access', label: '获取最多' },
+            { key: 'favorite', label: '收藏最多' },
+            { key: 'rating', label: '评分最高' },
+          ] as const).map((entry) => (
+            <TouchableOpacity key={entry.key} onPress={() => setRankingType(entry.key)}>
+              <Text
+                style={{
+                  fontSize: FontSize.sm,
+                  fontWeight: rankingType === entry.key ? '700' : '400',
+                  color: rankingType === entry.key ? theme.primary : theme.textTertiary,
+                }}
+              >
+                {entry.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <FlatList
+          data={rankItems}
+          keyExtractor={(item) => item.id}
+          renderItem={renderCard}
+          onEndReachedThreshold={0.3}
+          onEndReached={() => {
+            if (!loading && rankItems.length < rankTotal) {
+              void loadRankings(rankPage + 1, false)
+            }
+          }}
+          ListEmptyComponent={
+            <Text style={{ textAlign: 'center', color: theme.textTertiary, marginTop: Spacing.xl }}>
+              {loading ? '加载中…' : '暂无榜单数据'}
+            </Text>
+          }
+        />
+      </View>
+      )}
+
+      {mode === 'topics' && (
+      <FlatList
+        data={topics}
+        keyExtractor={(item) => item.slug}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push(`/software-topic?slug=${item.slug}`)}
+            style={{
+              marginHorizontal: Spacing.md,
+              marginTop: Spacing.sm,
+              padding: Spacing.md,
+              borderRadius: BorderRadius.md,
+              backgroundColor: theme.bgContainer,
+              borderWidth: 1,
+              borderColor: theme.border,
+            }}
+          >
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>
+              {item.title}
+            </Text>
+            {!!item.summary && (
+              <Text numberOfLines={2} style={{ marginTop: 4, fontSize: FontSize.sm, color: theme.textSecondary }}>
+                {item.summary}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
+        ListEmptyComponent={
+          <Text style={{ textAlign: 'center', color: theme.textTertiary, marginTop: Spacing.xl }}>
+            {loading ? '加载中…' : '暂无专题'}
+          </Text>
+        }
+      />
+      )}
     </View>
   )
 }
