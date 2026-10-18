@@ -65,20 +65,31 @@ class ShippingServiceImplTest {
     @DisplayName("createShippingOrder")
     class CreateShippingTests {
 
-        @Test
-        @DisplayName("should create shipping order and return VO")
-        void createShippingOrder_success_returnsVO() {
-            // WMS-01：warehouseId 可空 → 服务端分配第一个可用仓库
+        private com.cloudmart.wms.dto.OrderInternalInfoDTO paidOrder() {
+            return new com.cloudmart.wms.dto.OrderInternalInfoDTO(
+                    ORDER_ID, 1L, "PAID", "张三", "13800138000", "北京市朝阳区");
+        }
+
+        private com.cloudmart.wms.entity.Warehouse enabledWarehouse() {
             var warehouse = new com.cloudmart.wms.entity.Warehouse();
             warehouse.setId(WAREHOUSE_ID);
             warehouse.setName("主仓");
-            when(warehouseMapper.selectList(any())).thenReturn(java.util.List.of(warehouse));
+            warehouse.setStatus(1);
+            return warehouse;
+        }
+
+        @Test
+        @DisplayName("成功建档：订单 PAID + 启用仓 + 雪花 shippingNo + 收件快照")
+        void createShippingOrder_success_returnsVO() {
+            when(orderInfoFeignClient.getOrderInfo(ORDER_ID))
+                    .thenReturn(com.cloudmart.common.api.ApiResponse.ok(paidOrder()));
+            when(warehouseMapper.selectOne(any())).thenReturn(enabledWarehouse());
 
             CreateShippingRequest request = new CreateShippingRequest(
                     ORDER_ID, null, "顺丰", "SF1234567890", "张三", "13800138000", "北京市朝阳区");
 
             ShippingOrderVO expectedVO = new ShippingOrderVO(
-                    SHIPPING_ORDER_ID, ORDER_ID, 1L, "SF123456", null, "顺丰", "PENDING", null, null);
+                    SHIPPING_ORDER_ID, ORDER_ID, 1L, "SNOWFLAKE", null, "顺丰", "PENDING", null, null);
 
             when(shippingOrderMapper.insert(any(ShippingOrder.class))).thenReturn(1);
             when(wmsConverter.fromShippingOrderDTO(any(ShippingOrderDTO.class))).thenReturn(expectedVO);
@@ -87,9 +98,143 @@ class ShippingServiceImplTest {
 
             assertThat(result).isNotNull();
             assertThat(result.orderId()).isEqualTo(ORDER_ID);
-            assertThat(result.carrier()).isEqualTo("顺丰");
             assertThat(result.status()).isEqualTo("PENDING");
             verify(shippingOrderMapper).insert(any(ShippingOrder.class));
+            // T21：shippingNo 用雪花 ID，不用 "SF+毫秒"
+            org.mockito.ArgumentCaptor<ShippingOrder> captor =
+                    org.mockito.ArgumentCaptor.forClass(ShippingOrder.class);
+            verify(shippingOrderMapper).insert(captor.capture());
+            assertThat(captor.getValue().getShippingNo()).isNotBlank();
+            assertThat(captor.getValue().getShippingNo()).doesNotStartWith("SF");
+            assertThat(captor.getValue().getTrackingNo()).isEqualTo("SF1234567890");
+        }
+
+        @Test
+        @DisplayName("订单未付款/已取消 → 拒绝建档")
+        void createShippingOrder_orderNotPaid_rejected() {
+            when(orderInfoFeignClient.getOrderInfo(ORDER_ID))
+                    .thenReturn(com.cloudmart.common.api.ApiResponse.ok(
+                            new com.cloudmart.wms.dto.OrderInternalInfoDTO(ORDER_ID, 1L, "CANCELLED")));
+
+            CreateShippingRequest request = new CreateShippingRequest(
+                    ORDER_ID, null, "顺丰", "SF1234567890", "张三", "13800138000", "北京市朝阳区");
+
+            assertThatThrownBy(() -> shippingService.createShipping(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("SHIPPING_ORDER_NOT_SHIPPABLE");
+            verify(shippingOrderMapper, org.mockito.Mockito.never()).insert(any(ShippingOrder.class));
+        }
+
+        @Test
+        @DisplayName("停用仓库 → 拒绝建档（请求指定停用仓）")
+        void createShippingOrder_disabledWarehouse_rejected() {
+            when(orderInfoFeignClient.getOrderInfo(ORDER_ID))
+                    .thenReturn(com.cloudmart.common.api.ApiResponse.ok(paidOrder()));
+            var disabled = enabledWarehouse();
+            disabled.setStatus(0);
+            when(warehouseMapper.selectById(WAREHOUSE_ID)).thenReturn(disabled);
+
+            CreateShippingRequest request = new CreateShippingRequest(
+                    ORDER_ID, WAREHOUSE_ID, "顺丰", "SF1234567890", "张三", "13800138000", "北京市朝阳区");
+
+            assertThatThrownBy(() -> shippingService.createShipping(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("WAREHOUSE_UNAVAILABLE");
+        }
+
+        @Test
+        @DisplayName("无启用仓库（未指定）→ 拒绝建档")
+        void createShippingOrder_noEnabledWarehouse_rejected() {
+            when(orderInfoFeignClient.getOrderInfo(ORDER_ID))
+                    .thenReturn(com.cloudmart.common.api.ApiResponse.ok(paidOrder()));
+            when(warehouseMapper.selectOne(any())).thenReturn(null);
+
+            CreateShippingRequest request = new CreateShippingRequest(
+                    ORDER_ID, null, "顺丰", "SF1234567890", "张三", "13800138000", "北京市朝阳区");
+
+            assertThatThrownBy(() -> shippingService.createShipping(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("WAREHOUSE_NOT_FOUND");
+        }
+
+        @Test
+        @DisplayName("收件信息以订单快照为准（请求传入不同值被忽略）")
+        void createShippingOrder_usesOrderSnapshotReceiver() {
+            when(orderInfoFeignClient.getOrderInfo(ORDER_ID))
+                    .thenReturn(com.cloudmart.common.api.ApiResponse.ok(paidOrder()));
+            when(warehouseMapper.selectOne(any())).thenReturn(enabledWarehouse());
+            when(shippingOrderMapper.insert(any(ShippingOrder.class))).thenReturn(1);
+            when(wmsConverter.fromShippingOrderDTO(any(ShippingOrderDTO.class)))
+                    .thenReturn(new ShippingOrderVO(SHIPPING_ORDER_ID, ORDER_ID, 1L, "SNOWFLAKE",
+                            null, "顺丰", "PENDING", null, null));
+
+            // 请求传入篡改的收件人，应被订单快照覆盖
+            CreateShippingRequest request = new CreateShippingRequest(
+                    ORDER_ID, null, "顺丰", "SF1234567890", "篡改者", "10086", "攻击地址");
+
+            shippingService.createShipping(request);
+
+            org.mockito.ArgumentCaptor<ShippingOrder> captor =
+                    org.mockito.ArgumentCaptor.forClass(ShippingOrder.class);
+            verify(shippingOrderMapper).insert(captor.capture());
+            assertThat(captor.getValue().getReceiverName()).isEqualTo("张三");
+            assertThat(captor.getValue().getReceiverPhone()).isEqualTo("13800138000");
+            assertThat(captor.getValue().getReceiverAddress()).isEqualTo("北京市朝阳区");
+        }
+
+        @Test
+        @DisplayName("并发重复键回读：同单同运单号幂等返回原包裹")
+        void createShippingOrder_duplicateKey_returnsExisting() {
+            when(orderInfoFeignClient.getOrderInfo(ORDER_ID))
+                    .thenReturn(com.cloudmart.common.api.ApiResponse.ok(paidOrder()));
+            when(warehouseMapper.selectOne(any())).thenReturn(enabledWarehouse());
+            when(shippingOrderMapper.insert(any(ShippingOrder.class)))
+                    .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_shipping_order"));
+
+            ShippingOrder existing = new ShippingOrder();
+            existing.setId(SHIPPING_ORDER_ID);
+            existing.setOrderId(ORDER_ID);
+            existing.setTrackingNo("SF1234567890");
+            existing.setCarrier("顺丰");
+            existing.setStatus("PENDING");
+            when(shippingOrderMapper.selectOne(any())).thenReturn(existing);
+            when(shippingTrackingMapper.selectList(any(LambdaQueryWrapper.class)))
+                    .thenReturn(Collections.emptyList());
+            when(wmsConverter.fromShippingOrderDTO(any(ShippingOrderDTO.class)))
+                    .thenReturn(new ShippingOrderVO(SHIPPING_ORDER_ID, ORDER_ID, 1L, "SF1",
+                            "SF1234567890", "顺丰", "PENDING", null, null));
+
+            CreateShippingRequest request = new CreateShippingRequest(
+                    ORDER_ID, null, "顺丰", "SF1234567890", "张三", "13800138000", "北京市朝阳区");
+
+            ShippingOrderVO result = shippingService.createShipping(request);
+
+            assertThat(result.orderId()).isEqualTo(ORDER_ID);
+            assertThat(result.trackingNo()).isEqualTo("SF1234567890");
+        }
+
+        @Test
+        @DisplayName("并发重复键回读：不同运单号 → 明确冲突")
+        void createShippingOrder_duplicateKey_conflict() {
+            when(orderInfoFeignClient.getOrderInfo(ORDER_ID))
+                    .thenReturn(com.cloudmart.common.api.ApiResponse.ok(paidOrder()));
+            when(warehouseMapper.selectOne(any())).thenReturn(enabledWarehouse());
+            when(shippingOrderMapper.insert(any(ShippingOrder.class)))
+                    .thenThrow(new org.springframework.dao.DuplicateKeyException("uk_shipping_order"));
+
+            ShippingOrder existing = new ShippingOrder();
+            existing.setId(SHIPPING_ORDER_ID);
+            existing.setOrderId(ORDER_ID);
+            existing.setTrackingNo("OTHER_TRACKING_NO");
+            existing.setCarrier("顺丰");
+            when(shippingOrderMapper.selectOne(any())).thenReturn(existing);
+
+            CreateShippingRequest request = new CreateShippingRequest(
+                    ORDER_ID, null, "顺丰", "SF1234567890", "张三", "13800138000", "北京市朝阳区");
+
+            assertThatThrownBy(() -> shippingService.createShipping(request))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("code").isEqualTo("SHIPPING_CONFLICT");
         }
     }
 

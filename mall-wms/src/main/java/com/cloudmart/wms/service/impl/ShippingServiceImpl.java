@@ -2,10 +2,12 @@ package com.cloudmart.wms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.wms.converter.WmsConverter;
 import com.cloudmart.wms.dto.CreateShippingRequest;
+import com.cloudmart.wms.dto.OrderInternalInfoDTO;
 import com.cloudmart.wms.dto.ShippingOrderDTO;
 import com.cloudmart.wms.dto.ShippingTrackingDTO;
 import com.cloudmart.wms.entity.ShippingOrder;
@@ -18,6 +20,7 @@ import com.cloudmart.wms.vo.ShippingOrderVO;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -70,39 +73,75 @@ public class ShippingServiceImpl implements ShippingService {
     }
 
     @Override
+    @Transactional
     @SentinelResource(value = "createShippingOrder", fallback = "createShippingOrderFallback")
     public ShippingOrderVO createShipping(CreateShippingRequest request) {
-        // WMS-01：无运单不得建档（真实单号必填）；重复 paid 事件按订单幂等返回原包裹
+        // WMS-01：无运单不得建档（真实单号必填）
         if (request.trackingNo() == null || request.trackingNo().isBlank()) {
             throw new BusinessException("TRACKING_NO_REQUIRED", "承运商运单号不能为空");
         }
-        if (shippingOrderMapper.countByOrderId(request.orderId()) > 0) {
-            log.info("[WMS01] 重复建包裹请求，返回已有包裹 orderId={}", request.orderId());
-            return getByOrderId(request.orderId(), null);
-        }
-        // WMS-01：仓库分配——请求未指定时取第一个可用仓库（与拣货监听同策略）
-        Long warehouseId = request.warehouseId();
-        if (warehouseId == null) {
-            var first = warehouseMapper.selectList(
-                    new LambdaQueryWrapper<com.cloudmart.wms.entity.Warehouse>().last("LIMIT 1"));
-            if (first.isEmpty()) {
-                throw new BusinessException("WAREHOUSE_NOT_FOUND", "无可用仓库，无法创建物流订单");
-            }
-            warehouseId = first.get(0).getId();
-        }
+        // T21：核对权威订单（可出库状态 + 权威收件快照），fail-closed——未付款/已取消不可建。
+        OrderInternalInfoDTO orderSnap = requireOrderShippable(request.orderId());
+        // T21：仓库必须存在且启用——请求指定则校验，未指定则取第一个启用仓（不无序取第一行）
+        Long warehouseId = resolveWarehouse(request.warehouseId());
+
         ShippingOrder order = new ShippingOrder();
         order.setOrderId(request.orderId());
         order.setWarehouseId(warehouseId);
-        order.setShippingNo("SF" + System.currentTimeMillis());
+        // T21：内部 shippingNo 用统一雪花 ID，不再用 "SF+当前毫秒" 冒充承运单号；
+        // 真实运单号单独存 trackingNo。
+        order.setShippingNo(String.valueOf(IdWorker.getId()));
         order.setCarrier(request.carrier());
         order.setTrackingNo(request.trackingNo().trim());
         order.setStatus("PENDING");
-        order.setReceiverName(request.receiverName());
-        order.setReceiverPhone(request.receiverPhone());
-        order.setReceiverAddress(request.receiverAddress());
-        shippingOrderMapper.insert(order);
-        ShippingOrderDTO dto = toOrderDTO(order, Collections.emptyList());
-        return wmsConverter.fromShippingOrderDTO(dto);
+        // T21：收件信息以订单快照为准（订单服务未返回时回退请求兜底），不信任请求篡改
+        order.setReceiverName(orderSnap.receiverName() != null ? orderSnap.receiverName() : request.receiverName());
+        order.setReceiverPhone(orderSnap.receiverPhone() != null ? orderSnap.receiverPhone() : request.receiverPhone());
+        order.setReceiverAddress(orderSnap.receiverAddress() != null ? orderSnap.receiverAddress() : request.receiverAddress());
+        try {
+            shippingOrderMapper.insert(order);
+        } catch (DuplicateKeyException duplicate) {
+            // T21：order_id 唯一约束下并发重复建包回读——同单同运单号幂等返回，不同单号/承运商报冲突
+            ShippingOrder existing = selectByOrderId(request.orderId());
+            if (existing == null) {
+                throw duplicate;
+            }
+            if (!request.trackingNo().trim().equals(existing.getTrackingNo())
+                    || !java.util.Objects.equals(request.carrier(), existing.getCarrier())) {
+                throw new BusinessException("SHIPPING_CONFLICT",
+                        "该订单已存在包裹且运单号/承运商不一致，请核对后重试");
+            }
+            log.info("[WMS01] 并发重复建包回读已有包裹 orderId={}", request.orderId());
+            return toVO(existing);
+        }
+        return toVO(order);
+    }
+
+    /** T21：仓库分配——请求指定则校验存在且启用；未指定则取第一个启用仓（按 id 升序）。 */
+    private Long resolveWarehouse(Long warehouseId) {
+        if (warehouseId != null) {
+            com.cloudmart.wms.entity.Warehouse warehouse = warehouseMapper.selectById(warehouseId);
+            if (warehouse == null || !Integer.valueOf(1).equals(warehouse.getStatus())) {
+                throw new BusinessException("WAREHOUSE_UNAVAILABLE",
+                        "仓库不存在或已停用: " + warehouseId);
+            }
+            return warehouseId;
+        }
+        com.cloudmart.wms.entity.Warehouse first = warehouseMapper.selectOne(
+                new LambdaQueryWrapper<com.cloudmart.wms.entity.Warehouse>()
+                        .eq(com.cloudmart.wms.entity.Warehouse::getStatus, 1)
+                        .orderByAsc(com.cloudmart.wms.entity.Warehouse::getId)
+                        .last("LIMIT 1"));
+        if (first == null) {
+            throw new BusinessException("WAREHOUSE_NOT_FOUND", "无可用仓库，无法创建物流订单");
+        }
+        return first.getId();
+    }
+
+    private ShippingOrder selectByOrderId(Long orderId) {
+        return shippingOrderMapper.selectOne(new LambdaQueryWrapper<ShippingOrder>()
+                .eq(ShippingOrder::getOrderId, orderId)
+                .last("LIMIT 1"));
     }
 
     @Override
@@ -214,9 +253,10 @@ public class ShippingServiceImpl implements ShippingService {
         return toVO(shippingOrderMapper.selectById(shippingOrderId));
     }
 
-    /** T05：出库前订单必须处于可发货状态（PAID）；订单服务不可用时 fail-closed。 */
-    private void requireOrderShippable(Long orderId) {
-        com.cloudmart.common.api.ApiResponse<com.cloudmart.wms.dto.OrderInternalInfoDTO> orderInfo =
+    /** T05/T21：出库前订单必须处于可发货状态（PAID）；订单服务不可用时 fail-closed。
+     *  返回订单内部信息（状态 + 权威收件快照），供建包复用，避免重复请求。 */
+    private OrderInternalInfoDTO requireOrderShippable(Long orderId) {
+        com.cloudmart.common.api.ApiResponse<OrderInternalInfoDTO> orderInfo =
                 orderInfoFeignClient.getOrderInfo(orderId);
         if (orderInfo == null || !orderInfo.success() || orderInfo.data() == null) {
             throw new BusinessException("ORDER_SERVICE_UNAVAILABLE", "订单服务暂不可用，无法确认可出库状态");
@@ -225,6 +265,7 @@ public class ShippingServiceImpl implements ShippingService {
             throw new BusinessException("SHIPPING_ORDER_NOT_SHIPPABLE",
                     "订单当前状态不允许出库: " + orderInfo.data().status());
         }
+        return orderInfo.data();
     }
 
     private ShippingOrderVO toVO(ShippingOrder order) {
