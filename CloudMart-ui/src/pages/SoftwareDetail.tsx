@@ -212,6 +212,16 @@ export default function SoftwareDetail() {
     [message],
   );
 
+  // SF01：来源操作文案按类型区分（官方 HTTPS 来源不叫"下载"）
+  const resolveActionLabel = (sourceType?: string) =>
+    sourceType === "HTTPS_DOWNLOAD"
+      ? "获取安装包地址"
+      : sourceType === "OFFICIAL_PAGE"
+        ? "前往官网"
+        : sourceType === "WEB_APP"
+          ? "在线使用"
+          : "获取下载链接";
+
   const handleResolve = useCallback(async () => {
     if (!id || !sourceId) return;
     setResolving(true);
@@ -940,7 +950,9 @@ export default function SoftwareDetail() {
                   disabled={!sourceId}
                   onClick={() => void handleResolve()}
                 >
-                  获取下载链接
+                  {resolveActionLabel(
+                    sources.find((item) => item.sourceId === sourceId)?.sourceType,
+                  )}
                 </Button>
               )}
             </div>

@@ -328,10 +328,15 @@ export interface SoftwareContact {
 export interface SoftwareEditorSource {
   sourceId?: string
   sourceKey?: string
-  sourceType: 'NETDISK' | 'MAGNET' | 'TORRENT_URL'
+  sourceType:    | 'NETDISK'
+    | 'MAGNET'
+    | 'TORRENT_URL'
+    | 'HTTPS_DOWNLOAD'
+    | 'OFFICIAL_PAGE'
+    | 'WEB_APP'
   provider?: string | null
-  platform: 'WINDOWS' | 'MACOS' | 'LINUX' | 'ANDROID' | 'IOS' | 'CROSS_PLATFORM'
-  arch: 'X64' | 'X86' | 'ARM64' | 'UNIVERSAL' | 'OTHER'
+  platform: 'WINDOWS' | 'MACOS' | 'LINUX' | 'ANDROID' | 'IOS' | 'CROSS_PLATFORM' | 'WEB'
+  arch: 'X64' | 'X86' | 'ARM64' | 'UNIVERSAL' | 'OTHER' | 'ANY'
   label: string | null
   url: string | null
   extractionCode: string | null

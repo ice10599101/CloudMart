@@ -6,5 +6,7 @@ public enum SoftwareArch {
     X86,
     ARM64,
     UNIVERSAL,
-    OTHER
+    OTHER,
+    /** SF01：Web 应用（在线使用，无安装架构语义） */
+    ANY
 }

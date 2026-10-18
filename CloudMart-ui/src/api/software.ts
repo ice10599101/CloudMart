@@ -21,7 +21,13 @@ export type SoftwareAccessMode =
 export type SoftwareLicenseType =
   "FREE" | "OPEN_SOURCE" | "TRIAL" | "COMMERCIAL";
 /** 来源类型 */
-export type SoftwareSourceType = "NETDISK" | "MAGNET" | "TORRENT_URL";
+export type SoftwareSourceType =
+  | "NETDISK"
+  | "MAGNET"
+  | "TORRENT_URL"
+  | "HTTPS_DOWNLOAD"
+  | "OFFICIAL_PAGE"
+  | "WEB_APP";
 /** 软件生命周期 */
 export type SoftwareLifecycle = "ACTIVE" | "BANNED" | "UNLISTED";
 /** 快照审核状态 */

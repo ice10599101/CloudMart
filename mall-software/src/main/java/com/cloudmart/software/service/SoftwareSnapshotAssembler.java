@@ -734,6 +734,12 @@ public class SoftwareSnapshotAssembler {
             }
             SoftwarePlatform platform = parseEnum(sourceInput.getPlatform(), SoftwarePlatform.class, "平台");
             SoftwareArch arch = parseEnum(sourceInput.getArch(), SoftwareArch.class, "架构");
+            // SF01：Web 应用不适用安装平台语义——固定 WEB+ANY，禁止默认 WINDOWS/X64 等组合
+            if (sourceType == SoftwareSourceType.WEB_APP
+                    && (platform != SoftwarePlatform.WEB || arch != SoftwareArch.ANY)) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID",
+                        "在线应用（WEB_APP）来源的平台须为 WEB、架构须为 ANY");
+            }
             SoftwareLinkValidator.ValidatedLink link = linkValidator.validate(
                     sourceType, sourceInput.getProvider(), sourceInput.getUrl(),
                     sourceInput.getExtractionCode(), sourceInput.getArchivePassword());

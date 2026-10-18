@@ -426,7 +426,18 @@ export default function SoftwareDetailPage() {
             className={`${styles.resolveBtn} ${resolving ? styles.resolveBtnBusy : ''}`}
             onClick={() => void handleResolve()}
           >
-            {resolving ? '获取中…' : '获取下载链接'}
+            {resolving
+              ? '获取中…'
+              : (() => {
+                  const sel = sources.find((source) => source.sourceId === sourceId);
+                  return sel?.sourceType === 'HTTPS_DOWNLOAD'
+                    ? '获取安装包地址'
+                    : sel?.sourceType === 'OFFICIAL_PAGE'
+                      ? '前往官网'
+                      : sel?.sourceType === 'WEB_APP'
+                        ? '在线使用'
+                        : '获取下载链接';
+                })()}
           </Text>
         )}
       </View>

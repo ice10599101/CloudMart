@@ -9,5 +9,7 @@ public enum SoftwarePlatform {
     LINUX,
     ANDROID,
     IOS,
-    CROSS_PLATFORM
+    CROSS_PLATFORM,
+    /** SF01：Web 应用（在线使用，无安装平台语义） */
+    WEB
 }

@@ -67,6 +67,11 @@ public class SoftwareLinkValidator {
             case NETDISK -> validateNetdisk(provider, url.trim(), extractionCode, archivePassword);
             case MAGNET -> validateMagnet(url.trim(), extractionCode, archivePassword);
             case TORRENT_URL -> validateTorrentUrl(url.trim(), extractionCode, archivePassword);
+            // SF01：官方 HTTPS 来源——不限制网盘域名白名单，但必须 HTTPS 且主机可解析格式；
+            // provider 由服务端裁定为 OTHER，不接受作者自标（官方认证须平台单独审核）。
+            case HTTPS_DOWNLOAD -> validateOfficialHttps(url.trim(), extractionCode, archivePassword);
+            case OFFICIAL_PAGE -> validateOfficialHttps(url.trim(), extractionCode, archivePassword);
+            case WEB_APP -> validateOfficialHttps(url.trim(), extractionCode, archivePassword);
         };
     }
 
@@ -103,6 +108,28 @@ public class SoftwareLinkValidator {
             }
         }
         return mapped;
+    }
+
+    /**
+     * SF01：官方 HTTPS 来源（HTTPS_DOWNLOAD / OFFICIAL_PAGE / WEB_APP 共用）。
+     * 仅限 HTTPS + 可解析主机格式；拒绝内网/回环/IP 字面量与云元数据地址。
+     * 不做服务器端抓取（5.1），可达性由人工核验/巡检（SF07）另计。
+     */
+    private ValidatedLink validateOfficialHttps(String url, String extractionCode,
+                                                String archivePassword) {
+        URI uri = parseHttps(url, MAX_HTTPS_LENGTH);
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+        if (host.isEmpty() || IP_LITERAL.matcher(host).matches()
+                || LOCAL_HOST.matcher(host).matches()
+                || host.endsWith(".localhost") || host.endsWith(".internal")
+                || host.equals("169.254.169.254") || host.endsWith(".cloud.internal")) {
+            throw new BusinessException("SOFTWARE_LINK_INVALID", "来源主机不可用（须为公网域名）");
+        }
+        String normalized = normalize(uri);
+        String code = extractionCode == null ? null : extractionCode.trim();
+        String password = archivePassword == null ? null : archivePassword.trim();
+        return new ValidatedLink(url, normalized, sha256(normalized),
+                fingerprint(normalized, code, password), code, password, SoftwareProvider.OTHER);
     }
 
     private ValidatedLink validateMagnet(String url, String extractionCode, String archivePassword) {

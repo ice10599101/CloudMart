@@ -40,9 +40,13 @@ const ACCESS_MODES = ['REGISTERED', 'COMMUNITY_LEVEL', 'ADMIN_PAID'] as const
 const ACCESS_LABEL: Record<string, string> = {
   REGISTERED: '登录即可见', COMMUNITY_LEVEL: '社区等级门槛', ADMIN_PAID: '联系管理员付款',
 }
-const SOURCE_TYPES = ['NETDISK', 'MAGNET', 'TORRENT_URL'] as const
+const SOURCE_TYPES = [
+  'NETDISK', 'MAGNET', 'TORRENT_URL',
+  'HTTPS_DOWNLOAD', 'OFFICIAL_PAGE', 'WEB_APP',
+] as const
 const SOURCE_TYPE_LABEL: Record<string, string> = {
   NETDISK: '网盘链接', MAGNET: '磁力链接', TORRENT_URL: '种子文件(https)',
+  HTTPS_DOWNLOAD: '安装包直链(https)', OFFICIAL_PAGE: '官方发布页', WEB_APP: '在线应用(Web)',
 }
 const PLATFORMS = ['WINDOWS', 'MACOS', 'LINUX', 'ANDROID', 'IOS', 'CROSS_PLATFORM'] as const
 const ARCHES = ['X64', 'X86', 'ARM64', 'UNIVERSAL', 'OTHER'] as const

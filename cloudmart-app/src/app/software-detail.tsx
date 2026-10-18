@@ -118,6 +118,16 @@ export default function SoftwareDetailScreen() {
     await Clipboard.setStringAsync(text)
   }
 
+  // SF01：来源操作文案按类型区分
+  const resolveActionLabel = (sourceType?: string) =>
+    sourceType === 'HTTPS_DOWNLOAD'
+      ? '获取安装包地址'
+      : sourceType === 'OFFICIAL_PAGE'
+        ? '前往官网'
+        : sourceType === 'WEB_APP'
+          ? '在线使用'
+          : '获取下载链接';
+
   const handleResolve = async () => {
     if (!sourceId) return
     setResolving(true)
@@ -513,7 +523,11 @@ export default function SoftwareDetailScreen() {
               }}
             >
               <Text style={{ color: '#0B1220', fontSize: FontSize.md, fontWeight: '700' }}>
-                {resolving ? '获取中…' : '获取下载链接'}
+                {resolving
+                  ? '获取中…'
+                  : resolveActionLabel(
+                      sources.find((source) => source.sourceId === sourceId)?.sourceType,
+                    )}
               </Text>
             </TouchableOpacity>
           )}

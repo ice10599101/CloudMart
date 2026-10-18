@@ -94,6 +94,9 @@ const ATTRIBUTION_OPTIONS = [
 
 const SOURCE_TYPE_OPTIONS: { value: SoftwareSourceType; label: string }[] = [
   { value: "NETDISK", label: "网盘链接" },
+  { value: "HTTPS_DOWNLOAD", label: "安装包直链（HTTPS）" },
+  { value: "OFFICIAL_PAGE", label: "官方发布页" },
+  { value: "WEB_APP", label: "在线应用（Web）" },
   { value: "MAGNET", label: "磁力链接" },
   { value: "TORRENT_URL", label: "种子外链" },
 ];
