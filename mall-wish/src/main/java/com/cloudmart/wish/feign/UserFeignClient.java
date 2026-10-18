@@ -42,8 +42,8 @@ public interface UserFeignClient {
     @GetMapping("/users/account-deletion/status")
     ApiResponse<Map<String, Object>> getAccountDeletionStatus(@RequestParam("userId") Long userId);
 
-    /** WISH-04：邀请资格检查回调（签到事务提交后调用；达到资格仅发一次） */
-    @org.springframework.web.bind.annotation.PostMapping("/users/invite/internal/eligibility-check")
+    /** WISH-04/T14：邀请资格检查回调（签到事务提交后调用；达到资格仅发一次） */
+    @org.springframework.web.bind.annotation.PostMapping("/internal/invites/eligibility-check")
     ApiResponse<java.util.Map<String, Object>> inviteEligibilityCheck(
             @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body);
 }
