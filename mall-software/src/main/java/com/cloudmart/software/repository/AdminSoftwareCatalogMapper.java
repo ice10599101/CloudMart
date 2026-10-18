@@ -23,7 +23,6 @@ public interface AdminSoftwareCatalogMapper {
     @Select("""
             <script>
             SELECT s.id, s.owner_id AS ownerId, s.lifecycle, s.featured_rank AS featuredRank,
-                   s.lock_version AS lockVersion, s.publication_seq AS publicationSeq,
                    s.published_revision_id AS publishedRevisionId,
                    s.working_revision_id AS workingRevisionId,
                    (SELECT pr.id FROM software_revision pr
@@ -68,7 +67,7 @@ public interface AdminSoftwareCatalogMapper {
 
     /** 目录行（Mapper 内部行结构，不外暴实体） */
     record ItemRow(Long id, Long ownerId, String lifecycle, Integer featuredRank,
-                   Integer lockVersion, Integer publicationSeq, Long publishedRevisionId,
+                   Long publishedRevisionId,
                    Long workingRevisionId, Long pendingRevisionId, String name, String summary,
                    Long categoryId, String categoryName, String licenseType, Integer commentCount,
                    Integer favoriteCount, Long linkAccessCount, Integer ratingCount,

@@ -107,7 +107,7 @@ public class AdminSoftwareSourceServiceImpl implements AdminSoftwareSourceServic
             state.setLockVersion(state.getLockVersion() + 1);
             sourceStateMapper.updateById(state);
         }
-        auditService.record(softwareId, published.getId(), null, adminId, "ADMIN",
+        auditService.record(softwareId, published.getId(), adminId, "ADMIN",
                 target == SourceAvailability.DISABLED ? "SOURCE_DISABLE" : "SOURCE_VERIFY",
                 fromState, target.name(),
                 "sourceKey=" + sourceKey

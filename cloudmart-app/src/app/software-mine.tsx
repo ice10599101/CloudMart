@@ -76,7 +76,7 @@ export default function SoftwareMineScreen() {
         text: '删除',
         style: 'destructive',
         onPress: () => {
-          void gate(() => softwarePublishApi.deleteSoftware(it.softwareId, it.lockVersion), '已删除')
+          void gate(() => softwarePublishApi.deleteSoftware(it.softwareId), '已删除')
         },
       },
     ])
@@ -128,7 +128,7 @@ export default function SoftwareMineScreen() {
         {item.status === 'UNLISTED' && (
           <TouchableOpacity
             disabled={busy}
-            onPress={() => void gate(() => softwarePublishApi.relist(item.softwareId, item.lockVersion), '已重新上架')}
+            onPress={() => void gate(() => softwarePublishApi.relist(item.softwareId), '已重新上架')}
             style={{ paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: '#eef2ff' }}
           >
             <Text style={{ fontSize: FontSize.xs, color: '#3d5afe' }}>重新上架</Text>
@@ -137,7 +137,7 @@ export default function SoftwareMineScreen() {
         {item.status === 'PUBLISHED' && (
           <TouchableOpacity
             disabled={busy}
-            onPress={() => void gate(() => softwarePublishApi.unlist(item.softwareId, item.lockVersion), '已下架')}
+            onPress={() => void gate(() => softwarePublishApi.unlist(item.softwareId), '已下架')}
             style={{ paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: '#fdecec' }}
           >
             <Text style={{ fontSize: FontSize.xs, color: '#d3392f' }}>下架</Text>

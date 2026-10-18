@@ -30,15 +30,7 @@ public class SoftwareRevision {
     /** 编辑人（前台会员 ID） */
     private Long editorId;
 
-    /** 软件内递增快照号 */
-    private Integer revisionNo;
-
     private SoftwareReviewStatus reviewStatus;
-
-    /** 同一工作快照第几次提交（审核请求须携带防旧批次覆盖） */
-    private Integer submitSeq;
-
-    private Integer lockVersion;
 
     /** 软件名（草稿可空，提交时 2~80 字） */
     private String name;

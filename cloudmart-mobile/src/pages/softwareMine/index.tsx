@@ -84,7 +84,6 @@ export default function SoftwareMinePage() {
 
   const statusActions = (it: SoftwareMineItem) => {
     const act: Array<{ label: string; run: () => void; danger?: boolean }> = []
-    const lock = it.lockVersion
     const id = it.softwareId
     if (it.status === 'DRAFT' || it.status === 'REJECTED') {
       act.push({ label: '继续编辑', run: () => openEditor(id) })
@@ -95,13 +94,13 @@ export default function SoftwareMinePage() {
     if (it.status === 'UNLISTED') {
       act.push({
         label: '重新上架',
-        run: () => gate(() => softwarePublishApi.relist(id, lock), '已重新上架'),
+        run: () => gate(() => softwarePublishApi.relist(id), '已重新上架'),
       })
     }
     if (it.status === 'PUBLISHED') {
       act.push({
         label: '下架',
-        run: () => gate(() => softwarePublishApi.unlist(id, lock), '已下架'),
+        run: () => gate(() => softwarePublishApi.unlist(id), '已下架'),
         danger: true,
       })
     }
@@ -112,7 +111,7 @@ export default function SoftwareMinePage() {
           title: '删除软件',
           content: '删除后不可恢复，确定继续？',
           success: (r) => {
-            if (r.confirm) gate(() => softwarePublishApi.deleteSoftware(id, lock), '已删除')
+            if (r.confirm) gate(() => softwarePublishApi.deleteSoftware(id), '已删除')
           },
         }),
       danger: true,

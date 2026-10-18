@@ -187,7 +187,6 @@ class SoftwarePublishServiceImplTest {
         software.setPublishedRevisionId(publishedId);
         software.setWorkingRevisionId(workingId);
         software.setPublicationSeq(1);
-        software.setLockVersion(3);
         software.setCommentCount(0);
         software.setFavoriteCount(0);
         software.setRatingCount(0);
@@ -196,15 +195,12 @@ class SoftwarePublishServiceImplTest {
         return software;
     }
 
-    private SoftwareRevision revision(SoftwareReviewStatus status, int submitSeq, int lockVersion) {
+    private SoftwareRevision revision(SoftwareReviewStatus status, int ignoredSubmitSeq, int ignoredLockVersion) {
         SoftwareRevision revision = new SoftwareRevision();
         revision.setId(REVISION_ID);
         revision.setSoftwareId(SOFTWARE_ID);
         revision.setEditorId(USER_ID);
-        revision.setRevisionNo(1);
         revision.setReviewStatus(status);
-        revision.setSubmitSeq(submitSeq);
-        revision.setLockVersion(lockVersion);
         revision.setAccessMode(com.cloudmart.software.enums.SoftwareAccessMode.REGISTERED);
         revision.setName("示例工具");
         revision.setSummary("用于整理工作资料的工具");
@@ -235,7 +231,7 @@ class SoftwarePublishServiceImplTest {
         assertThat(created.softwareId()).isEqualTo(SOFTWARE_ID);
         assertThat(created.workingRevisionId()).isEqualTo(REVISION_ID);
         verify(publisherPolicy).requireForRestrictedWrite(USER_ID);
-        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(0), eq(USER_ID),
+        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(USER_ID),
                 eq("USER"), eq("CREATE"), any(), eq("DRAFT"), anyString(), any());
     }
 
@@ -269,7 +265,7 @@ class SoftwarePublishServiceImplTest {
     }
 
     @Test
-    @DisplayName("提交成功：冻结 PENDING + submitSeq+1 + 短事务锁协议（资格行→软件→快照）")
+    @DisplayName("提交成功：冻结 PENDING + 短事务锁协议（资格行→软件→快照）")
     void submit_freezesPendingUnderLocks() {
         when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
                 software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
@@ -290,15 +286,15 @@ class SoftwarePublishServiceImplTest {
 
         SoftwareSubmittedVO submitted = service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-key-3");
 
-        assertThat(submitted.submitSeq()).isEqualTo(1);
+        assertThat(submitted.revisionId()).isEqualTo(REVISION_ID);
+        assertThat(submitted.reviewStatus()).isEqualTo("PENDING");
         assertThat(draft.getReviewStatus()).isEqualTo(SoftwareReviewStatus.PENDING);
-        assertThat(draft.getLockVersion()).isEqualTo(2);
         // 锁顺序：资格行 → 软件主行 → 快照行（4.0/9.7）
         var inOrder = org.mockito.Mockito.inOrder(lockMapper);
         inOrder.verify(lockMapper).lockPublisherByUser(USER_ID);
         inOrder.verify(lockMapper).lockSoftware(SOFTWARE_ID);
         inOrder.verify(lockMapper).lockRevision(REVISION_ID);
-        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(1), eq(USER_ID),
+        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(USER_ID),
                 eq("USER"), eq("SUBMIT"), eq("DRAFT"), eq("PENDING"), anyString(), any());
     }
 
@@ -315,28 +311,27 @@ class SoftwarePublishServiceImplTest {
         when(lockMapper.lockRevision(REVISION_ID)).thenReturn(pending);
 
         SoftwareReviewDecisionVO decision = service.reviewDecision(ADMIN_ID, "review-key-1",
-                SOFTWARE_ID, REVISION_ID, 2, 3, true, "内容合格", "req-1");
+                SOFTWARE_ID, REVISION_ID, true, "内容合格", "req-1");
 
         assertThat(decision.decision()).isEqualTo("APPROVED");
-        assertThat(decision.publicationSeq()).isEqualTo(2);
         assertThat(locked.getPublishedRevisionId()).isEqualTo(REVISION_ID);
         assertThat(locked.getWorkingRevisionId()).isNull();
         // 更新发布（seq 1→2）：REVIEW_APPROVED + RELEASE_PUBLISHED（P1 订阅广播）共两条
         verify(outboxService, org.mockito.Mockito.times(2)).record(any());
-        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(2), eq(ADMIN_ID),
+        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(ADMIN_ID),
                 eq("ADMIN"), eq("APPROVE"), eq("PENDING"), eq("APPROVED"), eq("内容合格"), eq("req-1"));
     }
 
     @Test
-    @DisplayName("A07：审核旧批次（submitSeq 不匹配）409，不覆盖撤回后再次提交的数据")
-    void reviewStaleSubmitSeq_conflicts() {
-        SoftwareRevision pending = revision(SoftwareReviewStatus.PENDING, 5, 2);
-        when(revisionMapper.selectById(REVISION_ID)).thenReturn(pending);
+    @DisplayName("已完成的提交不能被旧审核页面再次决定（不覆盖已审内容）")
+    void reviewCompletedSubmissionRejected() {
+        SoftwareRevision approved = revision(SoftwareReviewStatus.APPROVED, 0, 0);
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(approved);
 
         assertThatThrownBy(() -> service.reviewDecision(ADMIN_ID, "review-key-2",
-                SOFTWARE_ID, REVISION_ID, 2, 3, true, "ok", "req-2"))
+                SOFTWARE_ID, REVISION_ID, true, "ok", "req-2"))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "SOFTWARE_SUBMIT_STALE");
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_NOT_FOUND");
         verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
     }
 
@@ -350,7 +345,7 @@ class SoftwarePublishServiceImplTest {
         when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission(false));
 
         assertThatThrownBy(() -> service.reviewDecision(ADMIN_ID, "review-key-3",
-                SOFTWARE_ID, REVISION_ID, 2, 3, true, "ok", "req-3"))
+                SOFTWARE_ID, REVISION_ID, true, "ok", "req-3"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "SOFTWARE_PUBLISH_NOT_ENABLED");
         assertThat(pending.getReviewStatus()).isEqualTo(SoftwareReviewStatus.PENDING);
@@ -377,7 +372,7 @@ class SoftwarePublishServiceImplTest {
         service.relist(USER_ID, SOFTWARE_ID);
 
         assertThat(unlisted.getLifecycle()).isEqualTo(SoftwareLifecycle.ACTIVE);
-        verify(auditService).record(eq(SOFTWARE_ID), eq(null), eq(null), eq(USER_ID),
+        verify(auditService).record(eq(SOFTWARE_ID), eq(null), eq(USER_ID),
                 eq("USER"), eq("RELIST"), eq("UNLISTED"), eq("ACTIVE"), anyString(), any());
     }
 

@@ -11,10 +11,7 @@ import java.util.List;
 public record SoftwareEditorVO(
         Long softwareId,
         Long revisionId,
-        Integer revisionNo,
         String reviewStatus,
-        Integer submitSeq,
-        Integer lockVersion,
         String name,
         String summary,
         Long categoryId,
@@ -40,7 +37,6 @@ public record SoftwareEditorVO(
         String reviewReason,
         /** 主体状态（作者整理视角需要 lifecycle：UNLISTED/BANNED 等） */
         String lifecycle,
-        Integer softwareLockVersion,
         Long publishedRevisionId,
         Long workingRevisionId) {
 

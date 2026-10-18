@@ -129,8 +129,7 @@ export default function SoftwareDetailModal({
                 {detail.lifecycle === 'BANNED' ? <Tag color="error">已封禁</Tag> : null}
               </div>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                发布者 {detail.editorNickname || (detail.editorId ? `用户${detail.editorId}` : '-')} · 提交批次{' '}
-                {detail.submitSeq ?? '-'}
+                发布者 {detail.editorNickname || (detail.editorId ? `用户${detail.editorId}` : '-')}
               </Typography.Text>
             </div>
           </div>

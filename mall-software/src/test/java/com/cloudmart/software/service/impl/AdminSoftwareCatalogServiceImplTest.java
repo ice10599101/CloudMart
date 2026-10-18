@@ -75,6 +75,8 @@ class AdminSoftwareCatalogServiceImplTest {
     private SoftwareOperationService operationService;
     @Mock
     private OutboxService outboxService;
+    @Mock
+    private com.cloudmart.software.repository.SoftwareLockMapper lockMapper;
 
     private SoftwarePlatformActionService platformActionService;
     private AdminSoftwareCatalogServiceImpl catalogService;
@@ -85,10 +87,10 @@ class AdminSoftwareCatalogServiceImplTest {
         doAnswer(inv -> ((Supplier<?>) inv.getArgument(6)).get())
                 .when(operationService).execute(anyString(), any(), anyString(), anyString(),
                         any(), any(), any(Supplier.class), any());
-        platformActionService = new SoftwarePlatformActionService(softwareMapper, auditLogMapper,
+        platformActionService = new SoftwarePlatformActionService(softwareMapper, lockMapper, auditLogMapper,
                 outboxService, new ObjectMapper(), fixedClock());
         catalogService = new AdminSoftwareCatalogServiceImpl(catalogMapper, userSupportFeignClient,
-                softwareMapper, categoryMapper, tagMapper, auditLogMapper, operationService,
+                softwareMapper, lockMapper, categoryMapper, tagMapper, auditLogMapper, operationService,
                 platformActionService, fixedClock());
     }
 
@@ -101,7 +103,6 @@ class AdminSoftwareCatalogServiceImplTest {
         software.setId(SOFTWARE_ID);
         software.setOwnerId(42L);
         software.setLifecycle(lifecycle);
-        software.setLockVersion(lockVersion);
         software.setFeaturedRank(0);
         return software;
     }
@@ -125,7 +126,7 @@ class AdminSoftwareCatalogServiceImplTest {
     void itemPage_mapsRows() {
         AdminItemQuery query = new AdminItemQuery();
         AdminSoftwareCatalogMapper.ItemRow row = new AdminSoftwareCatalogMapper.ItemRow(
-                SOFTWARE_ID, 42L, "ACTIVE", 3, 7, 2, 900L, 901L, 902L, "示例软件", "简介",
+                SOFTWARE_ID, 42L, "ACTIVE", 3, 900L, 901L, 902L, "示例软件", "简介",
                 5L, "效率工具", "FREE", 1, 2, 3L, 0, 0,
                 LocalDateTime.of(2026, 10, 1, 0, 0), LocalDateTime.of(2026, 10, 2, 0, 0),
                 LocalDateTime.of(2026, 9, 30, 0, 0), LocalDateTime.of(2026, 10, 3, 0, 0));
@@ -153,15 +154,14 @@ class AdminSoftwareCatalogServiceImplTest {
     @Test
     @DisplayName("A10：独立封禁置 BANNED，写审计并通知分享者")
     void ban_setsBannedWithAuditAndEvent() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(
                 software(SoftwareLifecycle.ACTIVE, 3));
 
-        assertThat(catalogService.ban(ADMIN_ID, SOFTWARE_ID, "ban-key-1", "侵权内容", 3)).isTrue();
+        assertThat(catalogService.ban(ADMIN_ID, SOFTWARE_ID, "ban-key-1", "侵权内容")).isTrue();
 
         ArgumentCaptor<Software> captor = ArgumentCaptor.forClass(Software.class);
         verify(softwareMapper).updateById(captor.capture());
         assertThat(captor.getValue().getLifecycle()).isEqualTo(SoftwareLifecycle.BANNED);
-        assertThat(captor.getValue().getLockVersion()).isEqualTo(4);
         ArgumentCaptor<SoftwareAuditLog> auditCaptor = ArgumentCaptor.forClass(SoftwareAuditLog.class);
         verify(auditLogMapper).insert(auditCaptor.capture());
         assertThat(auditCaptor.getValue().getAction()).isEqualTo("BAN");
@@ -169,25 +169,12 @@ class AdminSoftwareCatalogServiceImplTest {
     }
 
     @Test
-    @DisplayName("封禁：expectedVersion 不匹配返回 SOFTWARE_VERSION_CONFLICT")
-    void ban_versionConflict() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
-                software(SoftwareLifecycle.ACTIVE, 5));
-
-        assertThatThrownBy(() ->
-                catalogService.ban(ADMIN_ID, SOFTWARE_ID, "ban-key-2", "原因", 3))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("刷新");
-        verify(softwareMapper, never()).updateById(any(Software.class));
-    }
-
-    @Test
     @DisplayName("封禁：已封禁重复调用幂等，不重复写事件")
     void ban_alreadyBannedIdempotent() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(
                 software(SoftwareLifecycle.BANNED, 6));
 
-        assertThat(catalogService.ban(ADMIN_ID, SOFTWARE_ID, "ban-key-3", "原因", 6)).isTrue();
+        assertThat(catalogService.ban(ADMIN_ID, SOFTWARE_ID, "ban-key-3", "原因")).isTrue();
 
         verify(softwareMapper, never()).updateById(any(Software.class));
         verify(outboxService, never()).record(any(EventEnvelope.class));
@@ -196,10 +183,10 @@ class AdminSoftwareCatalogServiceImplTest {
     @Test
     @DisplayName("解除封禁：BANNED → UNLISTED（由作者恢复展示）")
     void unban_returnsToUnlisted() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(
                 software(SoftwareLifecycle.BANNED, 8));
 
-        assertThat(catalogService.unban(ADMIN_ID, SOFTWARE_ID, "unban-key-1", "核实无违规", 8))
+        assertThat(catalogService.unban(ADMIN_ID, SOFTWARE_ID, "unban-key-1", "核实无违规"))
                 .isTrue();
 
         ArgumentCaptor<Software> captor = ArgumentCaptor.forClass(Software.class);
@@ -210,11 +197,11 @@ class AdminSoftwareCatalogServiceImplTest {
     @Test
     @DisplayName("解除封禁：非封禁状态返回 SOFTWARE_STATE_CONFLICT")
     void unban_nonBannedRejected() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(
                 software(SoftwareLifecycle.ACTIVE, 2));
 
         assertThatThrownBy(() ->
-                catalogService.unban(ADMIN_ID, SOFTWARE_ID, "unban-key-2", "原因", 2))
+                catalogService.unban(ADMIN_ID, SOFTWARE_ID, "unban-key-2", "原因"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("封禁");
     }
@@ -227,31 +214,26 @@ class AdminSoftwareCatalogServiceImplTest {
     @DisplayName("精选：设置 featured_rank 并写审计；相同值不重复写")
     void feature_setsRank() {
         Software software = software(SoftwareLifecycle.ACTIVE, 1);
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(software);
 
-        assertThat(catalogService.feature(ADMIN_ID, SOFTWARE_ID, "feat-key-1", 3, 1))
+        assertThat(catalogService.feature(ADMIN_ID, SOFTWARE_ID, "feat-key-1", 3))
                 .isTrue();
         assertThat(software.getFeaturedRank()).isEqualTo(3);
 
-        software.setLockVersion(2);
-        catalogService.feature(ADMIN_ID, SOFTWARE_ID, "feat-key-2", 3, 2);
+        catalogService.feature(ADMIN_ID, SOFTWARE_ID, "feat-key-2", 3);
         // 相同值不重复写审计：两次调用合计只有 1 条
         verify(auditLogMapper, times(1)).insert(any(SoftwareAuditLog.class));
     }
 
     @Test
-    @DisplayName("精选：rank 越界与版本冲突拒绝")
+    @DisplayName("精选：rank 越界拒绝")
     void feature_rejectsInvalidInput() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(
                 software(SoftwareLifecycle.ACTIVE, 1));
 
         assertThatThrownBy(() ->
-                catalogService.feature(ADMIN_ID, SOFTWARE_ID, "feat-key-3", -1, 1))
+                catalogService.feature(ADMIN_ID, SOFTWARE_ID, "feat-key-3", -1))
                 .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() ->
-                catalogService.feature(ADMIN_ID, SOFTWARE_ID, "feat-key-4", 5, 9))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("刷新");
         verify(softwareMapper, never()).updateById(any(Software.class));
     }
 

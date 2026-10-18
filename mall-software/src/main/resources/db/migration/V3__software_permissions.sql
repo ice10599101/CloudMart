@@ -13,7 +13,7 @@ CREATE TABLE `software_publisher_permission` (
   `can_publish` tinyint(1) NOT NULL DEFAULT '0' COMMENT '发布资格开关（数据库为最终事实；缓存仅用于UI提示）',
   `updated_by` bigint unsigned NOT NULL COMMENT '最近操作管理员ID',
   `reason` varchar(500) NOT NULL COMMENT '开通/关闭原因（审计要求）',
-  `lock_version` int unsigned NOT NULL DEFAULT '0' COMMENT '乐观锁版本（开关提交带 expectedVersion）',
+  `lock_version` int unsigned NOT NULL DEFAULT '0' COMMENT '乐观锁版本（独立 CAS，不参与发布协议）',
   `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
   `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
   PRIMARY KEY (`id`),
@@ -90,7 +90,6 @@ CREATE TABLE `software_audit_log` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
   `software_id` bigint unsigned NOT NULL COMMENT '软件ID',
   `revision_id` bigint unsigned DEFAULT NULL COMMENT '关联快照（可空：lifecycle 类操作）',
-  `submit_seq` int unsigned DEFAULT NULL COMMENT '关联提交批次',
   `actor_id` bigint unsigned NOT NULL COMMENT '操作者ID（USER=会员/ADMIN=管理员/SYSTEM=系统）',
   `actor_type` varchar(16) NOT NULL COMMENT '操作者类型:USER/ADMIN/SYSTEM',
   `action` varchar(40) NOT NULL COMMENT '动作（CREATE/SUBMIT/WITHDRAW/APPROVE/REJECT/UNLIST/RELIST/BAN/UNBAN/DELETE 等）',
@@ -101,7 +100,7 @@ CREATE TABLE `software_audit_log` (
   `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '操作时间',
   PRIMARY KEY (`id`),
   KEY `idx_audit_log_software` (`software_id`,`created_at`,`id`),
-  KEY `idx_audit_log_revision` (`revision_id`,`submit_seq`),
+  KEY `idx_audit_log_revision` (`revision_id`),
   CONSTRAINT `chk_audit_log_actor` CHECK (`actor_type` IN ('USER','ADMIN','SYSTEM'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='软件域审核与状态流转日志（不记录下载URL/密码）';
 

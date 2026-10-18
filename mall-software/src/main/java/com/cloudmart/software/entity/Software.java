@@ -32,11 +32,8 @@ public class Software {
     /** 唯一工作快照（须属于本软件，应用层校验） */
     private Long workingRevisionId;
 
-    /** 成功上线序号 */
+    /** 内部通知去重序号（不进客户端协议；SW09 统一替换为发布 eventId） */
     private Integer publicationSeq;
-
-    /** 主体并发更新乐观锁 */
-    private Integer lockVersion;
 
     /** 首页精选排序，0=不精选 */
     private Integer featuredRank;

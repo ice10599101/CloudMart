@@ -16,7 +16,7 @@ public interface SoftwareErasureSqlMapper {
     /** 下架本人仍在架的软件（ACTIVE→UNLISTED；BANNED/DELETED 不变） */
     @Update("""
             UPDATE software
-               SET lifecycle = 'UNLISTED', lock_version = lock_version + 1
+               SET lifecycle = 'UNLISTED'
              WHERE owner_id = #{userId} AND lifecycle = 'ACTIVE' AND deleted_at IS NULL
             """)
     int unlistActiveSoftware(@Param("userId") Long userId);

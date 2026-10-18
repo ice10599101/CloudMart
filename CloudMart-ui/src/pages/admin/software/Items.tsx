@@ -84,13 +84,12 @@ export default function SoftwareItems() {
     try {
       await featureAdminSoftware(featureTarget.softwareId, {
         featuredRank: featureRank,
-        expectedVersion: featureTarget.lockVersion,
       })
       message.success(featureRank > 0 ? `已设为精选（排序 ${featureRank}）` : '已取消精选')
       setFeatureTarget(null)
       actionRef.current?.reload()
     } catch {
-      // 业务错误（版本冲突等）已由全局拦截器提示；保留弹窗供核对后重试
+      // 业务错误已由全局拦截器提示；保留弹窗供核对后重试
     } finally {
       setSubmitting(false)
     }
@@ -99,11 +98,11 @@ export default function SoftwareItems() {
   const submitDelete = async (record: AdminSoftwareItem) => {
     setSubmitting(true)
     try {
-      await deleteAdminSoftware(record.softwareId, record.lockVersion)
+      await deleteAdminSoftware(record.softwareId)
       message.success('已删除（软删，公开面立即隐藏）')
       actionRef.current?.reload()
     } catch {
-      // 失败提示由请求层统一弹出；刷新行数据以拿到新 lockVersion 重试
+      // 失败提示由请求层统一弹出；刷新行数据后重试
       actionRef.current?.reload()
     } finally {
       setSubmitting(false)
@@ -118,7 +117,7 @@ export default function SoftwareItems() {
     }
     setSubmitting(true)
     try {
-      const payload = { reason: banReason.trim(), expectedVersion: banTarget.lockVersion }
+      const payload = { reason: banReason.trim() }
       if (banTarget.lifecycle === 'BANNED') {
         await unbanAdminSoftware(banTarget.softwareId, payload)
         message.success('已解除封禁（软件回到已下架，由作者重新上架）')
@@ -318,7 +317,7 @@ export default function SoftwareItems() {
         onClose={() => setSourcesFor(null)}
       />
 
-      {/* 精选排序（featuredRank=0 取消精选；expectedVersion 防并发覆盖） */}
+      {/* 精选排序（featuredRank=0 取消精选；服务端行锁保证并发） */}
       <Modal
         title={featureTarget?.featuredRank ? '调整精选排序' : '设为精选'}
         open={!!featureTarget}

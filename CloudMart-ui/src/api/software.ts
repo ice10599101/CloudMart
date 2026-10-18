@@ -236,7 +236,6 @@ export interface SoftwareMineItem {
   summary: string;
   status: string;
   revisionId: string | null;
-  lockVersion: number;
   favoriteCount: number;
   updatedAt: string;
   unavailable: boolean;
@@ -245,7 +244,13 @@ export interface SoftwareMineItem {
 export interface SoftwareCreated {
   softwareId: string;
   workingRevisionId: string;
-  lockVersion: number;
+}
+
+/** SW01：提交回执只返回不可变提交记录与审核状态 */
+export interface SoftwareSubmitted {
+  softwareId: string;
+  revisionId: string;
+  reviewStatus: SoftwareReviewStatus;
 }
 
 export interface SoftwareSourceInput {
@@ -358,10 +363,7 @@ export interface SoftwareEditorRelease {
 export interface SoftwareEditorData {
   softwareId: string;
   revisionId: string;
-  revisionNo: number;
   reviewStatus: SoftwareReviewStatus;
-  submitSeq: number | null;
-  lockVersion: number;
   name: string;
   summary: string;
   categoryId: string | null;
@@ -765,14 +767,14 @@ export function deleteMySoftware(id: string) {
   return request.delete<ApiResponse<boolean>>(`${BASE}/${id}`);
 }
 
-/** 提交审核（版本号机制已移除，无冲突可能） */
+/** 提交审核：冻结当前不可变快照，不接收批次/版本号 */
 export function submitSoftwareForReview(
   id: string,
   revisionId: string,
   idempotencyKey?: string,
 ) {
   const url = `${BASE}/${id}/revisions/${revisionId}/submit`;
-  return request.post<ApiResponse<{ submitSeq: number }>>(
+  return request.post<ApiResponse<SoftwareSubmitted>>(
     url,
     {},
     softwareWriteConfig("POST", url, {}, idempotencyKey),

@@ -13,7 +13,4 @@ public class AdminFeaturedRequest {
 
     /** 精选排序（0=取消精选；1~9999，值越大越靠前） */
     private Integer featuredRank;
-
-    /** 软件主体 lockVersion（必填；不匹配返回 SOFTWARE_VERSION_CONFLICT） */
-    private Integer expectedVersion;
 }

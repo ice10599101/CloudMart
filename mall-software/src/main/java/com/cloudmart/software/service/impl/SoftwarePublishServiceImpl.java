@@ -73,7 +73,7 @@ import java.util.stream.Collectors;
  * <p>关键不变量：</p>
  * <ul>
  *   <li>一款软件最多一个工作快照（软件主行锁 + working 指针）；</li>
- *   <li>审核请求携带 revisionId+submitSeq+expectedVersion，旧批次 409（A07）；</li>
+ *   <li>审核请求只定位不可变提交记录 revisionId，不接收批次/版本号；</li>
  *   <li>审核通过同事务切换 published 指针、清空 working、publication_seq+1、
  *       写 Outbox 事件（SOFTWARE_REVIEW_APPROVED）；</li>
  *   <li>submit 先远程审核绑定 contentHash/checkedAt，再短事务锁资格行→软件→快照
@@ -158,7 +158,6 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         software.setOwnerId(userId);
         software.setLifecycle(SoftwareLifecycle.ACTIVE);
         software.setPublicationSeq(0);
-        software.setLockVersion(0);
         software.setFeaturedRank(0);
         software.setCommentCount(0);
         software.setFavoriteCount(0);
@@ -170,20 +169,15 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         SoftwareRevision revision = new SoftwareRevision();
         revision.setSoftwareId(software.getId());
         revision.setEditorId(userId);
-        revision.setRevisionNo(1);
         revision.setReviewStatus(SoftwareReviewStatus.DRAFT);
-        revision.setSubmitSeq(0);
-        revision.setLockVersion(0);
         revision.setAccessMode(com.cloudmart.software.enums.SoftwareAccessMode.REGISTERED);
         revisionMapper.insert(revision);
 
         software.setWorkingRevisionId(revision.getId());
         softwareMapper.updateById(software);
-        auditService.record(software.getId(), revision.getId(), 0, userId, "USER",
+        auditService.record(software.getId(), revision.getId(), userId, "USER",
                 "CREATE", null, "DRAFT", "创建软件", null);
-                // lockVersion 返回工作快照（revision）的版本：前端拿它做 saveDraft 的 expectedVersion；
-        // 误返回 software 主行版本会导致提交链首个 saveDraft 必然乐观锁冲突（线上实测踩坑）
-        return new SoftwareCreatedVO(software.getId(), revision.getId(), revision.getLockVersion());
+        return new SoftwareCreatedVO(software.getId(), revision.getId());
     }
 
     // ------------------------------------------------------------------
@@ -232,14 +226,14 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     }
 
     /** 克隆操作结果（只存 ID/版本号，6.10） */
-    private record CloneResult(Long softwareId, Long revisionId, Integer lockVersion) {
+    private record CloneResult(Long softwareId, Long revisionId) {
     }
 
     private CloneResult doCloneWorking(Long userId, Long softwareId) {
         // 锁软件主行复核 working 指针（4.1.7：主行锁保证唯一工作快照）
         Software locked = lockMapper.lockSoftware(softwareId);
         if (locked.getWorkingRevisionId() != null) {
-            return new CloneResult(softwareId, locked.getWorkingRevisionId(), locked.getLockVersion());
+            return new CloneResult(softwareId, locked.getWorkingRevisionId());
         }
         SoftwareRevision published = revisionMapper.selectById(locked.getPublishedRevisionId());
         if (published == null
@@ -247,26 +241,15 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 || !softwareId.equals(published.getSoftwareId())) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在或无可克隆内容");
         }
-        int nextNo = nextRevisionNo(softwareId);
-        SoftwareRevision clone = assembler.cloneInto(published, softwareId, userId, nextNo);
+        SoftwareRevision clone = assembler.cloneInto(published, softwareId, userId);
         revisionMapper.insert(clone);
         assembler.cloneChildren(published.getId(), clone.getId());
 
         locked.setWorkingRevisionId(clone.getId());
-        locked.setLockVersion(locked.getLockVersion() + 1);
         softwareMapper.updateById(locked);
-        auditService.record(softwareId, clone.getId(), 0, userId, "USER",
+        auditService.record(softwareId, clone.getId(), userId, "USER",
                 "CLONE_WORKING", "APPROVED", "DRAFT", "克隆线上快照为工作副本", null);
-        return new CloneResult(softwareId, clone.getId(), locked.getLockVersion());
-    }
-
-    private int nextRevisionNo(Long softwareId) {
-        Integer max = revisionMapper.selectList(new LambdaQueryWrapper<SoftwareRevision>()
-                        .eq(SoftwareRevision::getSoftwareId, softwareId)
-                        .orderByDesc(SoftwareRevision::getRevisionNo)
-                        .last("LIMIT 1"))
-                .stream().findFirst().map(SoftwareRevision::getRevisionNo).orElse(0);
-        return (max == null ? 0 : max) + 1;
+        return new CloneResult(softwareId, clone.getId());
     }
 
     // ------------------------------------------------------------------
@@ -330,8 +313,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                                         source.getDisplayOrder()))
                                 .toList()))
                 .toList();
-        return new SoftwareEditorVO(software.getId(), revision.getId(), revision.getRevisionNo(),
-                revision.getReviewStatus().name(), revision.getSubmitSeq(), revision.getLockVersion(),
+        return new SoftwareEditorVO(software.getId(), revision.getId(),
+                revision.getReviewStatus().name(),
                 revision.getName(), revision.getSummary(), revision.getCategoryId(),
                 revision.getIconAssetId(), revision.getDescriptionHtml(),
                 revision.getLicenseType() == null ? null : revision.getLicenseType().name(),
@@ -342,7 +325,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 revision.getMinCommunityLevel(), revision.getAccessContactId(), revision.getAccessNote(),
                 tagIds, screenshots, releases, revision.getSubmittedAt(), revision.getReviewedAt(),
                 revision.getReviewerId(), revision.getReviewReason(),
-                software.getLifecycle().name(), software.getLockVersion(),
+                software.getLifecycle().name(),
                 software.getPublishedRevisionId(), software.getWorkingRevisionId());
     }
 
@@ -391,9 +374,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             }
             requireEditableStatus(revision);
             assembler.applyInput(revision, input);
-            revision.setLockVersion(revision.getLockVersion() + 1);
             revisionMapper.updateById(revision);
-            auditService.record(softwareId, revisionId, revision.getSubmitSeq(), userId, "USER",
+            auditService.record(softwareId, revisionId, userId, "USER",
                     "SAVE_DRAFT", revision.getReviewStatus().name(), revision.getReviewStatus().name(),
                     "保存草稿", null);
             return null;
@@ -432,9 +414,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             }
             requireEditableStatus(revision);
             assembler.applyPatch(revision, patch);
-            revision.setLockVersion(revision.getLockVersion() + 1);
             revisionMapper.updateById(revision);
-            auditService.record(softwareId, revisionId, revision.getSubmitSeq(), userId, "USER",
+            auditService.record(softwareId, revisionId, userId, "USER",
                     "SAVE_DRAFT", revision.getReviewStatus().name(), revision.getReviewStatus().name(),
                     "局部保存草稿", null);
             return null;
@@ -553,7 +534,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
         }
         if (!revisionId.equals(locked.getWorkingRevisionId())) {
-            throw new BusinessException("SOFTWARE_VERSION_CONFLICT", "快照已不是当前工作副本，请刷新");
+            throw new BusinessException("SOFTWARE_STATE_CONFLICT", "快照已不是当前工作副本，请刷新");
         }
         SoftwareRevision lockedRevision = lockMapper.lockRevision(revisionId);
         requireEditableStatus(lockedRevision);
@@ -563,16 +544,14 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
 
         lockedRevision.setReviewStatus(SoftwareReviewStatus.PENDING);
         lockedRevision.setSubmittedAt(LocalDateTime.now(clock));
-        lockedRevision.setSubmitSeq(lockedRevision.getSubmitSeq() + 1);
-        lockedRevision.setLockVersion(lockedRevision.getLockVersion() + 1);
         revisionMapper.updateById(lockedRevision);
-        auditService.record(softwareId, revisionId, lockedRevision.getSubmitSeq(), userId, "USER",
+        auditService.record(softwareId, revisionId, userId, "USER",
                 "SUBMIT", "DRAFT", "PENDING",
                 "contentHash=" + contentHash + ";approved=true;needsManualReview="
                         + outcome.needsManualReview(),
                 null);
-        return new SoftwareSubmittedVO(softwareId, revisionId, lockedRevision.getSubmitSeq(),
-                lockedRevision.getLockVersion());
+        return new SoftwareSubmittedVO(softwareId, revisionId,
+                lockedRevision.getReviewStatus().name());
     }
 
     /** 审核文本：介绍纯文本 + 更新日志 + 链接说明（9.6：介绍/评论/链接说明一起纳入审核） */
@@ -630,9 +609,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             throw new BusinessException("SOFTWARE_STATE_CONFLICT", "仅待审快照可撤回");
         }
         revision.setReviewStatus(SoftwareReviewStatus.DRAFT);
-        revision.setLockVersion(revision.getLockVersion() + 1);
         revisionMapper.updateById(revision);
-        auditService.record(softwareId, revisionId, revision.getSubmitSeq(), userId, "USER",
+        auditService.record(softwareId, revisionId, userId, "USER",
                 "WITHDRAW", "PENDING", "DRAFT", "撤回待审", null);
         return buildEditor(software, revisionId);
     }
@@ -646,9 +624,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             throw new BusinessException("SOFTWARE_STATE_CONFLICT", "仅上架中的软件可下架");
         }
         locked.setLifecycle(SoftwareLifecycle.UNLISTED);
-        locked.setLockVersion(locked.getLockVersion() + 1);
         softwareMapper.updateById(locked);
-        auditService.record(softwareId, null, null, userId, "USER",
+        auditService.record(softwareId, null, userId, "USER",
                 "UNLIST", "ACTIVE", "UNLISTED", "作者下架", null);
         return buildEditor(locked, locked.getWorkingRevisionId() != null
                 ? locked.getWorkingRevisionId() : locked.getPublishedRevisionId());
@@ -675,9 +652,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             throw new BusinessException("SOFTWARE_STATE_CONFLICT", "缺少合格已审快照，无法重新上架");
         }
         locked.setLifecycle(SoftwareLifecycle.ACTIVE);
-        locked.setLockVersion(locked.getLockVersion() + 1);
         softwareMapper.updateById(locked);
-        auditService.record(softwareId, null, null, userId, "USER",
+        auditService.record(softwareId, null, userId, "USER",
                 "RELIST", "UNLISTED", "ACTIVE", "作者重新上架", null);
         return buildEditor(locked, locked.getWorkingRevisionId() != null
                 ? locked.getWorkingRevisionId() : locked.getPublishedRevisionId());
@@ -694,9 +670,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         String fromStatus = locked.getLifecycle().name();
         locked.setLifecycle(SoftwareLifecycle.DELETED);
         locked.setDeletedAt(LocalDateTime.now(clock));
-        locked.setLockVersion(locked.getLockVersion() + 1);
         softwareMapper.updateById(locked);
-        auditService.record(softwareId, null, null, userId, "USER",
+        auditService.record(softwareId, null, userId, "USER",
                 "DELETE", "BANNED".equals(fromStatus) ? "BANNED" : null,
                 "DELETED", "作者删除（不可恢复，操作留有审计记录）", null);
     }
@@ -707,7 +682,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
 
     @Override
     @Transactional
-    public void adminDelete(Long adminId, Long softwareId, Integer expectedVersion) {
+    public void adminDelete(Long adminId, Long softwareId) {
         Software locked = lockMapper.lockSoftware(softwareId);
         if (locked == null) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
@@ -718,9 +693,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         String fromStatus = locked.getLifecycle().name();
         locked.setLifecycle(SoftwareLifecycle.DELETED);
         locked.setDeletedAt(LocalDateTime.now(clock));
-        locked.setLockVersion(locked.getLockVersion() + 1);
         softwareMapper.updateById(locked);
-        auditService.record(softwareId, null, null, adminId, "ADMIN",
+        auditService.record(softwareId, null, adminId, "ADMIN",
                 "DELETE", "BANNED".equals(fromStatus) ? "BANNED" : null,
                 "DELETED", "管理员删除（软删，审计保留）", null);
     }
@@ -732,8 +706,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     @Override
     @Transactional
     public SoftwareReviewDecisionVO reviewDecision(Long adminId, String idempotencyKey, Long softwareId,
-                                                   Long revisionId, Integer submitSeq,
-                                                   Integer expectedVersion, boolean approve,
+                                                   Long revisionId, boolean approve,
                                                    String reason, String requestId) {
         if (reason == null || reason.isBlank() || reason.length() > 1000) {
             throw new BusinessException("SOFTWARE_REVIEW_INVALID", "审核说明须为 1~1000 字");
@@ -741,30 +714,21 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         Map<String, Object> reviewHashPayload = new HashMap<>();
         reviewHashPayload.put("softwareId", softwareId);
         reviewHashPayload.put("revisionId", revisionId);
-        reviewHashPayload.put("submitSeq", submitSeq);
-        reviewHashPayload.put("expectedVersion", expectedVersion);
         reviewHashPayload.put("approve", approve);
         reviewHashPayload.put("reason", reason);
         return operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_REVIEW_DECISION,
                 idempotencyKey, reviewHashPayload,
                 softwareId,
-                () -> doReview(adminId, softwareId, revisionId, submitSeq, expectedVersion,
-                        approve, reason, requestId),
+                () -> doReview(adminId, softwareId, revisionId, approve, reason, requestId),
                 json -> objectMapper.readValue(json, SoftwareReviewDecisionVO.class));
     }
 
     private SoftwareReviewDecisionVO doReview(Long adminId, Long softwareId, Long revisionId,
-                                              Integer submitSeq, Integer expectedVersion,
                                               boolean approve, String reason, String requestId) {
         SoftwareRevision precheck = revisionMapper.selectById(revisionId);
         if (precheck == null || !softwareId.equals(precheck.getSoftwareId())
                 || precheck.getReviewStatus() != SoftwareReviewStatus.PENDING) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "待审快照不存在");
-        }
-        if (!Objects.equals(precheck.getSubmitSeq(), submitSeq)) {
-            // A07：审核旧批次（撤回后再次提交 submitSeq 已增长）——409，不覆盖新提交
-            throw new BusinessException("SOFTWARE_SUBMIT_STALE",
-                    "审核的提交批次已过期，请刷新后按最新批次处理");
         }
 
         if (approve) {
@@ -779,16 +743,14 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         }
         Software locked = lockMapper.lockSoftware(softwareId);
         SoftwareRevision revision = lockMapper.lockRevision(revisionId);
-        if (revision.getReviewStatus() != SoftwareReviewStatus.PENDING
-                || !Objects.equals(revision.getSubmitSeq(), submitSeq)) {
+        if (revision.getReviewStatus() != SoftwareReviewStatus.PENDING) {
             throw new BusinessException("SOFTWARE_SUBMIT_STALE",
-                    "审核的提交批次已过期，请刷新后按最新批次处理");
+                    "该提交已不在待审状态，请刷新后处理");
         }
 
         revision.setReviewedAt(LocalDateTime.now(clock));
         revision.setReviewerId(adminId);
         revision.setReviewReason(reason);
-        revision.setLockVersion(revision.getLockVersion() + 1);
 
         if (approve) {
             revision.setReviewStatus(SoftwareReviewStatus.APPROVED);
@@ -802,7 +764,6 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 locked.setPublishedAt(LocalDateTime.now(clock));
             }
             locked.setLastReleaseAt(LocalDateTime.now(clock));
-            locked.setLockVersion(locked.getLockVersion() + 1);
             // ⚠️ 必须用显式 UpdateWrapper 写 null：updateById 默认 NOT_NULL 策略会跳过
             // working_revision_id=null，导致指针滞留在已审快照上——已发布内容从此无法
             // 克隆编辑（A06/A07 回归，真实环境复现）
@@ -812,9 +773,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                     .set(Software::getWorkingRevisionId, null)
                     .set(Software::getPublicationSeq, locked.getPublicationSeq())
                     .set(Software::getPublishedAt, locked.getPublishedAt())
-                    .set(Software::getLastReleaseAt, locked.getLastReleaseAt())
-                    .set(Software::getLockVersion, locked.getLockVersion()));
-            auditService.record(softwareId, revisionId, submitSeq, adminId, "ADMIN",
+                    .set(Software::getLastReleaseAt, locked.getLastReleaseAt()));
+            auditService.record(softwareId, revisionId, adminId, "ADMIN",
                     "APPROVE", "PENDING", "APPROVED", reason, requestId);
             // Outbox 与指针切换同事务（9.4）：软件事件载荷不含链接/提取码/正文
             outboxService.record(EventEnvelope.of(
@@ -838,16 +798,14 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 fanoutService.registerTask(softwareId, revisionId, locked.getPublicationSeq(),
                         locked.getLastReleaseAt());
             }
-            return new SoftwareReviewDecisionVO(softwareId, revisionId, "APPROVED",
-                    submitSeq, locked.getPublicationSeq(), locked.getLockVersion());
+            return new SoftwareReviewDecisionVO(softwareId, revisionId, "APPROVED");
         }
 
         revision.setReviewStatus(SoftwareReviewStatus.REJECTED);
         revisionMapper.updateById(revision);
-        auditService.record(softwareId, revisionId, submitSeq, adminId, "ADMIN",
+        auditService.record(softwareId, revisionId, adminId, "ADMIN",
                 "REJECT", "PENDING", "REJECTED", reason, requestId);
-        return new SoftwareReviewDecisionVO(softwareId, revisionId, "REJECTED",
-                submitSeq, locked.getPublicationSeq(), locked.getLockVersion());
+        return new SoftwareReviewDecisionVO(softwareId, revisionId, "REJECTED");
     }
 
     // ------------------------------------------------------------------
@@ -901,8 +859,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         return new SoftwareMineItemVO(software.getId(),
                 revision == null ? "" : revision.getName(),
                 revision == null ? "" : revision.getSummary(),
-                status, revisionId, software.getLockVersion(),
-                software.getFavoriteCount(), software.getUpdatedAt(), false);
+                status, revisionId, software.getFavoriteCount(), software.getUpdatedAt(), false);
     }
 
     /** 订阅列表（P1）：与收藏同口径——不可见软件显示不可用占位（保留 id 供取消订阅） */
@@ -932,11 +889,11 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                     if (visible) {
                         return new SoftwareMineItemVO(software.getId(), revision.getName(),
                                 revision.getSummary(), "PUBLISHED", revision.getId(),
-                                software.getLockVersion(), software.getFavoriteCount(),
+                                software.getFavoriteCount(),
                                 software.getUpdatedAt(), false);
                     }
                     return new SoftwareMineItemVO(software.getId(), "", "", "UNAVAILABLE",
-                            null, null, null, null, true);
+                            null, null, null, true);
                 })
                 .filter(Objects::nonNull)
                 .toList());
@@ -988,12 +945,12 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                     if (visible) {
                         return new SoftwareMineItemVO(software.getId(), revision.getName(),
                                 revision.getSummary(), "PUBLISHED", revision.getId(),
-                                software.getLockVersion(), software.getFavoriteCount(),
+                                software.getFavoriteCount(),
                                 software.getUpdatedAt(), false);
                     }
                     // 不可见占位：保留 id 供取消收藏，不泄露名称/摘要/状态
                     return new SoftwareMineItemVO(software.getId(), "", "", "UNAVAILABLE",
-                            null, null, null, null, true);
+                            null, null, null, true);
                 })
                 .filter(Objects::nonNull)
                 .toList());

@@ -222,7 +222,7 @@ mall-software:
   # 登录写操作（ownerCheck=SELF；发布/提交/relist 另受 4.0 发布资格矩阵约束）
   - { method: POST,   path: /software,                          subjectType: USER, ownerCheck: true, note: "创建软件（Idempotency-Key 幂等）" }
   - { method: POST,   path: "/software/{id}/working-revision",  subjectType: USER, ownerCheck: true }
-  - { method: PUT,    path: "/software/{id}/revisions/{revisionId}", subjectType: USER, ownerCheck: true, note: "仅 DRAFT/REJECTED；expectedVersion" }
+  - { method: PUT,    path: "/software/{id}/revisions/{revisionId}", subjectType: USER, ownerCheck: true, note: "仅 DRAFT/REJECTED；无版本参数" }
   - { method: POST,   path: "/software/{id}/revisions/{revisionId}/submit", subjectType: USER, ownerCheck: true, note: "发布资格强校验" }
   - { method: POST,   path: "/software/{id}/revisions/{revisionId}/withdraw", subjectType: USER, ownerCheck: true }
   - { method: POST,   path: "/software/{id}/unlist",            subjectType: USER, ownerCheck: true }

@@ -13,7 +13,8 @@ import java.time.LocalDateTime;
 /**
  * MyBatis-Plus 配置：分页插件（软件广场/版本/评论 offset 分页）+ 审计时间填充。
  *
- * <p>软件域并发控制采用显式 lock_version 条件更新（方案 6.13），不使用 @Version
+ * <p>交互类表（评论/评分/举报/授权等）仍使用显式 lock_version 条件更新（方案 6.13），不使用 @Version；
+ * 软件发布链路已取消版本号，改为服务端行锁 + 状态判断（SW01）。
  * 注解乐观锁——条件更新语句在 Service 层可读性更强，且与资格行/软件主行/
  * 快照行的锁协议一致。</p>
  */

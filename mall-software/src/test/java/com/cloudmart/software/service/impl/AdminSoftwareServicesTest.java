@@ -128,7 +128,7 @@ class AdminSoftwareServicesTest {
                 accessGrantMapper, accessContactMapper, permissionAuditMapper, lockMapper,
                 softwareMapper, revisionMapper, userSupportFeignClient, operationService,
                 new ObjectMapper(), fixedClock());
-        moderationService = new AdminSoftwareModerationServiceImpl(softwareMapper, reportMapper,
+        moderationService = new AdminSoftwareModerationServiceImpl(softwareMapper, lockMapper, reportMapper,
                 commentMapper, feedbackMapper, auditLogMapper, userSupportFeignClient,
                 revisionMapper, operationService, outboxService,
                 new ObjectMapper(), fixedClock());
@@ -286,7 +286,7 @@ class AdminSoftwareServicesTest {
         software.setId(SOFTWARE_ID);
         software.setOwnerId(7L);
         software.setLifecycle(SoftwareLifecycle.ACTIVE);
-        software.setLockVersion(0);
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(software);
         when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
 
         AdminReportHandleRequest request = new AdminReportHandleRequest();
@@ -366,7 +366,6 @@ class AdminSoftwareServicesTest {
         revision.setName("测试软件");
         revision.setDescriptionHtml("<p>介绍</p>");
         revision.setReviewStatus(com.cloudmart.software.enums.SoftwareReviewStatus.APPROVED);
-        revision.setSubmitSeq(1);
         when(revisionMapper.selectById(15L)).thenReturn(revision);
         when(releaseMapper.selectList(any())).thenReturn(java.util.List.of());
         when(auditLogMapper.selectList(any())).thenReturn(java.util.List.of());

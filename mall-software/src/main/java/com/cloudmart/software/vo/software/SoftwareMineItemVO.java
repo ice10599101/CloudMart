@@ -10,7 +10,6 @@ public record SoftwareMineItemVO(
         /** 展示状态：PUBLISHED/UNLISTED/BANNED/DRAFT/PENDING/REJECTED */
         String status,
         Long revisionId,
-        Integer lockVersion,
         Integer favoriteCount,
         LocalDateTime updatedAt,
         /** 收藏占位：软件已不可见时 true 且 name/summary 为空（4.5 不泄露内容） */

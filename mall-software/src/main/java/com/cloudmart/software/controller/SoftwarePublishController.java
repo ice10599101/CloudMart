@@ -57,7 +57,7 @@ public class SoftwarePublishController {
     }
 
     @PostMapping
-    @Operation(summary = "创建软件", description = "Idempotency-Key 幂等；返回 softwareId/workingRevisionId/lockVersion")
+    @Operation(summary = "创建软件", description = "Idempotency-Key 幂等；返回 softwareId/workingRevisionId")
     public ApiResponse<SoftwareCreatedVO> create(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
@@ -107,7 +107,7 @@ public class SoftwarePublishController {
 
     @PostMapping("/{id}/revisions/{revisionId}/submit")
     @Operation(summary = "提交审核",
-            description = "资格+开关+完整性+社区审核绑定结果；冻结 PENDING 返回 submitSeq")
+            description = "资格+开关+完整性+社区审核绑定结果；冻结该不可变快照为 PENDING 并返回 revisionId")
     public ApiResponse<SoftwareSubmittedVO> submit(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("id") Long id,

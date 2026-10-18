@@ -39,7 +39,7 @@ public interface SoftwarePublishService {
     SoftwareEditorVO patchDraft(Long userId, Long softwareId, Long revisionId,
                                 tools.jackson.databind.JsonNode patch);
 
-    /** 提交审核（资格+开关）：先远程审核绑定结果，再短事务冻结 PENDING，返回 submitSeq */
+    /** 提交审核（资格+开关）：先远程审核绑定结果，再短事务冻结 PENDING，返回不可变 revisionId 与状态 */
     SoftwareSubmittedVO submit(Long userId, Long softwareId, Long revisionId,
                                String idempotencyKey);
 
@@ -56,12 +56,12 @@ public interface SoftwarePublishService {
     void delete(Long userId, Long softwareId);
 
     /** 管理员删除（软删 DELETED，幂等；审计 actor=ADMIN；任意 lifecycle 可删） */
-    void adminDelete(Long adminId, Long softwareId, Integer expectedVersion);
+    void adminDelete(Long adminId, Long softwareId);
 
-    /** 管理员审核决策（幂等）：携带 revisionId+submitSeq+expectedVersion 防旧批次覆盖（A07） */
+    /** 管理员审核决策（幂等）：定位不可变提交记录 revisionId，不接收批次/版本号 */
     SoftwareReviewDecisionVO reviewDecision(Long adminId, String idempotencyKey, Long softwareId,
-                                            Long revisionId, Integer submitSeq, Integer expectedVersion,
-                                            boolean approve, String reason, String requestId);
+                                            Long revisionId, boolean approve, String reason,
+                                            String requestId);
 
     /**
      * 管理端任意快照完整内容（含链接/提取码等秘密字段，仅审核域可读）：

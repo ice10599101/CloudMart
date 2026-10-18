@@ -134,7 +134,6 @@ export default function SoftwarePublish() {
 
   const [softwareId, setSoftwareId] = useState<string | null>(null);
   const [revisionId, setRevisionId] = useState<string | null>(null);
-  const [lockVersion, setLockVersion] = useState<number | null>(null);
 
   const [name, setName] = useState("");
   const [summary, setSummary] = useState("");
@@ -180,7 +179,6 @@ export default function SoftwarePublish() {
       releases: ReleaseDraft[];
       softwareId: string | null;
       revisionId: string | null;
-      lockVersion: number | null;
     }>(DRAFT_KEY);
     restoredRef.current = true; // 无档也置位：否则保存 effect 永不启用，内容从不落档
     if (!draft) return;
@@ -199,7 +197,6 @@ export default function SoftwarePublish() {
     if (draft.releases?.length) setReleases(draft.releases);
     if (draft.softwareId) setSoftwareId(draft.softwareId);
     if (draft.revisionId) setRevisionId(draft.revisionId);
-    if (draft.lockVersion != null) setLockVersion(draft.lockVersion);
     // 仅挂载恢复一次；置位后保存 effect 才开始写档（防挂载初始值覆盖存档）
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -223,13 +220,12 @@ export default function SoftwarePublish() {
       releases,
       softwareId,
       revisionId,
-      lockVersion,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     name, summary, categoryId, descriptionHtml, licenseType, developerName,
     officialUrl, systemRequirements, tagIds, accessMode, minCommunityLevel,
-    accessContactId, releases, softwareId, revisionId, lockVersion,
+    accessContactId, releases, softwareId, revisionId,
   ]);
 
   // 发布资格默认关闭：未开通直接拦在页面外（A31）
@@ -334,7 +330,6 @@ export default function SoftwarePublish() {
     setRevisionId(rid);
     const saved = await saveSoftwareDraft(sid, rid, buildPayload());
     if (!saved.data.success) return;
-    setLockVersion(saved.data.data?.lockVersion ?? created.data.data.lockVersion);
     message.success("草稿已保存");
   }, [buildPayload, message]);
 
@@ -352,7 +347,6 @@ export default function SoftwarePublish() {
       }
       const res = await saveSoftwareDraft(softwareId, revisionId, buildPayload());
       if (!res.data.success) return;
-      setLockVersion(res.data.data?.lockVersion ?? lockVersion);
       message.success("草稿已保存");
     } catch (err) {
       const code = (err as { code?: string } | null)?.code;
@@ -360,7 +354,6 @@ export default function SoftwarePublish() {
         // 本地指向的服务端草稿已被删除（如清理孤儿）：清进度重建，本地内容原样保留
         setSoftwareId(null);
         setRevisionId(null);
-        setLockVersion(null);
         message.info("原草稿已不存在，已为你重新创建");
         await doSaveFresh();
         return;
@@ -370,7 +363,7 @@ export default function SoftwarePublish() {
       setSaving(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buildPayload, doSaveFresh, lockVersion, message, name, revisionId, softwareId]);
+  }, [buildPayload, doSaveFresh, message, name, revisionId, softwareId]);
 
   /** 提交审核二次确认：提交即进入待审队列，内容冻结不可再编辑 */
   const confirmSubmit = useCallback(() => {
@@ -398,13 +391,11 @@ export default function SoftwarePublish() {
       // 未保存过则先创建并落快照再提交，保证审核的是同一份内容（create 本身不携带快照）
       let targetSoftwareId = softwareId;
       let targetRevisionId = revisionId;
-      let version = lockVersion;
       if (!targetSoftwareId || !targetRevisionId) {
         const created = await createSoftware(buildPayload());
         if (!created.data.success) return;
         targetSoftwareId = created.data.data.softwareId;
         targetRevisionId = created.data.data.workingRevisionId;
-        version = created.data.data.lockVersion;
         setSoftwareId(targetSoftwareId);
         setRevisionId(targetRevisionId);
         const saved = await saveSoftwareDraft(
@@ -413,8 +404,6 @@ export default function SoftwarePublish() {
           buildPayload(),
         );
         if (!saved.data.success) return;
-        version = saved.data.data?.lockVersion ?? version;
-        setLockVersion(version);
       }
       const res = await submitSoftwareForReview(targetSoftwareId, targetRevisionId);
       if (!res.data.success) return;
@@ -427,7 +416,6 @@ export default function SoftwarePublish() {
         // 提交链软件被删：重建草稿并落内容，提示再次点击提交
         setSoftwareId(null);
         setRevisionId(null);
-        setLockVersion(null);
         await doSaveFresh();
         message.info("原草稿已不存在，已重新创建并保存，请再次点击提交审核");
         return;
@@ -438,7 +426,6 @@ export default function SoftwarePublish() {
     }
   }, [
     buildPayload,
-    lockVersion,
     message,
     name,
     releases,

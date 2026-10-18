@@ -56,6 +56,7 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
     private static final Set<String> FEEDBACK_STATUSES = Set.of("VERIFYING", "RESOLVED", "REJECTED");
 
     private final SoftwareMapper softwareMapper;
+    private final com.cloudmart.software.repository.SoftwareLockMapper lockMapper;
     private final SoftwareReportMapper reportMapper;
     private final SoftwareCommentMapper commentMapper;
     private final SoftwareLinkFeedbackMapper feedbackMapper;
@@ -162,17 +163,16 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
 
     /** 显式封禁：BANNED（作者不可自行恢复）；平台处置留审计 + 通知事件 */
     private void banSoftware(Long adminId, Long softwareId, String reason) {
-        Software software = softwareMapper.selectById(softwareId);
+        Software software = lockMapper.lockSoftware(softwareId);
         if (software == null || software.getLifecycle() == SoftwareLifecycle.BANNED) {
             return;
         }
+        String fromStatus = software.getLifecycle().name();
         software.setLifecycle(SoftwareLifecycle.BANNED);
-        software.setLockVersion(software.getLockVersion() + 1);
         softwareMapper.updateById(software);
-        writeAudit(softwareId, null, adminId, "BAN", software.getLifecycle().name(),
-                "BANNED", reason);
+        writeAudit(softwareId, null, adminId, "BAN", fromStatus, "BANNED", reason);
         outboxService.record(EventEnvelope.of(SoftwareEvents.TAG_SOFTWARE_BANNED, 1,
-                String.valueOf(softwareId), software.getLockVersion(), null,
+                String.valueOf(softwareId), 0, null,
                 objectMapper.writeValueAsString(Map.of(
                         "softwareId", String.valueOf(softwareId),
                         "authorId", String.valueOf(software.getOwnerId()),

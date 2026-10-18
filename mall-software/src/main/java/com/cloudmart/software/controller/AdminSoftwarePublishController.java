@@ -38,16 +38,15 @@ public class AdminSoftwarePublishController {
     @Operation(summary = "管理员删除软件", description = "删除后前台立即不可见且无法恢复（数据留有审计记录），幂等")
     public ApiResponse<Boolean> delete(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
-            @org.springframework.web.bind.annotation.PathVariable("softwareId") Long softwareId,
-            @RequestParam("expectedVersion") Integer expectedVersion) {
-        softwarePublishService.adminDelete(adminUserId, softwareId, expectedVersion);
+            @org.springframework.web.bind.annotation.PathVariable("softwareId") Long softwareId) {
+        softwarePublishService.adminDelete(adminUserId, softwareId);
         return ApiResponse.ok(true);
     }
 
     @PostMapping("/revisions/{revisionId}/decision")
     @Operation(summary = "审核决策",
-            description = "携带 revisionId+submitSeq+expectedVersion 防旧批次覆盖（A07）；"
-                    + "通过要求作者仍有发布资格（A33）；通过同事务切换 published 指针并写 Outbox 事件")
+            description = "定位不可变提交记录 revisionId；通过要求作者仍有发布资格（A33）；"
+                    + "通过同事务切换 published 指针并写 Outbox 事件")
     public ApiResponse<SoftwareReviewDecisionVO> decision(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @org.springframework.web.bind.annotation.PathVariable("revisionId") Long revisionId,
@@ -55,7 +54,6 @@ public class AdminSoftwarePublishController {
             @RequestBody SoftwareReviewDecisionRequest request) {
         return ApiResponse.ok(softwarePublishService.reviewDecision(
                 adminUserId, idempotencyKey, request.getSoftwareId(), revisionId,
-                request.getSubmitSeq(), request.getExpectedVersion(),
                 Boolean.TRUE.equals(request.getApprove()),
                 request.getReason(), request.getRequestId()));
     }

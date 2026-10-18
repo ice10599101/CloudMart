@@ -25,7 +25,7 @@ import java.util.Map;
         configuration = SoftwareFeignConfiguration.class)
 public interface SoftwareFeignClient {
 
-    /** 审核决策（S04）：携带 revisionId+submitSeq+expectedVersion 防旧批次覆盖 */
+    /** 审核决策（SW01）：定位不可变提交记录 revisionId，不接收批次/版本号 */
     @PostMapping("/revisions/{revisionId}/decision")
     ApiResponse<Object> decision(@PathVariable("revisionId") Long revisionId,
                                  @RequestBody Map<String, Object> body);
@@ -60,8 +60,7 @@ public interface SoftwareFeignClient {
                               @RequestParam("page") int page, @RequestParam("size") int size);
 
     @DeleteMapping("/items/{softwareId}")
-    ApiResponse<Object> deleteSoftware(@PathVariable("softwareId") Long softwareId,
-                                       @RequestParam("expectedVersion") Integer expectedVersion);
+    ApiResponse<Object> deleteSoftware(@PathVariable("softwareId") Long softwareId);
 
     @PostMapping("/items/{softwareId}/ban")
     ApiResponse<Object> ban(@PathVariable("softwareId") Long softwareId,

@@ -15,8 +15,6 @@ import { useMessage } from '@/utils/useMessage'
 interface PendingRow {
   softwareId: string
   revisionId: string
-  revisionNo: number
-  submitSeq: number
   name: string | null
   summary: string | null
   editorId: string
@@ -83,7 +81,7 @@ function same(value1: unknown, value2: unknown): boolean {
 
 /**
  * 发布审核（方案 10.2）：并列显示线上版与待审版，重点标出链接域名、提取码、
- * 来源声明、正文与截图变化；通过/退回必须绑定提交批次（submitSeq，
+ * 来源声明、正文与截图变化；通过/退回绑定不可变提交记录（revisionId，
  * 后端 A07 校验防旧批次覆盖），原因 1~1000 字。
  */
 export default function SoftwareReviews() {
@@ -115,8 +113,6 @@ export default function SoftwareReviews() {
     try {
       await decideReview(detail.revisionId, {
         softwareId: detail.softwareId,
-        submitSeq: detail.submitSeq,
-        expectedVersion: detail.softwareLockVersion,
         approve,
         reason: reason.trim(),
       })
@@ -124,7 +120,7 @@ export default function SoftwareReviews() {
       setDetail(null)
       actionRef.current?.reload()
     } catch {
-      // 批次过期/版本冲突已由全局提示；保留弹窗供刷新后重试
+      // 状态已变化/权限不足已由全局提示；保留弹窗供刷新后重试
     } finally {
       setSubmitting(false)
     }
@@ -139,7 +135,6 @@ export default function SoftwareReviews() {
     { title: '软件ID', dataIndex: 'softwareId', width: 90, search: false },
     
     { title: '名称', dataIndex: 'name', width: 220, ellipsis: true, search: false },
-    { title: '提交批次', dataIndex: 'submitSeq', width: 90, search: false },
     {
       title: '发布者',
       dataIndex: 'editorNickname',
@@ -232,7 +227,7 @@ export default function SoftwareReviews() {
             <Space style={{ marginBottom: 12 }} wrap>
               <Tag>软件 {detail.softwareId}</Tag>
               <Tag>快照 {detail.revisionId}</Tag>
-              <Tag color="blue">提交批次 {detail.submitSeq}</Tag>
+              <Tag color="blue">审核记录 {detail.revisionId}</Tag>
               <Typography.Text type="secondary">
                 {published ? '已并列展示线上版（左）与待审版（右）' : '首次发布：无线上版可对比'}
               </Typography.Text>
@@ -378,8 +373,8 @@ export default function SoftwareReviews() {
               onChange={(e) => setReason(e.target.value)}
             />
             <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-              通过要求作者当前仍有发布资格；退回后作者可修改并重新提交。提交批次
-              #{detail.submitSeq}（防旧批次覆盖）。
+              通过要求作者当前仍有发布资格；退回后作者可修改并重新提交。
+              审核结论绑定当前不可变快照 {detail.revisionId}。
             </Typography.Paragraph>
           </>
         )}

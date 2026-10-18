@@ -101,7 +101,7 @@ class AdminSoftwareSourceServiceImplTest {
         assertThat(saved.getCheckedBy()).isEqualTo(9L);
         assertThat(saved.getReason()).isEqualTo("人工复核可用");
 
-        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), org.mockito.ArgumentMatchers.isNull(), eq(9L), eq("ADMIN"),
+        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(9L), eq("ADMIN"),
                 eq("SOURCE_VERIFY"), eq("NONE"), eq("AVAILABLE"),
                 org.mockito.ArgumentMatchers.contains("fingerprint=" + FINGERPRINT), org.mockito.ArgumentMatchers.isNull());
     }

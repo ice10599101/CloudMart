@@ -76,8 +76,6 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                     Map<String, Object> row = new HashMap<>();
                     row.put("softwareId", String.valueOf(revision.getSoftwareId()));
                     row.put("revisionId", String.valueOf(revision.getId()));
-                    row.put("revisionNo", revision.getRevisionNo());
-                    row.put("submitSeq", revision.getSubmitSeq());
                     row.put("name", revision.getName());
                     row.put("summary", revision.getSummary());
                     row.put("editorId", String.valueOf(revision.getEditorId()));
@@ -154,13 +152,11 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
         Map<String, Object> detail = new HashMap<>();
         detail.put("softwareId", String.valueOf(softwareId));
         detail.put("lifecycle", software.getLifecycle().name());
-        detail.put("lockVersion", software.getLockVersion());
         detail.put("publishedRevisionId",
                 software.getPublishedRevisionId() == null ? null
                         : String.valueOf(software.getPublishedRevisionId()));
         detail.put("workingRevisionId", software.getWorkingRevisionId() == null ? null
                 : String.valueOf(software.getWorkingRevisionId()));
-        detail.put("publicationSeq", software.getPublicationSeq());
         detail.put("ownerId", String.valueOf(software.getOwnerId()));
         // 发布者昵称 = 软件所有者（owner 永远有值；profiles 失败时留空，前端回落 ID）
         try {
@@ -201,7 +197,6 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                 detail.put("name", revision.getName());
                 detail.put("summary", revision.getSummary());
                 detail.put("reviewStatus", revision.getReviewStatus().name());
-                detail.put("submitSeq", revision.getSubmitSeq());
                 detail.put("accessMode", revision.getAccessMode() == null ? null
                         : revision.getAccessMode().name());
                 detail.put("minCommunityLevel", revision.getMinCommunityLevel());
@@ -272,10 +267,7 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
         Map<String, Object> detail = new HashMap<>();
         detail.put("softwareId", String.valueOf(software.getId()));
         detail.put("revisionId", String.valueOf(revisionId));
-        detail.put("revisionNo", revision.getRevisionNo());
         detail.put("reviewStatus", revision.getReviewStatus().name());
-        detail.put("submitSeq", revision.getSubmitSeq());
-        detail.put("lockVersion", revision.getLockVersion());
         detail.put("editorId", String.valueOf(revision.getEditorId()));
         // 发布者 = 软件所有者（owner 永远有值；profiles 失败时留空，前端回落 ID）
         try {
@@ -289,8 +281,6 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
             // 资料服务不可用：昵称留空
         }
         detail.put("lifecycle", software.getLifecycle().name());
-        // 审核决策的 expectedVersion 语义是软件主体 lockVersion（requireVersion(software)）
-        detail.put("softwareLockVersion", software.getLockVersion());
         detail.put("publishedRevisionId", software.getPublishedRevisionId() == null ? null
                 : String.valueOf(software.getPublishedRevisionId()));
         // 目标快照（待审/已审）完整内容 + 当前线上快照；线上不存在=首次发布，前端不做对比

@@ -30,35 +30,28 @@ import java.util.Map;
 public class SoftwarePlatformActionService {
 
     private final SoftwareMapper softwareMapper;
+    private final com.cloudmart.software.repository.SoftwareLockMapper lockMapper;
     private final SoftwareAuditLogMapper auditLogMapper;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
-    /**
-     * 平台封禁：BANNED（作者不可自行恢复）。
-     *
-     * @param expectedVersion 非空时做 CAS；举报处置路径不携带版本
-     */
+    /** 平台封禁：BANNED（作者不可自行恢复）；并发由行锁/原状态判断保证，不接收客户端版本号。 */
     @Transactional
-    public boolean ban(Long adminId, Long softwareId, String reason, Integer expectedVersion) {
-        Software software = softwareMapper.selectById(softwareId);
+    public boolean ban(Long adminId, Long softwareId, String reason) {
+        Software software = lockMapper.lockSoftware(softwareId);
         if (software == null || software.getLifecycle() == SoftwareLifecycle.DELETED) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
         }
         if (software.getLifecycle() == SoftwareLifecycle.BANNED) {
             return false; // 幂等：已封禁重复调用无副作用
         }
-        if (expectedVersion != null && !expectedVersion.equals(software.getLockVersion())) {
-            throw new BusinessException("SOFTWARE_VERSION_CONFLICT", "软件已被其他操作更新，请刷新后重试");
-        }
         SoftwareLifecycle from = software.getLifecycle();
         software.setLifecycle(SoftwareLifecycle.BANNED);
-        software.setLockVersion(software.getLockVersion() + 1);
         softwareMapper.updateById(software);
         writeAudit(softwareId, adminId, "BAN", from.name(), "BANNED", reason);
         outboxService.record(EventEnvelope.of(SoftwareEvents.TAG_SOFTWARE_BANNED, 1,
-                String.valueOf(softwareId), software.getLockVersion(), null,
+                String.valueOf(softwareId), 0, null,
                 objectMapper.writeValueAsString(Map.of(
                         "softwareId", String.valueOf(softwareId),
                         "authorId", String.valueOf(software.getOwnerId()),
@@ -70,19 +63,15 @@ public class SoftwarePlatformActionService {
      * 平台解除：BANNED → UNLISTED（由作者恢复展示，不自动回 ACTIVE）。
      */
     @Transactional
-    public boolean unban(Long adminId, Long softwareId, String reason, Integer expectedVersion) {
-        Software software = softwareMapper.selectById(softwareId);
+    public boolean unban(Long adminId, Long softwareId, String reason) {
+        Software software = lockMapper.lockSoftware(softwareId);
         if (software == null || software.getLifecycle() == SoftwareLifecycle.DELETED) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
         }
         if (software.getLifecycle() != SoftwareLifecycle.BANNED) {
             throw new BusinessException("SOFTWARE_STATE_CONFLICT", "仅封禁状态可解除封禁");
         }
-        if (expectedVersion != null && !expectedVersion.equals(software.getLockVersion())) {
-            throw new BusinessException("SOFTWARE_VERSION_CONFLICT", "软件已被其他操作更新，请刷新后重试");
-        }
         software.setLifecycle(SoftwareLifecycle.UNLISTED);
-        software.setLockVersion(software.getLockVersion() + 1);
         softwareMapper.updateById(software);
         writeAudit(softwareId, adminId, "UNBAN", "BANNED", "UNLISTED", reason);
         return true;

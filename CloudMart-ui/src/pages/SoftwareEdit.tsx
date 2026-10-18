@@ -180,7 +180,6 @@ export default function SoftwareEdit() {
 
   const [loading, setLoading] = useState(true);
   const [editor, setEditor] = useState<SoftwareEditorData | null>(null);
-  const [conflict, setConflict] = useState(false);
 
   const [categories, setCategories] = useState<SoftwareCategory[]>([]);
   const [tags, setTags] = useState<SoftwareTag[]>([]);
@@ -292,7 +291,6 @@ export default function SoftwareEdit() {
 
   const loadEditor = useCallback(async () => {
     setLoading(true);
-    setConflict(false);
     try {
       const res = await getSoftwareEditor(id);
       if (!res.data.success) return;
@@ -613,21 +611,6 @@ export default function SoftwareEdit() {
           showIcon
           message="已提交审核，内容已冻结"
           description="审核期间不能修改；如需调整请先撤回提交。"
-        />
-      ) : null}
-
-      {conflict ? (
-        <Alert
-          className={styles.section}
-          type="error"
-          showIcon
-          message="版本冲突"
-          description="你填写的内容已保留在页面上。请点击「重新加载」获取最新版本后再合并修改。"
-          action={
-            <Button size="small" onClick={() => void loadEditor()}>
-              重新加载
-            </Button>
-          }
         />
       ) : null}
 

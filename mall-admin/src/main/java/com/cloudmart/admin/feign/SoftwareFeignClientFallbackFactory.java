@@ -141,7 +141,7 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
-            public ApiResponse<Object> deleteSoftware(Long softwareId, Integer expectedVersion) {
+            public ApiResponse<Object> deleteSoftware(Long softwareId) {
                 throw unavailable(cause);
             }
 

@@ -59,22 +59,22 @@ describe('admin software API', () => {
     })
   })
 
-  it('封禁/解除：POST /items/:id/ban|unban 且携带 Idempotency-Key 与 expectedVersion', async () => {
+  it('封禁/解除：POST /items/:id/ban|unban 且携带 Idempotency-Key（无版本参数）', async () => {
     vi.mocked(request.post).mockResolvedValue(ok)
 
-    await banAdminSoftware('100', { reason: '侵权', expectedVersion: 3 }, 'key-1')
-    await unbanAdminSoftware('100', { reason: '核实无违规', expectedVersion: 6 }, 'key-2')
+    await banAdminSoftware('100', { reason: '侵权' }, 'key-1')
+    await unbanAdminSoftware('100', { reason: '核实无违规' }, 'key-2')
 
     expect(request.post).toHaveBeenNthCalledWith(
       1,
       '/admin/software/items/100/ban',
-      { reason: '侵权', expectedVersion: 3 },
+      { reason: '侵权' },
       { headers: { 'Idempotency-Key': 'key-1' } }
     )
     expect(request.post).toHaveBeenNthCalledWith(
       2,
       '/admin/software/items/100/unban',
-      { reason: '核实无违规', expectedVersion: 6 },
+      { reason: '核实无违规' },
       { headers: { 'Idempotency-Key': 'key-2' } }
     )
   })
@@ -82,16 +82,16 @@ describe('admin software API', () => {
   it('featureAdminSoftware() → PUT /items/:id/featured', async () => {
     vi.mocked(request.put).mockResolvedValue(ok)
 
-    await featureAdminSoftware('100', { featuredRank: 3, expectedVersion: 1 }, 'key-3')
+    await featureAdminSoftware('100', { featuredRank: 3 }, 'key-3')
 
     expect(request.put).toHaveBeenCalledWith(
       '/admin/software/items/100/featured',
-      { featuredRank: 3, expectedVersion: 1 },
+      { featuredRank: 3 },
       { headers: { 'Idempotency-Key': 'key-3' } }
     )
   })
 
-  it('审核：待审列表/快照对比/决策路径与批次参数', async () => {
+  it('审核：待审列表/快照对比/决策路径（无批次参数）', async () => {
     vi.mocked(request.get).mockResolvedValue(ok)
     vi.mocked(request.post).mockResolvedValue(ok)
 
@@ -99,7 +99,7 @@ describe('admin software API', () => {
     await getReviewDetail('501')
     await decideReview(
       '501',
-      { softwareId: '100', submitSeq: 2, expectedVersion: 4, approve: true, reason: '通过' },
+      { softwareId: '100', approve: true, reason: '通过' },
       'key-4'
     )
 
@@ -109,7 +109,7 @@ describe('admin software API', () => {
     expect(request.get).toHaveBeenNthCalledWith(2, '/admin/software/revisions/501')
     expect(request.post).toHaveBeenCalledWith(
       '/admin/software/revisions/501/decision',
-      { softwareId: '100', submitSeq: 2, expectedVersion: 4, approve: true, reason: '通过' },
+      { softwareId: '100', approve: true, reason: '通过' },
       { headers: { 'Idempotency-Key': 'key-4' } }
     )
   })

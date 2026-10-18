@@ -128,7 +128,6 @@ class SoftwareSnapshotPublishIT extends SoftwareIntegrationTestBase {
         assertThat(afterBack.getAccessMode().name()).isEqualTo("REGISTERED");
         assertThat(afterBack.getAccessContactId()).as("access_contact_id 应被清空").isNull();
         assertThat(afterBack.getMinCommunityLevel()).as("min_community_level 应为 NULL").isNull();
-        assertThat(v3.lockVersion()).isEqualTo(afterBack.getLockVersion());
     }
 
     @Test
@@ -151,7 +150,7 @@ class SoftwareSnapshotPublishIT extends SoftwareIntegrationTestBase {
     }
 
     @Test
-    @DisplayName("提交→撤回→重提：submitSeq 递增；审核通过切换 published 并清空 working 指针（P0 回归）")
+    @DisplayName("提交→撤回→重提：审核通过切换 published 并清空 working 指针（无版本参数）")
     void publishFlow_submitWithdrawApprove_switchesPointerAndClearsWorking() {
         seedPublisher(OWNER);
         SoftwareEditorVO v1 = createAndSave(OWNER, baseInput());
@@ -160,29 +159,21 @@ class SoftwareSnapshotPublishIT extends SoftwareIntegrationTestBase {
 
         // 提交 seq1
         SoftwareSubmittedVO submitted = publishService.submit(OWNER, sid, rid, "it-submit-1");
-        assertThat(submitted.submitSeq()).isEqualTo(1);
+        assertThat(submitted.reviewStatus()).isEqualTo("PENDING");
 
         SoftwareEditorVO withdrawn = publishService.withdraw(OWNER, sid, rid);
         assertThat(revisionMapper.selectById(rid).getReviewStatus())
                 .isEqualTo(SoftwareReviewStatus.DRAFT);
 
-        // 重提 seq2 → 管理员以旧批次 submitSeq=1 决策被拒（A07）
+        // 重提后审核：published 指向该快照、working 指针清空（写 NULL 必须落库）
         SoftwareSnapshotInput v3 = baseInput();
         v3.setName("IT 快照工具三版");
-        SoftwareEditorVO resaved = publishService.saveDraft(OWNER, sid, rid, v3);
+        publishService.saveDraft(OWNER, sid, rid, v3);
         SoftwareSubmittedVO resubmitted = publishService.submit(OWNER, sid, rid, "it-submit-2");
-        assertThat(resubmitted.submitSeq()).isEqualTo(2);
+        assertThat(resubmitted.reviewStatus()).isEqualTo("PENDING");
 
-        Integer staleLockVersion = softwareMapper.selectById(sid).getLockVersion();
-        assertThatThrownBy(() -> publishService.reviewDecision(ADMIN, "it-decide-stale",
-                sid, rid, 1, staleLockVersion, true, "旧批次", "it-req-1"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "SOFTWARE_SUBMIT_STALE");
-
-        // 以新批次通过：published 指向该快照、working 指针清空（写 NULL 必须落库）
-        Integer okLockVersion = softwareMapper.selectById(sid).getLockVersion();
         publishService.reviewDecision(ADMIN, "it-decide-ok", sid, rid,
-                2, okLockVersion, true, "通过", "it-req-2");
+                true, "通过", "it-req-2");
 
         Software after = softwareMapper.selectById(sid);
         assertThat(after.getPublishedRevisionId()).isEqualTo(rid);

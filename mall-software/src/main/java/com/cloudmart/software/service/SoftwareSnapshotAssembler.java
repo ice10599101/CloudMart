@@ -908,15 +908,11 @@ public class SoftwareSnapshotAssembler {
     // ------------------------------------------------------------------
 
     /** 从源快照深拷贝出 DRAFT 工作副本（新 revisionId/行 ID，保留 release_key/source_key） */
-    public SoftwareRevision cloneInto(SoftwareRevision source, Long softwareId, Long editorId,
-                                      int nextRevisionNo) {
+    public SoftwareRevision cloneInto(SoftwareRevision source, Long softwareId, Long editorId) {
         SoftwareRevision clone = new SoftwareRevision();
         clone.setSoftwareId(softwareId);
         clone.setEditorId(editorId);
-        clone.setRevisionNo(nextRevisionNo);
         clone.setReviewStatus(SoftwareReviewStatus.DRAFT);
-        clone.setSubmitSeq(0);
-        clone.setLockVersion(0);
         clone.setName(source.getName());
         clone.setSummary(source.getSummary());
         clone.setCategoryId(source.getCategoryId());

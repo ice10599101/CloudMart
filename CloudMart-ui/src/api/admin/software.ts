@@ -10,7 +10,7 @@ import { softwareWriteConfig } from '@/utils/softwareIntent'
  * permission:audit）。
  *
  * 写操作统一走 softwareWriteConfig 生成 `Idempotency-Key`（终态后换新键）；
- * 精选/封禁/解除额外要求 expectedVersion（软件主体 lockVersion，列表已返回）。
+ * SW01：封禁/解除/精选/删除均不再接收 expectedVersion，并发由服务端行锁与原状态判断保证。
  */
 
 const BASE = '/admin/software'
@@ -27,8 +27,6 @@ export interface AdminSoftwareItem {
   summary: string | null
   lifecycle: SoftwareLifecycle
   featuredRank: number
-  lockVersion: number
-  publicationSeq: number | null
   publishedRevisionId: string | null
   workingRevisionId: string | null
   pendingRevisionId: string | null
@@ -50,7 +48,6 @@ export interface AdminSoftwareDetail extends Record<string, unknown> {
   softwareId: string
   ownerId: string
   lifecycle: string
-  lockVersion: number
   featuredRank: number
   pendingRevisionId: string | null
   name: string | null
@@ -66,7 +63,6 @@ export interface AdminSoftwareDetail extends Record<string, unknown> {
   /** 帖子预览（详情弹窗展示用） */
   editorId: string
   editorNickname?: string
-  submitSeq?: number
   descriptionHtml?: string
   iconAssetId?: string
   licenseType?: string
@@ -93,10 +89,6 @@ export interface AdminReviewDetail extends Record<string, unknown> {
   softwareId: string
   revisionId: string
   reviewStatus: string
-  submitSeq: number
-  lockVersion: number
-  /** 审核决策的 expectedVersion 语义（软件主体乐观锁） */
-  softwareLockVersion: number
   lifecycle: string
   publishedRevisionId: string | null
   target: AdminRevisionSnapshot | null
@@ -253,10 +245,10 @@ export function getAdminSoftwareDetail(softwareId: string) {
   )
 }
 
-/** 独立封禁：必须原因与 expectedVersion */
+/** 独立封禁：必须原因（服务端行锁+状态判断） */
 export function banAdminSoftware(
   softwareId: string,
-  payload: { reason: string; expectedVersion: number },
+  payload: { reason: string },
   idempotencyKey?: string,
 ) {
   const url = `${BASE}/items/${softwareId}/ban`
@@ -270,7 +262,7 @@ export function banAdminSoftware(
 /** 解除封禁：BANNED → UNLISTED（由作者恢复展示） */
 export function unbanAdminSoftware(
   softwareId: string,
-  payload: { reason: string; expectedVersion: number },
+  payload: { reason: string },
   idempotencyKey?: string,
 ) {
   const url = `${BASE}/items/${softwareId}/unban`
@@ -284,7 +276,7 @@ export function unbanAdminSoftware(
 /** 精选排序：featuredRank=0 取消精选 */
 export function featureAdminSoftware(
   softwareId: string,
-  payload: { featuredRank: number; expectedVersion: number },
+  payload: { featuredRank: number },
   idempotencyKey?: string,
 ) {
   const url = `${BASE}/items/${softwareId}/featured`
@@ -312,8 +304,6 @@ export function decideReview(
   revisionId: string,
   payload: {
     softwareId: string
-    submitSeq: number
-    expectedVersion: number
     approve: boolean
     reason: string
   },
@@ -429,10 +419,9 @@ export function updateSoftwareCategory(
 /** 管理员删除软件（软删 lifecycle=DELETED，幂等；公开面即时隐藏） */
 export function deleteAdminSoftware(
   softwareId: string,
-  expectedVersion: number,
   idempotencyKey?: string,
 ) {
-  const url = `${BASE}/items/${softwareId}?expectedVersion=${expectedVersion}`
+  const url = `${BASE}/items/${softwareId}`
   return request.delete<ApiResponse<boolean>>(
     url,
     softwareWriteConfig('DELETE', url, null, idempotencyKey),
@@ -509,7 +498,7 @@ export function batchPublisherPermissions(userIds: Array<string | number>) {
 
 export function togglePublisherPermission(
   userId: string,
-  payload: { enable: boolean; reason: string; expectedVersion?: number },
+  payload: { enable: boolean; reason: string },
   idempotencyKey?: string,
 ) {
   const url = `${BASE}/publisher-permissions/${userId}/toggle`

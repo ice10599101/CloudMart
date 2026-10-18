@@ -86,7 +86,6 @@ echo "  PASS  日级限流已临时关闭（退出自动还原）"
 
 post_admin() { curl -s -m 20 -X POST "$GW/api/admin/software$1" -H "$AH" -H "Content-Type: application/json" -H "Idempotency-Key: $3" -d "$2"; }
 get_admin() { curl -s -m 20 "$GW/api/admin/software$1" -H "$AH"; }
-slock() { get_admin "/items?keyword=E08+%E9%AA%8C%E6%94%B6&page=1&size=10" | jq_get "print(next((str(r['lockVersion']) for r in d['data']['records'] if str(r['softwareId'])=='$1'), ''))"; }
 slifecycle() { get_admin "/items?keyword=E08+%E9%AA%8C%E6%94%B6&page=1&size=10" | jq_get "print(next((r['lifecycle'] for r in d['data']['records'] if str(r['softwareId'])=='$1'), ''))"; }
 spublished() { get_admin "/items?keyword=E08+%E9%AA%8C%E6%94%B6&page=1&size=10" | jq_get "print(next((str(r['publishedRevisionId']) for r in d['data']['records'] if str(r['softwareId'])=='$1'), ''))"; }
 bust_rank_cache() { python -c "import socket; keys=['software:rank:access:v1','software:rank:favorite:v1','software:rank:rating:v1']; blk=lambda x:'$'+str(len(x)); parts=['*'+str(1+len(keys)),blk('DEL'),'DEL']; [parts.extend([blk(k),k]) for k in keys]; payload=(chr(13)+chr(10)).join(parts)+(chr(13)+chr(10)); s=socket.create_connection(('129.204.152.168',8379),timeout=5); s.sendall(payload.encode()); s.recv(64); s.close()" > /dev/null 2>&1; }
@@ -96,11 +95,9 @@ echo "=== 0.1 清理上一轮 E08 软件 ==="
 for OLD in $(get_admin "/items?keyword=E08+%E9%AA%8C%E6%94%B6&page=1&size=10" | jq_get "print(' '.join(str(r['softwareId']) for r in d['data']['records']))"); do
   LC=$(slifecycle "$OLD")
   if [ "$LC" = "BANNED" ]; then
-    OLV=$(slock "$OLD")
-    post_admin "/items/$OLD/unban" "{\"reason\":\"E08 清理\",\"expectedVersion\":$OLV}" "e08-clean-unban-$OLD" > /dev/null
+    post_admin "/items/$OLD/unban" "{\"reason\":\"E08 清理\"}" "e08-clean-unban-$OLD" > /dev/null
   fi
-  OLV=$(slock "$OLD")
-  DEL=$(curl -s -m 15 -X DELETE "$GW/api/software/$OLD?expectedVersion=$OLV" -H "$U1H")
+  DEL=$(curl -s -m 15 -X DELETE "$GW/api/software/$OLD" -H "$U1H")
   echo "  清理 SW=$OLD ($LC): $(echo "$DEL" | ok_of)"
 done
 
@@ -108,11 +105,10 @@ echo "=== A04 磁力/种子外链 ==="
 CREATE=$(curl -s -m 15 -X POST "$GW/api/software" -H "$U1H" -H "Idempotency-Key: e08-create-$RUN" -H "Content-Type: application/json" -d '{}')
 SID=$(echo "$CREATE" | jq_get "print(d['data']['softwareId'])")
 RID=$(echo "$CREATE" | jq_get "print(d['data']['workingRevisionId'])")
-LV=$(echo "$CREATE" | jq_get "print(d['data']['lockVersion'])")
 [ -n "$SID" ] || { echo "创建失败"; exit 1; }
 echo "  PASS  创建 SW=$SID"
 
-BAD=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID?expectedVersion=$LV" -H "$U1H" -H "Content-Type: application/json" -d '{
+BAD=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID" -H "$U1H" -H "Content-Type: application/json" -d '{
   "name":"E08 验收工具","summary":"A04-A51 验收用","categoryId":"1",
   "descriptionHtml":"<p>E08 验收。</p>","licenseType":"FREE","attributionType":"ORIGINAL","accessMode":"REGISTERED",
   "releases":[{"versionName":"1.0.0","channel":"STABLE","recommended":true,
@@ -120,7 +116,7 @@ BAD=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID?expectedVersion
       "url":"magnet:?xt=urn:btih:abc&dn=x"}]}]}')
 check "A04 非法磁力被拒" "false" "$(echo "$BAD" | ok_of)"
 
-SAVE=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID?expectedVersion=$LV" -H "$U1H" -H "Content-Type: application/json" -d '{
+SAVE=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID" -H "$U1H" -H "Content-Type: application/json" -d '{
   "name":"E08 验收工具","summary":"A04-A51 验收用","categoryId":"1",
   "descriptionHtml":"<p>E08 验收。</p>","licenseType":"FREE","attributionType":"ORIGINAL","accessMode":"REGISTERED",
   "releases":[{"versionName":"1.0.0","channel":"STABLE","recommended":true,"changelog":"首个版本",
@@ -132,12 +128,10 @@ SAVE=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID?expectedVersio
       {"sourceType":"TORRENT_URL","platform":"CROSS_PLATFORM","arch":"X64","label":"E08 种子",
        "url":"https://example.com/e08/file.torrent"}]}]}')
 check "A04 三类来源保存成功" "true" "$(echo "$SAVE" | ok_of)"
-LV2=$(echo "$SAVE" | jq_get "print(d['data']['lockVersion'])")
 
-SUB=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID/submit?expectedVersion=$LV2" -H "$U1H" -H "Idempotency-Key: e08-submit1-$RUN")
+SUB=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID/submit" -H "$U1H" -H "Idempotency-Key: e08-submit1-$RUN")
 check "提交审核" "true" "$(echo "$SUB" | ok_of)"
-SL=$(slock "$SID")
-DEC=$(post_admin "/revisions/$RID/decision" "{\"softwareId\":$SID,\"submitSeq\":1,\"expectedVersion\":$SL,\"approve\":true,\"reason\":\"E08 验收\"}" "e08-dec1-$RUN")
+DEC=$(post_admin "/revisions/$RID/decision" "{\"softwareId\":$SID,\"approve\":true,\"reason\":\"E08 验收\"}" "e08-dec1-$RUN")
 check "审核通过（首发）" "APPROVED" "$(echo "$DEC" | jq_get "print(d['data']['decision'])")"
 
 SRCIDS=$(curl -s -m 10 "$GW/api/software/$SID/releases" | jq_get "
@@ -173,31 +167,25 @@ check "A42 releases 无真实链接" "0" "$(echo "$RAWREL" | grep -c 'pan.baidu\
 echo "=== A07 旧批次防覆盖 + A14 快照对比 ==="
 WR=$(curl -s -m 15 -X POST "$GW/api/software/$SID/working-revision" -H "$U1H" -H "Idempotency-Key: e08-wr2-$RUN")
 RID3=$(echo "$WR" | jq_get "print(d['data']['revisionId'])")
-LV3=$(echo "$WR" | jq_get "print(d['data']['lockVersion'])")
-S1=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID3?expectedVersion=$LV3" -H "$U1H" -H "Content-Type: application/json" -d '{
+S1=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID3" -H "$U1H" -H "Content-Type: application/json" -d '{
   "name":"E08 验收工具","summary":"A04-A51 验收用","categoryId":"1",
   "descriptionHtml":"<p>E08 验收 v2。</p>","licenseType":"FREE","attributionType":"ORIGINAL","accessMode":"REGISTERED",
   "releases":[{"versionName":"1.1.0","channel":"STABLE","recommended":true,"changelog":"第二版",
     "sources":[{"sourceType":"NETDISK","platform":"WINDOWS","arch":"X64","label":"E08 网盘改名",
       "url":"https://pan.baidu.com/s/1e08abc?pwd=e08x","extractionCode":"e08secret","sizeLabel":"9MB"}]}]}')
 check "第二版保存" "true" "$(echo "$S1" | ok_of)"
-LV4=$(echo "$S1" | jq_get "print(d['data']['lockVersion'])")
-SUB1=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/submit?expectedVersion=$LV4" -H "$U1H" -H "Idempotency-Key: e08-submit2a-$RUN")
-LV4S=$(echo "$SUB1" | jq_get "print(d['data']['lockVersion'])")
-WD=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/withdraw?expectedVersion=$LV4S" -H "$U1H")
+SUB1=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/submit" -H "$U1H" -H "Idempotency-Key: e08-submit2a-$RUN")
+WD=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/withdraw" -H "$U1H")
 check "seq1 撤回（回 DRAFT 才能重提）" "true" "$(echo "$WD" | ok_of)"
-LV4W=$(echo "$WD" | jq_get "print(d['data']['lockVersion'])")
-S2=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID3?expectedVersion=$LV4W" -H "$U1H" -H "Content-Type: application/json" -d '{
+S2=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID3" -H "$U1H" -H "Content-Type: application/json" -d '{
   "name":"E08 验收工具","summary":"A04-A51 验收用","categoryId":"1",
   "descriptionHtml":"<p>E08 验收 v3。</p>","licenseType":"FREE","attributionType":"ORIGINAL","accessMode":"REGISTERED",
   "releases":[{"versionName":"1.1.0","channel":"STABLE","recommended":true,"changelog":"第三版",
     "sources":[{"sourceType":"NETDISK","platform":"WINDOWS","arch":"X64","label":"E08 网盘再改",
       "url":"https://pan.baidu.com/s/1e08abc?pwd=e08x","extractionCode":"e08secret","sizeLabel":"9MB"}]}]}')
 check "撤回后再次保存" "true" "$(echo "$S2" | ok_of)"
-LV5=$(echo "$S2" | jq_get "print(d['data']['lockVersion'])")
-SUB2=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/submit?expectedVersion=$LV5" -H "$U1H" -H "Idempotency-Key: e08-submit2b-$RUN")
+SUB2=$(curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID3/submit" -H "$U1H" -H "Idempotency-Key: e08-submit2b-$RUN")
 check "seq2 提交" "true" "$(echo "$SUB2" | ok_of)"
-SL=$(slock "$SID")
 RD=$(get_admin "/revisions/$RID3")
 check "A14 审核详情含待审与线上快照" "true" "$(echo "$RD" | jq_get "print(str(d['data'].get('target') is not None and d['data'].get('published') is not None).lower())")"
 check "A14 来源标签变化可辨" "true" "$(echo "$RD" | jq_get "
@@ -205,11 +193,10 @@ t=d['data']['target'] or {}; p=d['data']['published'] or {}
 ts=[s.get('label') for r in (t.get('releases') or []) for s in (r.get('sources') or [])]
 ps=[s.get('label') for r in (p.get('releases') or []) for s in (r.get('sources') or [])]
 print(str(bool(ts) and bool(ps) and ts!=ps).lower())")"
-STALE_HTTP=$(curl -s -m 20 -o /tmp/e08_stale.json -w "%{http_code}" -X POST "$GW/api/admin/software/revisions/$RID3/decision" -H "$AH" -H "Content-Type: application/json" -H "Idempotency-Key: e08-dec-stale-$RUN" -d "{\"softwareId\":$SID,\"submitSeq\":1,\"expectedVersion\":$SL,\"approve\":true,\"reason\":\"E08 旧批次\"}")
-check "A07 旧批次(submitSeq=1)被拒 409" "409" "$STALE_HTTP"
-check "A07 错误码 SOFTWARE_SUBMIT_STALE" "SOFTWARE_SUBMIT_STALE" "$(code_of < /tmp/e08_stale.json)"
-DEC2=$(post_admin "/revisions/$RID3/decision" "{\"softwareId\":$SID,\"submitSeq\":2,\"expectedVersion\":$SL,\"approve\":true,\"reason\":\"E08 新批次\"}" "e08-dec2-$RUN")
-check "A07 新批次(submitSeq=2)通过" "APPROVED" "$(echo "$DEC2" | jq_get "print(d['data']['decision'])")"
+DEC2=$(post_admin "/revisions/$RID3/decision" "{\"softwareId\":$SID,\"approve\":true,\"reason\":\"E08 当前提交\"}" "e08-dec2-$RUN")
+check "审核绑定当前不可变快照并通过" "APPROVED" "$(echo "$DEC2" | jq_get "print(d['data']['decision'])")"
+DUP_HTTP=$(curl -s -m 20 -o /tmp/e08_dup.json -w "%{http_code}" -X POST "$GW/api/admin/software/revisions/$RID3/decision" -H "$AH" -H "Content-Type: application/json" -H "Idempotency-Key: e08-dec-dup-$RUN" -d "{\"softwareId\":$SID,\"approve\":true,\"reason\":\"重复决定\"}")
+check "已完成的提交不能被旧页面再次决定（4xx）" "404" "$DUP_HTTP"
 
 NETDISK_ID=$(refresh_src)
 echo "=== A26 榜单下架实时过滤 ==="
@@ -217,13 +204,11 @@ curl -s -m 10 -X POST "$GW/api/software/$SID/sources/$NETDISK_ID/resolve" -H "$U
 bust_rank_cache
 INR=$(curl -s -m 10 "$GW/api/software/rankings?type=access&page=1&size=50" | jq_get "print(str(any(str(x['id'])=='$SID' for x in d['data']['records'])).lower())")
 check "获取榜包含 SW" "true" "$INR"
-SL=$(slock "$SID")
-UNL=$(curl -s -m 15 -X POST "$GW/api/software/$SID/unlist?expectedVersion=$SL" -H "$U1H")
+UNL=$(curl -s -m 15 -X POST "$GW/api/software/$SID/unlist" -H "$U1H")
 check "作者下架" "true" "$(echo "$UNL" | ok_of)"
 INR2=$(curl -s -m 10 "$GW/api/software/rankings?type=access&page=1&size=50" | jq_get "print(str(any(str(x['id'])=='$SID' for x in d['data']['records'])).lower())")
 check "A26 下架后榜单立即剔除（穿透缓存）" "false" "$INR2"
-SL=$(slock "$SID")
-REL=$(curl -s -m 15 -X POST "$GW/api/software/$SID/relist?expectedVersion=$SL" -H "$U1H")
+REL=$(curl -s -m 15 -X POST "$GW/api/software/$SID/relist" -H "$U1H")
 check "重新上架" "true" "$(echo "$REL" | ok_of)"
 bust_rank_cache
 INR3=$(curl -s -m 10 "$GW/api/software/rankings?type=access&page=1&size=50" | jq_get "print(str(any(str(x['id'])=='$SID' for x in d['data']['records'])).lower())")
@@ -235,18 +220,15 @@ check "A43 联系入口创建" "true" "$(echo "$CT" | ok_of)"
 CID_C=$(get_admin "/access-contacts" | jq_get "print(next((str(c['id']) for c in d['data'] if c.get('name')=='E08客服-$RUN'),''))")
 WR2=$(curl -s -m 15 -X POST "$GW/api/software/$SID/working-revision" -H "$U1H" -H "Idempotency-Key: e08-wr3-$RUN")
 RID4=$(echo "$WR2" | jq_get "print(d['data']['revisionId'])")
-LV6=$(echo "$WR2" | jq_get "print(d['data']['lockVersion'])")
-PAID=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID4?expectedVersion=$LV6" -H "$U1H" -H "Content-Type: application/json" -d "{
+PAID=$(curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID4" -H "$U1H" -H "Content-Type: application/json" -d "{
   \"name\":\"E08 验收工具\",\"summary\":\"A04-A51 验收用\",\"categoryId\":\"1\",
   \"descriptionHtml\":\"<p>E08 验收 v4。</p>\",\"licenseType\":\"FREE\",\"attributionType\":\"ORIGINAL\",\"accessMode\":\"ADMIN_PAID\",\"accessContactId\":$CID_C,
   \"releases\":[{\"versionName\":\"1.1.0\",\"channel\":\"STABLE\",\"recommended\":true,\"changelog\":\"改查看条件\",
     \"sources\":[{\"sourceType\":\"NETDISK\",\"platform\":\"WINDOWS\",\"arch\":\"X64\",\"label\":\"E08 网盘\",
       \"url\":\"https://pan.baidu.com/s/1e08abc?pwd=e08x\",\"extractionCode\":\"e08secret\",\"sizeLabel\":\"9MB\"}]}]}")
 check "A41 改为 ADMIN_PAID（携带联系入口）" "true" "$(echo "$PAID" | ok_of)"
-LV7=$(echo "$PAID" | jq_get "print(d['data']['lockVersion'])")
-curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID4/submit?expectedVersion=$LV7" -H "$U1H" -H "Idempotency-Key: e08-submit3-$RUN" > /dev/null
-SL=$(slock "$SID")
-DEC3=$(post_admin "/revisions/$RID4/decision" "{\"softwareId\":$SID,\"submitSeq\":1,\"expectedVersion\":$SL,\"approve\":true,\"reason\":\"E08 改条件\"}" "e08-dec3-$RUN")
+curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID4/submit" -H "$U1H" -H "Idempotency-Key: e08-submit3-$RUN" > /dev/null
+DEC3=$(post_admin "/revisions/$RID4/decision" "{\"softwareId\":$SID,\"approve\":true,\"reason\":\"E08 改条件\"}" "e08-dec3-$RUN")
 check "A41 查看条件变更经审核生效" "APPROVED" "$(echo "$DEC3" | jq_get "print(d['data']['decision'])")"
 NETDISK_ID=$(refresh_src)
 R41=$(curl -s -m 10 -o /tmp/e08_41.json -w "%{http_code}" -X POST "$GW/api/software/$SID/sources/$NETDISK_ID/resolve" -H "$U2H")
@@ -318,11 +300,9 @@ check "A51 处置 RESOLVED+BAN_SOFTWARE" "true" "$(echo "$HD" | ok_of)"
 check "A51 处置后 BANNED" "BANNED" "$(slifecycle "$SID")"
 GDET=$(curl -s -m 10 -o /dev/null -w "%{http_code}" "$GW/api/software/$SID")
 check "A51 封禁后公开详情 404" "404" "$GDET"
-SL=$(slock "$SID")
-post_admin "/items/$SID/unban" "{\"reason\":\"E08 核验恢复\",\"expectedVersion\":$SL}" "e08-unban-$RUN" > /dev/null
+post_admin "/items/$SID/unban" "{\"reason\":\"E08 核验恢复\"}" "e08-unban-$RUN" > /dev/null
 check "A51 解除封禁→UNLISTED" "UNLISTED" "$(slifecycle "$SID")"
-SL=$(slock "$SID")
-RL=$(curl -s -m 15 -X POST "$GW/api/software/$SID/relist?expectedVersion=$SL" -H "$U1H")
+RL=$(curl -s -m 15 -X POST "$GW/api/software/$SID/relist" -H "$U1H")
 check "A51 作者重新上架→ACTIVE" "true" "$(echo "$RL" | ok_of)"
 
 echo "=== A48 内部/管理面 scope 边界（直连 9026） ==="
@@ -340,17 +320,14 @@ echo "  SKIP  A45 依赖故障与失败统计（需停社区/用户服务）"
 echo "=== 收尾：恢复 REGISTERED 查看条件 ==="
 WR3=$(curl -s -m 15 -X POST "$GW/api/software/$SID/working-revision" -H "$U1H" -H "Idempotency-Key: e08-wr4-$RUN")
 RID5=$(echo "$WR3" | jq_get "print(d['data']['revisionId'])")
-LV8=$(echo "$WR3" | jq_get "print(d['data']['lockVersion'])")
-curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID5?expectedVersion=$LV8" -H "$U1H" -H "Content-Type: application/json" -d '{
+curl -s -m 15 -X PUT "$GW/api/software/$SID/revisions/$RID5" -H "$U1H" -H "Content-Type: application/json" -d '{
   "name":"E08 验收工具","summary":"A04-A51 验收用","categoryId":"1",
   "descriptionHtml":"<p>E08 验收（已恢复 REGISTERED）。</p>","licenseType":"FREE","attributionType":"ORIGINAL","accessMode":"REGISTERED",
   "releases":[{"versionName":"1.1.0","channel":"STABLE","recommended":true,"changelog":"恢复公开获取",
     "sources":[{"sourceType":"NETDISK","platform":"WINDOWS","arch":"X64","label":"E08 网盘",
       "url":"https://pan.baidu.com/s/1e08abc?pwd=e08x","extractionCode":"e08secret","sizeLabel":"9MB"}]}]}' > /tmp/e08_save5.json
-LV9=$(cat /tmp/e08_save5.json | jq_get "print(d['data']['lockVersion'])")
-curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID5/submit?expectedVersion=$LV9" -H "$U1H" -H "Idempotency-Key: e08-submit4-$RUN" > /dev/null
-SL=$(slock "$SID")
-DEC4=$(post_admin "/revisions/$RID5/decision" "{\"softwareId\":$SID,\"submitSeq\":1,\"expectedVersion\":$SL,\"approve\":true,\"reason\":\"E08 恢复\"}" "e08-dec4-$RUN")
+curl -s -m 15 -X POST "$GW/api/software/$SID/revisions/$RID5/submit" -H "$U1H" -H "Idempotency-Key: e08-submit4-$RUN" > /dev/null
+DEC4=$(post_admin "/revisions/$RID5/decision" "{\"softwareId\":$SID,\"approve\":true,\"reason\":\"E08 恢复\"}" "e08-dec4-$RUN")
 check "收尾恢复 REGISTERED" "APPROVED" "$(echo "$DEC4" | jq_get "print(d['data']['decision'])")"
 
 echo "=== 汇总 ==="

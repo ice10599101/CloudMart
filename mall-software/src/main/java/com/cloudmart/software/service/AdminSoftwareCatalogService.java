@@ -18,17 +18,14 @@ public interface AdminSoftwareCatalogService {
     /** 目录分页：keyword/分享者/分类/授权/状态；仅排除软删除行 */
     Page<Map<String, Object>> itemPage(AdminItemQuery query);
 
-    /** 独立封禁：必须原因与版本；审计+通知分享者；重复封禁幂等 */
-    boolean ban(Long adminId, Long softwareId, String idempotencyKey,
-                String reason, Integer expectedVersion);
+    /** 独立封禁：必须原因；审计+通知分享者；重复封禁幂等 */
+    boolean ban(Long adminId, Long softwareId, String idempotencyKey, String reason);
 
     /** 解除封禁：BANNED → UNLISTED（由作者恢复展示）；非封禁态返回冲突 */
-    boolean unban(Long adminId, Long softwareId, String idempotencyKey,
-                  String reason, Integer expectedVersion);
+    boolean unban(Long adminId, Long softwareId, String idempotencyKey, String reason);
 
-    /** 精选排序：featuredRank=0 取消精选；CAS 防覆盖；写审计 */
-    boolean feature(Long adminId, Long softwareId, String idempotencyKey,
-                    Integer featuredRank, Integer expectedVersion);
+    /** 精选排序：featuredRank=0 取消精选；服务端行锁；写审计 */
+    boolean feature(Long adminId, Long softwareId, String idempotencyKey, Integer featuredRank);
 
     /** 全部分类（含禁用，运营视图）；按 sortOrder、id 升序 */
     List<Map<String, Object>> categories();

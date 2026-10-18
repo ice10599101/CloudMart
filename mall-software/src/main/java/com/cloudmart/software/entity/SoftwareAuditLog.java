@@ -24,8 +24,6 @@ public class SoftwareAuditLog {
 
     private Long revisionId;
 
-    private Integer submitSeq;
-
     private Long actorId;
 
     /** USER/ADMIN/SYSTEM */

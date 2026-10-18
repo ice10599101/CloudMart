@@ -299,7 +299,7 @@ export default function SoftwareEditPage() {
         try {
           const saved = await doSave()
           if (!saved) return
-          await softwarePublishApi.submit(saved.softwareId, saved.revisionId, saved.lockVersion)
+          await softwarePublishApi.submit(saved.softwareId, saved.revisionId)
           Taro.showToast({ title: '已提交审核', icon: 'success' })
           setTimeout(() => Taro.redirectTo({ url: '/pages/softwareMine/index?refreshed=1' }), 900)
         } catch (err) {
@@ -316,7 +316,7 @@ export default function SoftwareEditPage() {
     setSubmitting(true)
     try {
       const res = await softwarePublishApi.withdraw(
-        editor.softwareId, editor.revisionId, editor.lockVersion,
+        editor.softwareId, editor.revisionId,
       )
       applyEditor(res.data.data)
       setWithdrawTip(null)

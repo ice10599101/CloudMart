@@ -225,7 +225,6 @@ export interface SoftwareMineItem {
   summary: string
   status: 'PUBLISHED' | 'UNLISTED' | 'BANNED' | 'DRAFT' | 'PENDING' | 'REJECTED'
   revisionId: string
-  lockVersion: number
   favoriteCount: number
   updatedAt: string
   unavailable: boolean
@@ -276,10 +275,7 @@ export interface SoftwareEditorMedia {
 export interface SoftwareEditor {
   softwareId: string
   revisionId: string
-  revisionNo: number
   reviewStatus: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'
-  submitSeq: number
-  lockVersion: number
   name: string
   summary: string
   categoryId: string | null
@@ -301,7 +297,6 @@ export interface SoftwareEditor {
   releases: SoftwareEditorRelease[]
   reviewReason: string | null
   lifecycle: 'ACTIVE' | 'UNLISTED' | 'BANNED' | null
-  softwareLockVersion: number
   publishedRevisionId: string | null
   workingRevisionId: string | null
 }
@@ -314,8 +309,7 @@ export interface SoftwareCreated {
 export interface SoftwareSubmitted {
   softwareId: string
   revisionId: string
-  submitSeq: number
-  lockVersion: number
+  reviewStatus: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'
 }
 
 /** 移动端纯文本 → 后端 HTML（服务端消毒） */
@@ -366,8 +360,8 @@ export const softwarePublishApi = {
     )
   },
 
-  saveDraft: (id: string, revisionId: string, expectedVersion: number, snapshot: Record<string, unknown>) => {
-    const url = `${BASE}/${id}/revisions/${revisionId}?expectedVersion=${expectedVersion}`
+  saveDraft: (id: string, revisionId: string, snapshot: Record<string, unknown>) => {
+    const url = `${BASE}/${id}/revisions/${revisionId}`
     return write<SoftwareEditor>('PUT', url, snapshot, (header) =>
       request({ url, method: 'PUT', data: snapshot, header }),
     )
@@ -381,36 +375,36 @@ export const softwarePublishApi = {
     )
   },
 
-  submit: (id: string, revisionId: string, expectedVersion: number) => {
-    const url = `${BASE}/${id}/revisions/${revisionId}/submit?expectedVersion=${expectedVersion}`
+  submit: (id: string, revisionId: string) => {
+    const url = `${BASE}/${id}/revisions/${revisionId}/submit`
     return write<SoftwareSubmitted>('POST', url, {}, (header) =>
       request({ url, method: 'POST', data: {}, header }),
     )
   },
 
-  withdraw: (id: string, revisionId: string, expectedVersion: number) => {
-    const url = `${BASE}/${id}/revisions/${revisionId}/withdraw?expectedVersion=${expectedVersion}`
+  withdraw: (id: string, revisionId: string) => {
+    const url = `${BASE}/${id}/revisions/${revisionId}/withdraw`
     return write<SoftwareEditor>('POST', url, {}, (header) =>
       request({ url, method: 'POST', data: {}, header }),
     )
   },
 
-  unlist: (id: string, expectedVersion: number) => {
-    const url = `${BASE}/${id}/unlist?expectedVersion=${expectedVersion}`
+  unlist: (id: string) => {
+    const url = `${BASE}/${id}/unlist`
     return write<SoftwareEditor>('POST', url, {}, (header) =>
       request({ url, method: 'POST', data: {}, header }),
     )
   },
 
-  relist: (id: string, expectedVersion: number) => {
-    const url = `${BASE}/${id}/relist?expectedVersion=${expectedVersion}`
+  relist: (id: string) => {
+    const url = `${BASE}/${id}/relist`
     return write<SoftwareEditor>('POST', url, {}, (header) =>
       request({ url, method: 'POST', data: {}, header }),
     )
   },
 
-  deleteSoftware: (id: string, expectedVersion: number) => {
-    const url = `${BASE}/${id}?expectedVersion=${expectedVersion}`
+  deleteSoftware: (id: string) => {
+    const url = `${BASE}/${id}`
     return write<void>('DELETE', url, {}, (header) =>
       request({ url, method: 'DELETE', header }),
     )

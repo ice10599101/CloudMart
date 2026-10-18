@@ -15,13 +15,12 @@ public class SoftwareAuditService {
 
     private final SoftwareAuditLogMapper auditLogMapper;
 
-    public void record(Long softwareId, Long revisionId, Integer submitSeq, Long actorId,
+    public void record(Long softwareId, Long revisionId, Long actorId,
                        String actorType, String action, String fromStatus, String toStatus,
                        String reason, String requestId) {
         SoftwareAuditLog log = new SoftwareAuditLog();
         log.setSoftwareId(softwareId);
         log.setRevisionId(revisionId);
-        log.setSubmitSeq(submitSeq);
         log.setActorId(actorId);
         log.setActorType(actorType);
         log.setAction(action);

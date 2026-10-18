@@ -57,6 +57,7 @@ public class AdminSoftwareCatalogServiceImpl implements AdminSoftwareCatalogServ
     private final AdminSoftwareCatalogMapper catalogMapper;
     private final com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
     private final SoftwareMapper softwareMapper;
+    private final com.cloudmart.software.repository.SoftwareLockMapper lockMapper;
     private final SoftwareCategoryMapper categoryMapper;
     private final SoftwareTagMapper tagMapper;
     private final SoftwareAuditLogMapper auditLogMapper;
@@ -148,8 +149,6 @@ public class AdminSoftwareCatalogServiceImpl implements AdminSoftwareCatalogServ
         item.put("summary", row.summary());
         item.put("lifecycle", row.lifecycle());
         item.put("featuredRank", row.featuredRank());
-        item.put("lockVersion", row.lockVersion());
-        item.put("publicationSeq", row.publicationSeq());
         item.put("publishedRevisionId", row.publishedRevisionId() == null ? null
                 : String.valueOf(row.publishedRevisionId()));
         item.put("workingRevisionId", row.workingRevisionId() == null ? null
@@ -178,19 +177,14 @@ public class AdminSoftwareCatalogServiceImpl implements AdminSoftwareCatalogServ
 
     @Override
     @Transactional
-    public boolean ban(Long adminId, Long softwareId, String idempotencyKey,
-                       String reason, Integer expectedVersion) {
+    public boolean ban(Long adminId, Long softwareId, String idempotencyKey, String reason) {
         String cleanReason = validateDisposalReason(reason);
-        if (expectedVersion == null) {
-            throw new BusinessException("SOFTWARE_BAN_INVALID", "缺少 expectedVersion");
-        }
         operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_ITEM_BAN,
                 idempotencyKey,
-                Map.of("softwareId", softwareId, "reason", cleanReason,
-                        "expectedVersion", expectedVersion),
+                Map.of("softwareId", softwareId, "reason", cleanReason),
                 softwareId,
                 (Supplier<Void>) () -> {
-                    platformActionService.ban(adminId, softwareId, cleanReason, expectedVersion);
+                    platformActionService.ban(adminId, softwareId, cleanReason);
                     return null;
                 },
                 json -> null);
@@ -199,19 +193,14 @@ public class AdminSoftwareCatalogServiceImpl implements AdminSoftwareCatalogServ
 
     @Override
     @Transactional
-    public boolean unban(Long adminId, Long softwareId, String idempotencyKey,
-                         String reason, Integer expectedVersion) {
+    public boolean unban(Long adminId, Long softwareId, String idempotencyKey, String reason) {
         String cleanReason = validateDisposalReason(reason);
-        if (expectedVersion == null) {
-            throw new BusinessException("SOFTWARE_BAN_INVALID", "缺少 expectedVersion");
-        }
         operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_ITEM_UNBAN,
                 idempotencyKey,
-                Map.of("softwareId", softwareId, "reason", cleanReason,
-                        "expectedVersion", expectedVersion),
+                Map.of("softwareId", softwareId, "reason", cleanReason),
                 softwareId,
                 (Supplier<Void>) () -> {
-                    platformActionService.unban(adminId, softwareId, cleanReason, expectedVersion);
+                    platformActionService.unban(adminId, softwareId, cleanReason);
                     return null;
                 },
                 json -> null);
@@ -233,43 +222,33 @@ public class AdminSoftwareCatalogServiceImpl implements AdminSoftwareCatalogServ
     @Override
     @Transactional
     public boolean feature(Long adminId, Long softwareId, String idempotencyKey,
-                           Integer featuredRank, Integer expectedVersion) {
+                           Integer featuredRank) {
         if (featuredRank == null || featuredRank < 0 || featuredRank > MAX_FEATURED_RANK) {
             throw new BusinessException("SOFTWARE_FEATURE_INVALID",
                     "featuredRank 须为 0~" + MAX_FEATURED_RANK + "（0=取消精选）");
         }
-        if (expectedVersion == null) {
-            throw new BusinessException("SOFTWARE_FEATURE_INVALID", "缺少 expectedVersion");
-        }
         operationService.execute("ADMIN", adminId, SoftwareOperationService.OP_ITEM_FEATURE,
                 idempotencyKey,
-                Map.of("softwareId", softwareId, "featuredRank", featuredRank,
-                        "expectedVersion", expectedVersion),
+                Map.of("softwareId", softwareId, "featuredRank", featuredRank),
                 softwareId,
                 (Supplier<Void>) () -> {
-                    doFeature(adminId, softwareId, featuredRank, expectedVersion);
+                    doFeature(adminId, softwareId, featuredRank);
                     return null;
                 },
                 json -> null);
         return true;
     }
 
-    private void doFeature(Long adminId, Long softwareId, Integer featuredRank,
-                           Integer expectedVersion) {
-        Software software = softwareMapper.selectById(softwareId);
+    private void doFeature(Long adminId, Long softwareId, Integer featuredRank) {
+        Software software = lockMapper.lockSoftware(softwareId);
         if (software == null || software.getLifecycle() == SoftwareLifecycle.DELETED) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
-        }
-        if (!expectedVersion.equals(software.getLockVersion())) {
-            throw new BusinessException("SOFTWARE_VERSION_CONFLICT",
-                    "软件已被其他操作更新，请刷新后重试");
         }
         if (featuredRank.equals(software.getFeaturedRank())) {
             return; // 幂等：目标排序不变不写审计
         }
         String from = String.valueOf(software.getFeaturedRank());
         software.setFeaturedRank(featuredRank);
-        software.setLockVersion(software.getLockVersion() + 1);
         softwareMapper.updateById(software);
         writeAudit(softwareId, adminId, "FEATURE", from, String.valueOf(featuredRank),
                 featuredRank == 0 ? "取消精选" : "设置精选排序");

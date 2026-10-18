@@ -321,17 +321,15 @@ public class AdminSoftwareController {
     @RequiresPermission("software:moderate")
     @OperLog(title = "软件管理", businessType = 3)
     @Operation(summary = "管理员删除软件", description = "软删 lifecycle=DELETED，幂等；公开面即时隐藏")
-    public ApiResponse<Object> deleteSoftware(
-            @PathVariable("softwareId") Long softwareId,
-            @RequestParam("expectedVersion") Integer expectedVersion) {
-        return softwareFeignClient.deleteSoftware(softwareId, expectedVersion);
+    public ApiResponse<Object> deleteSoftware(@PathVariable("softwareId") Long softwareId) {
+        return softwareFeignClient.deleteSoftware(softwareId);
     }
 
     @OperLog(title = "软件处置", businessType = 2)
     @PostMapping("/items/{softwareId}/ban")
     @RequiresPermission("software:moderate")
     @Operation(summary = "独立封禁",
-            description = "必须原因与 expectedVersion；BANNED 后作者不可自行恢复；通知分享者")
+            description = "必须原因；BANNED 后作者不可自行恢复；通知分享者")
     public ApiResponse<Object> ban(
             @PathVariable("softwareId") Long softwareId,
             @RequestBody Map<String, Object> body) {

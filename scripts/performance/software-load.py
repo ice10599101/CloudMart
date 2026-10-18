@@ -134,24 +134,26 @@ def seed() -> None:
                       "AND email LIKE '%test.dev%' LIMIT 1") or "1"
     print(f"灌数：{SEED_SOFTWARE} 软件 / {SEED_COMMENTS} 评论（基线 id={_baseline}）",
           file=sys.stderr)
-    vals = ",".join(f"({owner}, 'ACTIVE', 0, 0, 1, 1)" for _ in range(SEED_SOFTWARE))
+    vals = ",".join(f"({owner}, 'ACTIVE', 0, 0, 1)" for _ in range(SEED_SOFTWARE))
     run_mysql(
         "INSERT INTO mall_software.software (owner_id, lifecycle, "
-        "published_revision_id, working_revision_id, lock_version, publication_seq) "
+        "published_revision_id, working_revision_id, publication_seq) "
         f"VALUES {vals}")
     run_mysql(f"""
         INSERT INTO mall_software.software_revision
-            (software_id, editor_id, revision_no, review_status, submit_seq,
-             lock_version, name, summary, category_id, description_html,
-             description_text, license_type, attribution_type, access_mode)
-        SELECT s.id, s.owner_id, 1, 'APPROVED', 1, 1,
+            (software_id, editor_id, review_status, name, summary, category_id,
+             description_html, description_text, license_type, attribution_type, access_mode)
+        SELECT s.id, s.owner_id, 'APPROVED',
                CONCAT('{TAG} 工具 ', s.id), '压测种子简介（长度足够）', 1,
                '<p>压测</p>', '压测', 'FREE', 'ORIGINAL', 'REGISTERED'
         FROM mall_software.software s WHERE s.id > {_baseline};
         UPDATE mall_software.software s
-        JOIN mall_software.software_revision r ON r.software_id = s.id
+        JOIN mall_software.software_revision r
+          ON r.software_id = s.id
+         AND r.id = (SELECT MIN(r2.id) FROM mall_software.software_revision r2
+                      WHERE r2.software_id = s.id)
         SET s.published_revision_id = r.id, s.working_revision_id = NULL
-        WHERE s.id > {_baseline} AND r.revision_no = 1;
+        WHERE s.id > {_baseline};
         INSERT INTO mall_software.software_release
             (revision_id, release_key, version_name, channel, release_order, recommended, changelog)
         SELECT r.id, UUID(), '1.0.0', 'STABLE', 1, 1, '压测'

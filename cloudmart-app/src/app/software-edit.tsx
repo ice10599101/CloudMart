@@ -331,7 +331,7 @@ export default function SoftwareEditScreen() {
             try {
               const saved = await doSave()
               if (!saved) return
-              await softwarePublishApi.submit(saved.softwareId, saved.revisionId, saved.lockVersion)
+              await softwarePublishApi.submit(saved.softwareId, saved.revisionId)
               Alert.alert('提示', '已提交审核')
               router.replace('/software-mine?refreshed=1')
             } catch {
@@ -350,7 +350,7 @@ export default function SoftwareEditScreen() {
     setSaving(true)
     try {
       const res = await softwarePublishApi.withdraw(
-        editor.softwareId, editor.revisionId, editor.lockVersion,
+        editor.softwareId, editor.revisionId,
       )
       applyEditor(res.data.data)
       setReviewReason(null)

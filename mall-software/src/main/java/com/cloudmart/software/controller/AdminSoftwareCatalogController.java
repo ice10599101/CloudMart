@@ -53,7 +53,7 @@ public class AdminSoftwareCatalogController {
 
     @PostMapping("/items/{softwareId}/ban")
     @Operation(summary = "独立封禁",
-            description = "必须原因与 expectedVersion；BANNED 后作者不可自行恢复；审计+通知分享者")
+            description = "必须原因；BANNED 后作者不可自行恢复；服务端行锁+审计+通知分享者")
     public ApiResponse<Boolean> ban(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @PathVariable("softwareId") Long softwareId,
@@ -61,7 +61,7 @@ public class AdminSoftwareCatalogController {
             @RequestBody AdminSoftwareBanRequest request) {
         return ApiResponse.ok(adminSoftwareCatalogService.ban(
                 adminUserId, softwareId, idempotencyKey,
-                request.getReason(), request.getExpectedVersion()));
+                request.getReason()));
     }
 
     @PostMapping("/items/{softwareId}/unban")
@@ -74,12 +74,12 @@ public class AdminSoftwareCatalogController {
             @RequestBody AdminSoftwareBanRequest request) {
         return ApiResponse.ok(adminSoftwareCatalogService.unban(
                 adminUserId, softwareId, idempotencyKey,
-                request.getReason(), request.getExpectedVersion()));
+                request.getReason()));
     }
 
     @PutMapping("/items/{softwareId}/featured")
     @Operation(summary = "精选排序",
-            description = "featuredRank=0 取消精选；值越大越靠前；CAS 防覆盖")
+            description = "featuredRank=0 取消精选；值越大越靠前；服务端行锁与幂等键保证")
     public ApiResponse<Boolean> featured(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
             @PathVariable("softwareId") Long softwareId,
@@ -87,7 +87,7 @@ public class AdminSoftwareCatalogController {
             @RequestBody AdminFeaturedRequest request) {
         return ApiResponse.ok(adminSoftwareCatalogService.feature(
                 adminUserId, softwareId, idempotencyKey,
-                request.getFeaturedRank(), request.getExpectedVersion()));
+                request.getFeaturedRank()));
     }
 
     // ---------------- 分类与标签（software:category） ----------------

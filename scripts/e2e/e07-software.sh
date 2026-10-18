@@ -38,10 +38,9 @@ phase1() {
 
   echo "== A09 创建软件（幂等键 e07-create-1） =="
   CREATE=$(curl -s -m 8 -X POST "$GW/api/software" -H "$AUTHH" -H "Idempotency-Key: e07-create-1" -H "Content-Type: application/json" -d '{}')
-  echo "$CREATE" | python -c "import json,sys; d=json.load(sys.stdin)['data']; print('softwareId:',d['softwareId'],'| revisionId:',d['workingRevisionId'],'| lockVersion:',d['lockVersion'])"
+  echo "$CREATE" | python -c "import json,sys; d=json.load(sys.stdin)['data']; print('softwareId:',d['softwareId'],'| revisionId:',d['workingRevisionId'])"
   SID=$(echo "$CREATE" | python -c "import json,sys; print(json.load(sys.stdin)['data']['softwareId'])")
   RID=$(echo "$CREATE" | python -c "import json,sys; print(json.load(sys.stdin)['data']['workingRevisionId'])")
-  LV=$(echo "$CREATE" | python -c "import json,sys; print(json.load(sys.stdin)['data']['lockVersion'])")
 
   echo "-- A09 同键同参重放（应返回同一 softwareId=$SID） --"
   curl -s -m 8 -X POST "$GW/api/software" -H "$AUTHH" -H "Idempotency-Key: e07-create-1" -H "Content-Type: application/json" -d '{}' \
@@ -51,7 +50,7 @@ phase1() {
   head -c 120 /tmp/a09.json; echo
 
   echo "== A12 URL 攻击保存被拒（evilbaidu.com） =="
-  curl -s -m 8 -X PUT "$GW/api/software/$SID/revisions/$RID?expectedVersion=$LV" -H "$AUTHH" -H "Content-Type: application/json" -d '{
+  curl -s -m 8 -X PUT "$GW/api/software/$SID/revisions/$RID" -H "$AUTHH" -H "Content-Type: application/json" -d '{
     "name":"E07 联调效率工具","summary":"用于验证小答软件发布链路的示例工具","categoryId":"1",
     "descriptionHtml":"<p>联调测试用软件介绍。</p><script>alert(1)</script>",
     "licenseType":"FREE","attributionType":"ORIGINAL","accessMode":"REGISTERED",
@@ -61,7 +60,7 @@ phase1() {
   head -c 160 /tmp/a12.json; echo
 
   echo "== 正常保存草稿（A13 script 应被剥离） =="
-  SAVE=$(curl -s -m 8 -X PUT "$GW/api/software/$SID/revisions/$RID?expectedVersion=$LV" -H "$AUTHH" -H "Content-Type: application/json" -d '{
+  SAVE=$(curl -s -m 8 -X PUT "$GW/api/software/$SID/revisions/$RID" -H "$AUTHH" -H "Content-Type: application/json" -d '{
     "name":"E07 联调效率工具","summary":"用于验证小答软件发布链路的示例工具","categoryId":"1",
     "descriptionHtml":"<p>联调测试用软件介绍。</p><script>alert(1)</script>",
     "licenseType":"FREE","attributionType":"ORIGINAL","accessMode":"REGISTERED",
@@ -73,21 +72,25 @@ phase1() {
 import json,sys
 d=json.load(sys.stdin)
 data=d['data']
-print('success:',d['success'],'| newLockVersion:',data['lockVersion'],'| releases:',len(data['releases']))
+print('success:',d['success'],'| releases:',len(data['releases']))
 src=data['releases'][0]['sources'][0]
 print('sourceUrl(编辑器可见):',src['url'][:40])
 import re
 print('descriptionHtml 含 script:', '<script' in (data.get('descriptionHtml') or ''))"
-  LV2=$(echo "$SAVE" | python -c "import json,sys; print(json.load(sys.stdin)['data']['lockVersion'])")
 
-  echo "== A08 并发保存冲突（expectedVersion 过期应 409） =="
-  curl -s -m 8 -X PUT "$GW/api/software/$SID/revisions/$RID?expectedVersion=$LV" -H "$AUTHH" -H "Content-Type: application/json" -d '{
-    "name":"E07 过期页面保存","summary":"这个保存应该因为版本冲突失败","accessMode":"REGISTERED"}' -o /tmp/a08.json -w "HTTP %{http_code}\n"
+  echo "== A08 无版本参数可重复保存（同一快照按提交顺序覆盖） =="
+  curl -s -m 8 -X PUT "$GW/api/software/$SID/revisions/$RID" -H "$AUTHH" -H "Content-Type: application/json" -d '{
+    "name":"E07 无版本重复保存","summary":"这次保存不需要客户端版本号","accessMode":"REGISTERED"}' -o /tmp/a08.json -w "HTTP %{http_code}\n"
   head -c 140 /tmp/a08.json; echo
 
-  echo "== A05 提交审核（应 PENDING，submitSeq=1） =="
-  curl -s -m 8 -X POST "$GW/api/software/$SID/revisions/$RID/submit?expectedVersion=$LV2" -H "$AUTHH" -H "Idempotency-Key: e07-submit-1" -o /tmp/submit.json -w "HTTP %{http_code}\n"
+  echo "== A05 提交审核（无版本参数，应 PENDING） =="
+  curl -s -m 8 -X POST "$GW/api/software/$SID/revisions/$RID/submit" -H "$AUTHH" -H "Idempotency-Key: e07-submit-1" -o /tmp/submit.json -w "HTTP %{http_code}\n"
   head -c 200 /tmp/submit.json; echo
+
+  echo "== A05 提交后内容不可改（PUT 应 4xx） =="
+  curl -s -m 8 -X PUT "$GW/api/software/$SID/revisions/$RID" -H "$AUTHH" -H "Content-Type: application/json" -d '{
+    "name":"提交后不应修改","summary":"这次保存应当被拒绝","accessMode":"REGISTERED"}' -o /tmp/a05_frozen.json -w "HTTP %{http_code}\n"
+  head -c 160 /tmp/a05_frozen.json; echo
 
   echo "== A05 提交后仍不可见（草稿/待审不泄漏） =="
   curl -s -m 8 "$GW/api/software/$SID" -o /tmp/a05.json -w "HTTP %{http_code}\n"
