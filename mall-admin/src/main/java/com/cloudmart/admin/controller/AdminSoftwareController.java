@@ -507,6 +507,28 @@ public class AdminSoftwareController {
         return softwareFeignClient.statistics();
     }
 
+    // ---------------- 访问申请（SF04：software:access:list / manage） ----------------
+
+    @GetMapping("/access-requests")
+    @RequiresPermission("software:access:list")
+    @Operation(summary = "访问申请列表", description = "按状态筛选；证据与凭据仅授权员可见")
+    public ApiResponse<Object> accessRequests(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return softwareFeignClient.accessRequests(status, page, size);
+    }
+
+    @OperLog(title = "访问申请决定", businessType = 2)
+    @PostMapping("/access-requests/{requestId}/decision")
+    @RequiresPermission("software:access:manage")
+    @Operation(summary = "访问申请决定", description = "批准同事务调用既有授权服务并回写 grant_id")
+    public ApiResponse<Object> decideAccessRequest(
+            @PathVariable("requestId") Long requestId,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.decideAccessRequest(requestId, body);
+    }
+
     // ---------------- 发布者申请（SF03：software:publisher:list / manage） ----------------
 
     @GetMapping("/publisher-applications")

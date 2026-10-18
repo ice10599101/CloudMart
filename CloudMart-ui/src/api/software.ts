@@ -843,3 +843,44 @@ export function createWorkingRevision(id: string, idempotencyKey?: string) {
     softwareWriteConfig("POST", url, null, idempotencyKey),
   );
 }
+
+/** SF04：受限来源访问申请（申请/我的申请/撤回） */
+export interface SoftwareAccessRequest {
+  requestId: string;
+  softwareId: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  message: string;
+  reason: string | null;
+  grantId: string | null;
+  createdAt: string;
+  handledAt: string | null;
+}
+
+export function submitAccessRequest(
+  softwareId: string,
+  payload: { message: string },
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/access-requests/${softwareId}`;
+  return request.post<ApiResponse<SoftwareAccessRequest>>(
+    url,
+    payload,
+    softwareWriteConfig("POST", url, payload, idempotencyKey),
+  );
+}
+
+export function listMyAccessRequests(page = 1, size = 10) {
+  return request.get<ApiResponse<PageResult<SoftwareAccessRequest>>>(
+    `${BASE}/access-requests/mine`,
+    { params: { page, size } },
+  );
+}
+
+export function cancelAccessRequest(requestId: string, idempotencyKey?: string) {
+  const url = `${BASE}/access-requests/${requestId}/cancel`;
+  return request.post<ApiResponse<boolean>>(
+    url,
+    {},
+    softwareWriteConfig("POST", url, {}, idempotencyKey),
+  );
+}

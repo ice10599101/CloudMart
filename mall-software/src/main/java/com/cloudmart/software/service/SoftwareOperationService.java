@@ -47,6 +47,9 @@ public class SoftwareOperationService {
     /** SF03：发布者申请提交/取消（幂等主体=申请人） */
     public static final String OP_PUBLISHER_APPLY = "PUBLISHER_APPLY";
     public static final String OP_PUBLISHER_CANCEL = "PUBLISHER_APPLICATION_CANCEL";
+    /** SF04：受限来源访问申请提交/取消（幂等主体=申请人+软件） */
+    public static final String OP_ACCESS_REQUEST = "ACCESS_REQUEST_SUBMIT";
+    public static final String OP_ACCESS_REQUEST_CANCEL = "ACCESS_REQUEST_CANCEL";
     public static final String OP_COMMENT_MODERATE = "COMMENT_MODERATE";
     public static final String OP_ITEM_BAN = "SOFTWARE_BAN";
     public static final String OP_ITEM_UNBAN = "SOFTWARE_UNBAN";

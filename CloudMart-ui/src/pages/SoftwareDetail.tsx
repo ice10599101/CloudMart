@@ -15,6 +15,7 @@ import {
   Tag,
   Typography,
   Result,
+  Modal,
 } from "antd";
 import { CopyOutlined, StarFilled, StarOutlined } from "@ant-design/icons";
 import { history, useParams } from "umi";
@@ -47,6 +48,10 @@ import {
   type SoftwareDetail,
   type SoftwareRelease,
   type SoftwareSourceSummary,
+  submitAccessRequest,
+  listMyAccessRequests,
+  cancelAccessRequest,
+  type SoftwareAccessRequest,
 } from "@/api/software";
 import ReportModal from "@/components/ReportModal";
 import RichText from "@/components/RichText";
@@ -90,6 +95,11 @@ export default function SoftwareDetail() {
   const [accessState, setAccessState] = useState<SoftwareAccessState | null>(
     null,
   );
+  /** SF04：ADMIN_PAID 访问申请 */
+  const [myRequests, setMyRequests] = useState<SoftwareAccessRequest[]>([]);
+  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestMessage, setRequestMessage] = useState("");
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [resolving, setResolving] = useState(false);
   /** 真实链接只保留在本次会话内存里，不落 localStorage、不写 URL */
   const [resolved, setResolved] = useState<{
@@ -109,6 +119,14 @@ export default function SoftwareDetail() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ratingBusy, setRatingBusy] = useState(false);
   const currentUserId = useAuthStore((s) => s.user?.id);
+
+  // SF04：加载本人访问申请（用于门槛面板状态展示）
+  useEffect(() => {
+    if (!id) return;
+    listMyAccessRequests(1, 10)
+      .then((res) => setMyRequests(res.data.data?.records ?? []))
+      .catch(() => undefined);
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -217,6 +235,40 @@ export default function SoftwareDetail() {
     setMyScore(result.myScore ?? 0);
     setRatingCount(result.ratingCount);
     setRatingAvg(result.ratingAvg);
+  };
+
+  /** SF04：提交/撤回访问申请 */
+  const latestRequest = myRequests[0] ?? null;
+
+  const handleAccessRequest = async () => {
+    if (!requestMessage.trim()) {
+      alert("请填写申请说明");
+      return;
+    }
+    setRequestSubmitting(true);
+    try {
+      await submitAccessRequest(id, { message: requestMessage.trim() });
+      setRequestOpen(false);
+      setRequestMessage("");
+      listMyAccessRequests(1, 10)
+        .then((res) => setMyRequests(res.data.data?.records ?? []))
+        .catch(() => undefined);
+    } catch {
+      // 拦截器统一提示
+    } finally {
+      setRequestSubmitting(false);
+    }
+  };
+
+  const handleCancelAccessRequest = async (requestId: string) => {
+    try {
+      await cancelAccessRequest(requestId);
+      listMyAccessRequests(1, 10)
+        .then((res) => setMyRequests(res.data.data?.records ?? []))
+        .catch(() => undefined);
+    } catch {
+      // 拦截器统一提示
+    }
   };
 
   const handleRate = async (score: number) => {
@@ -419,9 +471,40 @@ export default function SoftwareDetail() {
       );
     }
     if (accessState.accessMode === "ADMIN_PAID") {
+      const latestRequest = myRequests[0] ?? null;
       return (
         <div className={styles.panel}>
-          <div>需联系管理员付款后开通本软件的查看权。</div>
+          <div>本软件为付款查看模式：联系管理员完成确认后开通查看权。</div>
+          {/* SF04：访问申请状态与入口 */}
+          {latestRequest ? (
+            <div style={{ marginTop: 6 }}>
+              <Typography.Text strong style={{ fontSize: 13 }}>
+                {latestRequest.status === "PENDING"
+                  ? "访问申请审核中"
+                  : latestRequest.status === "APPROVED"
+                    ? "访问申请已通过"
+                    : "访问申请未通过"}
+              </Typography.Text>
+              {latestRequest.reason && (
+                <div style={{ fontSize: 13, opacity: 0.75 }}>说明：{latestRequest.reason}</div>
+              )}
+              {latestRequest.status === "PENDING" && (
+                <Button
+                  size="small"
+                  style={{ marginTop: 4 }}
+                  onClick={() => void handleCancelAccessRequest(latestRequest.requestId)}
+                >
+                  撤回申请
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div style={{ marginTop: 6 }}>
+              <Button size="small" onClick={() => setRequestOpen(true)}>
+                提交访问申请
+              </Button>
+            </div>
+          )}
           {accessState.contacts.length > 0 ? (
             <div style={{ marginTop: 6 }}>
               {accessState.contacts.map((contact) => (
@@ -910,6 +993,27 @@ export default function SoftwareDetail() {
           }}
         />
       ) : null}
+      {/* SF04：访问申请弹窗 */}
+      <Modal
+        title="提交访问申请"
+        open={requestOpen}
+        onCancel={() => setRequestOpen(false)}
+        onOk={() => void handleAccessRequest()}
+        confirmLoading={requestSubmitting}
+        okText="提交申请"
+        destroyOnHidden
+      >
+        <Typography.Paragraph type="secondary">
+          说明用途与凭据线索（如线下付款单号），授权员人工核对后开通；申请通过前不获得访问权。
+        </Typography.Paragraph>
+        <Input.TextArea
+          rows={3}
+          maxLength={1000}
+          placeholder="申请说明（1~1000 字）"
+          value={requestMessage}
+          onChange={(e) => setRequestMessage(e.target.value)}
+        />
+      </Modal>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
 import { Button, DatePicker, Input, Modal, Space, Tabs, Tag, Typography } from 'antd'
@@ -8,7 +8,10 @@ import {
   listAccessGrants,
   listPermissionAudits,
   revokeSoftwareAccess,
-} from '@/api/admin/software'
+  listAccessRequests,
+  decideAccessRequest,
+  type AdminAccessRequest,
+} from '@/api/admin/software';
 import type { AdminAccessGrant } from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
@@ -41,6 +44,16 @@ export default function SoftwareAccessGrants() {
   const [grantReason, setGrantReason] = useState('')
 
   const [revokeTarget, setRevokeTarget] = useState<AdminAccessGrant | null>(null)
+  /** SF04：申请队列页签 */
+  const [view, setView] = useState<'grants' | 'requests'>('grants')
+  const [requests, setRequests] = useState<AdminAccessRequest[]>([])
+  const [reqLoading, setReqLoading] = useState(false)
+  const [reqStatus, setReqStatus] = useState<string | undefined>('PENDING')
+  const [decisionTarget, setDecisionTarget] = useState<{
+    requestId: string
+    approve: boolean
+  } | null>(null)
+  const [decisionReason, setDecisionReason] = useState('')
   const [revokeReason, setRevokeReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -215,8 +228,131 @@ export default function SoftwareAccessGrants() {
     { title: '时间', dataIndex: 'createdAt', valueType: 'dateTime', width: 165, search: false },
   ]
 
+  /** SF04：申请队列加载 */
+  const loadRequests = useCallback(() => {
+    setReqLoading(true)
+    listAccessRequests({ status: reqStatus, page: 1, size: 50 })
+      .then((res) => setRequests(res.data.data?.records ?? []))
+      .catch(() => undefined)
+      .finally(() => setReqLoading(false))
+  }, [reqStatus])
+
+  useEffect(() => {
+    if (view === 'requests') loadRequests()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, reqStatus])
+
+  const confirmDecision = () => {
+    if (!decisionTarget) return
+    if (!decisionReason.trim()) {
+      message.error('请填写决定说明（审计要求）')
+      return
+    }
+    decideAccessRequest(
+      decisionTarget.requestId,
+      { approve: decisionTarget.approve, reason: decisionReason.trim() },
+    )
+      .then(() => {
+        message.success('已处理')
+        setDecisionTarget(null)
+        setDecisionReason('')
+        loadRequests()
+      })
+      .catch(() => undefined)
+  }
+
   return (
     <>
+      <Tabs
+        activeKey={view}
+        onChange={(key) => setView(key as 'grants' | 'requests')}
+        items={[
+          { key: 'grants', label: '授权列表' },
+          { key: 'requests', label: '申请队列（SF04）' },
+        ]}
+        style={{ marginBottom: 8 }}
+      />
+      {view === 'requests' && (
+      <>
+      <Space style={{ marginBottom: 12 }} wrap>
+        {['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map((st) => (
+          <Button
+            key={st}
+            size="small"
+            type={reqStatus === st ? 'primary' : 'default'}
+            onClick={() => setReqStatus(st)}
+          >
+            {st}
+          </Button>
+        ))}
+        <Button size="small" onClick={() => setReqStatus(undefined)}>全部</Button>
+      </Space>
+      <div style={{ marginBottom: 16 }}>
+        {reqLoading ? (
+          <Typography.Text type="secondary">加载中…</Typography.Text>
+        ) : requests.length === 0 ? (
+          <Typography.Text type="secondary">暂无申请</Typography.Text>
+        ) : (
+          requests.map((request) => (
+            <div
+              key={request.requestId}
+              style={{ padding: '12px 16px', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 8 }}
+            >
+              <Space size={8} wrap>
+                <Typography.Text strong>
+                  软件 {request.softwareId} · 会员 {request.applicantId}
+                </Typography.Text>
+                <Tag color={request.status === 'PENDING' ? 'processing' : request.status === 'APPROVED' ? 'success' : 'default'}>
+                  {request.status}
+                </Tag>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {request.createdAt.replace('T', ' ').slice(0, 16)}
+                </Typography.Text>
+              </Space>
+              <Typography.Paragraph style={{ marginBottom: 4, marginTop: 4 }}>
+                {request.message}
+              </Typography.Paragraph>
+              {request.reason ? (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  处理说明：{request.reason}
+                  {request.grantId ? ` · 授权ID：${request.grantId}` : ''}
+                </Typography.Text>
+              ) : null}
+              {request.status === 'PENDING' && (
+                <div style={{ marginTop: 8 }}>
+                  <Space size={8}>
+                    <Button
+                      size="small"
+                      type="primary"
+                      onClick={() => {
+                        setDecisionTarget({ requestId: request.requestId, approve: true })
+                        setDecisionReason('凭据核对通过，授予查看权')
+                      }}
+                    >
+                      核对通过并授权
+                    </Button>
+                    <Button
+                      size="small"
+                      danger
+                      onClick={() => {
+                        setDecisionTarget({ requestId: request.requestId, approve: false })
+                        setDecisionReason('')
+                      }}
+                    >
+                      拒绝
+                    </Button>
+                  </Space>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+      </>
+      )}
+
+      {view === 'grants' && (
+      <>
       <Space style={{ marginBottom: 12 }} wrap>
         <Input
           placeholder="软件ID（筛选/开通）"
@@ -379,6 +515,8 @@ export default function SoftwareAccessGrants() {
           onChange={(e) => setRevokeReason(e.target.value)}
         />
       </Modal>
+      </>
+      )}
     </>
   )
 }

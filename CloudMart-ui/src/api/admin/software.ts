@@ -798,3 +798,40 @@ export function decidePublisherApplication(
     softwareWriteConfig("POST", url, payload, idempotencyKey),
   );
 }
+
+/** SF04：访问申请审核 */
+export interface AdminAccessRequest {
+  requestId: string;
+  softwareId: string;
+  applicantId: string;
+  status: string;
+  message: string;
+  reason: string | null;
+  grantId: string | null;
+  createdAt: string;
+  handledAt: string | null;
+}
+
+export function listAccessRequests(params?: {
+  status?: string;
+  page?: number;
+  size?: number;
+}) {
+  return request.get<ApiResponse<PageResult<AdminAccessRequest>>>(
+    `${BASE}/access-requests`,
+    { params },
+  );
+}
+
+export function decideAccessRequest(
+  requestId: string,
+  payload: { approve: boolean; reason: string },
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/access-requests/${requestId}/decision`;
+  return request.post<ApiResponse<boolean>>(
+    url,
+    payload,
+    softwareWriteConfig("POST", url, payload, idempotencyKey),
+  );
+}

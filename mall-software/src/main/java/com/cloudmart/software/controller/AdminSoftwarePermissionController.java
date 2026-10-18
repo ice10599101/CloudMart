@@ -38,6 +38,29 @@ public class AdminSoftwarePermissionController {
 
     private final AdminSoftwarePermissionService adminSoftwarePermissionService;
     private final com.cloudmart.software.service.SoftwarePublisherApplicationService applicationService;
+    private final com.cloudmart.software.service.SoftwareAccessRequestService accessRequestService;
+
+    /** SF04：访问申请分页（状态筛选） */
+    @GetMapping("/access-requests")
+    @Operation(summary = "访问申请列表", description = "按状态筛选；证据与凭据仅授权员可见")
+    public ApiResponse<Page<Map<String, Object>>> accessRequests(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(accessRequestService.adminPage(status, page, size));
+    }
+
+    /** SF04：访问申请决定（批准同事务调用既有授权服务并回写 grant_id） */
+    @PostMapping("/access-requests/{requestId}/decision")
+    @Operation(summary = "访问申请决定")
+    public ApiResponse<Boolean> decideAccessRequest(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @PathVariable("requestId") Long requestId,
+            @RequestBody ApplicationDecisionRequest request) {
+        return ApiResponse.ok(accessRequestService.decide(adminId, requestId,
+                request.approve(), request.reason(), idempotencyKey));
+    }
 
     /** SF03：发布者申请分页（状态筛选） */
     @GetMapping("/publisher-applications")
