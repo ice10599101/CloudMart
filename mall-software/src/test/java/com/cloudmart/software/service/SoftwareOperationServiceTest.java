@@ -65,18 +65,32 @@ class SoftwareOperationServiceTest {
     }
 
     @Test
-    @DisplayName("首次执行：运行业务动作并同事务写入结果记录（只存 ID/版本/状态）")
-    void execute_firstRunInvokesAction() {
+    @DisplayName("首次执行：先写唯一占位再跑业务，业务成功后同事务回填结果（SW05）")
+    void execute_firstRunClaimsBeforeAction() {
         when(operationMapper.selectOne(any())).thenReturn(null);
+        java.util.concurrent.atomic.AtomicBoolean inserted =
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+        when(operationMapper.insert(any(com.cloudmart.software.entity.SoftwareOperation.class)))
+                .thenAnswer(invocation -> {
+                    inserted.set(true);
+                    return 1;
+                });
+        when(operationMapper.updateById(any(com.cloudmart.software.entity.SoftwareOperation.class)))
+                .thenReturn(1);
 
         var result = service.execute("USER", 42L, SoftwareOperationService.OP_CREATE_SOFTWARE,
                 "key-1", Map.of("userId", 42L), null,
-                () -> new SoftwareCreated(100L, 501L), json -> objectMapper.readValue(json, SoftwareCreated.class));
+                () -> {
+                    // 业务动作执行时，占位必须已经落库（否则并发冲突会晚于副作用）
+                    assertThat(inserted).isTrue();
+                    return new SoftwareCreated(100L, 501L);
+                },
+                json -> objectMapper.readValue(json, SoftwareCreated.class));
 
         assertThat(result.softwareId()).isEqualTo(100L);
         ArgumentCaptor<com.cloudmart.software.entity.SoftwareOperation> captor =
                 ArgumentCaptor.forClass(com.cloudmart.software.entity.SoftwareOperation.class);
-        verify(operationMapper, times(1)).insert((com.cloudmart.software.entity.SoftwareOperation) captor.capture());
+        verify(operationMapper, times(1)).updateById(captor.capture());
         assertThat(captor.getValue().getResultJson()).contains("\"softwareId\":100");
     }
 
@@ -111,21 +125,24 @@ class SoftwareOperationServiceTest {
     }
 
     @Test
-    @DisplayName("并发首插冲突：对方已提交且同请求 → 返回其结果；未提交可见 → 冲突可重试")
-    void execute_duplicateKeyRace() {
+    @DisplayName("并发同键：占位冲突后业务动作绝不执行，用当前读取回赢家已提交结果（SW05）")
+    void execute_duplicateKeyRaceReadsCommittedWinner() {
         String sameHash = service.requestHash(Map.of("userId", 42L));
         when(operationMapper.selectOne(any()))
                 .thenReturn(null)                                 // 首查无记录
-                .thenReturn(stored(sameHash, "{\"softwareId\":100,\"revisionId\":501}")); // 冲突后已提交可见
-        when(operationMapper.insert(any(com.cloudmart.software.entity.SoftwareOperation.class))).thenThrow(new DuplicateKeyException("uk_operation_key"));
+                .thenReturn(stored(sameHash, "{\"softwareId\":100,\"revisionId\":501}")); // 冲突后当前读可见
+        when(operationMapper.insert(any(com.cloudmart.software.entity.SoftwareOperation.class)))
+                .thenThrow(new DuplicateKeyException("uk_operation_key"));
 
         SoftwareCreated result = service.execute("USER", 42L, SoftwareOperationService.OP_CREATE_SOFTWARE,
                 "key-1", Map.of("userId", 42L), null,
-                () -> new SoftwareCreated(999L, 999L),
+                () -> {
+                    throw new IllegalStateException("冲突方不得执行业务动作");
+                },
                 json -> objectMapper.readValue(json, SoftwareCreated.class));
 
-        // 不重复执行业务：返回对方已提交的 100，而非本方 999
         assertThat(result.softwareId()).isEqualTo(100L);
+        verify(operationMapper, never()).updateById(any(com.cloudmart.software.entity.SoftwareOperation.class));
     }
 
     @Test

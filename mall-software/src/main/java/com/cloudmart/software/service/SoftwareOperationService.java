@@ -23,8 +23,8 @@ import java.util.function.Supplier;
  * 创建评论等使用。业务变更与结果记录同事务提交（本服务须在调用方事务内执行）。
  *
  * <p>语义：同键同 request_hash → 返回首次结果（不重复执行业务）；
- * 同键不同 request_hash → 409；首次执行并发冲突 → 读对方已提交结果，
- * 对方未提交可见时按冲突拒绝重试，绝不重复执行创建逻辑。</p>
+ * 同键不同 request_hash → 409；首次执行先写唯一占位再执行业务（SW05），
+ * 冲突方在未产生任何业务写入前就失败，随后用当前读取回赢家已提交结果。</p>
  */
 @Slf4j
 @Service
@@ -80,7 +80,10 @@ public class SoftwareOperationService {
         if (existing != null) {
             return replayOrConflict(existing, requestHash, resultReader);
         }
-        T result = action.get();
+
+        // SW05：先插入唯一占位再执行业务（唯一键就是并发闸门）。
+        // 占位与业务同事务：业务失败/进程崩溃时占位一起回滚，不会残留“处理中”死记录；
+        // 其他事务在本事务提交前看不到占位行，因此不会读到未完成结果。
         SoftwareOperation record = new SoftwareOperation();
         record.setActorType(actorType);
         record.setActorId(actorId);
@@ -88,17 +91,24 @@ public class SoftwareOperationService {
         record.setOperationType(operationType);
         record.setRequestHash(requestHash);
         record.setSoftwareId(softwareId);
-        record.setResultJson(toResultJson(result));
+        record.setResultJson("{}");
         try {
             operationMapper.insert(record);
         } catch (DuplicateKeyException e) {
-            // 并发同键：对方事务可能尚未提交（读不到）——按冲突拒绝，客户端重试将命中其已提交结果
-            SoftwareOperation committed = find(actorType, actorId, operationType, operationKey);
+            // 唯一键冲突只会在对方事务提交后报出；本事务未执行任何业务写入。
+            // 本事务快照可能看不到对方新提交的行，必须用当前读（FOR UPDATE）取已提交结果。
+            SoftwareOperation committed = findForUpdate(actorType, actorId, operationType, operationKey);
             if (committed == null) {
                 throw new BusinessException("SOFTWARE_OPERATION_CONFLICT",
                         "相同幂等键的操作正在处理中，请稍后重试");
             }
             return replayOrConflict(committed, requestHash, resultReader);
+        }
+
+        T result = action.get();
+        record.setResultJson(toResultJson(result));
+        if (operationMapper.updateById(record) != 1) {
+            throw new BusinessException("SOFTWARE_OPERATION_CONFLICT", "幂等结果写入失败，请重试");
         }
         return result;
     }
@@ -137,6 +147,20 @@ public class SoftwareOperationService {
                 .eq(SoftwareOperation::getActorId, actorId)
                 .eq(SoftwareOperation::getOperationType, operationType)
                 .eq(SoftwareOperation::getOperationKey, operationKey));
+    }
+
+    /**
+     * 当前读（SW05）：唯一键冲突后必须绕过本事务快照读取对方已提交结果，
+     * 否则 REPEATABLE READ 下可能看不到刚提交的赢家行。
+     */
+    private SoftwareOperation findForUpdate(String actorType, Long actorId, String operationType,
+                                            String operationKey) {
+        return operationMapper.selectOne(new LambdaQueryWrapper<SoftwareOperation>()
+                .eq(SoftwareOperation::getActorType, actorType)
+                .eq(SoftwareOperation::getActorId, actorId)
+                .eq(SoftwareOperation::getOperationType, operationType)
+                .eq(SoftwareOperation::getOperationKey, operationKey)
+                .last("FOR UPDATE"));
     }
 
     private void validate(String actorType, Long actorId, String operationKey, String requestHash) {
