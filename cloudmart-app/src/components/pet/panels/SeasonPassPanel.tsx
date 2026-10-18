@@ -5,7 +5,7 @@ import { useTheme } from '@/hooks/use-theme-context'
 import { Spacing, FontSize } from '@/constants/theme'
 import { PetCreamTheme, PetCreamSemantic } from '@/constants/pet-cream'
 import { errorMessage } from '@/utils/request'
-import { petApi, type PetSeasonPass } from '@/api/pet'
+import { petApi, type PetSeasonPass, type PetSeason } from '@/api/pet'
 import { ChipButton, newR19RequestKey } from '../shared'
 
 export function SeasonPassPanel({ claimEnabled }: { claimEnabled: boolean }) {
@@ -13,18 +13,32 @@ export function SeasonPassPanel({ claimEnabled }: { claimEnabled: boolean }) {
   const [pass, setPass] = useState<PetSeasonPass | null>(null)
   const [loadState, setLoadState] = useState<'LOADING' | 'READY' | 'ERROR'>('LOADING')
   const [claimingTier, setClaimingTier] = useState<number | null>(null)
+  // T19：赛季选择——历史赛季进度查看与宽限期内补领
+  const [seasons, setSeasons] = useState<PetSeason[] | null>(null)
+  const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null)
+  const [showSeasonPicker, setShowSeasonPicker] = useState(false)
   // 每档独立 requestKey：网络结果未知时保留原键，恢复后同键重放（R05 可恢复交付）
   const claimKeyRef = useRef<Record<number, string>>({})
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (seasonId?: number | null) => {
     setLoadState('LOADING')
     try {
-      const { data: res } = await petApi.getSeasonPass()
+      const { data: res } = await petApi.getSeasonPass(seasonId ?? undefined)
       setPass(res.data)
       setLoadState('READY')
     } catch (error) {
       setLoadState('ERROR')
       Alert.alert('通行证加载失败', errorMessage(error, '请稍后再试'))
+    }
+  }, [])
+
+  const loadSeasons = useCallback(async () => {
+    try {
+      const { data: res } = await petApi.getSeasonPassSeasons()
+      setSeasons(res.data ?? [])
+    } catch {
+      // 拦截器已提示；保留空列表展示
+      setSeasons([])
     }
   }, [])
 
@@ -53,7 +67,7 @@ export function SeasonPassPanel({ claimEnabled }: { claimEnabled: boolean }) {
     setClaimingTier(tier)
     try {
       if (!claimKeyRef.current[tier]) claimKeyRef.current[tier] = newR19RequestKey()
-      const { data: res } = await petApi.claimSeasonPassTier(tier, claimKeyRef.current[tier])
+      const { data: res } = await petApi.claimSeasonPassTier(tier, claimKeyRef.current[tier], selectedSeasonId ?? undefined)
       delete claimKeyRef.current[tier]
       setPass(res.data)
       Alert.alert('领取成功', `第 ${tier} 档奖励已领取`)
@@ -71,6 +85,26 @@ export function SeasonPassPanel({ claimEnabled }: { claimEnabled: boolean }) {
     backgroundColor: '#FFFDF8', gap: 4, marginBottom: Spacing.sm,
   } as const
 
+  // T19：赛季选择器（只展示本人参与过的赛季，选择后加载该季通行证；服务端判定补领截止）
+  const renderSeasonPicker = () => (
+    <View style={{ gap: 4, marginTop: 4 }}>
+      {(seasons ?? []).map((season) => (
+        <ChipButton
+          key={season.id}
+          label={`${season.name}${season.status === 'ACTIVE' ? '（进行中）' : ''}`}
+          onPress={() => {
+            setSelectedSeasonId(season.id)
+            setShowSeasonPicker(false)
+            void load(season.id)
+          }}
+        />
+      ))}
+      {seasons && seasons.length === 0 && (
+        <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>暂无历史赛季</Text>
+      )}
+    </View>
+  )
+
   if (loadState === 'LOADING') return <ActivityIndicator color={colors.primary} />
   if (loadState === 'ERROR') {
     return (
@@ -86,6 +120,8 @@ export function SeasonPassPanel({ claimEnabled }: { claimEnabled: boolean }) {
       <View style={cardStyle}>
         <Text style={{ color: colors.text, fontSize: FontSize.sm, fontWeight: '600' }}>当前没有进行中的赛季</Text>
         <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>新赛季开赛后，完成每日任务即可累积通行证经验</Text>
+        <ChipButton label="查看历史赛季" onPress={() => { void loadSeasons(); setShowSeasonPicker(true) }} />
+        {showSeasonPicker && renderSeasonPicker()}
       </View>
     )
   }
@@ -93,11 +129,28 @@ export function SeasonPassPanel({ claimEnabled }: { claimEnabled: boolean }) {
   return (
     <View>
       <View style={cardStyle}>
-        <Text style={{ color: colors.text, fontSize: FontSize.md, fontWeight: '700' }}>{`🎫 ${pass.seasonName ?? '当前赛季'}`}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ color: colors.text, fontSize: FontSize.md, fontWeight: '700', flex: 1 }}>
+            {`🎫 ${pass.seasonName ?? '当前赛季'}`}
+          </Text>
+          <ChipButton
+            label={selectedSeasonId != null ? '返回当前' : '历史赛季'}
+            onPress={() => {
+              if (selectedSeasonId != null) {
+                setSelectedSeasonId(null)
+                void load(null)
+                return
+              }
+              void loadSeasons()
+              setShowSeasonPicker((v) => !v)
+            }}
+          />
+        </View>
         <Text style={{ color: colors.textSecondary, fontSize: FontSize.xs }}>{`通行证经验 ${pass.passExp} · 完成每日任务与全清宝箱累积`}</Text>
         {!claimEnabled && (
           <Text style={{ color: colors.textTertiary, fontSize: FontSize.xs }}>通行证奖励领取暂未开放，当前仅可查看进度</Text>
         )}
+        {showSeasonPicker && selectedSeasonId == null && renderSeasonPicker()}
       </View>
       {pass.tiers.map((tier) => {
         const pending = tier.claimStatus === 'CLAIM_PENDING'

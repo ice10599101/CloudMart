@@ -34,6 +34,13 @@ public class PetSeasonPassController {
         return ApiResponse.ok(passService.myPass(userId));
     }
 
+    @GetMapping("/seasons")
+    @Operation(summary = "我参与过的赛季列表（T19）", description = "含当前与历史赛季，按结束时间倒序——前端赛季选择器数据源；仅返回有通行证记录的赛季")
+    public ApiResponse<java.util.List<com.cloudmart.pet.entity.PetSeason>> mySeasons(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId) {
+        return ApiResponse.ok(passService.mySeasons(userId));
+    }
+
     @GetMapping("/{seasonId}")
     @Operation(summary = "按赛季查询通行证", description = "R05：已结束赛季在领奖截止前可查可领取项")
     public ApiResponse<PetSeasonPassVO> seasonPass(

@@ -832,6 +832,19 @@ export interface PetDailyQuestPanel {
   setId?: string | null
 }
 
+/** PET-09/T19：任务集实体（历史任务列表/详情入口用） */
+export interface PetDailyQuestSet {
+  id: number
+  userId: number
+  petId: number
+  businessDate: string
+  timezone: string
+  /** ACTIVE=未过领取截止（可补领） / EXPIRED=已过截止 */
+  status: string
+  claimDeadline: string | null
+  chestClaimedAt: string | null
+}
+
 /** 关系项 */
 export interface PetRelationItem {
   id: number | null
@@ -1055,6 +1068,16 @@ export function promotePetCareer() {
 /** 每日任务面板（C14：领奖走 /daily-quest-sets/{setId} 实例路由，setId 随面板返回） */
 export function getPetDailyQuests() {
   return request.get<ApiResponse<PetDailyQuestPanel>>('/pet/daily-quests')
+}
+
+/** PET-09/T19：任务集列表（status=ACTIVE 可补领 / EXPIRED 历史 / 空=全部） */
+export function getPetQuestSets(status?: 'ACTIVE' | 'EXPIRED') {
+  return request.get<ApiResponse<PetDailyQuestSet[]>>('/pet/daily-quest-sets', { params: { status } })
+}
+
+/** T19：任务集详情（历史任务/宽限期内可查） */
+export function getPetQuestSetDetail(setId: number | string) {
+  return request.get<ApiResponse<PetDailyQuestPanel>>(`/pet/daily-quest-sets/${setId}`)
 }
 
 /** 宠物关系面板 */
@@ -1947,15 +1970,32 @@ export interface PetSeasonPass {
   seasonEndsAt: string | null
 }
 
-/** 我的赛季通行证（当前赛季 + 经验 + 档位阶梯） */
-export function getSeasonPass() {
-  return request.get<ApiResponse<PetSeasonPass>>('/pet/season/pass')
+/** T19：赛季（赛季选择器数据源） */
+export interface PetSeason {
+  id: number
+  name: string
+  startsAt: string
+  endsAt: string
+  claimUntil: string | null
+  status: string
 }
 
-/** 领取通行证档位奖励（达标 CAS；同档重复返回原状态；返回领取后的通行证） */
-export function claimSeasonPassTier(tier: number, requestKey: string = newPetRequestKey()) {
+/** 我的赛季通行证（当前赛季 + 经验 + 档位阶梯）；传 seasonId 查历史赛季 */
+export function getSeasonPass(seasonId?: number | string) {
+  return request.get<ApiResponse<PetSeasonPass>>(
+    `/pet/season/pass${seasonId != null ? '/' + seasonId : ''}`,
+  )
+}
+
+/** T19：我参与过的赛季列表（当前+历史，按结束时间倒序） */
+export function getSeasonPassSeasons() {
+  return request.get<ApiResponse<PetSeason[]>>('/pet/season/pass/seasons')
+}
+
+/** 领取通行证档位奖励（达标 CAS；同档重复返回原状态；返回领取后的通行证；seasonId 用于历史赛季补领） */
+export function claimSeasonPassTier(tier: number, requestKey: string = newPetRequestKey(), seasonId?: number | string) {
   return request.post<ApiResponse<PetSeasonPass>>('/pet/season/pass/claim', undefined, {
-    params: { tier, requestKey },
+    params: { tier, requestKey, seasonId },
   })
 }
 

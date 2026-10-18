@@ -659,6 +659,12 @@ export const petApi = {
 
   /** 每日任务面板 */
   getDailyQuests: () => request<PetDailyQuestPanel>({ url: '/pet/daily-quests' }),
+  /** PET-09/T19：任务集列表（status=ACTIVE 可补领 / EXPIRED 历史 / 空=全部） */
+  getQuestSets: (status?: 'ACTIVE' | 'EXPIRED') =>
+    request<PetDailyQuestSet[]>({ url: `/pet/daily-quest-sets${buildQuery({ status })}` }),
+  /** T19：任务集详情（历史任务/宽限期内可查） */
+  getQuestSetDetail: (setId: number | string) =>
+    request<PetDailyQuestPanel>({ url: `/pet/daily-quest-sets/${setId}` }),
   /** PET-23：我的举报结果（可公开处理结果） */
   listMyReports: () => request<PetReportMine[]>({ url: '/pet/reports/mine' }),
   /** C14：任务集路由（setId/questId 均为实体 ID，唯一领奖路径） */
@@ -922,11 +928,14 @@ export const petApi = {
   cancelPveRun: (runId: number | string) =>
     request<PetPveRun>({ url: `/pet/pve/${runId}/cancel`, method: 'POST' }),
 
-  /** 我的赛季通行证（无进行中赛季 seasonId=null） */
-  getSeasonPass: () => request<PetSeasonPass>({ url: '/pet/season/pass' }),
+  /** 我的赛季通行证（无进行中赛季 seasonId=null）；传 seasonId 查历史赛季 */
+  getSeasonPass: (seasonId?: number | string) =>
+    request<PetSeasonPass>({ url: `/pet/season/pass${seasonId != null ? '/' + seasonId : ''}` }),
+  /** T19：我参与过的赛季列表（当前+历史，按结束时间倒序；赛季选择器数据源） */
+  getSeasonPassSeasons: () => request<PetSeason[]>({ url: '/pet/season/pass/seasons' }),
   /** 领取通行证档位奖励（达标 CAS；requestKey 支持可恢复交付，返回领取后的通行证） */
-  claimSeasonPassTier: (tier: number, requestKey?: string) =>
-    request<PetSeasonPass>({ url: `/pet/season/pass/claim${buildQuery({ tier, requestKey })}`, method: 'POST' }),
+  claimSeasonPassTier: (tier: number, requestKey?: string, seasonId?: number | string) =>
+    request<PetSeasonPass>({ url: `/pet/season/pass/claim${buildQuery({ tier, requestKey, seasonId })}`, method: 'POST' }),
 
   /** 核销实物商品兑换码 → 双倍喂食权益（同 requestKey 重放返回原操作；码须先在 coupon 侧由本人兑换） */
   redeemLinkedProduct: (data: { redemptionCode: string; requestKey?: string }) =>
@@ -1091,6 +1100,19 @@ export interface PetDailyQuestPanel {
   chestExp: number
   chestCurrency: number  /** PET-09：任务集实体 ID（按集领取/深链接用） */
   setId?: string | null
+}
+
+/** PET-09/T19：任务集实体（历史任务列表/详情入口用） */
+export interface PetDailyQuestSet {
+  id: number
+  userId: number
+  petId: number
+  businessDate: string
+  timezone: string
+  /** ACTIVE=未过领取截止（可补领） / EXPIRED=已过截止 */
+  status: string
+  claimDeadline: string | null
+  chestClaimedAt: string | null
 }
 
 /** 关系项 */
@@ -1650,6 +1672,16 @@ export interface PetSeasonPass {
   /** 领奖截止（null=随赛季结束） */
   claimUntil: string | null
   seasonEndsAt: string | null
+}
+
+/** T19：赛季（赛季选择器数据源） */
+export interface PetSeason {
+  id: number
+  name: string
+  startsAt: string
+  endsAt: string
+  claimUntil: string | null
+  status: string
 }
 
 /** 实物商品核销操作状态（R01 可恢复台账） */

@@ -421,4 +421,39 @@ class PetSeasonPassServiceImplTest {
 
         assertThat(vo.seasonId()).isNull();
     }
+
+    @Test
+    @DisplayName("T19：mySeasons 返回本人参与过的赛季（去重，按结束时间倒序）")
+    void mySeasons_returnsParticipatedSeasons() {
+        PetSeasonPass p1 = new PetSeasonPass();
+        p1.setSeasonId(1L);
+        PetSeasonPass p2 = new PetSeasonPass();
+        p2.setSeasonId(2L);
+        PetSeasonPass p3 = new PetSeasonPass();
+        p3.setSeasonId(2L); // 同赛季多行（多档领取），去重
+        when(passMapper.selectList(any())).thenReturn(List.of(p1, p2, p3));
+
+        PetSeason s1 = new PetSeason();
+        s1.setId(1L);
+        s1.setName("S1");
+        PetSeason s2 = new PetSeason();
+        s2.setId(2L);
+        s2.setName("S2");
+        when(seasonMapper.selectList(any())).thenReturn(List.of(s2, s1));
+
+        List<PetSeason> seasons = service.mySeasons(USER_ID);
+
+        assertThat(seasons).hasSize(2);
+        assertThat(seasons.get(0).getName()).isEqualTo("S2");
+        assertThat(seasons.get(1).getName()).isEqualTo("S1");
+    }
+
+    @Test
+    @DisplayName("T19：mySeasons 无参与记录 → 空列表（不返回从未参与的空赛季）")
+    void mySeasons_noParticipation_empty() {
+        when(passMapper.selectList(any())).thenReturn(List.of());
+
+        assertThat(service.mySeasons(USER_ID)).isEmpty();
+        verify(seasonMapper, never()).selectList(any());
+    }
 }

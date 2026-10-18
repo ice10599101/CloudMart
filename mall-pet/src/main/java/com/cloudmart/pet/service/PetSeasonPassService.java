@@ -14,6 +14,12 @@ public interface PetSeasonPassService {
     PetSeasonPassVO seasonPass(Long userId, Long seasonId);
 
     /**
+     * T19：本人参与过的赛季列表（含当前与历史），按结束时间倒序——供前端赛季选择器。
+     * 只返回有通行证记录的赛季，不含从未参与的空赛季。
+     */
+    java.util.List<com.cloudmart.pet.entity.PetSeason> mySeasons(Long userId);
+
+    /**
      * 领取档位奖励（R05）：uk(season,user,tier) 权威裁决——并发领不同档互不覆盖，
      * 同档重复返回原状态；币/皮肤经奖励应用服务交付，失败留 CLAIM_PENDING 可恢复补发。
      *

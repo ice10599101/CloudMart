@@ -104,6 +104,24 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
         return seasonPassOf(season, userId);
     }
 
+    @Override
+    public List<PetSeason> mySeasons(Long userId) {
+        List<Long> seasonIds = passMapper.selectList(new LambdaQueryWrapper<PetSeasonPass>()
+                        .eq(PetSeasonPass::getUserId, userId)
+                        .select(PetSeasonPass::getSeasonId))
+                .stream()
+                .map(PetSeasonPass::getSeasonId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (seasonIds.isEmpty()) {
+            return List.of();
+        }
+        return seasonMapper.selectList(new LambdaQueryWrapper<PetSeason>()
+                .in(PetSeason::getId, seasonIds)
+                .orderByDesc(PetSeason::getEndsAt));
+    }
+
     // ==================== 领取 ====================
 
     @Override

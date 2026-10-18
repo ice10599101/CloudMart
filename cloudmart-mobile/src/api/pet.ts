@@ -225,6 +225,16 @@ export interface SeasonPassVO {
   tiers: Array<{ tier: number; requiredExp: number; reached: boolean; claimed: boolean; rewardDesc: string }>
 }
 
+/** T19：赛季（赛季选择器数据源） */
+export interface SeasonVO {
+  id: number
+  name: string
+  startsAt: string
+  endsAt: string
+  claimUntil: string | null
+  status: string
+}
+
 export interface PetShareCard {
   type: string
   title: string
@@ -693,11 +703,14 @@ export const petApi = {
   cancelPveRun: (runId: number | string) =>
       request<PveRunVO>({ url: `/pet/pve/${runId}/cancel`, method: 'POST' }),
 
-  /** 赛季通行证（§6）：我的通行证（无进行中赛季 seasonId=null） */
-  getSeasonPass: () => request<SeasonPassVO>({ url: '/pet/season/pass' }),
-  /** 领取通行证档位奖励（达标 CAS；返回领取后的通行证） */
-  claimSeasonPassTier: (tier: number) =>
-      request<SeasonPassVO>({ url: `/pet/season/pass/claim?tier=${tier}`, method: 'POST' }),
+  /** 赛季通行证（§6）：我的通行证（无进行中赛季 seasonId=null）；传 seasonId 查历史赛季 */
+  getSeasonPass: (seasonId?: number | string) =>
+      request<SeasonPassVO>({ url: `/pet/season/pass${seasonId != null ? '/' + seasonId : ''}` }),
+  /** T19：我参与过的赛季列表（当前+历史，按结束时间倒序） */
+  getSeasonPassSeasons: () => request<SeasonVO[]>({ url: '/pet/season/pass/seasons' }),
+  /** 领取通行证档位奖励（达标 CAS；返回领取后的通行证；seasonId 用于历史赛季补领） */
+  claimSeasonPassTier: (tier: number, seasonId?: number | string) =>
+      request<SeasonPassVO>({ url: `/pet/season/pass/claim?tier=${tier}${seasonId != null ? `&seasonId=${seasonId}` : ''}`, method: 'POST' }),
 
   getShareCard: (type: 'LEVEL_UP' | 'ACHIEVEMENT' | 'BOTTLE' | 'BATTLE' | 'DAILY' | 'COLLECTION') =>
     request<PetShareCard>({ url: '/pet/share/card', data: { type } }),
@@ -836,6 +849,12 @@ export const petApi = {
 
   /** 每日任务面板 */
   getDailyQuests: () => request<PetDailyQuestPanel>({ url: '/pet/daily-quests' }),
+  /** PET-09/T19：任务集列表（status=ACTIVE 可补领 / EXPIRED 历史 / 空=全部） */
+  getQuestSets: (status?: 'ACTIVE' | 'EXPIRED') =>
+      request<PetDailyQuestSet[]>({ url: `/pet/daily-quest-sets${status ? `?status=${status}` : ''}` }),
+  /** T19：任务集详情（历史任务/宽限期内可查） */
+  getQuestSetDetail: (setId: number | string) =>
+      request<PetDailyQuestPanel>({ url: `/pet/daily-quest-sets/${setId}` }),
   /** C14：任务集路由（setId/questId 均为实体 ID，唯一领奖路径） */
   claimDailyQuestInSet: (setId: number | string, questId: number | string) =>
     request<PetDailyQuestItem>({ url: `/pet/daily-quest-sets/${setId}/quests/${questId}/claim`, method: 'POST' }),
@@ -1139,6 +1158,19 @@ export interface PetDailyQuestPanel {
   chestExp: number
   chestCurrency: number  /** PET-09：任务集实体 ID（按集领取/深链接用） */
   setId?: string | null
+}
+
+/** PET-09/T19：任务集实体（历史任务列表/详情入口用） */
+export interface PetDailyQuestSet {
+  id: number
+  userId: number
+  petId: number
+  businessDate: string
+  timezone: string
+  /** ACTIVE=未过领取截止（可补领） / EXPIRED=已过截止 */
+  status: string
+  claimDeadline: string | null
+  chestClaimedAt: string | null
 }
 
 /** 关系项 */
