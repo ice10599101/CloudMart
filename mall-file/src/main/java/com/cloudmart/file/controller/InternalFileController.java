@@ -8,6 +8,7 @@ import com.cloudmart.file.entity.FileReference;
 import com.cloudmart.file.repository.FileReferenceMapper;
 import com.cloudmart.file.repository.FileAssetMapper;
 import com.cloudmart.file.service.FileAssetService;
+import com.cloudmart.file.service.FileDeletionService;
 import com.cloudmart.file.service.FileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,6 +48,7 @@ public class InternalFileController {
 
     private final FileAssetService fileAssetService;
     private final FileService fileService;
+    private final FileDeletionService fileDeletionService;
     private final com.cloudmart.file.repository.FileAssetMapper fileAssetMapper;
     private final FileReferenceMapper fileReferenceMapper;
 
@@ -155,10 +157,11 @@ public class InternalFileController {
 
     // ==================== ADMIN-04：管理员文件域（仅 owner_type=ADMIN） ====================
 
-    /** 后台资产视图（fileId 对外字符串；PUBLIC 资产返回可预览 URL） */
+    /** 后台资产视图（fileId 对外字符串；PUBLIC 资产返回可预览 URL；DELETING 附删除恢复信息） */
     public record AdminAssetView(String fileId, String originalName, String mime, Long sizeBytes,
                                  String visibility, String status, String purpose, Long createdBy,
-                                 Long refCount, String url, java.time.LocalDateTime createdAt) {
+                                 Long refCount, String url, java.time.LocalDateTime createdAt,
+                                 String deleteError, Integer deleteAttempts, java.time.LocalDateTime nextRetryAt) {
     }
 
     /** 后台资产分页视图 */
@@ -186,14 +189,11 @@ public class InternalFileController {
     }
 
     @DeleteMapping("/admin/{id}")
-    @Operation(summary = "管理员域资产删除", description = "仅 ADMIN 域；引用保护（被引用 409）+ CAS 关闭并发删除")
+    @Operation(summary = "管理员域资产删除", description = "仅 ADMIN 域；引用保护（被引用 409）+ CAS 关闭并发删除；"
+            + "卡在 DELETING 时重试物理删除")
     public ApiResponse<Void> deleteAdminAsset(@PathVariable("id") Long id) {
-        FileAssetService.AdminAssetRow row = fileAssetService.requireAdminAssetRow(id);
-        FileAsset deleting = fileAssetService.authorizeDelete(id, null, true);
-        fileService.deleteByStorageKey(deleting.getStorageKey());
-        fileAssetService.markDeleted(id);
-        log.info("管理员删除资产: fileId={}, purpose={}, createdBy={}",
-                row.fileId(), row.purpose(), row.createdBy());
+        fileDeletionService.deleteAdmin(id);
+        log.info("管理员删除资产: fileId={}", id);
         return ApiResponse.ok(null);
     }
 
@@ -202,7 +202,7 @@ public class InternalFileController {
                 ? fileService.publicUrlOf(row.storageKey()) : null;
         return new AdminAssetView(row.fileId(), row.originalName(), row.mime(), row.sizeBytes(),
                 row.visibility(), row.status(), row.purpose(), row.createdBy(), row.refCount(),
-                url, row.createdAt());
+                url, row.createdAt(), row.deleteError(), row.deleteAttempts(), row.nextRetryAt());
     }
 
     private void validateRequest(BindReferenceRequest request) {

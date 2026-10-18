@@ -43,5 +43,14 @@ public record AdminFileAssetRow(
         String url,
 
         @Schema(description = "上传时间")
-        LocalDateTime createdAt) {
+        LocalDateTime createdAt,
+
+        @Schema(description = "T27：删除失败原因（卡在 DELETING 时的最近一次错误）")
+        String deleteError,
+
+        @Schema(description = "T27：删除重试次数")
+        Integer deleteAttempts,
+
+        @Schema(description = "T27：下次重试时间（UTC）")
+        LocalDateTime nextRetryAt) {
 }

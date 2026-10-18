@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Upload, Button, Table, Popconfirm, Space, Card, Image, Select, Tag, Typography } from 'antd'
+import { Upload, Button, Table, Popconfirm, Space, Card, Image, Select, Tag, Typography, Tooltip } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { UploadOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons'
 import { deleteAdminFileAsset, pageAdminFileAssets, type AdminFileAssetRow } from '@/api/admin/file'
@@ -23,7 +23,7 @@ const PURPOSE_OPTIONS = [
 
 const STATUS_META: Record<string, { text: string; color: string }> = {
   READY: { text: '可用', color: 'green' },
-  DELETING: { text: '删除中', color: 'orange' },
+  DELETING: { text: '删除中·需处理', color: 'orange' },
   DELETED: { text: '已删除', color: 'default' },
 }
 
@@ -43,13 +43,14 @@ export default function FileUpload() {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [purpose, setPurpose] = useState('ADMIN_ASSET')
+  const [status, setStatus] = useState<string | undefined>(undefined)
   const [previewUrl, setPreviewUrl] = useState('')
   const [previewOpen, setPreviewOpen] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const { data: res } = await pageAdminFileAssets({ page, size: pageSize })
+      const { data: res } = await pageAdminFileAssets({ page, size: pageSize, status })
       if (res.success) {
         setRows(res.data?.items ?? [])
         setTotal(res.data?.total ?? 0)
@@ -61,7 +62,7 @@ export default function FileUpload() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, message])
+  }, [page, pageSize, status, message])
 
   useEffect(() => {
     void load()
@@ -85,17 +86,18 @@ export default function FileUpload() {
   }
 
   const handleDelete = async (row: AdminFileAssetRow) => {
+    const retry = row.status === 'DELETING'
     try {
       const { data: res } = await deleteAdminFileAsset(row.fileId)
       if (!res.success) {
-        message.error(res.error?.message ?? '删除失败')
+        message.error(res.error?.message ?? (retry ? '重试删除失败' : '删除失败'))
         return
       }
       message.success('已删除')
       await load()
     } catch (error) {
       // 被引用时服务端 409，message 为明确原因
-      message.error((error as Error).message || '删除失败（文件可能仍被业务引用）')
+      message.error((error as Error).message || (retry ? '重试删除失败' : '删除失败（文件可能仍被业务引用）'))
     }
   }
 
@@ -147,10 +149,32 @@ export default function FileUpload() {
     {
       title: '状态',
       dataIndex: 'status',
-      width: 90,
-      render: (value: string) => {
+      width: 130,
+      render: (value: string, row) => {
         const meta = STATUS_META[value] ?? { text: value, color: 'default' }
-        return <Tag color={meta.color}>{meta.text}</Tag>
+        const tag = <Tag color={meta.color}>{meta.text}</Tag>
+        if (value === 'DELETING' && row.deleteError) {
+          return (
+            <Tooltip
+              title={
+                <span>
+                  失败原因：{row.deleteError}
+                  <br />
+                  已重试 {row.deleteAttempts ?? 0} 次
+                  {row.nextRetryAt ? (
+                    <>
+                      <br />
+                      下次重试：{row.nextRetryAt}
+                    </>
+                  ) : null}
+                </span>
+              }
+            >
+              {tag}
+            </Tooltip>
+          )
+        }
+        return tag
       },
     },
     {
@@ -169,23 +193,27 @@ export default function FileUpload() {
     {
       title: '操作',
       key: 'actions',
-      width: 90,
-      render: (_, row) => (
-        <Popconfirm
-          title="确认删除该文件？被业务引用的文件无法删除"
-          onConfirm={() => handleDelete(row)}
-        >
-          <Button
-            type="link"
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            disabled={row.status !== 'READY'}
+      width: 110,
+      render: (_, row) => {
+        const retry = row.status === 'DELETING'
+        const disabled = row.status !== 'READY' && !retry
+        return (
+          <Popconfirm
+            title={retry ? '重试删除该文件？' : '确认删除该文件？被业务引用的文件无法删除'}
+            onConfirm={() => handleDelete(row)}
           >
-            删除
-          </Button>
-        </Popconfirm>
-      ),
+            <Button
+              type="link"
+              size="small"
+              danger={!retry}
+              icon={retry ? <ReloadOutlined /> : <DeleteOutlined />}
+              disabled={disabled}
+            >
+              {retry ? '重试删除' : '删除'}
+            </Button>
+          </Popconfirm>
+        )
+      },
     },
   ]
 
@@ -220,7 +248,32 @@ export default function FileUpload() {
         </Space>
       </Card>
 
-      <Card title="资产列表" style={{ marginTop: 16 }}>
+      <Card
+        title="资产列表"
+        style={{ marginTop: 16 }}
+        extra={
+          <Space>
+            <Select
+              allowClear
+              placeholder="全部状态"
+              style={{ width: 160 }}
+              value={status}
+              onChange={(value) => {
+                setPage(1)
+                setStatus(value)
+              }}
+              options={[
+                { value: 'READY', label: '可用' },
+                { value: 'DELETING', label: '删除中·需处理' },
+                { value: 'DELETED', label: '已删除' },
+              ]}
+            />
+            <Button icon={<ReloadOutlined />} onClick={() => void load()}>
+              刷新
+            </Button>
+          </Space>
+        }
+      >
         <Table
           rowKey="fileId"
           loading={loading}

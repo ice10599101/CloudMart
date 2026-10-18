@@ -4,6 +4,7 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.common.handler.GlobalExceptionHandler;
 import com.cloudmart.file.entity.FileAsset;
 import com.cloudmart.file.service.FileAssetService;
+import com.cloudmart.file.service.FileDeletionService;
 import com.cloudmart.file.service.FileService;
 import com.cloudmart.file.service.UploadQuotaService;
 import org.junit.jupiter.api.AfterEach;
@@ -45,13 +46,14 @@ class FileControllerTest {
     private final FileService fileService = Mockito.mock(FileService.class);
     private final UploadQuotaService uploadQuotaService = Mockito.mock(UploadQuotaService.class);
     private final FileAssetService fileAssetService = Mockito.mock(FileAssetService.class);
+    private final FileDeletionService fileDeletionService = Mockito.mock(FileDeletionService.class);
 
     @BeforeEach
     void setUp() {
         // persist 需 sha256 参数；mock 默认返回 null 会绕过 anyString() 匹配
         given(fileAssetService.sha256Hex(any())).willReturn("a".repeat(64));
         mockMvc = MockMvcBuilders.standaloneSetup(new FileController(fileService, uploadQuotaService,
-                fileAssetService))
+                fileAssetService, fileDeletionService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -143,16 +145,13 @@ class FileControllerTest {
     }
 
     @Test
-    @DisplayName("S01 引用登记协议：删除走归属授权 + DELETING CAS + 按 storageKey 回收实物")
+    @DisplayName("S01 引用登记协议：删除走 FileDeletionService 编排（归属授权 + CAS + 实物回收）")
     void deleteAsset_authorized_RecyclesPhysicalFile() throws Exception {
-        given(fileAssetService.authorizeDelete(42L, 10001L, false)).willReturn(asset(42L, "PUBLIC"));
-
         mockMvc.perform(delete("/assets/42").header("X-User-Id", "10001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(fileService).deleteByStorageKey("PUBLIC/pic/20261001/test42.jpg");
-        verify(fileAssetService).markDeleted(42L);
+        verify(fileDeletionService).delete(42L, 10001L, false);
     }
 
     @Test

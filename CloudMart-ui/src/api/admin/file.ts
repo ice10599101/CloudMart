@@ -19,6 +19,12 @@ export interface AdminFileAssetRow {
   /** PUBLIC 资产可预览 URL；PRIVATE 为 null */
   url: string | null
   createdAt: string
+  /** T27：删除失败原因（卡在 DELETING 时） */
+  deleteError?: string | null
+  /** T27：删除重试次数 */
+  deleteAttempts?: number | null
+  /** T27：下次重试时间（UTC） */
+  nextRetryAt?: string | null
 }
 
 export interface AdminFileAssetPage {

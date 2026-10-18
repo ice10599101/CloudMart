@@ -160,6 +160,47 @@ class FileAssetServiceTest {
     }
 
     @Test
+    @DisplayName("T27 恢复：卡在 DELETING 的资产按归属者返回供重试，不重复 CAS/引用检查")
+    void authorizeDelete_deleting_resume() {
+        FileAsset asset = ownedAsset(42L);
+        asset.setStatus("DELETING");
+        when(fileAssetMapper.selectByIdForUpdate(100L)).thenReturn(asset);
+
+        FileAsset resumed = service.authorizeDelete(100L, 42L, false);
+
+        assertThat(resumed).isSameAs(asset);
+        assertThat(resumed.getStatus()).isEqualTo("DELETING");
+        verify(fileAssetMapper, never()).markDeleting(anyLong());
+        verify(fileReferenceMapper, never()).selectCount(any());
+    }
+
+    @Test
+    @DisplayName("T27 幂等：已 DELETED 资产归属者重复删除返回 null，他人视作不存在")
+    void authorizeDelete_deleted_idempotent() {
+        FileAsset asset = ownedAsset(42L);
+        asset.setStatus("DELETED");
+        when(fileAssetMapper.selectByIdForUpdate(100L)).thenReturn(asset);
+
+        // 归属者：幂等成功（返回 null，无需再物理删除）
+        assertThat(service.authorizeDelete(100L, 42L, false)).isNull();
+
+        // 非归属者：不泄露存在性
+        assertThatThrownBy(() -> service.authorizeDelete(100L, 99L, false))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "FILE_NOT_FOUND");
+    }
+
+    @Test
+    @DisplayName("T27 收口：markDeleted 走 CAS DELETING→DELETED，markDeleteFailed 记录错误")
+    void markDeletedAndFailed_delegateToCas() {
+        service.markDeleted(100L);
+        verify(fileAssetMapper).markDeleted(100L);
+
+        service.markDeleteFailed(100L, "minio down");
+        verify(fileAssetMapper).markDeleteFailed(eq(100L), eq("minio down"));
+    }
+
+    @Test
     @DisplayName("私有附件：归属者可取签名 URL，他人被拒")
     void buildDownloadPath_private_ownerOnly() {
         when(fileAssetMapper.selectById(100L)).thenReturn(ownedAsset(42L));

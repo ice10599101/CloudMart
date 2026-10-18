@@ -44,8 +44,17 @@ public class FileAsset {
     /** PUBLIC / PRIVATE */
     private String visibility;
 
-    /** READY / DELETED / LEGACY_UNCLAIMED */
+    /** READY / DELETING / DELETED / LEGACY_UNCLAIMED */
     private String status;
+
+    /** T27：删除失败原因（卡在 DELETING 时的最近一次错误，恢复扫描/后台展示用） */
+    private String deleteError;
+
+    /** T27：删除重试次数（恢复扫描指数退避与后台展示用） */
+    private Integer deleteAttempts;
+
+    /** T27：下次重试时间（UTC；NULL=立即可重试） */
+    private LocalDateTime nextRetryAt;
 
     private LocalDateTime createdAt;
 

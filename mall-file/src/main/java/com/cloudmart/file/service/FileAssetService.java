@@ -99,7 +99,8 @@ public class FileAssetService {
     /** ADMIN-04：管理员域资产行（storageKey 仅服务内部使用，对外由控制器转 URL） */
     public record AdminAssetRow(String fileId, String originalName, String mime, Long sizeBytes,
                                 String visibility, String status, String purpose, Long createdBy,
-                                Long refCount, String storageKey, LocalDateTime createdAt) {
+                                Long refCount, String storageKey, LocalDateTime createdAt,
+                                String deleteError, Integer deleteAttempts, LocalDateTime nextRetryAt) {
     }
 
     /** ADMIN-04：管理员域资产分页结果 */
@@ -152,7 +153,8 @@ public class FileAssetService {
     private AdminAssetRow toAdminRow(FileAsset asset, long refCount) {
         return new AdminAssetRow(String.valueOf(asset.getId()), asset.getOriginalName(), asset.getMime(),
                 asset.getSizeBytes(), asset.getVisibility(), asset.getStatus(), asset.getPurpose(),
-                asset.getCreatedBy(), refCount, asset.getStorageKey(), asset.getCreatedAt());
+                asset.getCreatedBy(), refCount, asset.getStorageKey(), asset.getCreatedAt(),
+                asset.getDeleteError(), asset.getDeleteAttempts(), asset.getNextRetryAt());
     }
 
     /** 批量引用数：{assetId: count}（单次 GROUP BY） */
@@ -178,18 +180,38 @@ public class FileAssetService {
     /**
      * 按资产 ID 删除：归属者或管理员；被业务引用返回 409；无主资产仅管理员。
      * 物理文件删除由调用方（FileService）按 storageKey 执行。
+     *
+     * <p>T27 删除可恢复：</p>
+     * <ul>
+     *   <li>DELETED → 返回 {@code null}（归属者/管理员重复删除幂等成功；他人视作不存在）；</li>
+     *   <li>DELETING → 返回该资产，供调用方重试物理删除（引用已在首次转 DELETING 时确认归零，
+     *       不恢复 READY 让新引用进入）；</li>
+     *   <li>READY → 引用检查 + CAS READY→DELETING。</li>
+     * </ul>
      */
     public FileAsset authorizeDelete(Long fileId, Long requesterId, boolean isAdmin) {
         // T15：资产行锁内检查——与 bindReference 同一行锁协议，"查引用后、删除前"
         // 新增引用的竞争窗口被锁序列化关闭
         FileAsset asset = fileAssetMapper.selectByIdForUpdate(fileId);
-        if (asset == null || "DELETED".equals(asset.getStatus()) || "DELETING".equals(asset.getStatus())) {
+        if (asset == null) {
             throw new BusinessException("FILE_NOT_FOUND", "文件不存在");
         }
         boolean owner = asset.getOwnerId() != null && asset.getOwnerId().equals(requesterId);
         boolean unclaimed = asset.getOwnerId() == null;
-        if (unclaimed ? !isAdmin : !owner && !isAdmin) {
+        boolean authorized = unclaimed ? isAdmin : owner || isAdmin;
+        if ("DELETED".equals(asset.getStatus())) {
+            // T27 幂等：归属者/管理员重复删除返回成功；他人视作不存在（不泄露存在性）
+            if (authorized) {
+                return null;
+            }
+            throw new BusinessException("FILE_NOT_FOUND", "文件不存在");
+        }
+        if (!authorized) {
             throw new BusinessException("FILE_FORBIDDEN", "无权删除该文件");
+        }
+        if ("DELETING".equals(asset.getStatus())) {
+            // T27 恢复：物理删除未完成，返回该资产供重试
+            return asset;
         }
         Long references = fileReferenceMapper.selectCount(
                 new LambdaQueryWrapper<com.cloudmart.file.entity.FileReference>()
@@ -261,13 +283,24 @@ public class FileAssetService {
         fileAssetMapper.updateById(asset);
     }
 
-    /** 删除后标记台账状态（保留审计记录，不物理删除台账行） */
+    /** 删除后标记台账状态（T27：CAS DELETING→DELETED，保留审计记录，不物理删除台账行） */
     public void markDeleted(Long fileId) {
-        FileAsset asset = fileAssetMapper.selectById(fileId);
-        if (asset != null) {
-            asset.setStatus("DELETED");
-            fileAssetMapper.updateById(asset);
-        }
+        fileAssetMapper.markDeleted(fileId);
+    }
+
+    /**
+     * T27：删除失败登记——保持 DELETING（不放回 READY），记录失败原因并指数退避下次重试。
+     * 已 DELETED 或非 DELETING 时影响 0 行（幂等安全）。
+     */
+    public void markDeleteFailed(Long fileId, String error) {
+        fileAssetMapper.markDeleteFailed(fileId, error == null ? "删除失败" : error);
+    }
+
+    /**
+     * T27：恢复扫描——选出到期可重试的 DELETING 资产（next_retry_at 为空或已到期），限量分批。
+     */
+    public java.util.List<FileAsset> listDueDeleting(LocalDateTime before, int limit) {
+        return fileAssetMapper.selectDueDeleting(before, limit);
     }
 
     public FileAsset requireAsset(Long fileId) {

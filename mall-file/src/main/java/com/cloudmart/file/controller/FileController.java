@@ -5,6 +5,7 @@ import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.file.entity.FileAsset;
 import com.cloudmart.file.service.FileAssetService;
+import com.cloudmart.file.service.FileDeletionService;
 import com.cloudmart.file.service.FileService;
 import com.cloudmart.file.service.UploadQuotaService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -48,12 +49,14 @@ public class FileController {
     private final FileService fileService;
     private final UploadQuotaService uploadQuotaService;
     private final FileAssetService fileAssetService;
+    private final FileDeletionService fileDeletionService;
 
     public FileController(FileService fileService, UploadQuotaService uploadQuotaService,
-                          FileAssetService fileAssetService) {
+                          FileAssetService fileAssetService, FileDeletionService fileDeletionService) {
         this.fileService = fileService;
         this.uploadQuotaService = uploadQuotaService;
         this.fileAssetService = fileAssetService;
+        this.fileDeletionService = fileDeletionService;
     }
 
     /**
@@ -128,6 +131,8 @@ public class FileController {
                 try {
                     fileService.deleteByStorageKey(storageKey);
                 } catch (Exception cleanupError) {
+                    // T27：清理实物失败登记回收义务（不再只记日志），后续恢复扫描兜底回收
+                    fileDeletionService.registerOrphan(storageKey, "UPLOAD_CLEANUP_FAILED");
                     org.slf4j.LoggerFactory.getLogger(FileController.class)
                             .error("上传失败清理实物异常, storageKey={}: {}", storageKey, cleanupError.getMessage());
                 }
@@ -147,9 +152,7 @@ public class FileController {
             @Parameter(description = "用户 ID（已验签令牌主体）", hidden = true)
             @RequestHeader(value = SecurityConstants.USER_ID_HEADER, required = false) String userId) {
         Long requesterId = userId == null || userId.isBlank() ? null : Long.valueOf(userId);
-        FileAsset asset = fileAssetService.authorizeDelete(id, requesterId, isAdminRequest());
-        fileService.deleteByStorageKey(asset.getStorageKey());
-        fileAssetService.markDeleted(id);
+        fileDeletionService.delete(id, requesterId, isAdminRequest());
         return ApiResponse.ok(null);
     }
 
