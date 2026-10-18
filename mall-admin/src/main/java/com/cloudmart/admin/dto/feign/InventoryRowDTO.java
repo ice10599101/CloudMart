@@ -22,5 +22,10 @@ public record InventoryRowDTO(
     Integer lockedStock,
     /** 乐观锁版本（调整单 CAS 前置条件，前端展示与提交） */
     Integer version,
-    LocalDateTime updatedAt
+    LocalDateTime updatedAt,
+    /**
+     * T12：商品信息补齐结果——OK（已补齐）/ MISSING（SKU 不存在或已删除，仅缺展示信息）/
+     * UNAVAILABLE（商品服务不可用，前端显示“商品信息暂不可用”而不是空白成功）
+     */
+    String productInfoStatus
 ) {}

@@ -203,6 +203,8 @@ export interface InventoryRow {
   lockedStock: number
   version: number
   updatedAt: string
+  /** T12：OK 已补齐 / MISSING 商品已删除或下架 / UNAVAILABLE 商品服务不可用 */
+  productInfoStatus?: 'OK' | 'MISSING' | 'UNAVAILABLE'
 }
 
 export interface InventoryAdjustment {

@@ -167,8 +167,17 @@ export default function Inventory() {
       dataIndex: 'productName',
       width: 180,
       ellipsis: true,
-      render: (_, record) =>
-        record.productName ?? <span style={{ color: 'var(--color-text-tertiary)' }}>-</span>,
+      render: (_, record) => {
+        if (record.productName) return record.productName
+        // T12：区分“商品服务不可用”和“SKU 已删除/下架”，不用空白成功掩盖
+        if (record.productInfoStatus === 'UNAVAILABLE') {
+          return <span style={{ color: 'var(--color-warning)' }}>商品信息暂不可用</span>
+        }
+        if (record.productInfoStatus === 'MISSING') {
+          return <span style={{ color: 'var(--color-text-tertiary)' }}>SKU 已删除或下架</span>
+        }
+        return <span style={{ color: 'var(--color-text-tertiary)' }}>-</span>
+      },
     },
     {
       title: 'SKU 规格',

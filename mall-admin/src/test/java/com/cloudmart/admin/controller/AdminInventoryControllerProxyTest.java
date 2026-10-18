@@ -10,6 +10,7 @@ import com.cloudmart.admin.dto.feign.SkuBatchDTO;
 import com.cloudmart.admin.dto.feign.SkuDTO;
 import com.cloudmart.admin.feign.InventoryFeignClient;
 import com.cloudmart.admin.feign.ProductFeignClient;
+import com.cloudmart.admin.feign.ProductSkuQueryFeignClient;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,12 +42,15 @@ class AdminInventoryControllerProxyTest {
     private InventoryFeignClient inventoryFeignClient;
     @Mock
     private ProductFeignClient productFeignClient;
+    @Mock
+    private ProductSkuQueryFeignClient productSkuQueryFeignClient;
 
     private AdminInventoryController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new AdminInventoryController(inventoryFeignClient, productFeignClient);
+        controller = new AdminInventoryController(inventoryFeignClient, productFeignClient,
+                productSkuQueryFeignClient);
     }
 
     private ProductDTO productWithSkus(Long productId, List<Long> skuIds) {
@@ -116,7 +120,7 @@ class AdminInventoryControllerProxyTest {
         when(inventoryFeignClient.listInventory(null, 1, 20)).thenReturn(ApiResponse.ok(
                 List.of(inventoryRow(11L), inventoryRow(22L)),
                 new ApiResponse.Meta(1, 20, 2L)));
-        when(productFeignClient.getSkusBatch(List.of(11L, 22L))).thenReturn(ApiResponse.ok(List.of(
+        when(productSkuQueryFeignClient.getSkusBatch(List.of(11L, 22L))).thenReturn(ApiResponse.ok(List.of(
                 new SkuBatchDTO(11L, 7L, "测试商品", null, null, 1, "红色"),
                 new SkuBatchDTO(22L, 8L, "另一商品", null, null, 1, "蓝色"))));
 
@@ -127,7 +131,24 @@ class AdminInventoryControllerProxyTest {
         assertThat(response.data().get(0).skuSpec()).isEqualTo("红色");
         assertThat(response.data().get(0).availableStock()).isEqualTo(100);
         assertThat(response.data().get(1).productName()).isEqualTo("另一商品");
+        assertThat(response.data().get(0).productInfoStatus()).isEqualTo("OK");
         assertThat(response.meta()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("T12：SKU 已删除/下架时保留库存事实并标记 MISSING")
+    void list_missingSku_marksMissing() {
+        when(inventoryFeignClient.listInventory(null, 1, 20))
+                .thenReturn(ApiResponse.ok(List.of(inventoryRow(11L), inventoryRow(99L))));
+        when(productSkuQueryFeignClient.getSkusBatch(List.of(11L, 99L))).thenReturn(ApiResponse.ok(List.of(
+                new SkuBatchDTO(11L, 7L, "测试商品", null, null, 1, "红色"))));
+
+        ApiResponse<List<InventoryRowDTO>> response = controller.listInventory(null, 1, 20);
+
+        assertThat(response.data()).hasSize(2);
+        assertThat(response.data().get(1).productInfoStatus()).isEqualTo("MISSING");
+        assertThat(response.data().get(1).productName()).isNull();
+        assertThat(response.data().get(1).availableStock()).isEqualTo(100);
     }
 
     @Test
@@ -135,7 +156,7 @@ class AdminInventoryControllerProxyTest {
     void list_enrichFailure_degradesGracefully() {
         when(inventoryFeignClient.listInventory(null, 1, 20))
                 .thenReturn(ApiResponse.ok(List.of(inventoryRow(11L))));
-        when(productFeignClient.getSkusBatch(any())).thenThrow(
+        when(productSkuQueryFeignClient.getSkusBatch(any())).thenThrow(
                 new BusinessException("PRODUCT_SERVICE_UNAVAILABLE", "商品服务不可用"));
 
         ApiResponse<List<InventoryRowDTO>> response = controller.listInventory(null, 1, 20);
@@ -143,6 +164,8 @@ class AdminInventoryControllerProxyTest {
         assertThat(response.success()).isTrue();
         assertThat(response.data()).hasSize(1);
         assertThat(response.data().get(0).productName()).isNull();
+        // T12：降级必须显式标记，前端据此显示“商品信息暂不可用”，不空白成功
+        assertThat(response.data().get(0).productInfoStatus()).isEqualTo("UNAVAILABLE");
         assertThat(response.data().get(0).availableStock()).isEqualTo(100);
     }
 }

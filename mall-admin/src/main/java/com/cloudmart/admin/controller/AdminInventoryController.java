@@ -9,6 +9,7 @@ import com.cloudmart.admin.dto.feign.ProductDTO;
 import com.cloudmart.admin.dto.feign.SkuBatchDTO;
 import com.cloudmart.admin.feign.InventoryFeignClient;
 import com.cloudmart.admin.feign.ProductFeignClient;
+import com.cloudmart.admin.feign.ProductSkuQueryFeignClient;
 import com.cloudmart.common.annotation.OperLog;
 import com.cloudmart.common.annotation.RequiresPermission;
 import com.cloudmart.common.api.ApiResponse;
@@ -46,6 +47,8 @@ public class AdminInventoryController {
 
     private final InventoryFeignClient inventoryFeignClient;
     private final ProductFeignClient productFeignClient;
+    /** T12：商品只读批量查询（base=/products），与后台 CRUD 客户端分离 */
+    private final ProductSkuQueryFeignClient productSkuQueryFeignClient;
 
     // ==================== 库存 ====================
 
@@ -112,28 +115,40 @@ public class AdminInventoryController {
 
     // ==================== 私有辅助 ====================
 
-    /** 批量补齐商品名/SKU 规格：一次 /skus/batch 调用；商品服务异常降级为空名（不阻断库存事实） */
+    /**
+     * 批量补齐商品名/SKU 规格：一次 `/products/skus/batch` 调用（T12：独立 base，不再打
+     * 不存在的 /admin/products/skus/batch）。降级不阻断库存事实，但必须显式标记
+     * productInfoStatus，前端据此显示“商品信息暂不可用”或“SKU 已删除”。
+     */
     private List<InventoryRowDTO> enrichWithProductInfo(List<InventoryDTO> rows) {
         List<Long> skuIds = rows.stream().map(InventoryDTO::skuId).filter(java.util.Objects::nonNull).toList();
         Map<Long, SkuBatchDTO> skuInfo = new HashMap<>();
+        boolean productQueryOk = true;
         if (!skuIds.isEmpty()) {
             try {
-                ApiResponse<List<SkuBatchDTO>> batch = productFeignClient.getSkusBatch(skuIds);
-                if (batch.success() && batch.data() != null) {
-                    batch.data().forEach(sku -> skuInfo.put(sku.skuId(), sku));
+                ApiResponse<List<SkuBatchDTO>> batch = productSkuQueryFeignClient.getSkusBatch(skuIds);
+                if (batch != null && batch.success() && batch.data() != null) {
+                    batch.data().stream().filter(java.util.Objects::nonNull)
+                            .forEach(sku -> skuInfo.put(sku.skuId(), sku));
+                } else {
+                    productQueryOk = false;
                 }
             } catch (Exception degrade) {
-                log.warn("库存列表补名失败（降级返回无名称事实行）: {}", degrade.getMessage());
+                productQueryOk = false;
+                log.warn("库存列表补名失败（商品信息服务异常）: {}", degrade.getMessage());
             }
         }
+        boolean queryOk = productQueryOk;
         return rows.stream()
                 .map(row -> {
                     SkuBatchDTO info = skuInfo.get(row.skuId());
+                    String status = info != null ? "OK" : (queryOk ? "MISSING" : "UNAVAILABLE");
                     return new InventoryRowDTO(
                             row.id(), row.productId(), row.skuId(),
                             info == null ? null : info.productName(),
                             info == null ? null : info.attributes(),
-                            row.availableStock(), row.lockedStock(), row.version(), row.updatedAt());
+                            row.availableStock(), row.lockedStock(), row.version(), row.updatedAt(),
+                            status);
                 })
                 .toList();
     }
