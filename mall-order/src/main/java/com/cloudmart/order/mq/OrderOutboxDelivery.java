@@ -27,11 +27,19 @@ public class OrderOutboxDelivery implements OutboxDelivery {
 
     @Override
     public String destination(EventEnvelope envelope) {
+        if ("ORDER_ZERO_PAY".equals(envelope.eventType())) {
+            // T18：零元单审计留痕事件，无下游消费方，仅落 Outbox 事实，不投递 MQ
+            return "audit-local:ORDER_ZERO_PAY";
+        }
         return RocketMQConfig.ORDER_TOPIC + ":" + tagFor(envelope.eventType());
     }
 
     @Override
     public void deliver(EventEnvelope envelope) {
+        if ("ORDER_ZERO_PAY".equals(envelope.eventType())) {
+            log.info("[T18] 零元单审计事件本地完成（不投递 MQ） orderId={}", envelope.aggregateId());
+            return;
+        }
         try {
             Map<String, Object> body = new HashMap<>();
             body.put("eventId", envelope.eventId());

@@ -40,7 +40,7 @@ public interface XxlJobQueryMapper {
     @Select("SELECT executor_handler AS executorHandler FROM xxl_job.xxl_job_info WHERE id = #{id}")
     String handlerById(@Param("id") long id);
 
-    @Select("SELECT log_id AS logId, job_group AS jobGroup, job_id AS jobId, "
+    @Select("SELECT id AS logId, job_group AS jobGroup, job_id AS jobId, "
             + "executor_address AS executorAddress, executor_handler AS executorHandler, "
             + "trigger_time AS triggerTime, trigger_code AS triggerCode, trigger_msg AS triggerMsg, "
             + "handle_time AS handleTime, handle_code AS handleCode, handle_msg AS handleMsg "

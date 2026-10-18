@@ -143,6 +143,8 @@ cloudmart:
     # T19：收货入库出站签名（iss=mall-wms, aud=mall-inventory, scope=inventory:trade）
     outbound-scopes:
       mall-inventory: inventory:trade
+      # WMS-01：出库前查询订单权威状态（/internal/orders/{id}，fail-closed）
+      mall-order: order:internal
 
 # E03：公开文档按需关闭——生产部署注入 SPRINGDOC_API_DOCS_ENABLED=false 与
 # SPRINGDOC_SWAGGER_UI_ENABLED=false；dev/test 保持默认开启

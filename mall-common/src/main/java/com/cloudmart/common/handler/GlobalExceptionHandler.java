@@ -170,7 +170,9 @@ public class GlobalExceptionHandler {
                  "SOFTWARE_PAYMENT_ACCESS_REQUIRED",
                  // 小答软件（11.2）：功能开关关闭（总开关/获取链接/P1 订阅/榜单）
                  "SOFTWARE_DISABLED", "SOFTWARE_RESOLVE_DISABLED",
-                 "SOFTWARE_SUBSCRIPTION_DISABLED", "SOFTWARE_RANKINGS_DISABLED" -> HttpStatus.FORBIDDEN;
+                 "SOFTWARE_SUBSCRIPTION_DISABLED", "SOFTWARE_RANKINGS_DISABLED",
+                 // 文件服务：非归属/非管理员操作统一 403（原落 400，与“越权=403”语义不符）
+                 "FILE_FORBIDDEN" -> HttpStatus.FORBIDDEN;
             case "USER_NOT_FOUND", "ROLE_NOT_FOUND", "MENU_NOT_FOUND",
                  "ACTIVITY_NOT_FOUND", "PRODUCT_NOT_FOUND", "TABLE_NOT_FOUND",
                  "ORDER_NOT_FOUND", "COUPON_NOT_FOUND", "TAG_NOT_FOUND",
@@ -260,7 +262,9 @@ public class GlobalExceptionHandler {
                  // 小答软件（7.6）：并发/过期/来源不可用 409
                  "SOFTWARE_VERSION_CONFLICT", "SOFTWARE_STATE_CONFLICT", "SOFTWARE_SUBMIT_STALE",
                  "SOFTWARE_OPERATION_CONFLICT", "SOFTWARE_SOURCE_STALE",
-                 "SOFTWARE_SOURCE_UNAVAILABLE", "SOFTWARE_ACCESS_CONTACT_UNAVAILABLE" -> HttpStatus.CONFLICT;
+                 "SOFTWARE_SOURCE_UNAVAILABLE", "SOFTWARE_ACCESS_CONTACT_UNAVAILABLE",
+                 // 报价失效/不可用、文件被业务引用：均为并发/状态冲突，契约 409（原落 400）
+                 "QUOTE_STALE", "QUOTE_NOT_AVAILABLE", "FILE_REFERENCED" -> HttpStatus.CONFLICT;
             case "WISH_RATE_LIMITED", "WISH_AI_RATE_LIMITED", "UPLOAD_DAILY_LIMIT_EXCEEDED",
                  "PET_AI_RATE_LIMITED", "PET_INTERACTION_RATE_LIMITED", "PET_WALL_RATE_LIMITED",
                  "PET_QUOTA_EXHAUSTED",
