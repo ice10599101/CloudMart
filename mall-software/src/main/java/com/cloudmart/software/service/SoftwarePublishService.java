@@ -32,6 +32,13 @@ public interface SoftwarePublishService {
     SoftwareEditorVO saveDraft(Long userId, Long softwareId, Long revisionId,
                                SoftwareSnapshotInput input);
 
+    /**
+     * SW02 局部保存：仅提交用户实际修改的字段，缺省字段保持数据库现值。
+     * 集合字段出现即整体替换；显式 null 仅用于清空可空标量。
+     */
+    SoftwareEditorVO patchDraft(Long userId, Long softwareId, Long revisionId,
+                                tools.jackson.databind.JsonNode patch);
+
     /** 提交审核（资格+开关）：先远程审核绑定结果，再短事务冻结 PENDING，返回 submitSeq */
     SoftwareSubmittedVO submit(Long userId, Long softwareId, Long revisionId,
                                String idempotencyKey);

@@ -50,6 +50,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -398,6 +399,64 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             return null;
         });
         return buildEditor(software, revisionId);
+    }
+
+    /**
+     * SW02：局部保存。只应用 JSON 中出现的字段；未出现字段不读取、不覆盖。
+     * 与全量保存共用同一事务/审计/锁顺序，保证 save 与 patch 并发时按锁串行。
+     */
+    @Override
+    public SoftwareEditorVO patchDraft(Long userId, Long softwareId, Long revisionId, JsonNode patch) {
+        publisherPolicy.requireForRestrictedWrite(userId);
+        Software software = ownedSoftware(userId, softwareId);
+        SoftwareRevision precheck = revisionOfSoftware(software, revisionId);
+        requireEditableStatus(precheck);
+        List<Long> assets = collectPatchAssets(patch);
+        if (!assets.isEmpty()) {
+            assetBindingService.bindRevisionAssets(revisionId, userId, assets);
+        }
+
+        transactionTemplate.execute(status -> {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCompletion(int code) {
+                            if (code == org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK) {
+                                assetBindingService.registerUnbindCompensation(revisionId, assets);
+                            }
+                        }
+                    });
+            SoftwareRevision revision = lockMapper.lockRevision(revisionId);
+            if (revision == null || !softwareId.equals(revision.getSoftwareId())) {
+                throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
+            }
+            requireEditableStatus(revision);
+            assembler.applyPatch(revision, patch);
+            revision.setLockVersion(revision.getLockVersion() + 1);
+            revisionMapper.updateById(revision);
+            auditService.record(softwareId, revisionId, revision.getSubmitSeq(), userId, "USER",
+                    "SAVE_DRAFT", revision.getReviewStatus().name(), revision.getReviewStatus().name(),
+                    "局部保存草稿", null);
+            return null;
+        });
+        return buildEditor(software, revisionId);
+    }
+
+    /** 局部保存涉及的素材：仅 iconAssetId 或 screenshots 出现时重绑，缺失字段不触碰 */
+    private List<Long> collectPatchAssets(JsonNode patch) {
+        List<Long> assetIds = new ArrayList<>();
+        if (patch.has("iconAssetId") && !patch.get("iconAssetId").isNull()) {
+            assetIds.add(patch.get("iconAssetId").asLong());
+        }
+        if (patch.has("screenshots") && patch.get("screenshots").isArray()) {
+            for (JsonNode item : patch.get("screenshots")) {
+                JsonNode assetId = item == null ? null : item.get("assetId");
+                if (assetId != null && !assetId.isNull()) {
+                    assetIds.add(assetId.asLong());
+                }
+            }
+        }
+        return assetIds.stream().filter(Objects::nonNull).distinct().toList();
     }
 
     /** 快照当前绑定资产清单：icon + 截图/正文媒体（submit 自愈重绑用） */

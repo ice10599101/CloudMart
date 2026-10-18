@@ -159,7 +159,7 @@ export interface SoftwarePreference {
 
 /** 软件域写入包装：自动带 `Idempotency-Key` 并按终态清理 */
 async function write<T>(
-  method: 'POST' | 'PUT' | 'DELETE',
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   url: string,
   payload: unknown,
   call: (header: Record<string, string>) => Promise<{ data: unknown }>,
@@ -299,6 +299,8 @@ export interface SoftwareEditorSource {
   extractionCode: string | null
   archivePassword: string | null
   sizeLabel: string | null
+  claimedSha256?: string | null
+  note?: string | null
   displayOrder?: number
 }
 
@@ -423,6 +425,14 @@ export const softwarePublishApi = {
     const url = `${BASE}/${id}/revisions/${revisionId}?expectedVersion=${expectedVersion}`
     return write<SoftwareEditor>('PUT', url, snapshot, (header) =>
       request({ url, method: 'PUT', data: snapshot, header }),
+    )
+  },
+
+  /** SW02：局部保存——只提交用户实际修改的字段；缺省字段保持服务端现值 */
+  patchDraft: (id: string, revisionId: string, patch: Record<string, unknown>) => {
+    const url = `${BASE}/${id}/revisions/${revisionId}`
+    return write<SoftwareEditor>('PATCH', url, patch, (header) =>
+      request({ url, method: 'PATCH', data: patch, header }),
     )
   },
 

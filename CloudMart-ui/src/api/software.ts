@@ -250,18 +250,20 @@ export interface SoftwareCreated {
 
 export interface SoftwareSourceInput {
   sourceType: SoftwareSourceType;
+  /** 稳定来源键：编辑既有来源时必须原样回传；新来源留空由服务端生成 */
+  sourceKey?: string;
   provider?: string;
   platform?: string;
   arch?: string;
   label?: string;
   sizeLabel?: string;
+  /** 三种来源统一使用 url（NETDISK 网盘地址 / MAGNET 磁力链接 / TORRENT_URL 种子地址） */
   url?: string;
-  magnetUri?: string;
-  torrentUrl?: string;
   extractionCode?: string;
   archivePassword?: string;
   claimedSha256?: string;
   note?: string;
+  displayOrder?: number;
 }
 
 export interface SoftwareReleaseInput {
@@ -276,8 +278,7 @@ export interface SoftwareReleaseInput {
 }
 
 /** 编辑器快照入参（方案 §4.1：草稿宽松、提交严格） */
-export interface SoftwareSnapshotInput {
-  name?: string;
+export interface SoftwareSnapshotInput {  name?: string;
   summary?: string;
   categoryId?: string;
   iconAssetId?: string;
@@ -295,6 +296,32 @@ export interface SoftwareSnapshotInput {
   accessNote?: string;
   tagIds?: string[];
   screenshots?: { assetId: string; altText?: string; displayOrder?: number }[];
+  releases?: SoftwareReleaseInput[];
+}
+
+/**
+ * SW02 局部保存入参：只有出现在对象里的字段会被修改。
+ * 显式 null 表示清空可空标量；集合必须用数组（清空用 []，不能用 null）。
+ */
+export interface SoftwarePatchInput {
+  name?: string | null;
+  summary?: string | null;
+  categoryId?: string | null;
+  iconAssetId?: string | null;
+  descriptionHtml?: string | null;
+  licenseType?: SoftwareLicenseType | null;
+  developerName?: string | null;
+  officialUrl?: string | null;
+  attributionType?: string | null;
+  attributionNote?: string | null;
+  systemRequirements?: string | null;
+  languages?: string[];
+  accessMode?: SoftwareAccessMode;
+  minCommunityLevel?: number | null;
+  accessContactId?: string | null;
+  accessNote?: string | null;
+  tagIds?: string[];
+  screenshots?: { assetId: string; altText?: string | null; displayOrder?: number }[];
   releases?: SoftwareReleaseInput[];
 }
 
@@ -705,15 +732,31 @@ export function getSoftwareEditor(id: string) {
   return request.get<ApiResponse<SoftwareEditorData>>(`${BASE}/${id}/editor`);
 }
 
-/** 保存工作副本：原样保存（版本号机制已移除，保存即生效） */
+/** 保存工作副本：全量 PUT（过渡方案；新代码优先级用 PATCH 局部保存） */
 export function saveSoftwareDraft(
   id: string,
   revisionId: string,
   payload: SoftwareSnapshotInput,
 ) {
-  return request.put<ApiResponse<{ lockVersion: number }>>(
+  return request.put<ApiResponse<SoftwareEditorData>>(
     `${BASE}/${id}/revisions/${revisionId}`,
     payload,
+  );
+}
+
+/**
+ * SW02：局部保存——只提交用户实际修改的字段。
+ * 缺省=不修改；显式 null=清空可空标量；数组=整体替换该集合（清空用 []）。
+ * 返回服务端规范化后的完整编辑器数据，页面必须以它为准。
+ */
+export function patchSoftwareDraft(
+  id: string,
+  revisionId: string,
+  patch: SoftwarePatchInput,
+) {
+  return request.patch<ApiResponse<SoftwareEditorData>>(
+    `${BASE}/${id}/revisions/${revisionId}`,
+    patch,
   );
 }
 

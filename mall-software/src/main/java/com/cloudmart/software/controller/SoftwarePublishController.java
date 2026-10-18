@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -91,6 +92,17 @@ public class SoftwarePublishController {
             @RequestBody SoftwareSnapshotInput input) {
         return ApiResponse.ok(softwarePublishService.saveDraft(
                 userId, id, revisionId, input));
+    }
+
+    @PatchMapping("/{id}/revisions/{revisionId}")
+    @Operation(summary = "局部保存草稿（SW02）",
+            description = "仅应用请求中出现的字段；缺省字段保持现值；null 清空可空标量；数组整体替换集合")
+    public ApiResponse<SoftwareEditorVO> patchDraft(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id,
+            @PathVariable("revisionId") Long revisionId,
+            @RequestBody tools.jackson.databind.JsonNode patch) {
+        return ApiResponse.ok(softwarePublishService.patchDraft(userId, id, revisionId, patch));
     }
 
     @PostMapping("/{id}/revisions/{revisionId}/submit")

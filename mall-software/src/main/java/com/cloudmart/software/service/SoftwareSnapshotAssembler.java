@@ -85,6 +85,263 @@ public class SoftwareSnapshotAssembler {
         replaceReleasesAndSources(revision.getId(), input.getReleases());
     }
 
+    // ------------------------------------------------------------------
+    // SW02：局部保存（PATCH）——缺省=不修改，显式 null=清空可空标量，[]=清空集合
+    // ------------------------------------------------------------------
+
+    /** PATCH 白名单：与三端编辑字段表一一对应；未知字段直接拒绝，避免拼写错误静默丢数据 */
+    private static final Set<String> PATCH_FIELDS = Set.of(
+            "name", "summary", "categoryId", "iconAssetId", "descriptionHtml", "licenseType",
+            "developerName", "officialUrl", "attributionType", "attributionNote",
+            "systemRequirements", "languages", "accessMode", "minCommunityLevel",
+            "accessContactId", "accessNote", "tagIds", "screenshots", "releases");
+
+    /**
+     * 应用局部输入。与 {@link #applyInput} 的区别：
+     * <ul>
+     *   <li>字段未出现在 JSON 中 → 保持数据库现值（不做任何回写）；</li>
+     *   <li>标量显式 null → 清空（非空字段按空串/默认值处理，提交时再阻断）；</li>
+     *   <li>集合必须用数组表达，显式 null 视为非法；数组内容整体替换该集合。</li>
+     * </ul>
+     */
+    public void applyPatch(SoftwareRevision revision, tools.jackson.databind.JsonNode patch) {
+        if (patch == null || !patch.isObject()) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "局部保存请求体必须是 JSON 对象");
+        }
+        List<String> unknown = new ArrayList<>();
+        for (String name : patch.propertyNames()) {
+            if (!PATCH_FIELDS.contains(name)) {
+                unknown.add(name);
+            }
+        }
+        if (!unknown.isEmpty()) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID",
+                    "不支持的字段：" + String.join(", ", unknown));
+        }
+
+        if (patch.has("name")) {
+            String value = textOrEmpty(patch.get("name"));
+            if (value.length() > 80) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "软件名最长 80 字");
+            }
+            revision.setName(value.trim());
+        }
+        if (patch.has("summary")) {
+            String value = textOrEmpty(patch.get("summary"));
+            if (value.length() > 160) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "简介最长 160 字");
+            }
+            revision.setSummary(value.trim());
+        }
+        if (patch.has("categoryId")) {
+            Long categoryId = longOrNull(patch.get("categoryId"), "categoryId");
+            if (categoryId != null) {
+                SoftwareCategory category = categoryMapper.selectById(categoryId);
+                if (category == null || !Boolean.TRUE.equals(category.getEnabled())) {
+                    throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "分类不存在或已停用");
+                }
+            }
+            revision.setCategoryId(categoryId);
+        }
+        if (patch.has("iconAssetId")) {
+            revision.setIconAssetId(longOrNull(patch.get("iconAssetId"), "iconAssetId"));
+        }
+        if (patch.has("descriptionHtml")) {
+            String html = textOrEmpty(patch.get("descriptionHtml"));
+            if (html.length() > MAX_DESCRIPTION_LENGTH) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID",
+                        "富文本介绍过长（≤" + MAX_DESCRIPTION_LENGTH + " 字符）");
+            }
+            revision.setDescriptionHtml(html);
+            revision.setDescriptionText(sanitizer.extractText(html));
+        }
+        if (patch.has("developerName")) {
+            String value = textOrNull(patch.get("developerName"));
+            if (value != null && value.length() > 80) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "开发者名称最长 80 字");
+            }
+            revision.setDeveloperName(trimToNull(value));
+        }
+        if (patch.has("officialUrl")) {
+            String value = textOrNull(patch.get("officialUrl"));
+            if (value != null && !value.isBlank()) {
+                String url = value.trim();
+                if (!url.startsWith("https://") || url.length() > 2048) {
+                    throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "官网链接须为 https 且 ≤2048 字符");
+                }
+                revision.setOfficialUrl(url);
+            } else {
+                revision.setOfficialUrl(null);
+            }
+        }
+        if (patch.has("licenseType")) {
+            String value = textOrNull(patch.get("licenseType"));
+            revision.setLicenseType(value == null || value.isBlank()
+                    ? null : parseEnum(value, SoftwareLicenseType.class, "授权类型"));
+        }
+        if (patch.has("attributionType")) {
+            String value = textOrNull(patch.get("attributionType"));
+            if (value != null && !value.isBlank() && !ATTRIBUTION_TYPES.contains(value)) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID",
+                        "来源声明须为 ORIGINAL/AUTHORIZED/OFFICIAL_PUBLIC");
+            }
+            revision.setAttributionType(trimToNull(value));
+        }
+        if (patch.has("attributionNote")) {
+            String value = textOrNull(patch.get("attributionNote"));
+            if (value != null && value.length() > 1000) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "来源说明最长 1000 字");
+            }
+            revision.setAttributionNote(trimToNull(value));
+        }
+        if (patch.has("systemRequirements")) {
+            String value = textOrNull(patch.get("systemRequirements"));
+            if (value != null && value.length() > 300) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "系统要求最长 300 字");
+            }
+            revision.setSystemRequirements(trimToNull(value));
+        }
+        if (patch.has("languages")) {
+            revision.setLanguages(serializeLanguages(stringList(patch.get("languages"), "languages")));
+        }
+        if (patch.has("accessMode") || patch.has("minCommunityLevel") || patch.has("accessContactId")) {
+            applyAccessModePatch(revision, patch);
+        }
+        if (patch.has("accessNote")) {
+            String value = textOrNull(patch.get("accessNote"));
+            if (value != null && value.length() > 500) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "查看条件说明最长 500 字");
+            }
+            revision.setAccessNote(trimToNull(value));
+        }
+
+        if (patch.has("tagIds")) {
+            replaceTags(revision.getId(), longList(patch.get("tagIds"), "tagIds"));
+        }
+        if (patch.has("screenshots")) {
+            replaceMedia(revision.getId(), mediaList(patch.get("screenshots")));
+        }
+        if (patch.has("releases")) {
+            replaceReleasesAndSources(revision.getId(), releaseList(patch.get("releases")));
+        }
+    }
+
+    /** 查看条件三字段联动：只改其一也按“现值 + 局部值”重新归一，避免出现半组合 */
+    private void applyAccessModePatch(SoftwareRevision revision,
+                                      tools.jackson.databind.JsonNode patch) {
+        SoftwareAccessMode mode = revision.getAccessMode() == null
+                ? SoftwareAccessMode.REGISTERED : revision.getAccessMode();
+        if (patch.has("accessMode")) {
+            String raw = textOrNull(patch.get("accessMode"));
+            if (raw == null || raw.isBlank()) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "查看条件不能为空");
+            }
+            try {
+                mode = SoftwareAccessMode.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID",
+                        "查看条件须为 REGISTERED/COMMUNITY_LEVEL/ADMIN_PAID");
+            }
+        }
+        Integer minLevel = patch.has("minCommunityLevel")
+                ? intOrNull(patch.get("minCommunityLevel"), "minCommunityLevel")
+                : revision.getMinCommunityLevel();
+        Long contactId = patch.has("accessContactId")
+                ? longOrNull(patch.get("accessContactId"), "accessContactId")
+                : revision.getAccessContactId();
+        revision.setAccessMode(mode);
+        switch (mode) {
+            case REGISTERED -> {
+                revision.setMinCommunityLevel(null);
+                revision.setAccessContactId(null);
+            }
+            case COMMUNITY_LEVEL -> {
+                revision.setMinCommunityLevel(minLevel);
+                revision.setAccessContactId(null);
+            }
+            case ADMIN_PAID -> {
+                revision.setMinCommunityLevel(null);
+                revision.setAccessContactId(contactId);
+            }
+        }
+    }
+
+    private String textOrEmpty(tools.jackson.databind.JsonNode node) {
+        return node == null || node.isNull() ? "" : node.asString();
+    }
+
+    private String textOrNull(tools.jackson.databind.JsonNode node) {
+        return node == null || node.isNull() ? null : node.asString();
+    }
+
+    private Long longOrNull(tools.jackson.databind.JsonNode node, String field) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        try {
+            if (node.isNumber()) return node.asLong();
+            String raw = node.asString();
+            return raw == null || raw.isBlank() ? null : Long.valueOf(raw.trim());
+        } catch (RuntimeException e) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", field + " 必须是整数或数字字符串");
+        }
+    }
+
+    private Integer intOrNull(tools.jackson.databind.JsonNode node, String field) {
+        Long value = longOrNull(node, field);
+        if (value == null) return null;
+        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", field + " 超出整数范围");
+        }
+        return value.intValue();
+    }
+
+    private List<String> stringList(tools.jackson.databind.JsonNode node, String field) {
+        if (node == null || node.isNull() || !node.isArray()) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", field + " 必须是数组（清空请用 []）");
+        }
+        List<String> out = new ArrayList<>();
+        for (tools.jackson.databind.JsonNode item : node) {
+            out.add(item == null || item.isNull() ? null : item.asString());
+        }
+        return out;
+    }
+
+    private List<Long> longList(tools.jackson.databind.JsonNode node, String field) {
+        if (node == null || node.isNull() || !node.isArray()) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", field + " 必须是数组（清空请用 []）");
+        }
+        List<Long> out = new ArrayList<>();
+        for (tools.jackson.databind.JsonNode item : node) {
+            out.add(longOrNull(item, field));
+        }
+        return out;
+    }
+
+    private List<SoftwareSnapshotInput.MediaInput> mediaList(tools.jackson.databind.JsonNode node) {
+        if (node == null || node.isNull() || !node.isArray()) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID",
+                    "screenshots 必须是数组（清空请用 []）");
+        }
+        try {
+            return List.of(objectMapper.treeToValue(node, SoftwareSnapshotInput.MediaInput[].class));
+        } catch (Exception e) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "screenshots 结构非法");
+        }
+    }
+
+    private List<SoftwareSnapshotInput.ReleaseInput> releaseList(tools.jackson.databind.JsonNode node) {
+        if (node == null || node.isNull() || !node.isArray()) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID",
+                    "releases 必须是数组（清空请用 []）");
+        }
+        try {
+            return List.of(objectMapper.treeToValue(node, SoftwareSnapshotInput.ReleaseInput[].class));
+        } catch (Exception e) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "releases 结构非法");
+        }
+    }
+
     private void applyScalars(SoftwareRevision revision, SoftwareSnapshotInput input) {
         if (input.getName() != null && input.getName().length() > 80) {
             throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "软件名最长 80 字");

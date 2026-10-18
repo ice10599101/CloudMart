@@ -12,7 +12,7 @@ vi.mock('@/stores/auth', () => ({ useAuthStore: () => true }))
 vi.mock('@/components/TiptapEditor', () => ({ default: () => null }))
 vi.mock('@/api/file', () => ({ uploadFileAsset: mocks.upload, deleteFileAsset: vi.fn().mockResolvedValue({}) }))
 vi.mock('@/api/software', () => ({
-  getSoftwareEditor: mocks.getEditor, saveSoftwareDraft: mocks.save,
+  getSoftwareEditor: mocks.getEditor, patchSoftwareDraft: mocks.save,
   submitSoftwareForReview: mocks.submit, createWorkingRevision: vi.fn(),
   listSoftwareCategories: async () => ({ data: { success: true, data: [] } }),
   listAllSoftwareTags: async () => [],
@@ -47,7 +47,9 @@ describe('software editor saves the latest form state', () => {
     localStorage.clear()
     stored = { revisionId: '7', reviewStatus: 'DRAFT', name: '软件', summary: '简介',
       iconAssetId: null, descriptionHtml: '', licenseType: 'FREE', attributionType: 'ORIGINAL',
-      accessMode: 'REGISTERED', releases: [], tagIds: [] }
+      accessMode: 'REGISTERED', releases: [], tagIds: [], languages: [], screenshots: [],
+      attributionNote: null, accessNote: null, developerName: null, officialUrl: null,
+      systemRequirements: null, minCommunityLevel: null, accessContactId: null }
     mocks.getEditor.mockImplementation(async () => ({ data: { success: true, data: { ...stored } } }))
     mocks.save.mockImplementation(async (_id, _revision, payload) => {
       stored = { ...stored, ...payload }
@@ -60,7 +62,7 @@ describe('software editor saves the latest form state', () => {
 
   it.each(['保存', '提交审核'])('uploads only an icon, then %s with the new asset and restores it on reopen', async (action) => {
     const view = render(<SoftwareEdit />)
-    fireEvent.click(await screen.findByText('上传测试图标'))
+    fireEvent.click((await screen.findAllByText('上传测试图标'))[0])
     await waitFor(() => expect(screen.getByAltText('软件图标').getAttribute('src')).toBe('/files/by-id/9007199254740993'))
     fireEvent.click(screen.getByText(action))
     await waitFor(() => expect(mocks.save).toHaveBeenCalledWith('42', '7', expect.objectContaining({ iconAssetId: '9007199254740993' })))
@@ -72,10 +74,13 @@ describe('software editor saves the latest form state', () => {
 
   it('saves a change to attribution without editing other fields', async () => {
     render(<SoftwareEdit />)
-    await screen.findByText('上传测试图标')
+    await screen.findAllByText('上传测试图标')
     const option = screen.getByRole('option', { name: '授权转载' })
     fireEvent.change(option.parentElement!, { target: { value: 'AUTHORIZED' } })
     fireEvent.click(screen.getByText('保存'))
     await waitFor(() => expect(mocks.save).toHaveBeenCalledWith('42', '7', expect.objectContaining({ attributionType: 'AUTHORIZED' })))
+    // SW02：只提交被修改的字段，未编辑字段不得出现在 PATCH（否则会覆盖服务端现值）
+    const patch = mocks.save.mock.calls.at(-1)?.[2] ?? {}
+    expect(Object.keys(patch)).toEqual(['attributionType'])
   })
 })

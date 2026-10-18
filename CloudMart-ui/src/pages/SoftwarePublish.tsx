@@ -282,17 +282,12 @@ export default function SoftwarePublish() {
               platform,
               arch,
               sourceType: source.sourceType,
+              // SW02：三种来源统一使用 url，不再发送 magnetUri/torrentUrl 别名
+              url: source.link.trim(),
               ...(source.sourceType === "NETDISK"
                 ? {
-                    url: source.link.trim(),
                     extractionCode: source.extractionCode.trim() || undefined,
                   }
-                : {}),
-              ...(source.sourceType === "MAGNET"
-                ? { magnetUri: source.link.trim() }
-                : {}),
-              ...(source.sourceType === "TORRENT_URL"
-                ? { torrentUrl: source.link.trim() }
                 : {}),
             };
           });

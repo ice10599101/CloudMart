@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -115,6 +115,10 @@ export default function SoftwareEditScreen() {
   const [developerName, setDeveloperName] = useState('')
   const [officialUrl, setOfficialUrl] = useState('')
   const [descriptionText, setDescriptionText] = useState('')
+  /** SW02：未编辑富文本时不回写 HTML，避免移动端把富文本降级为纯文本 */
+  const descriptionBaselineRef = useRef('')
+  /** 版本集合基线：未修改则不提交 releases，避免每次保存重建来源行 */
+  const releasesBaselineRef = useRef('')
   const [accessMode, setAccessMode] = useState<string>('REGISTERED')
   const [minCommunityLevel, setMinCommunityLevel] = useState('1')
   const [accessContactId, setAccessContactId] = useState<string | null>(null)
@@ -157,17 +161,19 @@ export default function SoftwareEditScreen() {
     setAttributionType(ed.attributionType || 'ORIGINAL')
     setDeveloperName(ed.developerName || '')
     setOfficialUrl(ed.officialUrl || '')
-    setDescriptionText(descriptionHtmlToText(ed.descriptionHtml))
+    const loadedText = descriptionHtmlToText(ed.descriptionHtml)
+    setDescriptionText(loadedText)
+    descriptionBaselineRef.current = loadedText.trim()
     setAccessMode(ed.accessMode || 'REGISTERED')
     setMinCommunityLevel(String(ed.minCommunityLevel ?? 1))
     setAccessContactId(ed.accessContactId)
     setIconAssetId(ed.iconAssetId)
     setIconUrl(ed.iconAssetId ? resolveIcon(ed.iconAssetId) : null)
-    setReleases(
-      ed.releases && ed.releases.length > 0
-        ? ed.releases.map((r) => ({ ...r, sources: r.sources.length ? r.sources : [emptySource()] }))
-        : [emptyRelease()],
-    )
+    const nextReleases = ed.releases && ed.releases.length > 0
+      ? ed.releases.map((r) => ({ ...r, sources: r.sources.length ? r.sources : [emptySource()] }))
+      : [emptyRelease()]
+    setReleases(nextReleases)
+    releasesBaselineRef.current = JSON.stringify(nextReleases)
     if (ed.reviewStatus === 'REJECTED' && ed.reviewReason) setReviewReason(`退回原因：${ed.reviewReason}`)
   }
 
@@ -197,32 +203,18 @@ export default function SoftwareEditScreen() {
     }
   }
 
-  const buildSnapshot = () => ({
-    name: name.trim(),
-    summary: summary.trim(),
-    categoryId,
-    iconAssetId,
-    descriptionHtml: textToDescriptionHtml(descriptionText.trim()),
-    licenseType,
-    developerName: developerName.trim() || null,
-    officialUrl: officialUrl.trim() || null,
-    attributionType,
-    attributionNote: null,
-    systemRequirements: null,
-    languages: [],
-    accessMode,
-    minCommunityLevel: accessMode === 'COMMUNITY_LEVEL' ? Number(minCommunityLevel) || 1 : null,
-    accessContactId: accessMode === 'ADMIN_PAID' ? accessContactId : null,
-    accessNote: null,
-    tagIds: [],
-    screenshots: [],
-    releases: releases.map((r, ri) => ({
+  /** 版本/来源完整载荷：稳定键与未在 UI 暴露的字段（大小/哈希/备注/发布日期）原样回传 */
+  const buildReleases = () =>
+    releases.map((r, ri) => ({
+      releaseKey: r.releaseKey,
       versionName: r.versionName.trim(),
       channel: r.channel,
-      recommended: r.recommended ?? false,
+      releaseDate: r.releaseDate ?? null,
       changelog: r.changelog?.trim() || null,
-      displayOrder: ri + 1,
+      recommended: r.recommended ?? false,
+      displayOrder: ri,
       sources: r.sources.map((s2, si) => ({
+        sourceKey: s2.sourceKey,
         sourceType: s2.sourceType,
         platform: s2.platform,
         arch: s2.arch,
@@ -231,10 +223,47 @@ export default function SoftwareEditScreen() {
         extractionCode: s2.extractionCode?.trim() || null,
         archivePassword: s2.archivePassword?.trim() || null,
         sizeLabel: s2.sizeLabel?.trim() || null,
-        displayOrder: si + 1,
+        claimedSha256: s2.claimedSha256?.trim() || null,
+        note: s2.note?.trim() || null,
+        displayOrder: si,
       })),
-    })),
-  })
+    }))
+
+  /**
+   * SW02：只提交用户实际修改的字段。未编辑字段（备注、语言、标签、截图等）
+   * 不出现在 patch 中，服务端保持现值，避免移动端全量保存写空。
+   */
+  const buildPatch = (): Record<string, unknown> => {
+    const patch: Record<string, unknown> = {}
+    if (!editor) return patch
+    if (name.trim() !== (editor.name ?? '')) patch.name = name.trim()
+    if (summary.trim() !== (editor.summary ?? '')) patch.summary = summary.trim()
+    if (categoryId !== editor.categoryId) patch.categoryId = categoryId
+    if (iconAssetId !== editor.iconAssetId) patch.iconAssetId = iconAssetId
+    if (descriptionText.trim() !== descriptionBaselineRef.current) {
+      patch.descriptionHtml = textToDescriptionHtml(descriptionText.trim())
+    }
+    if ((licenseType || null) !== (editor.licenseType ?? null)) patch.licenseType = licenseType
+    if ((developerName.trim() || null) !== (editor.developerName ?? null)) {
+      patch.developerName = developerName.trim() || null
+    }
+    if ((officialUrl.trim() || null) !== (editor.officialUrl ?? null)) {
+      patch.officialUrl = officialUrl.trim() || null
+    }
+    if (attributionType !== (editor.attributionType ?? '')) patch.attributionType = attributionType
+    if (accessMode !== editor.accessMode) patch.accessMode = accessMode
+    if (accessMode === 'COMMUNITY_LEVEL'
+      && (Number(minCommunityLevel) || 1) !== (editor.minCommunityLevel ?? 1)) {
+      patch.minCommunityLevel = Number(minCommunityLevel) || 1
+    }
+    if (accessMode === 'ADMIN_PAID' && accessContactId !== editor.accessContactId) {
+      patch.accessContactId = accessContactId
+    }
+    if (JSON.stringify(releases) !== releasesBaselineRef.current) {
+      patch.releases = buildReleases()
+    }
+    return patch
+  }
 
   const validateForSubmit = (): string | null => {
     const n = name.trim()
@@ -261,12 +290,17 @@ export default function SoftwareEditScreen() {
 
   const doSave = async (): Promise<SoftwareEditor | null> => {
     if (!editor) return null
-    const res = await softwarePublishApi.saveDraft(
-      editor.softwareId, editor.revisionId, editor.lockVersion, buildSnapshot(),
+    const res = await softwarePublishApi.patchDraft(
+      editor.softwareId, editor.revisionId, buildPatch(),
     )
-    const ed = res.data.data
-    setEditor(ed)
-    return ed
+    if (!res.data.success || !res.data.data) {
+      Alert.alert('提示', '保存失败，请稍后再试')
+      return null
+    }
+    setEditor(res.data.data)
+    descriptionBaselineRef.current = descriptionText.trim()
+    releasesBaselineRef.current = JSON.stringify(releases)
+    return res.data.data
   }
 
   const handleSave = async () => {

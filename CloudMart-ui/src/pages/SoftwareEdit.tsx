@@ -22,7 +22,7 @@ import {
   listSoftwareAccessContacts,
   listSoftwareCategories,
   listAllSoftwareTags,
-  saveSoftwareDraft,
+  patchSoftwareDraft,
   submitSoftwareForReview,
   type SoftwareAccessMode,
   type SoftwareCategory,
@@ -30,6 +30,8 @@ import {
   type SoftwareEditorData,
   type SoftwareEditorSource,
   type SoftwareLicenseType,
+  type SoftwarePatchInput,
+  type SoftwareScreenshot,
   type SoftwareSourceType,
   type SoftwareTag,
 } from "@/api/software";
@@ -66,6 +68,24 @@ const ARCH_OPTIONS = [
   { value: "OTHER", label: "其他" },
 ];
 
+const CHANNEL_OPTIONS = [
+  { value: "STABLE", label: "稳定版" },
+  { value: "BETA", label: "测试版" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { value: "zh-CN", label: "简体中文" },
+  { value: "zh-TW", label: "繁体中文" },
+  { value: "en-US", label: "English" },
+  { value: "ja-JP", label: "日本語" },
+  { value: "ko-KR", label: "한국어" },
+  { value: "de-DE", label: "Deutsch" },
+  { value: "fr-FR", label: "Français" },
+  { value: "es-ES", label: "Español" },
+  { value: "ru-RU", label: "Русский" },
+  { value: "other", label: "其他" },
+];
+
 const ATTRIBUTION_OPTIONS = [
   { value: "ORIGINAL", label: "原创" },
   { value: "AUTHORIZED", label: "授权转载" },
@@ -89,37 +109,68 @@ function sourceLink(source: SoftwareEditorSource): string {
   return source.url ?? "";
 }
 
+interface SoftwareEditorSourceDraft {
+  /** 行 UI 键（仅渲染用，不提交） */
+  uid: string;
+  /** 稳定来源键：编辑既有来源必须原样回传，新增留空由服务端生成 */
+  sourceKey?: string;
+  label: string;
+  platform: string;
+  arch: string;
+  sourceType: SoftwareSourceType;
+  link: string;
+  extractionCode: string;
+  archivePassword: string;
+  sizeLabel: string;
+  claimedSha256: string;
+  note: string;
+}
+
 interface SoftwareEditorReleaseDraft {
   /** 稳定 key：删除中间行时避免索引 key 导致输入框状态错位 */
   uid: string;
+  /** 稳定版本键：编辑既有版本必须原样回传，新增留空由服务端生成 */
+  releaseKey?: string;
   versionName: string;
+  channel: string;
+  releaseDate: string;
   changelog: string;
   recommended: boolean;
-  sources: {
-    uid: string;
-    label: string;
-    platform: string[];
-    arch: string[];
-    sourceType: SoftwareSourceType;
-    link: string;
-    extractionCode: string;
-    archivePassword: string;
-  }[];
+  sources: SoftwareEditorSourceDraft[];
 }
 
 let draftUidSeq = 0;
 /** 稳定 key：删除中间行时避免索引 key 导致输入框状态错位 */
 const nextDraftUid = () => `d${++draftUidSeq}`;
 
-const emptySource = () => ({
+const emptySource = (): SoftwareEditorSourceDraft => ({
   uid: nextDraftUid(),
   label: "网盘",
-  platform: ["WINDOWS"],
-  arch: ["X64"],
+  platform: "WINDOWS",
+  arch: "X64",
   sourceType: "NETDISK" as SoftwareSourceType,
   link: "",
   extractionCode: "",
   archivePassword: "",
+  sizeLabel: "",
+  claimedSha256: "",
+  note: "",
+});
+
+/** 把编辑器 DTO 的来源映射为单平台/单架构行（稳定键一一对应，不再按平台×架构展开重建） */
+const toSourceDraft = (source: SoftwareEditorSource): SoftwareEditorSourceDraft => ({
+  uid: nextDraftUid(),
+  sourceKey: source.sourceKey ?? undefined,
+  label: source.label ?? "",
+  platform: source.platform ?? "WINDOWS",
+  arch: source.arch ?? "X64",
+  sourceType: source.sourceType,
+  link: sourceLink(source),
+  extractionCode: source.extractionCode ?? "",
+  archivePassword: source.archivePassword ?? "",
+  sizeLabel: source.sizeLabel ?? "",
+  claimedSha256: source.claimedSha256 ?? "",
+  note: source.note ?? "",
 });
 
 export default function SoftwareEdit() {
@@ -153,6 +204,12 @@ export default function SoftwareEdit() {
     undefined,
   );
   const [releases, setReleases] = useState<SoftwareEditorReleaseDraft[]>([]);
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [attributionNote, setAttributionNote] = useState("");
+  const [accessNote, setAccessNote] = useState("");
+  const [screenshots, setScreenshots] = useState<SoftwareScreenshot[]>([]);
+  /** 载入/保存后的版本基线：用于判断 releases 是否真的被修改（未改则 PATCH 不提交该集合） */
+  const releasesBaselineRef = useRef("");
 
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -192,6 +249,47 @@ export default function SoftwareEdit() {
     });
   }, [name, summary, descriptionHtml, developerName, officialUrl, systemRequirements]);
 
+  /**
+   * 用服务端规范化结果重建页面状态（载入与保存共用）。
+   * SW02：所有字段都进入本地基线，未编辑字段保存时不会提交，因此不会被清空。
+   */
+  const hydrateEditor = useCallback((data: SoftwareEditorData) => {
+    setEditor(data);
+    setName(data.name ?? "");
+    setSummary(data.summary ?? "");
+    setCategoryId(data.categoryId ?? undefined);
+    setDescriptionHtml(data.descriptionHtml ?? "");
+    setLicenseType(data.licenseType ?? "FREE");
+    setAttributionType(data.attributionType ?? "ORIGINAL");
+    setIconAssetId(data.iconAssetId ?? undefined);
+    setDeveloperName(data.developerName ?? "");
+    setOfficialUrl(data.officialUrl ?? "");
+    setSystemRequirements(data.systemRequirements ?? "");
+    setLanguages(data.languages ?? []);
+    setAttributionNote(data.attributionNote ?? "");
+    setAccessNote(data.accessNote ?? "");
+    setScreenshots(data.screenshots ?? []);
+    setTagIds(data.tagIds ?? []);
+    setAccessMode(data.accessMode ?? "REGISTERED");
+    setMinCommunityLevel(data.minCommunityLevel ?? 1);
+    setAccessContactId(data.accessContactId ?? undefined);
+    const nextReleases: SoftwareEditorReleaseDraft[] = data.releases.map((release) => ({
+      uid: nextDraftUid(),
+      releaseKey: release.releaseKey || undefined,
+      versionName: release.versionName,
+      channel: release.channel ?? "STABLE",
+      releaseDate: release.releaseDate ?? "",
+      changelog: release.changelog ?? "",
+      recommended: release.recommended,
+      sources:
+        release.sources.length > 0
+          ? release.sources.map(toSourceDraft)
+          : [emptySource()],
+    }));
+    setReleases(nextReleases);
+    releasesBaselineRef.current = JSON.stringify(nextReleases);
+  }, []);
+
   const loadEditor = useCallback(async () => {
     setLoading(true);
     setConflict(false);
@@ -199,14 +297,6 @@ export default function SoftwareEdit() {
       const res = await getSoftwareEditor(id);
       if (!res.data.success) return;
       const data = res.data.data;
-      setEditor(data);
-      setName(data.name);
-      setSummary(data.summary);
-      setCategoryId(data.categoryId ?? undefined);
-      setDescriptionHtml(data.descriptionHtml ?? "");
-      setLicenseType(data.licenseType ?? "FREE");
-      setAttributionType(data.attributionType ?? "ORIGINAL");
-      setIconAssetId(data.iconAssetId ?? undefined);
       // 已发布软件直接编辑会撞「仅草稿/退回快照可编辑」——自动创建工作副本
       if (data.reviewStatus === "APPROVED" && !data.workingRevisionId) {
         try {
@@ -220,96 +310,11 @@ export default function SoftwareEdit() {
           // 失败则按原数据继续展示（保存时报错由拦截器提示）
         }
       }
-      setDeveloperName(data.developerName ?? "");
-      setOfficialUrl(data.officialUrl ?? "");
-      setSystemRequirements(data.systemRequirements ?? "");
-      setTagIds(data.tagIds ?? []);
-      setAccessMode(data.accessMode);
-      setMinCommunityLevel(data.minCommunityLevel ?? 1);
-      setAccessContactId(data.accessContactId ?? undefined);
-      setReleases(
-        data.releases.map((release) => ({
-          uid: nextDraftUid(),
-          versionName: release.versionName,
-          changelog: release.changelog ?? "",
-          recommended: release.recommended,
-          sources:
-            release.sources.length > 0
-              ? (() => {
-                  // 同一来源（展示名+类型+链接+提取码+解压密码一致）在保存时
-                  // 被展开为多条平台×架构组合——加载时合并回一行多选
-                  const groups = new Map<
-                    string,
-                    {
-                      uid: string;
-                      label: string;
-                      platforms: string[];
-                      archs: string[];
-                      sourceType: SoftwareSourceType;
-                      link: string;
-                      extractionCode: string;
-                      archivePassword: string;
-                    }
-                  >();
-                  for (const source of release.sources) {
-                    const key = [
-                      source.label ?? "",
-                      source.sourceType,
-                      sourceLink(source),
-                      source.extractionCode ?? "",
-                      source.archivePassword ?? "",
-                    ].join("\u0001");
-                    const existing = groups.get(key);
-                    if (existing) {
-                      if (source.platform && !existing.platforms.includes(source.platform))
-                        existing.platforms.push(source.platform);
-                      if (source.arch && !existing.archs.includes(source.arch))
-                        existing.archs.push(source.arch);
-                    } else {
-                      groups.set(key, {
-                        uid: nextDraftUid(),
-                        label: source.label ?? "",
-                        platforms: [source.platform ?? "WINDOWS"],
-                        archs: [source.arch ?? "X64"],
-                        sourceType: source.sourceType,
-                        link: sourceLink(source),
-                        extractionCode: source.extractionCode ?? "",
-                        archivePassword: source.archivePassword ?? "",
-                      });
-                    }
-                  }
-                  const rows: SoftwareEditorReleaseDraft["sources"] = [
-                    ...groups.values(),
-                  ].map((group) => ({
-                    uid: group.uid,
-                    label: group.label,
-                    platform: group.platforms,
-                    arch: group.archs,
-                    sourceType: group.sourceType,
-                    link: group.link,
-                    extractionCode: group.extractionCode,
-                    archivePassword: group.archivePassword,
-                  }));
-                  return rows;
-                })()
-              : [
-                  {
-                    uid: nextDraftUid(),
-                    label: "网盘",
-                    platform: ["WINDOWS"],
-                    arch: ["X64"],
-                    sourceType: "NETDISK",
-                    link: "",
-                    extractionCode: "",
-                    archivePassword: "",
-                  },
-                ],
-        })),
-      );
+      hydrateEditor(data);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [hydrateEditor, id]);
 
   useEffect(() => {
     if (!id || !isAuthenticated) return;
@@ -332,77 +337,103 @@ export default function SoftwareEdit() {
       .catch(() => undefined);
   }, []);
 
-  const buildPayload = useCallback(() => {
-    return {
-      name,
-      summary,
-      iconAssetId: iconAssetId || undefined,
-      categoryId,
-      descriptionHtml,
-      licenseType,
-      attributionType,
-      developerName: developerName || undefined,
-      officialUrl: officialUrl || undefined,
-      systemRequirements: systemRequirements || undefined,
-      accessMode,
-      minCommunityLevel:
-        accessMode === "COMMUNITY_LEVEL" ? minCommunityLevel : undefined,
-      accessContactId:
-        accessMode === "ADMIN_PAID" ? accessContactId : undefined,
-      tagIds,
-      releases: releases
-        .filter((release) => release.versionName.trim().length > 0)
-        .map((release) => ({
-          versionName: release.versionName.trim(),
-          changelog: release.changelog || undefined,
-          recommended: release.recommended,
-          sources: release.sources
-            .filter((source) => source.link.trim().length > 0)
-            .flatMap((source) => {
-              const platforms = source.platform.length > 0 ? source.platform : ["WINDOWS"];
-              const archs = source.arch.length > 0 ? source.arch : ["X64"];
-              const combos = new Set(
-                platforms.flatMap((p) => archs.map((a) => `${p}::${a}`)),
-              );
-              return [...combos].map((combo) => {
-                const [platform, arch] = combo.split("::");
-                return {
-                  label: source.label.trim(),
-                  platform,
-                  arch,
-                  sourceType: source.sourceType,
-                  ...(source.sourceType === "NETDISK"
-                    ? {
-                        url: source.link.trim(),
-                        extractionCode: source.extractionCode.trim() || undefined,
-                        archivePassword:
-                          source.archivePassword.trim() || undefined,
-                      }
-                    : {}),
-                  ...(source.sourceType === "MAGNET"
-                    ? { magnetUri: source.link.trim() }
-                    : {}),
-                  ...(source.sourceType === "TORRENT_URL"
-                    ? { torrentUrl: source.link.trim() }
-                    : {}),
-                };
-              });
-            })
-        })),
-    };
+  /** 版本/来源完整载荷：稳定键与全部字段原样回传，不再按平台×架构重建 */
+  const buildReleasesPayload = useCallback(() => {
+    return releases
+      .filter((release) => release.versionName.trim().length > 0)
+      .map((release, releaseIndex) => ({
+        releaseKey: release.releaseKey,
+        versionName: release.versionName.trim(),
+        channel: release.channel,
+        releaseDate: release.releaseDate || undefined,
+        changelog: release.changelog.trim() || undefined,
+        recommended: release.recommended,
+        displayOrder: releaseIndex,
+        sources: release.sources
+          .filter((source) => source.link.trim().length > 0)
+          .map((source, sourceIndex) => ({
+            sourceKey: source.sourceKey,
+            label: source.label.trim(),
+            platform: source.platform,
+            arch: source.arch,
+            sourceType: source.sourceType,
+            url: source.link.trim(),
+            extractionCode: source.extractionCode.trim() || undefined,
+            archivePassword: source.archivePassword.trim() || undefined,
+            sizeLabel: source.sizeLabel.trim() || undefined,
+            claimedSha256: source.claimedSha256.trim() || undefined,
+            note: source.note.trim() || undefined,
+            displayOrder: sourceIndex,
+          })),
+      }));
+  }, [releases]);
+
+  /**
+   * SW02：只把用户实际修改的字段放进 PATCH。
+   * 未修改字段不出现在请求中，服务端保持现值——从根上消除“全量保存写空”。
+   */
+  const buildPatch = useCallback((): SoftwarePatchInput => {
+    if (!editor) return {};
+    const patch: SoftwarePatchInput = {};
+    const sameText = (a?: string | null, b?: string | null) => (a ?? "") === (b ?? "");
+    const sameList = (a?: readonly string[], b?: readonly string[]) =>
+      JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
+
+    if (!sameText(name, editor.name)) patch.name = name;
+    if (!sameText(summary, editor.summary)) patch.summary = summary;
+    if (!sameText(categoryId, editor.categoryId)) patch.categoryId = categoryId ?? null;
+    if (!sameText(iconAssetId, editor.iconAssetId)) patch.iconAssetId = iconAssetId ?? null;
+    if (!sameText(descriptionHtml, editor.descriptionHtml)) patch.descriptionHtml = descriptionHtml;
+    if ((licenseType ?? "") !== (editor.licenseType ?? "")) patch.licenseType = licenseType;
+    if (!sameText(developerName, editor.developerName)) patch.developerName = developerName.trim() || null;
+    if (!sameText(officialUrl, editor.officialUrl)) patch.officialUrl = officialUrl.trim() || null;
+    if (!sameText(attributionType, editor.attributionType)) patch.attributionType = attributionType;
+    if (!sameText(attributionNote, editor.attributionNote)) {
+      patch.attributionNote = attributionNote.trim() || null;
+    }
+    if (!sameText(systemRequirements, editor.systemRequirements)) {
+      patch.systemRequirements = systemRequirements.trim() || null;
+    }
+    if (!sameList(languages, editor.languages)) patch.languages = languages;
+    if (accessMode !== editor.accessMode) patch.accessMode = accessMode;
+    if (accessMode === "COMMUNITY_LEVEL" && minCommunityLevel !== (editor.minCommunityLevel ?? 1)) {
+      patch.minCommunityLevel = minCommunityLevel;
+    }
+    if (accessMode === "ADMIN_PAID" && !sameText(accessContactId, editor.accessContactId)) {
+      patch.accessContactId = accessContactId ?? null;
+    }
+    if (!sameText(accessNote, editor.accessNote)) patch.accessNote = accessNote.trim() || null;
+    if (!sameList(tagIds, editor.tagIds)) patch.tagIds = tagIds;
+    if (JSON.stringify(screenshots) !== JSON.stringify(editor.screenshots)) {
+      patch.screenshots = screenshots.map((item, index) => ({
+        assetId: item.assetId,
+        altText: item.altText,
+        displayOrder: index,
+      }));
+    }
+    if (JSON.stringify(releases) !== releasesBaselineRef.current) {
+      patch.releases = buildReleasesPayload();
+    }
+    return patch;
   }, [
     accessContactId,
     accessMode,
+    accessNote,
+    attributionNote,
     attributionType,
+    buildReleasesPayload,
     categoryId,
     descriptionHtml,
     developerName,
+    editor,
     iconAssetId,
+    languages,
     licenseType,
     minCommunityLevel,
     name,
     officialUrl,
     releases,
+    screenshots,
     summary,
     systemRequirements,
     tagIds,
@@ -472,6 +503,8 @@ export default function SoftwareEdit() {
       {
         uid: nextDraftUid(),
         versionName: "",
+        channel: "STABLE",
+        releaseDate: "",
         changelog: "",
         recommended: false,
         sources: [emptySource()],
@@ -479,29 +512,40 @@ export default function SoftwareEdit() {
     ]);
   }, []);
 
-      /** 保存草稿：原样保存，版本号机制已移除 */
-    const handleSave = useCallback(async () => {
-      if (!editor) return;
-      setSaving(true);
-      try {
-        const res = await saveSoftwareDraft(id, editor.revisionId, buildPayload());
-        if (!res.data.success) return;
-        await loadEditor();
-        message.success("已保存");
-      } catch {
-        message.error("保存失败，请稍后重试");
-      } finally {
-        setSaving(false);
-      }
-    }, [buildPayload, editor, id, loadEditor, message]);
+  /** 局部保存：只提交实际修改的字段；失败时返回 false，调用方必须停止后续动作 */
+  const persistDraft = useCallback(async (): Promise<boolean> => {
+    if (!editor) return false;
+    const res = await patchSoftwareDraft(id, editor.revisionId, buildPatch());
+    if (!res.data.success) {
+      message.error(res.data.error?.message ?? "保存失败");
+      return false;
+    }
+    hydrateEditor(res.data.data);
+    return true;
+  }, [buildPatch, editor, hydrateEditor, id, message]);
+
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      if (await persistDraft()) message.success("已保存");
+    } catch {
+      message.error("保存失败，请稍后重试");
+    } finally {
+      setSaving(false);
+    }
+  }, [message, persistDraft]);
 
   const handleSubmit = useCallback(async () => {
     if (!editor) return;
     setSubmitting(true);
     try {
-      await saveSoftwareDraft(id, editor.revisionId, buildPayload());
+      // SW02：提交前保存失败即停止，不能忽略 success=false 继续提交
+      if (!(await persistDraft())) return;
       const res = await submitSoftwareForReview(id, editor.revisionId);
-      if (!res.data.success) return;
+      if (!res.data.success) {
+        message.error(res.data.error?.message ?? "提交失败");
+        return;
+      }
       message.success("已提交审核");
       history.push("/software/mine");
     } catch {
@@ -509,7 +553,7 @@ export default function SoftwareEdit() {
     } finally {
       setSubmitting(false);
     }
-  }, [buildPayload, editor, id, message]);
+  }, [editor, id, message, persistDraft]);
 
   /** 已上线软件修改需先创建工作副本（克隆已发布快照） */
   const handleCreateWorkingRevision = useCallback(async () => {
@@ -716,7 +760,25 @@ export default function SoftwareEdit() {
               value={systemRequirements}
               onChange={(event) => setSystemRequirements(event.target.value)}
             />
+            <Select
+              disabled={frozen}
+              mode="multiple"
+              style={{ minWidth: 220 }}
+              placeholder="支持语言（可多选）"
+              value={languages}
+              onChange={setLanguages}
+              options={LANGUAGE_OPTIONS}
+            />
           </Space>
+          <Input.TextArea
+            disabled={frozen}
+            placeholder="来源说明（选填：原创/授权转载的依据、官方公开来源等）"
+            value={attributionNote}
+            maxLength={1000}
+            showCount
+            rows={2}
+            onChange={(event) => setAttributionNote(event.target.value)}
+          />
           <Select
             disabled={frozen}
             mode="multiple"
@@ -735,6 +797,90 @@ export default function SoftwareEdit() {
           onChange={setDescriptionHtml}
           placeholder="介绍功能、使用场景与注意事项..."
         />
+      </Card>
+
+      <Card className={styles.section} title="软件截图">
+        <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space wrap>
+            {screenshots.map((shot, index) => (
+              <div key={`${shot.assetId}-${index}`} style={{ position: "relative" }}>
+                <img
+                  src={`/files/by-id/${shot.assetId}`}
+                  alt={shot.altText ?? "软件截图"}
+                  style={{
+                    width: 160,
+                    height: 100,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                    border: "1px solid var(--color-border)",
+                  }}
+                />
+                <Button
+                  disabled={frozen}
+                  size="small"
+                  danger
+                  type="text"
+                  icon={<DeleteOutlined />}
+                  style={{ position: "absolute", top: 2, right: 2 }}
+                  onClick={() =>
+                    setScreenshots((prev) => prev.filter((_, i) => i !== index))
+                  }
+                />
+              </div>
+            ))}
+            <Upload
+              accept="image/*"
+              multiple
+              showUploadList={false}
+              disabled={frozen || screenshots.length >= 8}
+              customRequest={async (options) => {
+                try {
+                  const res = await uploadFileAsset(options.file as File, "PUBLIC");
+                  if (res.data.success && res.data.data?.fileId) {
+                    setScreenshots((prev) =>
+                      prev.length >= 8
+                        ? prev
+                        : [
+                            ...prev,
+                            {
+                              assetId: res.data.data.fileId,
+                              altText: null,
+                              displayOrder: prev.length,
+                            },
+                          ],
+                    );
+                    options.onSuccess?.(res.data.data);
+                  } else {
+                    options.onError?.(new Error("upload failed"));
+                    message.error(res.data.error?.message || "截图上传失败");
+                  }
+                } catch (error) {
+                  options.onError?.(error as Error);
+                }
+              }}
+            >
+              <div
+                style={{
+                  width: 160,
+                  height: 100,
+                  borderRadius: 8,
+                  border: "1px dashed var(--color-border)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: frozen || screenshots.length >= 8 ? "not-allowed" : "pointer",
+                  color: "var(--color-text-secondary)",
+                  fontSize: 13,
+                }}
+              >
+                添加截图（{screenshots.length}/8）
+              </div>
+            </Upload>
+          </Space>
+          <span style={{ color: "var(--color-text-secondary)", fontSize: 12 }}>
+            截图按添加顺序展示；删除未保存前只影响本页。
+          </span>
+        </Space>
       </Card>
 
       <Card className={styles.section} title="查看条件">
@@ -775,6 +921,16 @@ export default function SoftwareEdit() {
               }))}
             />
           ) : null}
+          <Input.TextArea
+            disabled={frozen}
+            style={{ maxWidth: 620 }}
+            placeholder="查看条件说明（选填：付费方式、等级获取方式等）"
+            value={accessNote}
+            maxLength={500}
+            showCount
+            rows={2}
+            onChange={(event) => setAccessNote(event.target.value)}
+          />
         </Space>
       </Card>
 
@@ -795,6 +951,26 @@ export default function SoftwareEdit() {
                   onChange={(event) =>
                     updateRelease(releaseIndex, {
                       versionName: event.target.value,
+                    })
+                  }
+                />
+                <Select
+                  disabled={frozen}
+                  style={{ width: 120 }}
+                  value={release.channel}
+                  onChange={(value) =>
+                    updateRelease(releaseIndex, { channel: value })
+                  }
+                  options={CHANNEL_OPTIONS}
+                />
+                <Input
+                  disabled={frozen}
+                  style={{ width: 160 }}
+                  type="date"
+                  value={release.releaseDate}
+                  onChange={(event) =>
+                    updateRelease(releaseIndex, {
+                      releaseDate: event.target.value,
                     })
                   }
                 />
@@ -845,9 +1021,7 @@ export default function SoftwareEdit() {
                     />
                     <Select
                       disabled={frozen}
-                      mode="multiple"
-                      style={{ minWidth: 160 }}
-                      maxTagCount={2}
+                      style={{ minWidth: 140 }}
                       placeholder="平台"
                       value={source.platform}
                       onChange={(value) =>
@@ -859,9 +1033,7 @@ export default function SoftwareEdit() {
                     />
                     <Select
                       disabled={frozen}
-                      mode="multiple"
-                      style={{ minWidth: 130 }}
-                      maxTagCount={2}
+                      style={{ minWidth: 120 }}
                       placeholder="架构"
                       value={source.arch}
                       onChange={(value) =>
@@ -914,6 +1086,40 @@ export default function SoftwareEdit() {
                       onChange={(event) =>
                         updateSource(releaseIndex, sourceIndex, {
                           archivePassword: event.target.value,
+                        })
+                      }
+                    />
+                    <Input
+                      disabled={frozen}
+                      style={{ width: 140 }}
+                      placeholder="大小，如 120MB"
+                      value={source.sizeLabel}
+                      onChange={(event) =>
+                        updateSource(releaseIndex, sourceIndex, {
+                          sizeLabel: event.target.value,
+                        })
+                      }
+                    />
+                    <Input
+                      disabled={frozen}
+                      style={{ width: 260 }}
+                      placeholder="声明 SHA-256（选填，64 位十六进制）"
+                      value={source.claimedSha256}
+                      onChange={(event) =>
+                        updateSource(releaseIndex, sourceIndex, {
+                          claimedSha256: event.target.value,
+                        })
+                      }
+                    />
+                    <Input
+                      disabled={frozen}
+                      style={{ width: 200 }}
+                      placeholder="来源备注（选填）"
+                      value={source.note}
+                      maxLength={200}
+                      onChange={(event) =>
+                        updateSource(releaseIndex, sourceIndex, {
+                          note: event.target.value,
                         })
                       }
                     />
