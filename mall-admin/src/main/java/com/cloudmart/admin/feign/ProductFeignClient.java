@@ -35,9 +35,9 @@ public interface ProductFeignClient {
     @GetMapping("/count")
     ApiResponse<CountResponse> getProductCount();
 
-    /** TRADE-02：按 SKU ID 批量取商品名/规格（库存列表补齐展示字段，单次调用避免 N+1） */
-    @GetMapping("/skus/batch")
-    ApiResponse<List<SkuBatchDTO>> getSkusBatch(@RequestParam("ids") List<Long> ids);
+    // TRADE-02 的 SKU 批量查询不进本客户端：本接口类级 path=/admin/products，方法再写
+    // /skus/batch 会拼成不存在的 /admin/products/skus/batch。批量查询由
+    // ProductSkuQueryFeignClient（path=/products）承担，此处不得再加回。
 
     // ===== PRODUCT-01：商品问答管理 =====
 

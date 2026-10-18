@@ -297,20 +297,23 @@ jobs:
           node --test scripts/ci/check-frontend-orphans.test.mjs \
                              scripts/ci/check-backend-orphans.test.mjs \
                              scripts/ci/check-cocos-assets.test.mjs \
-                             scripts/ci/check-dangling-refs.test.mjs
+                             scripts/ci/check-dangling-refs.test.mjs \
+                             scripts/contract-check.test.mjs \
+                             scripts/ci/check-service-token-symmetry.test.mjs
       - name: 前端模块可达性门禁（C36-1：确定孤立模块）
         run: node scripts/ci/check-frontend-orphans.mjs
       - name: 后端可达性门禁（C36-2：private 死方法 + Feign→Controller 契约）
         run: node scripts/ci/check-backend-orphans.mjs
+      - name: 网关/服务令牌对称性门禁（T23：StripPrefix 与 issuer/scope 映射）
+        run: node scripts/ci/check-service-token-symmetry.mjs
       - name: Cocos 资源完整性门禁（C36-3：meta 齐全/uuid 唯一/引用无断链）
         run: node scripts/ci/check-cocos-assets.mjs
       - name: 悬空引用门禁（C36-4：删文件后无悬空 import/脚本/文档链接）
         run: node scripts/ci/check-dangling-refs.mjs
-      # BASE-02：三端契约门禁——漏代理（前端 /admin/** 调用必须被 mall-admin
-      # 端点覆盖，存量断链台账可见不阻塞）、菜单无路由、分页形状（新接口统一
-      # {items,total,page,size}）、未使用公共能力（软报警台账）
-      - name: BASE-02 契约门禁
-        run: node scripts/contract-check.mjs
+      # BASE-02/T23：三端契约门禁——HTTP 方法 + 路径（后端 {id} 只匹配单段）、
+      # 菜单无路由、分页形状；断链不再以 warning 掩盖，--strict 不允许豁免长期滞留。
+      - name: BASE-02 契约门禁（T23 收严）
+        run: node scripts/contract-check.mjs --strict
       - name: 设置 JDK（R27 路由注解门禁）
         uses: actions/setup-java@v5
         with:

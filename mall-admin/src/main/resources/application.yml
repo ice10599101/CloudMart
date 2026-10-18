@@ -135,7 +135,8 @@ cloudmart:
       mall-wish: wish:admin
       mall-risk: risk:admin
       mall-ai: ai:admin
-      mall-job: job:admin
+      # T23：mall-job 由 Web 经网关 /api/job/** 直达，mall-admin 无该域 Feign 客户端；
+      # 原 mall-job: job:admin 为无调用方的死配置（与 mall-job 入站 job:internal 也不对称），删除。
       # S04：软件域审核代理出站签名（缺失时 mall-software /admin 路径 401）
       mall-software: software:admin
     user-jwt-verification-enabled: false
