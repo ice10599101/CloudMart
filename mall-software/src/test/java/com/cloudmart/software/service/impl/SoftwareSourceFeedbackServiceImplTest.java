@@ -168,7 +168,9 @@ class SoftwareSourceFeedbackServiceImplTest {
         when(feedbackMapper.selectOne(any(Wrapper.class))).thenReturn(null);
         when(feedbackMapper.countRecentDistinctReporters(eq(SOFTWARE_ID), eq("key-1"),
                 eq("fp-1"), any())).thenReturn(3L);
-        when(sourceStateMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+        when(sourceStateMapper.raiseSuspectedIfEligible(any(), any(), any(), any(), any()))
+                .thenReturn(0);
+        when(sourceStateMapper.selectCount(any(Wrapper.class))).thenReturn(0L);
 
         service.feedback(999L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null);
 
@@ -190,21 +192,50 @@ class SoftwareSourceFeedbackServiceImplTest {
     }
 
     @Test
-    @DisplayName("4.3：平台禁用优先——已达阈值的来源不被反馈降级")
-    void feedback_disabledPriority() {
+    @DisplayName("SW07：已达阈值后第 4 条反馈不再重复迁移/通知（一次阈值一次提醒）")
+    void feedback_repeatThresholdDoesNotRenotify() {
         when(feedbackMapper.selectOne(any(Wrapper.class))).thenReturn(null);
-        when(feedbackMapper.countRecentDistinctReporters(any(), any(), any(), any())).thenReturn(5L);
-        SoftwareSourceState disabled = new SoftwareSourceState();
-        disabled.setSoftwareId(SOFTWARE_ID);
-        disabled.setSourceKey("key-1");
-        disabled.setAvailability(SourceAvailability.DISABLED);
-        when(sourceStateMapper.selectOne(any(Wrapper.class))).thenReturn(disabled);
+        when(feedbackMapper.countRecentDistinctReporters(any(), any(), any(), any())).thenReturn(4L);
+        // 状态行已存在（上次已迁移 SUSPECTED）：条件更新影响 0 行，selectCount>0
+        when(sourceStateMapper.raiseSuspectedIfEligible(any(), any(), any(), any(), any()))
+                .thenReturn(0);
+        when(sourceStateMapper.selectCount(any(Wrapper.class))).thenReturn(1L);
 
-        service.feedback(997L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null);
+        service.feedback(996L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null);
 
         verify(sourceStateMapper, never()).insert(any(SoftwareSourceState.class));
         verify(sourceStateMapper, never()).updateById(any(SoftwareSourceState.class));
         verify(outboxService, never()).record(any());
+    }
+
+    @Test
+    @DisplayName("SW07：人工 INVALID/DISABLED 优先——自动反馈不降级、不通知（条件更新 0 行）")
+    void feedback_invalidPriority() {
+        when(feedbackMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+        when(feedbackMapper.countRecentDistinctReporters(any(), any(), any(), any())).thenReturn(5L);
+        when(sourceStateMapper.raiseSuspectedIfEligible(any(), any(), any(), any(), any()))
+                .thenReturn(0);
+        when(sourceStateMapper.selectCount(any(Wrapper.class))).thenReturn(1L);
+
+        service.feedback(995L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null);
+
+        verify(sourceStateMapper, never()).insert(any(SoftwareSourceState.class));
+        verify(sourceStateMapper, never()).updateById(any(SoftwareSourceState.class));
+        verify(outboxService, never()).record(any());
+    }
+
+    @Test
+    @DisplayName("SW07：UNKNOWN/AVAILABLE → SUSPECTED 的真实迁移才通知（条件更新影响 1 行）")
+    void feedback_realMigrationNotifiesOnce() {
+        when(feedbackMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+        when(feedbackMapper.countRecentDistinctReporters(any(), any(), any(), any())).thenReturn(3L);
+        when(sourceStateMapper.raiseSuspectedIfEligible(any(), any(), any(), any(), any()))
+                .thenReturn(1);
+
+        service.feedback(994L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null);
+
+        verify(sourceStateMapper, never()).insert(any(SoftwareSourceState.class));
+        verify(outboxService).record(any());
     }
 
     @Test

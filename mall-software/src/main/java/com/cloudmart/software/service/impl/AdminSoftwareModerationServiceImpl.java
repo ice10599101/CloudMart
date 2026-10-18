@@ -13,17 +13,26 @@ import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareAuditLog;
 import com.cloudmart.software.entity.SoftwareComment;
 import com.cloudmart.software.entity.SoftwareLinkFeedback;
+import com.cloudmart.software.entity.SoftwareRelease;
 import com.cloudmart.software.entity.SoftwareReport;
+import com.cloudmart.software.entity.SoftwareRevision;
+import com.cloudmart.software.entity.SoftwareSource;
+import com.cloudmart.software.entity.SoftwareSourceState;
 import com.cloudmart.software.enums.LinkFeedbackStatus;
 import com.cloudmart.software.enums.SoftwareCommentStatus;
 import com.cloudmart.software.enums.SoftwareLifecycle;
 import com.cloudmart.software.enums.SoftwareReportStatus;
+import com.cloudmart.software.enums.SoftwareReviewStatus;
+import com.cloudmart.software.enums.SourceAvailability;
 import com.cloudmart.software.mq.SoftwareEvents;
 import com.cloudmart.software.repository.SoftwareAuditLogMapper;
 import com.cloudmart.software.repository.SoftwareCommentMapper;
 import com.cloudmart.software.repository.SoftwareLinkFeedbackMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
+import com.cloudmart.software.repository.SoftwareReleaseMapper;
 import com.cloudmart.software.repository.SoftwareReportMapper;
+import com.cloudmart.software.repository.SoftwareSourceMapper;
+import com.cloudmart.software.repository.SoftwareSourceStateMapper;
 import com.cloudmart.software.service.AdminSoftwareModerationService;
 import com.cloudmart.software.service.SoftwareOperationService;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +72,9 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
     private final SoftwareAuditLogMapper auditLogMapper;
     private final com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
     private final com.cloudmart.software.repository.SoftwareRevisionMapper revisionMapper;
+    private final SoftwareReleaseMapper releaseMapper;
+    private final SoftwareSourceMapper sourceMapper;
+    private final SoftwareSourceStateMapper sourceStateMapper;
     private final SoftwareOperationService operationService;
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
@@ -259,9 +271,24 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
     private void doMark(Long adminId, Long feedbackId, String status, Long resolvedRevisionId,
                         String note) {
         SoftwareLinkFeedback feedback = feedbackMapper.selectById(feedbackId);
-        if (feedback == null || feedback.getStatus() == LinkFeedbackStatus.RESOLVED
-                || feedback.getStatus() == LinkFeedbackStatus.REJECTED) {
-            return; // 幂等：无反馈或已终态
+        if (feedback == null) {
+            return; // 幂等：无反馈
+        }
+        boolean terminal = feedback.getStatus() == LinkFeedbackStatus.RESOLVED
+                || feedback.getStatus() == LinkFeedbackStatus.REJECTED;
+        if (terminal) {
+            if (feedback.getStatus().name().equals(status)) {
+                return; // SW07：终态重复同意图，稳定返回原结果
+            }
+            if (!"VERIFYING".equals(status)) {
+                throw new BusinessException("SOFTWARE_FEEDBACK_TERMINAL",
+                        "反馈已终态（" + feedback.getStatus().name() + "），不能静默改为 "
+                                + status + "；如需重开请先标记 VERIFYING");
+            }
+            // 显式重开：终态 → VERIFYING（管理员明确操作）
+        }
+        if ("RESOLVED".equals(status)) {
+            validateResolvedFact(feedback, resolvedRevisionId);
         }
         feedback.setStatus(LinkFeedbackStatus.valueOf(status));
         feedback.setHandlerId(adminId);
@@ -275,6 +302,53 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
         feedbackMapper.updateById(feedback);
         writeAudit(feedback.getSoftwareId(), null, adminId, "FEEDBACK_" + status,
                 null, status, note == null ? "" : note);
+    }
+
+    /**
+     * SW07：结案必须引用本软件当前已发布的修复快照，并具备具体修复事实之一——
+     * ① 该来源已随修复快照上线移除；② 管理员在反馈之后核验 AVAILABLE 且指纹=当前内容
+     * （换链接验证新指纹 / 同链接恢复均覆盖）。原始指纹永久保留在反馈行上。
+     */
+    private void validateResolvedFact(SoftwareLinkFeedback feedback, Long resolvedRevisionId) {
+        Software software = softwareMapper.selectById(feedback.getSoftwareId());
+        if (software == null || software.getPublishedRevisionId() == null
+                || !software.getPublishedRevisionId().equals(resolvedRevisionId)) {
+            throw new BusinessException("SOFTWARE_FEEDBACK_INVALID",
+                    "结案必须引用本软件当前已发布的修复快照，不能填写任意 revisionId");
+        }
+        SoftwareRevision revision = revisionMapper.selectById(resolvedRevisionId);
+        if (revision == null || revision.getReviewStatus() != SoftwareReviewStatus.APPROVED) {
+            throw new BusinessException("SOFTWARE_FEEDBACK_INVALID", "修复快照不存在或未审核通过");
+        }
+        List<SoftwareRelease> releases = releaseMapper.selectList(
+                new LambdaQueryWrapper<SoftwareRelease>()
+                        .eq(SoftwareRelease::getRevisionId, resolvedRevisionId));
+        List<SoftwareSource> sources = releases.isEmpty() ? List.of()
+                : sourceMapper.selectList(new LambdaQueryWrapper<SoftwareSource>()
+                        .in(SoftwareSource::getReleaseId,
+                                releases.stream().map(SoftwareRelease::getId).toList()));
+        if (sources.stream().noneMatch(s -> feedback.getSourceKey().equals(s.getSourceKey()))) {
+            return; // 事实一：无效来源已随修复快照上线移除
+        }
+        SoftwareSource current = sources.stream()
+                .filter(s -> feedback.getSourceKey().equals(s.getSourceKey()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("SOFTWARE_FEEDBACK_INVALID", "来源状态读取失败"));
+        SoftwareSourceState state = sourceStateMapper.selectOne(
+                new LambdaQueryWrapper<SoftwareSourceState>()
+                        .eq(SoftwareSourceState::getSoftwareId, feedback.getSoftwareId())
+                        .eq(SoftwareSourceState::getSourceKey, feedback.getSourceKey()));
+        boolean verifiedNow = state != null
+                && state.getAvailability() == SourceAvailability.AVAILABLE
+                && state.getCheckedFingerprint() != null
+                && state.getCheckedFingerprint().equals(current.getContentFingerprint())
+                && state.getCheckedAt() != null
+                && feedback.getCreatedAt() != null
+                && state.getCheckedAt().isAfter(feedback.getCreatedAt());
+        if (!verifiedNow) {
+            throw new BusinessException("SOFTWARE_FEEDBACK_INVALID",
+                    "缺少修复事实：需「该来源已随修复快照上线移除」或「管理员核验 AVAILABLE 且指纹=当前内容（核验时间晚于反馈）」");
+        }
     }
 
     private void writeAudit(Long softwareId, Long revisionId, Long adminId, String action,

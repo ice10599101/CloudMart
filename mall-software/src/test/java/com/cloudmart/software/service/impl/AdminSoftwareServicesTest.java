@@ -82,6 +82,8 @@ class AdminSoftwareServicesTest {
     private com.cloudmart.software.repository.SoftwareReleaseMapper releaseMapper;
     @Mock
     private com.cloudmart.software.repository.SoftwareSourceMapper sourceMapper;
+    @org.mockito.Mock
+    private com.cloudmart.software.repository.SoftwareSourceStateMapper sourceStateMapper;
     @Mock
     private SoftwarePublisherPermissionMapper publisherPermissionMapper;
     @Mock
@@ -130,7 +132,8 @@ class AdminSoftwareServicesTest {
                 new ObjectMapper(), fixedClock());
         moderationService = new AdminSoftwareModerationServiceImpl(softwareMapper, lockMapper, reportMapper,
                 commentMapper, feedbackMapper, auditLogMapper, userSupportFeignClient,
-                revisionMapper, operationService, outboxService,
+                revisionMapper, releaseMapper, sourceMapper, sourceStateMapper,
+                operationService, outboxService,
                 new ObjectMapper(), fixedClock());
         queryService = new AdminSoftwareQueryServiceImpl(softwareMapper, userSupportFeignClient,
                 revisionMapper, commentMapper, auditLogMapper, releaseMapper, sourceMapper,

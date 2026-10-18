@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.async.EventEnvelope;
 import com.cloudmart.common.async.outbox.OutboxService;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareLinkFeedback;
 import com.cloudmart.software.entity.SoftwareRelease;
 import com.cloudmart.software.entity.SoftwareRevision;
@@ -127,7 +128,13 @@ public class SoftwareSourceFeedbackServiceImpl implements SoftwareSourceFeedback
                 reasonCode, feedback.getStatus().name());
     }
 
-    /** 24h 内同指纹 3 个不同账号 → SUSPECTED（仍可获取）+ Outbox 通知分享者（5.3） */
+    /**
+     * 24h 内同指纹 3 个不同账号 → SUSPECTED（仍可获取）+ Outbox 通知分享者（5.3/SW07）。
+     *
+     * <p>SW07：抬升必须走带状态条件的原子更新——人工 INVALID/DISABLED 结论优先，
+     * 自动反馈绝不降级；只有真正发生一次 UNKNOWN/AVAILABLE→SUSPECTED 迁移才通知作者，
+     * 后续反馈只累计统计。读取→无条件写覆盖并发人工处置的竞态由此消除。</p>
+     */
     private void raiseSuspectedIfNeeded(Long softwareId, String sourceKey, String fingerprint) {
         LocalDateTime since = LocalDateTime.now(clock).minusHours(REPORT_WINDOW_HOURS);
         long distinctReporters = feedbackMapper.countRecentDistinctReporters(
@@ -135,40 +142,42 @@ public class SoftwareSourceFeedbackServiceImpl implements SoftwareSourceFeedback
         if (distinctReporters < softwareProperties.getSuspectedDistinctReporters()) {
             return;
         }
-        SoftwareSourceState state = sourceStateMapper.selectOne(
-                new LambdaQueryWrapper<SoftwareSourceState>()
-                        .eq(SoftwareSourceState::getSoftwareId, softwareId)
-                        .eq(SoftwareSourceState::getSourceKey, sourceKey));
-        // 平台禁用优先，不被反馈降级；其他状态统一抬升 SUSPECTED（指纹=当前）
-        if (state != null && state.getAvailability() == SourceAvailability.DISABLED) {
+        LocalDateTime now = LocalDateTime.now(clock);
+        String reason = "24小时内收到 " + distinctReporters + " 个不同账号的失效反馈，待管理员核实";
+        if (sourceStateMapper.raiseSuspectedIfEligible(softwareId, sourceKey, fingerprint, now, reason) > 0) {
+            notifyAuthor(softwareId, sourceKey, distinctReporters);
             return;
         }
-        if (state == null) {
-            state = new SoftwareSourceState();
-            state.setSoftwareId(softwareId);
-            state.setSourceKey(sourceKey);
-            state.setLockVersion(0);
+        // 未迁移：状态行已存在（SUSPECTED/INVALID/DISABLED）——只累计，不重复通知
+        if (sourceStateMapper.selectCount(new LambdaQueryWrapper<SoftwareSourceState>()
+                .eq(SoftwareSourceState::getSoftwareId, softwareId)
+                .eq(SoftwareSourceState::getSourceKey, sourceKey)) > 0) {
+            return;
         }
+        // 首次出现该来源键：插入 SUSPECTED；并发插入冲突说明他方已迁移，由其负责通知
+        SoftwareSourceState state = new SoftwareSourceState();
+        state.setSoftwareId(softwareId);
+        state.setSourceKey(sourceKey);
         state.setAvailability(SourceAvailability.SUSPECTED);
         state.setCheckedFingerprint(fingerprint);
-        state.setCheckedAt(LocalDateTime.now(clock));
-        state.setReason("24小时内收到 " + distinctReporters + " 个不同账号的失效反馈，待管理员核实");
-        if (state.getId() == null) {
+        state.setCheckedAt(now);
+        state.setReason(reason);
+        state.setLockVersion(0);
+        try {
             sourceStateMapper.insert(state);
-        } else {
-            state.setLockVersion(state.getLockVersion() + 1);
-            sourceStateMapper.updateById(state);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            return;
         }
         notifyAuthor(softwareId, sourceKey, distinctReporters);
     }
 
     /** 分享者通知事件（S10 消费投递）：载荷只含标识，不含链接/提取码/反馈者身份 */
     private void notifyAuthor(Long softwareId, String sourceKey, long distinctReporters) {
-        Long authorId = softwareMapper.selectById(softwareId) == null
-                ? null : softwareMapper.selectById(softwareId).getOwnerId();
-        if (authorId == null) {
+        Software software = softwareMapper.selectById(softwareId);
+        if (software == null || software.getOwnerId() == null) {
             return;
         }
+        Long authorId = software.getOwnerId();
         outboxService.record(EventEnvelope.of(SoftwareEvents.TAG_SOURCE_REPORTED, SCHEMA_VERSION,
                 String.valueOf(softwareId), System.currentTimeMillis(), null,
                 objectMapper.writeValueAsString(Map.of(

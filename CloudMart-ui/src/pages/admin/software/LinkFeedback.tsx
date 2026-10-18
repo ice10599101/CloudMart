@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Input, InputNumber, Modal, Radio, Space, Tag, Typography } from 'antd'
-import { listLinkFeedbacks, markLinkFeedback } from '@/api/admin/software'
+import { Input, Modal, Radio, Select, Tag, Typography } from 'antd'
+import { getAdminSoftwareDetail, listLinkFeedbacks, markLinkFeedback } from '@/api/admin/software'
 import type { AdminLinkFeedback } from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
@@ -34,16 +34,35 @@ export default function SoftwareLinkFeedback() {
   const [markTarget, setMarkTarget] = useState<AdminLinkFeedback | null>(null)
   const [markStatus, setMarkStatus] = useState<'VERIFYING' | 'RESOLVED' | 'REJECTED'>('VERIFYING')
   const [resolvedRevisionId, setResolvedRevisionId] = useState<number | null>(null)
+  /** SW07：结案只能引用本软件当前已发布的修复快照（后端强校验） */
+  const [publishedRevision, setPublishedRevision] = useState<string | null>(null)
   const [markNote, setMarkNote] = useState('')
 
   const [sourceTarget, setSourceTarget] = useState<AdminLinkFeedback | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
 
+  const openMark = (record: AdminLinkFeedback) => {
+    setMarkTarget(record)
+    setMarkStatus(record.status === 'OPEN' ? 'VERIFYING' : 'RESOLVED')
+    setResolvedRevisionId(null)
+    setPublishedRevision(null)
+    setMarkNote('')
+    void getAdminSoftwareDetail(record.softwareId).then((res) => {
+      if (res.data.success) {
+        setPublishedRevision(res.data.data.publishedRevisionId)
+      }
+    })
+  }
+
   const submitMark = async () => {
     if (!markTarget) return
+    if (markStatus === 'RESOLVED' && publishedRevision == null) {
+      message.warning('该软件当前没有已发布快照，无法标记已修复')
+      return
+    }
     if (markStatus === 'RESOLVED' && resolvedRevisionId == null) {
-      message.warning('标记已修复必须填写修复上线的快照ID')
+      message.warning('标记已修复必须选择修复上线的快照')
       return
     }
     setSubmitting(true)
@@ -112,12 +131,7 @@ export default function SoftwareLinkFeedback() {
       render: (_, record) => [
         <a
           key="mark"
-          onClick={() => {
-            setMarkTarget(record)
-            setMarkStatus(record.status === 'OPEN' ? 'VERIFYING' : 'RESOLVED')
-            setResolvedRevisionId(null)
-            setMarkNote('')
-          }}
+          onClick={() => openMark(record)}
         >
           标记
         </a>,
@@ -163,7 +177,8 @@ export default function SoftwareLinkFeedback() {
       >
         <Typography.Paragraph type="secondary">
           反馈 {markTarget?.feedbackId}（软件 {markTarget?.softwareId}，来源键{' '}
-          {markTarget?.sourceKey}）。"已修复"必须绑定修复上线的新快照，用于保留原始指纹与修复记录。
+          {markTarget?.sourceKey}）。"已修复"只能引用本软件当前已发布的修复快照，且需满足修复事实：
+          来源已随快照移除，或管理员已核验 AVAILABLE（指纹=当前内容）。原始指纹会永久保留。
         </Typography.Paragraph>
         <Radio.Group
           value={markStatus}
@@ -171,15 +186,22 @@ export default function SoftwareLinkFeedback() {
           style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}
         >
           <Radio value="VERIFYING">标记核实中</Radio>
-          <Radio value="RESOLVED">标记已修复（需修复快照ID）</Radio>
+          <Radio value="RESOLVED" disabled={publishedRevision == null}>
+            标记已修复（需选择修复快照）
+          </Radio>
           <Radio value="REJECTED">驳回反馈</Radio>
         </Radio.Group>
         {markStatus === 'RESOLVED' && (
-          <InputNumber
-            placeholder="修复上线的快照ID（revisionId）"
+          <Select
+            placeholder={publishedRevision ? '选择修复快照' : '该软件当前没有已发布快照'}
             value={resolvedRevisionId}
             onChange={(value) => setResolvedRevisionId(value)}
             style={{ width: '100%', marginBottom: 12 }}
+            options={
+              publishedRevision
+                ? [{ value: Number(publishedRevision), label: `已发布快照 ${publishedRevision}` }]
+                : []
+            }
           />
         )}
         <Input.TextArea
