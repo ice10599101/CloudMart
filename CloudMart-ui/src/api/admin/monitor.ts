@@ -18,14 +18,6 @@ export function getJobLogs(params?: Record<string, any>) {
   return request.get('/job/log/page', { params })
 }
 
-export function deleteJobLog(id: number | string) {
-  return request.delete(`/job/log/${id}`)
-}
-
-export function cleanJobLogs() {
-  return request.delete('/job/log/clean')
-}
-
 export function getServerInfo() {
   return request.get('/admin/monitor/server')
 }

@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,7 +20,6 @@ import java.util.Map;
  * 调度中心控制台，本服务不再维护第二套 Cron 注册表。
  */
 @RestController
-@RequestMapping("/job")
 @Tag(name = "定时任务(XXL 适配)", description = "OPS-01：XXL-JOB 事实只读适配 + 白名单手动运行")
 public class SysJobController {
 

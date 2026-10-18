@@ -42,20 +42,20 @@ class SysJobControllerTest {
     }
 
     @Test
-    @DisplayName("GET /job/list 返回 XXL 事实分页")
+    @DisplayName("GET /list 返回 XXL 事实分页（网关 StripPrefix=2 后无 /job 前缀）")
     void list_ok() throws Exception {
         given(adapterService.page(anyInt(), anyInt(), any()))
                 .willReturn(Map.of("records", List.of(Map.of("id", 1, "executorHandler", "orderTimeoutCancelHandler")),
                         "total", 1));
-        mockMvc.perform(get("/job/list"))
+        mockMvc.perform(get("/list"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.records[0].executorHandler").value("orderTimeoutCancelHandler"));
     }
 
     @Test
-    @DisplayName("POST /job/{id}/run 白名单手动运行")
+    @DisplayName("POST /{id}/run 白名单手动运行")
     void run_ok() throws Exception {
-        mockMvc.perform(post("/job/1/run").contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(post("/1/run").contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
         verify(adapterService).runOnce(1L);
     }
@@ -65,7 +65,7 @@ class SysJobControllerTest {
     void run_empty_handler_rejected() throws Exception {
         doThrow(new BusinessException("JOB_HANDLER_EMPTY", "任务未配置 executor_handler"))
                 .when(adapterService).runOnce(19L);
-        mockMvc.perform(post("/job/19/run").contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(post("/19/run").contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("JOB_HANDLER_EMPTY"));
     }

@@ -10,8 +10,6 @@ import {
   getJob,
   runJob,
   getJobLogs,
-  deleteJobLog,
-  cleanJobLogs,
   getServerInfo,
   getCacheInfo,
   getOnlineUsers,
@@ -49,17 +47,7 @@ describe('admin monitor API - Job Log Management', () => {
     expect(request.get).toHaveBeenCalledWith('/job/log/page', { params: { page: 1 } })
   })
 
-  it('deleteJobLog() calls DELETE /job/log/:id', async () => {
-    vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
-    await deleteJobLog(1)
-    expect(request.delete).toHaveBeenCalledWith('/job/log/1')
-  })
 
-  it('cleanJobLogs() calls DELETE /job/log/clean', async () => {
-    vi.mocked(request.delete).mockResolvedValue({ data: {} } as any)
-    await cleanJobLogs()
-    expect(request.delete).toHaveBeenCalledWith('/job/log/clean')
-  })
 })
 
 describe('admin monitor API - Server & Cache Monitor', () => {
