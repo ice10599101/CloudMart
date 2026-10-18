@@ -15,6 +15,7 @@ import {
   Typography,
 } from 'antd'
 import SoftwareDetailModal from '@/components/admin/SoftwareDetailModal'
+import SoftwareSourcesModal from '@/components/admin/SoftwareSourcesModal'
 import {
   banAdminSoftware,
   deleteAdminSoftware,
@@ -51,6 +52,7 @@ export default function SoftwareItems() {
   const message = useMessage()
   const actionRef = useRef<ActionType>(null)
   const [detail, setDetail] = useState<AdminSoftwareDetail | null>(null)
+  const [sourcesFor, setSourcesFor] = useState<string | null>(null)
   const [featureTarget, setFeatureTarget] = useState<AdminSoftwareItem | null>(null)
   const [featureRank, setFeatureRank] = useState<number>(0)
   const [banTarget, setBanTarget] = useState<AdminSoftwareItem | null>(null)
@@ -235,10 +237,13 @@ export default function SoftwareItems() {
     {
       title: '操作',
       valueType: 'option',
-      width: 220,
+      width: 300,
       render: (_, record) => [
         <a key="detail" onClick={() => openDetail(record.softwareId)}>
           详情
+        </a>,
+        <a key="sources" onClick={() => setSourcesFor(record.softwareId)}>
+          来源管理
         </a>,
         <a
           key="featured"
@@ -304,6 +309,13 @@ export default function SoftwareItems() {
         detail={detail}
         open={!!detail}
         onClose={() => setDetail(null)}
+      />
+
+      {/* SW06：来源管理（按版本/平台/架构，直接核验/禁用/恢复） */}
+      <SoftwareSourcesModal
+        softwareId={sourcesFor ?? ''}
+        open={!!sourcesFor}
+        onClose={() => setSourcesFor(null)}
       />
 
       {/* 精选排序（featuredRank=0 取消精选；expectedVersion 防并发覆盖） */}

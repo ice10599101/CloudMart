@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -57,6 +58,14 @@ public class AdminSoftwarePublishController {
                 request.getSubmitSeq(), request.getExpectedVersion(),
                 Boolean.TRUE.equals(request.getApprove()),
                 request.getReason(), request.getRequestId()));
+    }
+
+    @GetMapping("/{softwareId}/sources")
+    @Operation(summary = "来源清单（SW06）",
+            description = "当前线上快照按版本/平台/架构列出；链接默认脱敏，不返回提取码/解压密码")
+    public ApiResponse<java.util.List<com.cloudmart.software.vo.software.AdminSoftwareSourceVO>> sources(
+            @org.springframework.web.bind.annotation.PathVariable("softwareId") Long softwareId) {
+        return ApiResponse.ok(adminSoftwareSourceService.listSources(softwareId));
     }
 
     @PostMapping("/{softwareId}/sources/state")

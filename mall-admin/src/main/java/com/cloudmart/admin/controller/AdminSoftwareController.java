@@ -64,6 +64,13 @@ public class AdminSoftwareController {
         return softwareFeignClient.sourceState(softwareId, body);
     }
 
+    @GetMapping("/{softwareId}/sources")
+    @RequiresPermission("software:link")
+    @Operation(summary = "来源清单（SW06）", description = "当前线上快照按版本/平台/架构；链接脱敏，不含提取码")
+    public ApiResponse<Object> sources(@PathVariable("softwareId") Long softwareId) {
+        return softwareFeignClient.sources(softwareId);
+    }
+
     @GetMapping("/revisions/pending")
     @RequiresPermission("software:review")
     @Operation(summary = "待审列表", description = "PENDING 快照按提交时间升序")

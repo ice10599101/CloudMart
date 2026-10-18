@@ -327,9 +327,29 @@ export function decideReview(
   )
 }
 
+/** SW06：后台来源清单（当前线上快照；链接已脱敏，不含提取码/解压密码） */
+export interface AdminSoftwareSourceItem {
+  releaseKey: string
+  versionName: string
+  channel: string | null
+  sourceKey: string
+  sourceType: string
+  platform: string | null
+  arch: string | null
+  label: string | null
+  maskedUrl: string | null
+  availability: string
+  statusReason: string | null
+  checkedFingerprint: string | null
+  checkedAt: string | null
+}
+
+export function listAdminSoftwareSources(softwareId: string) {
+  return request.get<ApiResponse<AdminSoftwareSourceItem[]>>(`${BASE}/${softwareId}/sources`)
+}
+
 /** 来源状态处置：VERIFY / DISABLE / RESTORE（software:link） */
-export function setSourceState(
-  softwareId: string,
+export function setSourceState(  softwareId: string,
   payload: { sourceKey: string; availability: string; reason: string },
   idempotencyKey?: string,
 ) {

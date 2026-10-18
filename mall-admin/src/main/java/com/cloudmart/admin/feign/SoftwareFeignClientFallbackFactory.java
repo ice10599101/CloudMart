@@ -32,6 +32,11 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> sources(Long softwareId) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> pending(int page, int size) {
                 throw unavailable(cause);
             }

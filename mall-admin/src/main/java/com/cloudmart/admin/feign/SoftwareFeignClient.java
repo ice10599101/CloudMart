@@ -35,6 +35,10 @@ public interface SoftwareFeignClient {
     ApiResponse<Object> sourceState(@PathVariable("softwareId") Long softwareId,
                                     @RequestBody Map<String, Object> body);
 
+    /** 来源清单（SW06）：当前线上快照按版本/平台/架构，链接已脱敏 */
+    @GetMapping("/{softwareId}/sources")
+    ApiResponse<Object> sources(@PathVariable("softwareId") Long softwareId);
+
     @GetMapping("/revisions/pending")
     ApiResponse<Object> pending(@RequestParam("page") int page, @RequestParam("size") int size);
 
