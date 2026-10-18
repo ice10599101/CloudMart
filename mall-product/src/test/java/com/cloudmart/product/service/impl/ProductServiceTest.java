@@ -5,6 +5,8 @@ import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.product.converter.ProductConverter;
 import com.cloudmart.product.dto.CategoryDTO;
 import com.cloudmart.product.dto.ProductDTO;
+import com.cloudmart.product.dto.ProductSearchRequest;
+import com.cloudmart.product.dto.ProductSearchResponse;
 import com.cloudmart.product.dto.SkuDTO;
 import com.cloudmart.product.entity.Category;
 import com.cloudmart.product.entity.Product;
@@ -228,5 +230,22 @@ class ProductServiceTest {
                 });
 
         verify(categoryMapper).selectById(999L);
+    }
+
+    @Test
+    @DisplayName("ES 返回 0 结果时降级数据库搜索（索引为空不误报无货）")
+    void searchProducts_WhenEsEmpty_ShouldFallBackToDatabase() {
+        EsProductSearchService esService = org.mockito.Mockito.mock(EsProductSearchService.class);
+        when(esProductSearchServiceProvider.getIfAvailable()).thenReturn(esService);
+        when(esService.search(any())).thenReturn(
+                new ProductSearchResponse(List.of(), List.of(), List.of(), 0L, 1, 20));
+        when(productMapper.selectPage(any(), any()))
+                .thenReturn(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 20, 0));
+
+        productService.searchProducts(new ProductSearchRequest(
+                "测试", null, null, null, null, "relevance", 1, 1, 20));
+
+        // 命中为空时不应直接返回空 ES 结果，而应走数据库搜索路径
+        verify(productMapper).selectPage(any(), any());
     }
 }

@@ -366,7 +366,14 @@ public class ProductServiceImpl implements ProductService {
         EsProductSearchService esService = esProductSearchServiceProvider.getIfAvailable();
         if (esService != null) {
             try {
-                return esService.search(request);
+                ProductSearchResponse esResp = esService.search(request);
+                // ES 返回 0 结果并不一定代表“确实无货”——索引可能为空/未重建。
+                // 命中为空时回退数据库，避免“有货却搜不到”（ES 抛异常同样回退）。
+                if (esResp != null && esResp.total() > 0) {
+                    return esResp;
+                }
+                log.warn("ES搜索返回0结果，降级到数据库搜索（索引可能为空或未重建） keyword={} page={}",
+                        request.keyword(), request.page());
             } catch (Exception e) {
                 log.warn("ES搜索失败，降级到数据库搜索: {}", e.getMessage());
             }

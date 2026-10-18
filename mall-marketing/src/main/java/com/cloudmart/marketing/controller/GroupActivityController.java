@@ -2,6 +2,7 @@ package com.cloudmart.marketing.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.api.ApiResponse.Meta;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.marketing.converter.MarketingConverter;
 import com.cloudmart.marketing.dto.*;
@@ -13,6 +14,8 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Tag(name = "拼团活动", description = "拼团活动用户端接口")
 @RestController
@@ -37,15 +40,17 @@ public class GroupActivityController {
 
     @Operation(summary = "查询拼团活动列表")
     @GetMapping("/activities")
-    public ApiResponse<IPage<GroupActivityVO>> listActivities(
+    public ApiResponse<List<GroupActivityVO>> listActivities(
             @Parameter(description = "状态筛选") @RequestParam(required = false) String status,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(value = "pageSize", required = false) Integer pageSize,
             @Parameter(description = "每页数量（旧参数名，兼容期保留）") @RequestParam(value = "size", required = false) Integer size) {
         int resolvedSize = pageSize != null ? pageSize : (size != null ? size : 10);
         IPage<GroupActivityDTO> dtoPage = groupActivityService.listActivities(status, page, resolvedSize);
-        IPage<GroupActivityVO> voPage = dtoPage.convert(marketingConverter::groupActivityDtoToVO);
-        return ApiResponse.ok(voPage);
+        // T06：列表契约统一为 data 数组 + meta{page,pageSize,total}（此前返回 IPage 结构）
+        List<GroupActivityVO> voList = dtoPage.getRecords().stream()
+                .map(marketingConverter::groupActivityDtoToVO).toList();
+        return ApiResponse.ok(voList, new Meta(page, resolvedSize, dtoPage.getTotal()));
     }
 
     @Operation(summary = "加入拼团")
@@ -72,26 +77,28 @@ public class GroupActivityController {
     /** T10：本人参团查询（服务端从当前身份过滤；公开团列表另保留） */
     @Operation(summary = "我的拼团", description = "本人为团长或成员的团实例，含本人建单结果；服务端身份过滤")
     @GetMapping("/orders/my")
-    public ApiResponse<IPage<GroupOrderVO>> listMyGroups(
+    public ApiResponse<List<GroupOrderVO>> listMyGroups(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "状态筛选") @RequestParam(required = false) String status,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size) {
         IPage<GroupOrderDTO> dtoPage = groupActivityService.listMyGroups(userId, status, page, size);
-        IPage<GroupOrderVO> voPage = dtoPage.convert(marketingConverter::groupOrderDtoToVO);
-        return ApiResponse.ok(voPage);
+        List<GroupOrderVO> voList = dtoPage.getRecords().stream()
+                .map(marketingConverter::groupOrderDtoToVO).toList();
+        return ApiResponse.ok(voList, new Meta(page, size, dtoPage.getTotal()));
     }
 
     @Operation(summary = "查询拼团组列表")
     @GetMapping("/orders")
-    public ApiResponse<IPage<GroupOrderVO>> listGroupOrders(
+    public ApiResponse<List<GroupOrderVO>> listGroupOrders(
             @Parameter(description = "活动ID") @RequestParam(required = false) Long activityId,
             @Parameter(description = "状态筛选") @RequestParam(required = false) String status,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size) {
         IPage<GroupOrderDTO> dtoPage = groupActivityService.listGroupOrders(activityId, status, page, size);
-        IPage<GroupOrderVO> voPage = dtoPage.convert(marketingConverter::groupOrderDtoToVO);
-        return ApiResponse.ok(voPage);
+        List<GroupOrderVO> voList = dtoPage.getRecords().stream()
+                .map(marketingConverter::groupOrderDtoToVO).toList();
+        return ApiResponse.ok(voList, new Meta(page, size, dtoPage.getTotal()));
     }
 // T10/E02：拼团超时处理已迁至 /internal/marketing/group/expiration（InternalGroupController），
 // 不再借用用户前缀暴露内部任务入口。

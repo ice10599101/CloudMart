@@ -104,6 +104,11 @@ public class BloomFilterInitializer {
         }
         try {
             RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(PRODUCT_BLOOM_FILTER_NAME);
+            // 过滤器缺失或为空（Redis 重启丢失、启动时 DB 为空等）→ 放行回 DB，
+            // 宁可多查一次也不误杀正常商品（详情 404 比一次查询严重得多）
+            if (!bloomFilter.isExists() || bloomFilter.count() == 0) {
+                return true;
+            }
             return bloomFilter.contains(productId);
         } catch (Exception e) {
             log.warn("Product bloom filter check failed, allowing request through: {}", e.getMessage());
@@ -118,6 +123,9 @@ public class BloomFilterInitializer {
         }
         try {
             RBloomFilter<Long> bloomFilter = redissonClient.getBloomFilter(SKU_BLOOM_FILTER_NAME);
+            if (!bloomFilter.isExists() || bloomFilter.count() == 0) {
+                return true;
+            }
             return bloomFilter.contains(skuId);
         } catch (Exception e) {
             log.warn("SKU bloom filter check failed, allowing request through: {}", e.getMessage());

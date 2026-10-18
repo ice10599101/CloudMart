@@ -85,8 +85,9 @@ class GroupActivityControllerTest {
         mockMvc.perform(get("/group/activities"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.records").isArray())
-                .andExpect(jsonPath("$.data.records[0].id").value(1));
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data[0].id").value(1))
+                .andExpect(jsonPath("$.meta.total").value(1));
     }
 
     @Test
@@ -144,7 +145,9 @@ class GroupActivityControllerTest {
         mockMvc.perform(get("/group/orders"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.records").isArray());
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data[0].id").value(1))
+                .andExpect(jsonPath("$.meta.total").value(1));
     }
 
     @Test
