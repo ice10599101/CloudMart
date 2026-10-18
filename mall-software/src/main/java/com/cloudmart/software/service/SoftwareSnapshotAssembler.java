@@ -11,6 +11,7 @@ import com.cloudmart.software.entity.SoftwareRevision;
 import com.cloudmart.software.entity.SoftwareRevisionMedia;
 import com.cloudmart.software.entity.SoftwareRevisionTag;
 import com.cloudmart.software.entity.SoftwareSource;
+import com.cloudmart.software.entity.SoftwareSourceState;
 import com.cloudmart.software.entity.SoftwareTag;
 import com.cloudmart.software.enums.SoftwareAccessMode;
 import com.cloudmart.software.enums.SoftwareArch;
@@ -19,13 +20,16 @@ import com.cloudmart.software.enums.SoftwareLicenseType;
 import com.cloudmart.software.enums.SoftwarePlatform;
 import com.cloudmart.software.enums.SoftwareReviewStatus;
 import com.cloudmart.software.enums.SoftwareSourceType;
+import com.cloudmart.software.enums.SourceAvailability;
 import com.cloudmart.software.feign.CommunitySupportFeignClient;
 import com.cloudmart.software.repository.SoftwareAccessContactMapper;
 import com.cloudmart.software.repository.SoftwareCategoryMapper;
 import com.cloudmart.software.repository.SoftwareReleaseMapper;
+import com.cloudmart.software.repository.SoftwareRevisionMapper;
 import com.cloudmart.software.repository.SoftwareRevisionMediaMapper;
 import com.cloudmart.software.repository.SoftwareRevisionTagMapper;
 import com.cloudmart.software.repository.SoftwareSourceMapper;
+import com.cloudmart.software.repository.SoftwareSourceStateMapper;
 import com.cloudmart.software.repository.SoftwareTagMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -62,6 +66,8 @@ public class SoftwareSnapshotAssembler {
     private final SoftwareAccessContactMapper accessContactMapper;
     private final SoftwareReleaseMapper releaseMapper;
     private final SoftwareSourceMapper sourceMapper;
+    private final SoftwareRevisionMapper revisionMapper;
+    private final SoftwareSourceStateMapper sourceStateMapper;
     private final SoftwareRevisionTagMapper revisionTagMapper;
     private final SoftwareRevisionMediaMapper revisionMediaMapper;
     private final SoftwareHtmlSanitizer sanitizer;
@@ -513,6 +519,11 @@ public class SoftwareSnapshotAssembler {
 
     private void replaceReleasesAndSources(Long revisionId,
                                            List<SoftwareSnapshotInput.ReleaseInput> releases) {
+        // SW03：稳定键不是“格式合法即可”——必须属于本软件谱系，且同一快照内唯一。
+        // 先校验再删除，避免校验失败留下半份快照。
+        StableKeyContext keyContext = loadStableKeyContext(revisionId);
+        validateIncomingKeys(releases, keyContext);
+
         List<SoftwareRelease> existing = releaseMapper.selectList(
                 new LambdaQueryWrapper<SoftwareRelease>()
                         .eq(SoftwareRelease::getRevisionId, revisionId));
@@ -549,20 +560,120 @@ public class SoftwareSnapshotAssembler {
                         "同渠道下版本号不能重复: " + release.getVersionName());
             }
             releaseMapper.insert(release);
-            replaceSources(release, releaseInput.getSources());
+            replaceSources(release, releaseInput.getSources(), keyContext);
             releaseOrder++;
         }
         enforceSingleRecommended(revisionId);
     }
 
-    /** releaseKey 仅接受 UUID 形态或全新生成——稳定键由服务端生成，客户端不可伪造（6.4） */
+    /** 本软件谱系内可复用的稳定键集合（跨修订克隆沿用同一键） */
+    private record StableKeyContext(Set<String> releaseKeys,
+                                    Set<String> sourceKeys,
+                                    Map<String, SoftwareSourceState> disabledByFingerprint) {
+    }
+
+    private StableKeyContext loadStableKeyContext(Long revisionId) {
+        SoftwareRevision revision = revisionMapper.selectById(revisionId);
+        if (revision == null || revision.getSoftwareId() == null) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "软件不存在");
+        }
+        Long softwareId = revision.getSoftwareId();
+        List<Long> revisionIds = revisionMapper.selectList(
+                        new LambdaQueryWrapper<SoftwareRevision>()
+                                .eq(SoftwareRevision::getSoftwareId, softwareId))
+                .stream().map(SoftwareRevision::getId).toList();
+        if (revisionIds.isEmpty()) {
+            return new StableKeyContext(Set.of(), Set.of(), Map.of());
+        }
+        List<SoftwareRelease> lineageReleases = releaseMapper.selectList(
+                new LambdaQueryWrapper<SoftwareRelease>()
+                        .in(SoftwareRelease::getRevisionId, revisionIds));
+        Set<String> releaseKeys = lineageReleases.stream()
+                .map(SoftwareRelease::getReleaseKey)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        List<Long> releaseIds = lineageReleases.stream().map(SoftwareRelease::getId).toList();
+        if (releaseIds.isEmpty()) {
+            return new StableKeyContext(releaseKeys, Set.of(), Map.of());
+        }
+        List<SoftwareSource> lineageSources = sourceMapper.selectList(
+                new LambdaQueryWrapper<SoftwareSource>()
+                        .in(SoftwareSource::getReleaseId, releaseIds));
+        Set<String> sourceKeys = lineageSources.stream()
+                .map(SoftwareSource::getSourceKey)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        // DISABLED 跟随稳定键；作者删除后重加同一链接时按内容指纹继承禁用状态
+        Map<String, SoftwareSourceState> stateByKey = sourceStateMapper.selectList(
+                        new LambdaQueryWrapper<SoftwareSourceState>()
+                                .eq(SoftwareSourceState::getSoftwareId, softwareId)
+                                .eq(SoftwareSourceState::getAvailability, SourceAvailability.DISABLED))
+                .stream()
+                .collect(Collectors.toMap(SoftwareSourceState::getSourceKey, Function.identity(), (a, b) -> a));
+        Map<String, SoftwareSourceState> disabledByFingerprint = new java.util.HashMap<>();
+        if (!stateByKey.isEmpty()) {
+            for (SoftwareSource source : lineageSources) {
+                if (source.getContentFingerprint() != null
+                        && stateByKey.containsKey(source.getSourceKey())) {
+                    disabledByFingerprint.putIfAbsent(source.getContentFingerprint(),
+                            stateByKey.get(source.getSourceKey()));
+                }
+            }
+        }
+        return new StableKeyContext(releaseKeys, sourceKeys, disabledByFingerprint);
+    }
+
+    /** 输入中的稳定键：UUID 形态 + 本软件谱系归属 + 同快照唯一（伪造他软件键直接拒绝） */
+    private void validateIncomingKeys(List<SoftwareSnapshotInput.ReleaseInput> releases,
+                                      StableKeyContext context) {
+        if (releases == null) {
+            return;
+        }
+        Set<String> releaseKeys = new HashSet<>();
+        Set<String> sourceKeys = new HashSet<>();
+        for (SoftwareSnapshotInput.ReleaseInput release : releases) {
+            String releaseKey = trimToNull(release.getReleaseKey());
+            if (releaseKey != null) {
+                if (!releaseKeys.add(releaseKey)) {
+                    throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "同一快照内 releaseKey 不能重复");
+                }
+                releaseKeyInvalid(releaseKey);
+                if (!context.releaseKeys().contains(releaseKey)) {
+                    throw new BusinessException("SOFTWARE_LINK_INVALID",
+                            "releaseKey 不属于本软件，不能引用其他软件的稳定键");
+                }
+            }
+            if (release.getSources() == null) {
+                continue;
+            }
+            for (SoftwareSnapshotInput.SourceInput source : release.getSources()) {
+                String sourceKey = trimToNull(source.getSourceKey());
+                if (sourceKey == null) {
+                    continue;
+                }
+                if (!sourceKeys.add(sourceKey)) {
+                    throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "同一快照内 sourceKey 不能重复");
+                }
+                if (!context.sourceKeys().contains(sourceKey)) {
+                    throw new BusinessException("SOFTWARE_LINK_INVALID",
+                            "sourceKey 不属于本软件，不能引用其他软件的稳定键");
+                }
+            }
+        }
+    }
+
+    /**
+     * 稳定键只做 UUID 形态前置校验；是否“属于本软件”由 {@link #validateIncomingKeys}
+     * 按当前软件谱系判定——格式合法不等于服务端签发，不能只凭 UUID 形态放行。
+     */
     private boolean releaseKeyInvalid(String releaseKey) {
         try {
             UUID.fromString(releaseKey.trim());
             return false;
         } catch (IllegalArgumentException e) {
             throw new BusinessException("SOFTWARE_LINK_INVALID",
-                    "releaseKey 必须为服务端签发的 UUID 或留空");
+                    "releaseKey 必须为 UUID 形态或留空（归属由服务端按本软件谱系校验）");
         }
     }
 
@@ -601,7 +712,9 @@ public class SoftwareSnapshotAssembler {
         }
     }
 
-    private void replaceSources(SoftwareRelease release, List<SoftwareSnapshotInput.SourceInput> sources) {
+    private void replaceSources(SoftwareRelease release,
+                                List<SoftwareSnapshotInput.SourceInput> sources,
+                                StableKeyContext keyContext) {
         if (sources == null || sources.isEmpty()) {
             throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID",
                     "版本 " + release.getVersionName() + " 至少需要一个下载来源");
@@ -631,8 +744,15 @@ public class SoftwareSnapshotAssembler {
             }
             SoftwareSource source = new SoftwareSource();
             source.setReleaseId(release.getId());
-            source.setSourceKey(sourceInput.getSourceKey() == null
-                    ? UUID.randomUUID().toString() : validateStableKey(sourceInput.getSourceKey()));
+            String sourceKey;
+            if (sourceInput.getSourceKey() == null || sourceInput.getSourceKey().isBlank()) {
+                sourceKey = UUID.randomUUID().toString();
+                // SW03：同链接被作者删除后重加时继承 DISABLED，普通编辑不能自动洗掉处置
+                carryDisabledState(release, sourceKey, link.contentFingerprint(), keyContext);
+            } else {
+                sourceKey = validateStableKey(sourceInput.getSourceKey());
+            }
+            source.setSourceKey(sourceKey);
             source.setSourceType(sourceType);
             // provider 由服务端域名映射/链接类型裁定，不信任客户端标签（5.1）
             source.setProvider(link.provider());
@@ -673,13 +793,40 @@ public class SoftwareSnapshotAssembler {
     }
 
     /** sourceKey 仅接受服务端签发的 UUID（跨快照稳定标识，不可客户端伪造） */
+    /**
+     * 新来源继承同一内容指纹的 DISABLED 处置：作者删除后重加同一链接不能自动洗白，
+     * 仍需管理员按历史/指纹复核后才能恢复。只在同软件谱系内生效，不做全局 URL 封杀。
+     */
+    private void carryDisabledState(SoftwareRelease release, String newSourceKey,
+                                    String fingerprint, StableKeyContext context) {
+        SoftwareSourceState inherited = context.disabledByFingerprint().get(fingerprint);
+        if (inherited == null) {
+            return;
+        }
+        SoftwareRevision revision = revisionMapper.selectById(release.getRevisionId());
+        if (revision == null || revision.getSoftwareId() == null) {
+            return;
+        }
+        SoftwareSourceState copy = new SoftwareSourceState();
+        copy.setSoftwareId(revision.getSoftwareId());
+        copy.setSourceKey(newSourceKey);
+        copy.setAvailability(SourceAvailability.DISABLED);
+        copy.setCheckedFingerprint(fingerprint);
+        copy.setCheckedAt(inherited.getCheckedAt());
+        copy.setCheckedBy(inherited.getCheckedBy());
+        copy.setReason(inherited.getReason());
+        copy.setLockVersion(0);
+        sourceStateMapper.insert(copy);
+    }
+
+    /** 稳定键只做 UUID 形态校验；归属已由 validateIncomingKeys 按谱系确认。 */
     private String validateStableKey(String sourceKey) {
         String trimmed = sourceKey.trim();
         try {
             UUID.fromString(trimmed);
         } catch (IllegalArgumentException e) {
             throw new BusinessException("SOFTWARE_LINK_INVALID",
-                    "sourceKey 必须为服务端签发的 UUID 或留空");
+                    "sourceKey 必须为 UUID 形态或留空（归属由服务端按本软件谱系校验）");
         }
         return trimmed;
     }

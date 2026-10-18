@@ -40,6 +40,10 @@ class SoftwareSnapshotAssemblerPatchTest {
     private final SoftwareAccessContactMapper accessContactMapper = Mockito.mock(SoftwareAccessContactMapper.class);
     private final SoftwareReleaseMapper releaseMapper = Mockito.mock(SoftwareReleaseMapper.class);
     private final SoftwareSourceMapper sourceMapper = Mockito.mock(SoftwareSourceMapper.class);
+    private final com.cloudmart.software.repository.SoftwareRevisionMapper revisionMapper =
+            Mockito.mock(com.cloudmart.software.repository.SoftwareRevisionMapper.class);
+    private final com.cloudmart.software.repository.SoftwareSourceStateMapper sourceStateMapper =
+            Mockito.mock(com.cloudmart.software.repository.SoftwareSourceStateMapper.class);
     private final SoftwareRevisionTagMapper revisionTagMapper = Mockito.mock(SoftwareRevisionTagMapper.class);
     private final SoftwareRevisionMediaMapper revisionMediaMapper = Mockito.mock(SoftwareRevisionMediaMapper.class);
     private final SoftwareHtmlSanitizer sanitizer = Mockito.mock(SoftwareHtmlSanitizer.class);
@@ -54,8 +58,9 @@ class SoftwareSnapshotAssemblerPatchTest {
     @BeforeEach
     void setUp() {
         assembler = new SoftwareSnapshotAssembler(categoryMapper, tagMapper, accessContactMapper,
-                releaseMapper, sourceMapper, revisionTagMapper, revisionMediaMapper, sanitizer,
-                linkValidator, communitySupportFeignClient, softwareProperties, objectMapper);
+                releaseMapper, sourceMapper, revisionMapper, sourceStateMapper, revisionTagMapper,
+                revisionMediaMapper, sanitizer, linkValidator, communitySupportFeignClient,
+                softwareProperties, objectMapper);
         given(sanitizer.extractText(any())).willReturn("text");
         given(softwareProperties.getScreenshotMaxCount()).willReturn(8);
     }
