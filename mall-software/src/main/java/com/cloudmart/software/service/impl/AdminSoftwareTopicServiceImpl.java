@@ -236,6 +236,14 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
         // 清单全量替换（整体维护语义）
         topicItemMapper.delete(new LambdaQueryWrapper<SoftwareTopicItem>()
                 .eq(SoftwareTopicItem::getTopicId, topic.getId()));
+        // 写入前校验重复关联（uk_topic_item 兜底；D44 部署实测：未校验时唯一键冲突裸 500）
+        java.util.Set<Long> seenSoftwareIds = new java.util.HashSet<>();
+        for (AdminTopicSaveRequest.Item item : items) {
+            if (!seenSoftwareIds.add(item.getSoftwareId())) {
+                throw new BusinessException("SOFTWARE_TOPIC_ITEM_DUPLICATE",
+                        "清单中存在重复的软件（softwareId=" + item.getSoftwareId() + "）");
+            }
+        }
         int index = 0;
         for (AdminTopicSaveRequest.Item item : items) {
             SoftwareTopicItem entity = new SoftwareTopicItem();

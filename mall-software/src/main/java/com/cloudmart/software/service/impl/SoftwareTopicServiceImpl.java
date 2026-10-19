@@ -63,12 +63,16 @@ public class SoftwareTopicServiceImpl implements SoftwareTopicService {
     public Map<String, Object> publishedDetail(String slug) {
         SoftwareTopic topic = slug == null ? null : topicMapper.selectOne(
                 new LambdaQueryWrapper<SoftwareTopic>().eq(SoftwareTopic::getSlug, slug));
+        // 先判存在性再读时间窗（D44 部署实测：slug 不存在时在 scheduledVisible 处 NPE）
+        if (topic == null) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "专题不存在或已下线");
+        }
         // SF05：下线/未到投放时间的专题按"不存在"处理，不泄露未生效条目
         java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.Clock.systemUTC());
         boolean scheduledVisible = (topic.getScheduledStartAt() == null
                 || !topic.getScheduledStartAt().isAfter(now))
                 && (topic.getScheduledEndAt() == null || topic.getScheduledEndAt().isAfter(now));
-        if (topic == null || !"PUBLISHED".equals(topic.getStatus()) || !scheduledVisible) {
+        if (!"PUBLISHED".equals(topic.getStatus()) || !scheduledVisible) {
             throw new BusinessException("SOFTWARE_NOT_FOUND", "专题不存在或已下线");
         }
         List<SoftwareTopicItem> items = topicItemMapper.selectList(
