@@ -135,6 +135,11 @@ export default function MinePage() {
 
         {/* Quick Actions */}
         <View className={styles.quickGrid}>
+          {/* T13：我的商品提问 */}
+          <View className={styles.quickCard} onClick={() => Taro.navigateTo({ url: '/pages/productQuestions/index' })}>
+            <Text className={styles.quickCardIcon}>💬</Text>
+            <Text className={styles.quickCardLabel}>我的提问</Text>
+          </View>
           <View className={styles.quickCard} onClick={() => Taro.navigateTo({ url: '/pages/orders/index' })}>
             <Text className={styles.quickIcon}>📋</Text>
             <Text className={styles.quickName}>我的订单</Text>

@@ -9,7 +9,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,6 +35,18 @@ import java.util.List;
 public class MyProductQuestionController {
 
     private final ProductQuestionService questionService;
+
+    /** T13：删除自己的提问（仅本人；软删全端不可见；重复删除幂等） */
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping("/my/{questionId}")
+    @Operation(summary = "删除自己的提问",
+            description = "仅本人（归属不匹配与不存在同语义 404）；软删后商品详情与我的提问均不可见")
+    public ApiResponse<Boolean> deleteOwn(
+            @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("questionId") Long questionId) {
+        questionService.deleteOwn(userId, questionId);
+        return ApiResponse.ok(true);
+    }
 
     @GetMapping("/my")
     @Operation(summary = "我的提问（跨商品）", description = "本人提问的问题（含回答进度）；不含 productId")

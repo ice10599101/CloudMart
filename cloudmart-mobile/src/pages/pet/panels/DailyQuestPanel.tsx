@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
 import { Button, Text, View } from '@tarojs/components'
-import { petApi, petCompanionApi, type PetDailyQuestPanel } from '@/api/pet'
+import { petApi, petCompanionApi, type PetDailyQuestPanel, type PetDailyQuestSet } from '@/api/pet'
 import { growthApi } from '@/api/growth'
 import type { CheckInStatus } from '@/types'
 import { CARE_ERROR_HINT } from './shared'
@@ -12,6 +12,10 @@ import styles from '../index.module.scss'
 /** 每日任务面板（三期）：任务列表/领取/全清宝箱（P2-4 自 index.tsx 拆出，行为不变） */
 export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
   const [panel, setPanel] = useState<PetDailyQuestPanel | null>(null)
+  // T19：历史任务（列表/详情切换；详情复用领取链路，服务端按 claimDeadline 判定）
+  const [historySets, setHistorySets] = useState<PetDailyQuestSet[] | null>(null)
+  const [historyPanel, setHistoryPanel] = useState<PetDailyQuestPanel | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
   const [pending, setPending] = useState<string | null>(null)
   const [checkin, setCheckin] = useState<CheckInStatus | null>(null)
 
@@ -69,6 +73,32 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
       Taro.showToast({ title: CARE_ERROR_HINT[code] ?? errorMessage(error, '请稍后再试'), icon: 'none' })
     } finally {
       setPending(null)
+    }
+  }
+
+  // T19：历史任务集列表（含宽限期内可补领与已过截止，服务端按 claimDeadline 判定）
+  const loadHistorySets = async () => {
+    setHistoryLoading(true)
+    setHistoryPanel(null)
+    try {
+      const { data: res } = await petApi.getQuestSets('EXPIRED')
+      setHistorySets(res.data ?? [])
+    } catch {
+      setHistorySets([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  const loadHistoryDetail = async (setId: number) => {
+    setHistoryLoading(true)
+    try {
+      const { data: res } = await petApi.getQuestSetDetail(setId)
+      setHistoryPanel(res.data)
+    } catch {
+      Taro.showToast({ title: '历史任务加载失败', icon: 'none' })
+    } finally {
+      setHistoryLoading(false)
     }
   }
 
@@ -171,6 +201,69 @@ export function DailyQuestPanel({ onRefresh }: { onRefresh: () => void }) {
           <Text>{panel.chestClaimable ? '开启全清宝箱' : '全部领取后可开宝箱'}</Text>
         </View>
       )}
+
+      {/* T19：历史任务/可补领（超期只读；宽限期内可领，服务端判定 claimable/deadline） */}
+      <View className={styles.jobCard} style={{ marginTop: '16rpx' }}>
+        <View className={styles.jobInfo}>
+          <Text className={styles.jobName}>🗓️ 历史任务</Text>
+          <Text className={styles.jobMeta}>
+            {historySets == null ? '查看往日任务与补领截止' : `${historySets.length} 个历史任务集`}
+          </Text>
+        </View>
+        <View
+          className={cream.tab}
+          onClick={historySets == null ? () => void loadHistorySets() : () => { setHistorySets(null); setHistoryPanel(null) }}
+        >
+          <Text>{historySets == null ? '查看' : '收起'}</Text>
+        </View>
+      </View>
+      {historyLoading ? <Text className={styles.tip}>加载中…</Text> : null}
+      {historySets != null && historyPanel == null
+        ? historySets.map((set) => (
+            <View key={set.id} className={styles.jobCard} onClick={() => void loadHistoryDetail(set.id)}>
+              <View className={styles.jobInfo}>
+                <Text className={styles.jobName}>📅 {set.businessDate}</Text>
+                <Text className={styles.jobMeta}>
+                  {set.status === 'ACTIVE'
+                    ? `可补领 · 截止 ${set.claimDeadline?.slice(0, 16).replace('T', ' ') ?? ''}`
+                    : '已过补领截止（只读）'}
+                </Text>
+              </View>
+              <Text className={styles.jobMeta}>›</Text>
+            </View>
+          ))
+        : null}
+      {historyPanel != null ? (
+        <View>
+          <Text className={styles.tip}>
+            历史任务集 进度 {historyPanel.claimedCount}/{historyPanel.totalCount}
+          </Text>
+          <View className={styles.jobList}>
+            {historyPanel.quests.map((quest) => (
+              <View key={quest.code} className={styles.jobCard}>
+                <View className={styles.jobInfo}>
+                  <Text className={styles.jobName}>
+                    {quest.icon} {quest.name}
+                  </Text>
+                  <Text className={styles.jobMeta}>{quest.description}</Text>
+                </View>
+                {quest.status === 'CLAIMED' ? (
+                  <Text className={styles.jobMeta}>已领取</Text>
+                ) : (
+                  <View
+                    className={`${cream.tab} ${quest.claimable ? cream.tabActive : cream.lockedTab}`}
+                    onClick={quest.claimable && quest.id && historyPanel.setId && pending !== `h-${quest.id}` ? () => run(`h-${quest.id}`, () =>
+                      petApi.claimDailyQuestInSet(historyPanel.setId!, quest.id!), '补领成功！') : undefined}
+                  >
+                    <Text>{quest.claimable ? '补领' : quest.statusLabel}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+          <Text className={styles.jobMeta} onClick={() => setHistoryPanel(null)}>返回历史列表</Text>
+        </View>
+      ) : null}
     </View>
   )
 }

@@ -147,6 +147,8 @@ export default function MinePage() {
 
         <View style={{ marginHorizontal: Spacing.lg, borderRadius: BorderRadius.lg, overflow: 'hidden', marginBottom: Spacing.lg }}>
           <MenuRow icon="🎫" label="优惠券" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/coupons') }} theme={theme} />
+          {/* T13：我的商品提问（跨商品列表+回跳+删除本人提问） */}
+          <MenuRow icon="💬" label="我的提问" onPress={() => { if (!isLoggedIn) { router.push('/login'); return } router.push('/product-questions') }} theme={theme} />
           <MenuRow icon="⚡" label="限时秒杀" onPress={() => router.push('/seckill')} theme={theme} />
           <MenuRow icon="👥" label="拼团专区" onPress={() => router.push('/group-buy')} theme={theme} />
           <MenuRow icon="📺" label="直播" onPress={() => router.push('/live')} theme={theme} />

@@ -1,9 +1,9 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, Dimensions } from 'react-native'
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert, Dimensions } from 'react-native'
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useTheme } from '@/hooks/use-theme-context'
 import { useAuthStore } from '@/store/auth'
-import { productApi } from '@/api/product'
+import { productApi, productQuestionApi, type ProductQuestionItem } from '@/api/product'
 import { cartApi } from '@/api/cart'
 import { userApi } from '@/api/user'
 import { communityApi } from '@/api/community'
@@ -60,7 +60,7 @@ interface ReviewItemShape {
 
 export default function ProductDetailScreen() {
   const theme = useTheme()
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, tab: tabParam } = useLocalSearchParams<{ id: string; tab?: string }>()
   const { isLoggedIn, user } = useAuthStore()
 
   const [product, setProduct] = useState<Product | null>(null)
@@ -74,7 +74,15 @@ export default function ProductDetailScreen() {
   const [selectedSpecs, setSelectedSpecs] = useState<Record<string, string>>({})
   const [quantity, setQuantity] = useState(1)
   // 评价（对齐 Web 端商品评价 Tab）
-  const [activeTab, setActiveTab] = useState<'detail' | 'reviews'>('detail')
+  const [activeTab, setActiveTab] = useState<'detail' | 'reviews' | 'qa'>(
+    tabParam === 'qa' ? 'qa' : 'detail',
+  )
+  // T13：问答（查看/提问/回答/删除本人提问）
+  const [questions, setQuestions] = useState<ProductQuestionItem[]>([])
+  const [questionsLoaded, setQuestionsLoaded] = useState(false)
+  const [askText, setAskText] = useState('')
+  const [answerText, setAnswerText] = useState<Record<string, string>>({})
+  const [qaBusy, setQaBusy] = useState(false)
   const [reviewStats, setReviewStats] = useState<ReviewStatsShape | null>(null)
   const [reviews, setReviews] = useState<ReviewItemShape[]>([])
   const [reviewPage, setReviewPage] = useState(1)
@@ -208,11 +216,85 @@ export default function ProductDetailScreen() {
     }
   }
 
-  const handleSwitchTab = (tab: 'detail' | 'reviews') => {
+  const loadQuestions = async () => {
+    try {
+      const res = await productQuestionApi.list(id, 1, 20)
+      setQuestions(res.data.data?.records ?? [])
+      setQuestionsLoaded(true)
+    } catch {
+      setQuestions([])
+      setQuestionsLoaded(true)
+    }
+  }
+
+  const handleAsk = async () => {
+    const text = askText.trim()
+    if (!text) return
+    if (!isLoggedIn) {
+      Alert.alert('提示', '请先登录', [{ text: '取消', style: 'cancel' }, { text: '去登录', onPress: () => router.push('/login') }])
+      return
+    }
+    setQaBusy(true)
+    try {
+      await productQuestionApi.ask(id, text)
+      setAskText('')
+      Alert.alert('已提交', '问题已提交，审核通过后展示')
+      void loadQuestions()
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '提交失败，请稍后重试'))
+    } finally {
+      setQaBusy(false)
+    }
+  }
+
+  const handleAnswer = async (questionId: string) => {
+    const text = (answerText[questionId] ?? '').trim()
+    if (!text) return
+    if (!isLoggedIn) {
+      Alert.alert('提示', '请先登录', [{ text: '取消', style: 'cancel' }, { text: '去登录', onPress: () => router.push('/login') }])
+      return
+    }
+    setQaBusy(true)
+    try {
+      await productQuestionApi.answer(id, questionId, text)
+      setAnswerText((prev) => ({ ...prev, [questionId]: '' }))
+      void loadQuestions()
+    } catch (error) {
+      Alert.alert('提示', errorMessage(error, '回答失败，请稍后重试'))
+    } finally {
+      setQaBusy(false)
+    }
+  }
+
+  const handleDeleteQuestion = (question: ProductQuestionItem) => {
+    if (!isLoggedIn || String(question.userId) !== String(user?.id ?? '')) return
+    Alert.alert('删除提问', '删除后不可恢复，确定？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              await productQuestionApi.deleteOwn(question.id)
+              void loadQuestions()
+            } catch (error) {
+              Alert.alert('提示', errorMessage(error, '删除失败'))
+            }
+          })()
+        },
+      },
+    ])
+  }
+
+  const handleSwitchTab = (tab: 'detail' | 'reviews' | 'qa') => {
     setActiveTab(tab)
     if (tab === 'reviews' && reviews.length === 0) {
       void loadReviewStats()
       void loadReviews(1)
+    }
+    if (tab === 'qa' && !questionsLoaded) {
+      void loadQuestions()
     }
   }
 
@@ -471,6 +553,7 @@ export default function ProductDetailScreen() {
           {([
             { key: 'detail', label: '商品详情' },
             { key: 'reviews', label: reviewStats ? `商品评价(${reviewStats.totalCount})` : '商品评价' },
+            { key: 'qa', label: '问答' },
           ] as const).map((tab) => (
             <TouchableOpacity
               key={tab.key}
@@ -490,6 +573,73 @@ export default function ProductDetailScreen() {
             <Text style={{ fontSize: FontSize.md, color: theme.textSecondary, lineHeight: 24 }}>
               {product.description || '暂无详细描述'}
             </Text>
+          </View>
+        ) : activeTab === 'qa' ? (
+          // T13：问答（未回答问题也可见；回答同人重复提交=编辑本人答案；删除仅本人）
+          <View style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}>
+            <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+              <TextInput
+                value={askText}
+                onChangeText={setAskText}
+                placeholder="输入你的问题（1~500 字）"
+                placeholderTextColor={theme.textTertiary}
+                multiline
+                maxLength={500}
+                style={{ flex: 1, minHeight: 40, borderRadius: BorderRadius.sm, backgroundColor: theme.bgInput, paddingHorizontal: Spacing.sm, paddingVertical: 8, color: theme.text, fontSize: FontSize.sm }}
+              />
+              <TouchableOpacity
+                disabled={qaBusy || !askText.trim()}
+                onPress={() => void handleAsk()}
+                style={{ justifyContent: 'center', paddingHorizontal: Spacing.md, borderRadius: BorderRadius.sm, backgroundColor: askText.trim() ? theme.primary : theme.bgInput }}
+              >
+                <Text style={{ fontSize: FontSize.sm, color: askText.trim() ? '#fff' : theme.textTertiary }}>提问</Text>
+              </TouchableOpacity>
+            </View>
+            {questions.length === 0 ? (
+              <Text style={{ textAlign: 'center', marginTop: 32, color: theme.textTertiary, fontSize: FontSize.sm }}>
+                还没有问答，来提第一个问题
+              </Text>
+            ) : (
+              questions.map((question) => {
+                const isMine = isLoggedIn && String(question.userId) === String(user?.id ?? '')
+                return (
+                  <View key={String(question.id)} style={{ marginTop: Spacing.md, paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: theme.text, flex: 1 }}>
+                        Q：{question.question}
+                      </Text>
+                      {isMine ? (
+                        <TouchableOpacity onPress={() => handleDeleteQuestion(question)}>
+                          <Text style={{ fontSize: FontSize.xs, color: '#d3392f' }}>删除</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                    {question.answers.map((answer) => (
+                      <Text key={String(answer.id)} style={{ fontSize: FontSize.xs, color: theme.textSecondary, marginTop: 4 }}>
+                        A {answer.authorNickname || '匿名'}{answer.purchased ? '（已购）' : ''}：{answer.body}
+                      </Text>
+                    ))}
+                    <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs }}>
+                      <TextInput
+                        value={answerText[String(question.id)] ?? ''}
+                        onChangeText={(v: string) => setAnswerText((prev) => ({ ...prev, [String(question.id)]: v }))}
+                        placeholder="回答该问题（重复提交=更新你的回答）"
+                        placeholderTextColor={theme.textTertiary}
+                        maxLength={500}
+                        style={{ flex: 1, minHeight: 32, borderRadius: BorderRadius.sm, backgroundColor: theme.bgInput, paddingHorizontal: Spacing.sm, color: theme.text, fontSize: FontSize.xs }}
+                      />
+                      <TouchableOpacity
+                        disabled={qaBusy || !(answerText[String(question.id)] ?? '').trim()}
+                        onPress={() => void handleAnswer(String(question.id))}
+                        style={{ justifyContent: 'center', paddingHorizontal: Spacing.sm, borderRadius: BorderRadius.sm, backgroundColor: (answerText[String(question.id)] ?? '').trim() ? theme.primary : theme.bgInput }}
+                      >
+                        <Text style={{ fontSize: FontSize.xs, color: (answerText[String(question.id)] ?? '').trim() ? '#fff' : theme.textTertiary }}>回答</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )
+              })
+            )}
           </View>
         ) : (
           <View style={{ paddingHorizontal: Spacing.lg, marginTop: Spacing.lg }}>

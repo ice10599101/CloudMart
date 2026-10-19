@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import { View, Text, Image, ScrollView, Swiper, SwiperItem } from '@tarojs/components'
+import { View, Text, Image, ScrollView, Swiper, SwiperItem , Input , Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { productApi } from '@/api/product'
+import { productApi, productQuestionApi, type ProductQuestionItem } from '@/api/product'
 import { aiApi, type AiReviewSummary } from '@/api/ai'
 import { cartApi } from '@/api/cart'
 import { userApi } from '@/api/user'
@@ -42,12 +42,22 @@ export default function ProductDetailPage() {
   const { dataTheme, themeStyle } = useThemeClass()
   const { user } = useAuthStore()
   const id = Taro.getCurrentInstance().router?.params?.id || ''
+  // T13：回跳定位问答页签（/pages/productDetail/index?id=xx&tab=qa）
+  const initialTab = Taro.getCurrentInstance().router?.params?.tab
   const [product, setProduct] = useState<Product | null>(null)
   const [isWishlisted, setIsWishlisted] = useState(false)
   const [selectedSku, setSelectedSku] = useState<Sku | null>(null)
   const [selectedSpecs, setSelectedSpecs] = useState<Record<string, string>>({})
   const [quantity, setQuantity] = useState(1)
-  const [activeTab, setActiveTab] = useState<'detail' | 'reviews'>('detail')
+  const [activeTab, setActiveTab] = useState<'detail' | 'reviews' | 'qa'>(
+    initialTab === 'qa' ? 'qa' : 'detail',
+  )
+  // T13：问答状态
+  const [questions, setQuestions] = useState<ProductQuestionItem[]>([])
+  const [questionsLoaded, setQuestionsLoaded] = useState(false)
+  const [askText, setAskText] = useState('')
+  const [answerText, setAnswerText] = useState<Record<string, string>>({})
+  const [qaBusy, setQaBusy] = useState(false)
 
   // 评价数据
   const [reviewStats, setReviewStats] = useState<{
@@ -100,6 +110,11 @@ export default function ProductDetailPage() {
     if (id) loadProduct()
   }, [id])
 
+  // T13：回跳 qa 页签时懒加载问答
+  useEffect(() => {
+    if (initialTab === 'qa' && !questionsLoaded) loadQuestions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const loadProduct = async () => {
     try {
       const res = await productApi.getDetail(id)
@@ -157,8 +172,57 @@ export default function ProductDetailPage() {
     }
   }
 
-  const handleSwitchTab = (tab: 'detail' | 'reviews') => {
+  const loadQuestions = () => {
+    productQuestionApi.list(id, 1, 20)
+      .then((res) => setQuestions(res.data?.data?.records ?? []))
+      .catch(() => setQuestions([]))
+      .finally(() => setQuestionsLoaded(true))
+  }
+
+  const handleAsk = () => {
+    const text = askText.trim()
+    if (!text) return
+    setQaBusy(true)
+    productQuestionApi.ask(id, text)
+      .then(() => {
+        setAskText('')
+        Taro.showToast({ title: '已提交，审核通过后展示', icon: 'none' })
+        loadQuestions()
+      })
+      .catch(() => Taro.showToast({ title: '提交失败', icon: 'none' }))
+      .finally(() => setQaBusy(false))
+  }
+
+  const handleAnswer = (questionId: string) => {
+    const text = (answerText[questionId] ?? '').trim()
+    if (!text) return
+    setQaBusy(true)
+    productQuestionApi.answer(id, questionId, text)
+      .then(() => {
+        setAnswerText((prev) => ({ ...prev, [questionId]: '' }))
+        loadQuestions()
+      })
+      .catch(() => Taro.showToast({ title: '回答失败', icon: 'none' }))
+      .finally(() => setQaBusy(false))
+  }
+
+  const handleDeleteQuestion = (question: ProductQuestionItem) => {
+    if (String(question.userId) !== String(user?.id ?? '')) return
+    Taro.showModal({
+      title: '删除提问',
+      content: '删除后不可恢复，确定？',
+      success: (res) => {
+        if (!res.confirm) return
+        productQuestionApi.deleteOwn(question.id)
+          .then(() => loadQuestions())
+          .catch(() => Taro.showToast({ title: '删除失败', icon: 'none' }))
+      },
+    })
+  }
+
+  const handleSwitchTab = (tab: 'detail' | 'reviews' | 'qa') => {
     setActiveTab(tab)
+    if (tab === 'qa' && !questionsLoaded) loadQuestions()
     if (tab === 'reviews' && reviews.length === 0) {
       void loadReviewStats()
       void loadReviews(1)
@@ -335,6 +399,9 @@ export default function ProductDetailPage() {
           <View className={`${styles.tabItem} ${activeTab === 'detail' ? styles.tabActive : ''}`} onClick={() => handleSwitchTab('detail')}>
             <Text className={activeTab === 'detail' ? styles.tabTextActive : styles.tabText}>商品详情</Text>
           </View>
+          <View className={`${styles.tabItem} ${activeTab === 'qa' ? styles.tabActive : ''}`} onClick={() => handleSwitchTab('qa')}>
+            <Text className={activeTab === 'qa' ? styles.tabTextActive : styles.tabText}>问答</Text>
+          </View>
           <View className={`${styles.tabItem} ${activeTab === 'reviews' ? styles.tabActive : ''}`} onClick={() => handleSwitchTab('reviews')}>
             <Text className={activeTab === 'reviews' ? styles.tabTextActive : styles.tabText}>
               商品评价{reviewStats ? `(${reviewStats.totalCount})` : ''}
@@ -345,6 +412,60 @@ export default function ProductDetailPage() {
         {activeTab === 'detail' ? (
           <View className={styles.detailSection}>
             <Text className={styles.detailText}>{product.description}</Text>
+          </View>
+        ) : activeTab === 'qa' ? (
+          // T13：问答（未答也可见；回答重复提交=编辑本人答案；删除仅本人）
+          <View className={styles.detailSection}>
+            <View style={{ display: 'flex', flexDirection: 'row' }}>
+              <Input
+                value={askText}
+                onInput={(e) => setAskText(e.detail.value)}
+                placeholder="输入你的问题（1~500 字）"
+                maxlength={500}
+                style={{ flex: 1 }}
+              />
+              <Button size='mini' disabled={qaBusy || !askText.trim()} onClick={handleAsk}>提问</Button>
+            </View>
+            {questions.length === 0 ? (
+              <Text className={styles.detailText}>还没有问答，来提第一个问题</Text>
+            ) : (
+              questions.map((question) => (
+                <View key={String(question.id)} style={{ marginTop: 12 }}>
+                  <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text className={styles.detailText} style={{ flex: 1 }}>Q：{question.question}</Text>
+                    {String(question.userId) === String(user?.id ?? '') ? (
+                      <Text
+                        style={{ color: '#d3392f', fontSize: 12 }}
+                        onClick={() => handleDeleteQuestion(question)}
+                      >
+                        删除
+                      </Text>
+                    ) : null}
+                  </View>
+                  {question.answers.map((answer) => (
+                    <Text key={String(answer.id)} className={styles.detailText}>
+                      A {answer.authorNickname || '匿名'}{answer.purchased ? '（已购）' : ''}：{answer.body}
+                    </Text>
+                  ))}
+                  <View style={{ display: 'flex', flexDirection: 'row', marginTop: 4 }}>
+                    <Input
+                      value={answerText[String(question.id)] ?? ''}
+                      onInput={(e) => setAnswerText((prev) => ({ ...prev, [String(question.id)]: e.detail.value }))}
+                      placeholder="回答该问题（重复提交=更新你的回答）"
+                      maxlength={500}
+                      style={{ flex: 1 }}
+                    />
+                    <Button
+                      size='mini'
+                      disabled={qaBusy || !(answerText[String(question.id)] ?? '').trim()}
+                      onClick={() => handleAnswer(String(question.id))}
+                    >
+                      回答
+                    </Button>
+                  </View>
+                </View>
+              ))
+            )}
           </View>
         ) : (
           <View className={styles.reviewSection}>

@@ -1,7 +1,7 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useCallback, useEffect, useState } from 'react'
 import Taro from '@tarojs/taro'
-import { wishApi } from '@/api/wish'
+import { wishApi , type MyPoolJoin, type MyPoolReward } from '@/api/wish'
 import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -23,7 +23,7 @@ const GROUP_LABELS: Record<string, string> = {
   BADGE: '🏅 徽章',
 }
 
-type TabKey = 'workshop' | 'collections' | 'brands'
+type TabKey = 'workshop' | 'collections' | 'brands' | 'mine'
 
 /**
  * 虚拟工坊（Sprint 3.6，四AC R1 Mobile）：
@@ -42,6 +42,10 @@ export default function WorkshopPage() {
   const [poolsByBrand, setPoolsByBrand] = useState<Record<string, BrandPoolItem[]>>({})
   const [loading, setLoading] = useState(true)
   const [exchangingId, setExchangingId] = useState<number | null>(null)
+  // T11：我的参与/奖励结果（切 mine 页签加载）
+  const [myJoins, setMyJoins] = useState<MyPoolJoin[]>([])
+  const [myRewards, setMyRewards] = useState<MyPoolReward[]>([])
+  const [mineLoaded, setMineLoaded] = useState(false)
   const [joiningPool, setJoiningPool] = useState<string | null>(null)
 
   const loadAll = useCallback(async () => {
@@ -129,6 +133,27 @@ export default function WorkshopPage() {
       .finally(() => setJoiningPool(null))
   }
 
+  // T11：我的参与/奖励（登录态切页签加载；结果回跳对应池）
+  useEffect(() => {
+    if (tab !== 'mine' || mineLoaded) return
+    void Promise.all([wishApi.myPoolJoins(), wishApi.myPoolRewards()])
+      .then(([joinsRes, rewardsRes]) => {
+        setMyJoins(joinsRes.data.data ?? [])
+        setMyRewards(rewardsRes.data.data ?? [])
+        setMineLoaded(true)
+      })
+      .catch(() => undefined)
+  }, [tab, mineLoaded])
+
+  /** T11：回跳——切品牌页签并展开对应品牌池 */
+  const jumpToPool = (brandId: number | string | null) => {
+    if (brandId == null) return
+    const brand = brands.find((b) => String(b.id) === String(brandId))
+    if (!brand) return
+    setTab('brands')
+    loadPools(brand)
+  }
+
   const groupEntries = Object.entries(groups)
 
   return (
@@ -141,6 +166,7 @@ export default function WorkshopPage() {
               ['workshop', '虚拟工坊'],
               ['collections', '收藏馆'],
               ['brands', '品牌许愿池'],
+              ['mine', '我的参与'],
             ] as [TabKey, string][]
           ).map(([key, label]) => (
             <View
@@ -234,6 +260,82 @@ export default function WorkshopPage() {
               </View>
             ))
           )
+        ) : tab === 'mine' ? (
+          // T11：我的参与（点击回跳池）+ 奖励结果（义务状态/承诺/入账如实展示）
+          <View>
+            <View className={styles.card}>
+              <Text className={styles.cardTitle}>我的参与</Text>
+              {myJoins.length === 0 ? (
+                <Text className={styles.empty}>还没有参与任何许愿池</Text>
+              ) : (
+                myJoins.map((join) => (
+                  <View
+                    key={String(join.poolId)}
+                    className={styles.card}
+                    onClick={() => jumpToPool(join.brandId)}
+                    style={{ marginTop: 8 }}
+                  >
+                    <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text className={styles.cardTitle}>{join.poolName}</Text>
+                      <Text className={styles.cardSummary}>
+                        {join.currentCount}/{join.targetCount} 人
+                      </Text>
+                    </View>
+                    <Text className={styles.cardSummary}>
+                      {join.joinedAt.slice(0, 10)} 加入 ·{' '}
+                      {join.poolStatus === 'ACTIVE'
+                        ? '进行中'
+                        : join.poolStatus === 'SETTLING'
+                          ? '结算中'
+                          : join.poolStatus === 'COMPLETED'
+                            ? '已完成'
+                            : join.poolStatus === 'ENDED'
+                              ? '已结束'
+                              : join.poolStatus}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+            <View className={styles.card}>
+              <Text className={styles.cardTitle}>奖励结果</Text>
+              {myRewards.length === 0 ? (
+                <Text className={styles.empty}>暂无奖励记录</Text>
+              ) : (
+                myRewards.map((reward, idx) => (
+                  <View key={`${reward.poolId}-${idx}`} style={{ marginTop: 8 }}>
+                    <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text className={styles.cardTitle}>{reward.poolName}</Text>
+                      <Text
+                        className={styles.cardSummary}
+                        style={{
+                          color:
+                            reward.status === 'SETTLED'
+                              ? '#3a9e5f'
+                              : reward.status === 'FAILED'
+                                ? '#d3392f'
+                                : undefined,
+                        }}
+                      >
+                        {reward.status === 'PENDING'
+                          ? '待发放'
+                          : reward.status === 'PARTIAL'
+                            ? '部分到账'
+                            : reward.status === 'SETTLED'
+                              ? '已到账'
+                              : reward.status === 'FAILED'
+                                ? '发放失败'
+                                : reward.status}
+                      </Text>
+                    </View>
+                    <Text className={styles.cardSummary}>
+                      承诺 {reward.promisedAmount} · 实际入账 {reward.creditedAmount}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </View>
+          </View>
         ) : brands.length === 0 ? (
           <View className={styles.empty}>
             <Text>暂无合作品牌</Text>

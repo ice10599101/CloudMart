@@ -69,3 +69,49 @@ export const productApi = {
   getOwnReviewByOrderItem: (orderItemId: number) =>
     request<OwnReview | null>({ url: `/product/reviews/order-item/${orderItemId}` }),
 }
+
+// ==================== T13：商品问答（小程序端闭环） ====================
+
+export interface ProductAnswerItem {
+  id: number | string
+  authorUserId: number | string
+  authorNickname: string | null
+  body: string
+  purchased: boolean
+  createdAt: string
+}
+
+export interface ProductQuestionItem {
+  id: number | string
+  productId: number | string
+  userId: number | string
+  question: string
+  createdAt: string
+  answers: ProductAnswerItem[]
+}
+
+export interface MyProductQuestionItem extends ProductQuestionItem {
+  productName?: string | null
+}
+
+export const productQuestionApi = {
+  /** 商品详情问答列表（含答案） */
+  list: (productId: number | string, page = 1, size = 10) =>
+    request<{ records: ProductQuestionItem[]; total: number }>({
+      url: `/products/${productId}/questions`, method: 'GET', data: { page, size } }),
+  /** 提问（1~500 字） */
+  ask: (productId: number | string, question: string) =>
+    request<ProductQuestionItem>({
+      url: `/products/${productId}/questions`, method: 'POST', data: { question } }),
+  /** 回答（同人重复提交=编辑本人答案） */
+  answer: (productId: number | string, questionId: number | string, answer: string) =>
+    request<ProductQuestionItem>({
+      url: `/products/${productId}/questions/${questionId}/answer`, method: 'POST', data: { answer } }),
+  /** 我的提问（跨商品；不含本人已删） */
+  myQuestions: (page = 1, size = 10) =>
+    request<{ records: MyProductQuestionItem[]; total: number }>({
+      url: '/products/questions/my', method: 'GET', data: { page, size } }),
+  /** 删除自己的提问（仅本人；软删；幂等） */
+  deleteOwn: (questionId: number | string) =>
+    request<boolean>({ url: `/products/questions/my/${questionId}`, method: 'DELETE' }),
+}

@@ -163,6 +163,8 @@ public class ProductQuestionServiceImpl implements ProductQuestionService {
         Page<ProductQuestion> result = questionMapper.selectPage(new Page<>(page, size),
                 new LambdaQueryWrapper<ProductQuestion>()
                         .eq(ProductQuestion::getUserId, userId)
+                        // T13：本人已删（status=2）不再出现；管理员隐藏（1）保留可见以展示状态
+                        .ne(ProductQuestion::getStatus, 2)
                         .orderByDesc(ProductQuestion::getId));
         List<ProductQuestion> questions = result.getRecords();
         List<ProductAnswer> answers = answersOf(questions);
@@ -284,6 +286,22 @@ public class ProductQuestionServiceImpl implements ProductQuestionService {
     }
 
     // ===== PRODUCT-01 管理端 =====
+
+    /** T13：删除自己的提问——归属/状态服务端校验；软删 status=2 全端不可见；重复删除幂等 */
+    @Override
+    public void deleteOwn(Long userId, Long questionId) {
+        ProductQuestion question = questionMapper.selectById(questionId);
+        // 归属不匹配与不存在同语义（404），不泄露他人问题存在性
+        if (question == null || !question.getUserId().equals(userId)) {
+            throw new BusinessException("QUESTION_NOT_FOUND", "问题不存在或已隐藏");
+        }
+        if (question.getStatus() != null && question.getStatus() == 2) {
+            return; // 幂等
+        }
+        question.setStatus(2);
+        question.setUpdatedAt(java.time.LocalDateTime.now());
+        questionMapper.updateById(question);
+    }
 
     @Override
     public Page<ProductQuestionVO> adminPage(Long productId, Integer status, int page, int size) {

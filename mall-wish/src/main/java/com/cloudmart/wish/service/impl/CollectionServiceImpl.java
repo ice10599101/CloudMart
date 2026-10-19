@@ -794,6 +794,8 @@ public class CollectionServiceImpl implements CollectionService {
                     view.put("poolStatus", pool == null ? "" : pool.getStatus());
                     view.put("targetCount", pool == null ? 0 : pool.getTargetCount());
                     view.put("currentCount", pool == null ? 0 : pool.getCurrentCount());
+                    // T11：brandId 供移动端回跳池详情（/brands/{brandId}/pools/{poolId}）
+                    view.put("brandId", pool == null ? null : pool.getBrandId());
                     return view;
                 }).toList();
     }
@@ -813,6 +815,8 @@ public class CollectionServiceImpl implements CollectionService {
                     view.put("creditedAmount", r.getCreditedAmount());
                     final BrandPool pool = poolMapper.selectById(r.getPoolId());
                     view.put("poolName", pool == null ? "" : pool.getName());
+                    // T11：brandId 供移动端回跳
+                    view.put("brandId", pool == null ? null : pool.getBrandId());
                     return view;
                 }).toList();
     }

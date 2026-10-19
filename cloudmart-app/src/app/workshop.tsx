@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } fr
 import { useCallback, useEffect, useState } from 'react'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { wishApi } from '@/api/wish'
+import { wishApi, type MyPoolJoin, type MyPoolReward } from '@/api/wish'
 import { errorMessage } from '@/utils/request'
 import { useAuthStore } from '@/store/auth'
 import { Spacing, FontSize, BorderRadius } from '@/constants/theme'
@@ -24,7 +24,7 @@ const GROUP_LABELS: Record<string, string> = {
   BADGE: '🏅 徽章',
 }
 
-type TabKey = 'workshop' | 'collections' | 'brands'
+type TabKey = 'workshop' | 'collections' | 'brands' | 'mine'
 
 /**
  * 虚拟工坊（Sprint 3.6，四AC R2 APP 端）：
@@ -44,6 +44,10 @@ export default function WorkshopScreen() {
   const [loading, setLoading] = useState(true)
   const [exchangingId, setExchangingId] = useState<number | null>(null)
   const [joiningPool, setJoiningPool] = useState<string | null>(null)
+  // T11：我的参与/奖励结果（切换到 mine 页签时加载）
+  const [myJoins, setMyJoins] = useState<MyPoolJoin[]>([])
+  const [myRewards, setMyRewards] = useState<MyPoolReward[]>([])
+  const [mineLoaded, setMineLoaded] = useState(false)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -131,6 +135,33 @@ export default function WorkshopScreen() {
     } finally {
       setJoiningPool(null)
     }
+  }
+
+  // T11：我的参与/奖励（登录态切页签加载；结果回跳对应池）
+  useEffect(() => {
+    if (tab !== 'mine' || !isLoggedIn || mineLoaded) return
+    void (async () => {
+      try {
+        const [joinsRes, rewardsRes] = await Promise.all([
+          wishApi.myPoolJoins(),
+          wishApi.myPoolRewards(),
+        ])
+        setMyJoins(joinsRes.data.data ?? [])
+        setMyRewards(rewardsRes.data.data ?? [])
+        setMineLoaded(true)
+      } catch {
+        // 静默：保留空态
+      }
+    })()
+  }, [tab, isLoggedIn, mineLoaded])
+
+  /** T11：回跳——切到品牌页签并展开对应品牌池 */
+  const jumpToPool = (brandId: number | string | null) => {
+    if (brandId == null) return
+    const brand = brands.find((b) => String(b.id) === String(brandId))
+    if (!brand) return
+    setTab('brands')
+    void loadPools(brand)
   }
 
   const groupEntries = Object.entries(groups)
@@ -312,6 +343,78 @@ export default function WorkshopScreen() {
               </View>
             ))
           )
+        ) : tab === 'mine' ? (
+          // T11：我的参与（点击回跳池）+ 奖励结果（义务状态/承诺/入账如实展示）
+          <View>
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text, marginBottom: Spacing.sm }}>
+              我的参与
+            </Text>
+            {myJoins.length === 0 ? (
+              <Text style={{ textAlign: 'center', marginTop: Spacing.md, color: WishColors.textTertiary }}>
+                还没有参与任何许愿池
+              </Text>
+            ) : (
+              myJoins.map((join) => (
+                <TouchableOpacity
+                  key={String(join.poolId)}
+                  onPress={() => jumpToPool(join.brandId)}
+                  style={{
+                    padding: Spacing.md,
+                    borderRadius: 12,
+                    backgroundColor: WishColors.bgElevated,
+                    marginBottom: Spacing.sm,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: WishColors.text, flex: 1 }}>
+                      {join.poolName}
+                    </Text>
+                    <Text style={{ fontSize: FontSize.xs, color: WishColors.textSecondary }}>
+                      {join.currentCount}/{join.targetCount} 人
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 2 }}>
+                    {join.joinedAt.slice(0, 10)} 加入 · {join.poolStatus === 'ACTIVE' ? '进行中' : join.poolStatus === 'SETTLING' ? '结算中' : join.poolStatus === 'COMPLETED' ? '已完成' : join.poolStatus === 'ENDED' ? '已结束' : join.poolStatus}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: WishColors.text, marginTop: Spacing.md, marginBottom: Spacing.sm }}>
+              奖励结果
+            </Text>
+            {myRewards.length === 0 ? (
+              <Text style={{ textAlign: 'center', marginTop: Spacing.md, color: WishColors.textTertiary }}>
+                暂无奖励记录
+              </Text>
+            ) : (
+              myRewards.map((reward, idx) => (
+                <View
+                  key={`${reward.poolId}-${idx}`}
+                  style={{
+                    padding: Spacing.md,
+                    borderRadius: 12,
+                    backgroundColor: WishColors.bgElevated,
+                    marginBottom: Spacing.sm,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: WishColors.text, flex: 1 }}>
+                      {reward.poolName}
+                    </Text>
+                    <Text style={{
+                      fontSize: FontSize.xs,
+                      color: reward.status === 'SETTLED' ? '#3a9e5f' : reward.status === 'FAILED' ? '#d3392f' : WishColors.textSecondary,
+                    }}>
+                      {reward.status === 'PENDING' ? '待发放' : reward.status === 'PARTIAL' ? '部分到账' : reward.status === 'SETTLED' ? '已到账' : reward.status === 'FAILED' ? '发放失败' : reward.status}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: FontSize.xs, color: WishColors.textTertiary, marginTop: 2 }}>
+                    承诺 {reward.promisedAmount} · 实际入账 {reward.creditedAmount}
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
         ) : brands.length === 0 ? (
           <Text style={{ textAlign: 'center', marginTop: Spacing.xl, color: WishColors.textTertiary }}>暂无合作品牌</Text>
         ) : (

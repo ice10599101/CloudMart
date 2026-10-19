@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { petApi, type SeasonPassVO } from '@/api/pet'
+import { petApi, type SeasonPassVO, type SeasonVO } from '@/api/pet'
 import { errorMessage } from '@/utils/request'
 import { PET_CREAM_STYLE } from '@/styles/petCream'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
@@ -16,6 +16,9 @@ export default function SeasonPassPage() {
   const [pass, setPass] = useState<SeasonPassVO | null>(null)
   const [claiming, setClaiming] = useState<number | null>(null)
   const [noSeason, setNoSeason] = useState(false)
+  // T19：历史赛季（API 已就绪——查看历史进度；宽限期内补领走 claimSeasonPassTierInSeason）
+  const [mySeasons, setMySeasons] = useState<SeasonVO[] | null>(null)
+  const [viewingSeasonId, setViewingSeasonId] = useState<number | string | null>(null)
 
   const load = async () => {
     try {
@@ -26,6 +29,39 @@ export default function SeasonPassPage() {
       }
     } catch (err) {
       Taro.showToast({ title: errorMessage(err, '通行证加载失败'), icon: 'none' })
+    }
+  }
+
+  // T19：查看历史赛季（服务端返回该季快照进度；已领不可重领由服务端判定）
+  const viewSeason = async (seasonId: number | string) => {
+    setViewingSeasonId(seasonId)
+    try {
+      const { data: res } = await petApi.getSeasonPass(seasonId)
+      if (res.data) {
+        setPass(res.data)
+        setNoSeason(false)
+      }
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '历史赛季加载失败'), icon: 'none' })
+    }
+  }
+
+  const backToCurrent = async () => {
+    setViewingSeasonId(null)
+    await load()
+  }
+
+  // T19：我的赛季列表（本人参与过，按结束倒序）
+  const loadMySeasons = async () => {
+    if (mySeasons != null) {
+      setMySeasons(null)
+      return
+    }
+    try {
+      const { data: res } = await petApi.getSeasonPassSeasons()
+      setMySeasons(res.data ?? [])
+    } catch {
+      setMySeasons([])
     }
   }
 
@@ -64,7 +100,40 @@ export default function SeasonPassPage() {
             <View className={styles.hero}>
               <Text className={styles.seasonName}>{pass.seasonName ?? '当前赛季'}</Text>
               <Text className={styles.exp}>通行证经验 {pass.passExp}</Text>
+              {/* T19：历史赛季选择（查看快照进度；宽限期内补领由服务端判定） */}
+              <Text
+                className={styles.exp}
+                style={{ textDecoration: 'underline', marginTop: 4 }}
+                onClick={() => void loadMySeasons()}
+              >
+                {mySeasons != null ? '收起历史赛季' : '查看历史赛季'}
+              </Text>
+              {viewingSeasonId != null ? (
+                <Text className={styles.exp} style={{ color: '#3d5afe', marginTop: 4 }} onClick={() => void backToCurrent()}>
+                  ← 返回当前赛季
+                </Text>
+              ) : null}
             </View>
+            {mySeasons != null ? (
+              <View className={styles.empty}>
+                {mySeasons.length === 0 ? (
+                  <Text>暂无参与过的历史赛季</Text>
+                ) : (
+                  mySeasons.map((season) => (
+                    <View
+                      key={String(season.id)}
+                      onClick={() => void viewSeason(season.id)}
+                      style={{ padding: '8rpx 0' }}
+                    >
+                      <Text>
+                        {season.name}（{season.endsAt?.slice(0, 10) ?? ''} 结束）
+                        {String(season.id) === String(viewingSeasonId) ? ' · 当前查看' : ''}
+                      </Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            ) : null}
             {pass.tiers.map(t => {
               const canClaim = t.reached && !t.claimed
               return (

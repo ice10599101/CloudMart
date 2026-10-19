@@ -9,6 +9,8 @@ import { App, Spin } from 'antd'
 import {
     claimSeasonPassTier,
     getSeasonPass,
+    getSeasonPassSeasons,
+    type PetSeason,
     type PetSeasonPass,
     type PetSeasonPassTier,
 } from '@/api/pet'
@@ -58,6 +60,9 @@ export default function SeasonPassBoard({ enabled }: { enabled: boolean }) {
     const { message } = App.useApp()
     const [pass, setPass] = useState<PetSeasonPass | null>(null)
     const [claiming, setClaiming] = useState<number | null>(null)
+    // T19：历史赛季（API 已就绪——查看快照进度；宽限期内补领由服务端判定）
+    const [mySeasons, setMySeasons] = useState<PetSeason[] | null>(null)
+    const [viewingSeasonId, setViewingSeasonId] = useState<number | string | null>(null)
 
     const load = useCallback(async () => {
         const { data: res } = await getSeasonPass()
@@ -91,6 +96,33 @@ export default function SeasonPassBoard({ enabled }: { enabled: boolean }) {
         }
     }, [claiming, message])
 
+    /** T19：查看历史赛季（快照进度；已领不可重领由服务端判定） */
+    const viewSeason = async (seasonId: number | string) => {
+        const { data: res } = await getSeasonPass(seasonId)
+        if (res.success) {
+            setPass(res.data)
+            setViewingSeasonId(seasonId)
+        }
+    }
+
+    const backToCurrent = async () => {
+        setViewingSeasonId(null)
+        await load()
+    }
+
+    const toggleSeasons = async () => {
+        if (mySeasons != null) {
+            setMySeasons(null)
+            return
+        }
+        try {
+            const { data: res } = await getSeasonPassSeasons()
+            setMySeasons(res.success ? (res.data ?? []) : [])
+        } catch {
+            setMySeasons([])
+        }
+    }
+
     if (!enabled) {
         return (
             <p className={styles.closed}>
@@ -116,6 +148,29 @@ export default function SeasonPassBoard({ enabled }: { enabled: boolean }) {
                     赛季结束 {fmtDate(pass.seasonEndsAt)}
                     {pass.claimUntil ? ` · 领奖截止 ${fmtDate(pass.claimUntil)}` : ''}
                 </p>
+                {/* T19：历史赛季选择（查看快照进度） */}
+                <p className={styles.heroMeta} style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                    onClick={() => void toggleSeasons()}>
+                    {mySeasons != null ? '收起历史赛季' : '查看历史赛季'}
+                    {viewingSeasonId != null ? '（正在查看历史）' : ''}
+                </p>
+                {mySeasons != null ? (
+                    mySeasons.length === 0
+                        ? <p className={styles.heroMeta}>暂无参与过的历史赛季</p>
+                        : mySeasons.map(season => (
+                            <p key={String(season.id)} className={styles.heroMeta} style={{ cursor: 'pointer' }}
+                                onClick={() => void viewSeason(season.id)}>
+                                {season.name}（{fmtDate(season.endsAt)} 结束）
+                                {String(season.id) === String(viewingSeasonId) ? ' · 当前查看' : ''}
+                            </p>
+                        ))
+                ) : null}
+                {viewingSeasonId != null ? (
+                    <p className={styles.heroMeta} style={{ cursor: 'pointer', color: '#3d5afe' }}
+                        onClick={() => void backToCurrent()}>
+                        ← 返回当前赛季
+                    </p>
+                ) : null}
             </div>
             {pass.tiers.map(tier => (
                 <TierRow key={tier.tier} tier={tier} passExp={pass.passExp}

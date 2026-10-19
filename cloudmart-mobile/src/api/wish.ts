@@ -683,6 +683,10 @@ export const wishApi = {
     /** 加入品牌许愿池（uk 幂等，重复加入 409） */
     joinBrandPool: (brandId: number | string, poolId: number | string) =>
         request<null>({ url: `/wish/brands/${brandId}/pools/${poolId}/join`, method: 'POST' }),
+    /** T11：我的参与（本人参加的池与进度；brandId 供回跳） */
+    myPoolJoins: () => request<MyPoolJoin[]>({ url: '/wish/brands/pools/my-joins' }),
+    /** T11：我的奖励结果（义务状态/承诺/实际入账） */
+    myPoolRewards: () => request<MyPoolReward[]>({ url: '/wish/brands/pools/my-rewards' }),
 
     // ---- 社区活动（Sprint 3.5，四AC R3）----
     /** 活动列表（仅 ACTIVE 且展示期内；type 过滤可选） */
@@ -856,3 +860,25 @@ export const transferApi = {
 }
 
 export type { SigninMilestone, SigninMilestoneClaimResult } from '@/types'
+
+// ==================== T11：工坊我的参与/奖励结果 ====================
+
+export interface MyPoolJoin {
+  poolId: number | string
+  brandId: number | string | null
+  joinedAt: string
+  poolName: string
+  poolStatus: string
+  targetCount: number
+  currentCount: number
+}
+
+export interface MyPoolReward {
+  poolId: number | string
+  brandId: number | string | null
+  rewardType: string
+  status: string
+  promisedAmount: number | string
+  creditedAmount: number | string
+  poolName: string
+}

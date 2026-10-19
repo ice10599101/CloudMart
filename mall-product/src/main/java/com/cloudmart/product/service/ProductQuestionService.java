@@ -18,6 +18,13 @@ public interface ProductQuestionService {
     /** 我的问答（本人提问，含回答进度） */
     Page<ProductQuestionVO> myQuestions(Long userId, int page, int size);
 
+    /**
+     * T13：删除自己的提问（用户级；仅本人，服务端校验归属）。
+     * 软删 status=2（用户删除）——商品详情/我的提问不再可见（含已隐藏 1 同样不可恢复展示）；
+     * 已有回答一并随问题不可见。重复删除幂等。
+     */
+    void deleteOwn(Long userId, Long questionId);
+
     // ===== PRODUCT-01 管理端（商城→商品问答；隐藏/恢复单独权限与审计在网关代理层） =====
 
     /** 管理分页：可按商品/状态筛选（含隐藏项与全部答案，供审核处置） */
