@@ -902,3 +902,17 @@ export function cancelAccessRequest(requestId: string, idempotencyKey?: string) 
     softwareWriteConfig("POST", url, {}, idempotencyKey),
   );
 }
+
+/** SF08：恢复历史内容（owner 本人；复制为新的 DRAFT 走审核） */
+export function draftFromHistory(
+  softwareId: string,
+  sourceRevisionId: string,
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/${softwareId}/draft-from-history`;
+  return request.post<ApiResponse<SoftwareEditorData>>(
+    url,
+    { sourceRevisionId },
+    softwareWriteConfig("POST", url, { sourceRevisionId }, idempotencyKey),
+  );
+}

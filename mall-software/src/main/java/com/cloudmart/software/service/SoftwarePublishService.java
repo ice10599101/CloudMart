@@ -69,6 +69,15 @@ public interface SoftwarePublishService {
      */
     SoftwareEditorVO revisionSnapshot(Long softwareId, Long revisionId);
 
+    /**
+     * SF08：恢复历史内容——把某个已审历史快照复制为新的 DRAFT 工作副本，
+     * 走同样检查/人工审核；禁止直接篡改 publishedRevisionId 绕过审核。
+     * 幂等：working 副本 copiedFromRevisionId 与请求相同则返回既有副本；
+     * 存在其他 working 副本时拒绝（先撤回/删除）。
+     */
+    SoftwareEditorVO draftFromHistory(Long userId, Long softwareId, Long sourceRevisionId,
+                                      String idempotencyKey);
+
     /** 我的软件（tab=published/draft/pending/rejected/favorites；subscriptions 为 P1） */
     Page<SoftwareMineItemVO> mine(Long userId, String tab, int page, int size);
 }

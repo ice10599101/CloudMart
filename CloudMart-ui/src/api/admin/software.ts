@@ -845,3 +845,48 @@ export function decideAccessRequest(
     softwareWriteConfig("POST", url, payload, idempotencyKey),
   );
 }
+
+// ==================== 审核工作流（SF08：software:review） ====================
+
+export function claimReview(revisionId: string, idempotencyKey?: string) {
+  const url = `${BASE}/revisions/${revisionId}/claim`
+  return request.post<ApiResponse<{ revisionId: string; claimedBy: string; claimedAt: string }>>(
+    url,
+    {},
+    softwareWriteConfig('POST', url, {}, idempotencyKey),
+  )
+}
+
+export function releaseReview(revisionId: string, idempotencyKey?: string) {
+  const url = `${BASE}/revisions/${revisionId}/release`
+  return request.post<ApiResponse<boolean>>(
+    url,
+    {},
+    softwareWriteConfig('POST', url, {}, idempotencyKey),
+  )
+}
+
+export interface SoftwareHistoryRow {
+  revisionId: string
+  reviewStatus: string
+  submittedAt: string
+  reviewedAt: string | null
+  reviewerId: string | null
+  reviewReason: string | null
+  claimedBy: string | null
+  fieldDiff: Array<{ field: string; changed: boolean }>
+  sourceStates: Array<{
+    sourceKey: string
+    provider: string | null
+    platform: string | null
+    availability: string
+    disabled: boolean
+  }>
+}
+
+export function listSoftwareHistory(softwareId: string, page = 1, size = 20) {
+  return request.get<ApiResponse<PageResult<SoftwareHistoryRow>>>(
+    `${BASE}/items/${softwareId}/history`,
+    { params: { page, size } },
+  )
+}

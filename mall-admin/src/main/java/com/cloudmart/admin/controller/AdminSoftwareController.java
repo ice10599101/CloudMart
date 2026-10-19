@@ -530,6 +530,34 @@ public class AdminSoftwareController {
         return softwareFeignClient.decideAccessRequest(requestId, body);
     }
 
+    // ---------------- 审核工作流（SF08：software:review） ----------------
+
+    @OperLog(title = "审核领取", businessType = 2)
+    @PostMapping("/revisions/{revisionId}/claim")
+    @RequiresPermission("software:review")
+    @Operation(summary = "领取待审提交", description = "协作标记；他人未超时领取被拒；超时 1 小时惰性释放")
+    public ApiResponse<Object> claimReview(@PathVariable("revisionId") Long revisionId) {
+        return softwareFeignClient.claimReview(revisionId);
+    }
+
+    @OperLog(title = "审核释放", businessType = 2)
+    @PostMapping("/revisions/{revisionId}/release")
+    @RequiresPermission("software:review")
+    @Operation(summary = "释放领取", description = "仅领取人本人；幂等")
+    public ApiResponse<Object> releaseReview(@PathVariable("revisionId") Long revisionId) {
+        return softwareFeignClient.releaseReview(revisionId);
+    }
+
+    @GetMapping("/items/{softwareId}/history")
+    @RequiresPermission("software:review")
+    @Operation(summary = "历史内容", description = "字段 diff + 人工决定 + 来源状态；只读")
+    public ApiResponse<Object> softwareHistory(
+            @PathVariable("softwareId") Long softwareId,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return softwareFeignClient.softwareHistory(softwareId, page, size);
+    }
+
     // ---------------- 发布者申请（SF03：software:publisher:list / manage） ----------------
 
     @GetMapping("/publisher-applications")

@@ -193,6 +193,20 @@ public interface SoftwareFeignClient {
     @GetMapping("/statistics")
     ApiResponse<Object> statistics();
 
+    /** SF08：审核领取 */
+    @PostMapping("/revisions/{revisionId}/claim")
+    ApiResponse<Object> claimReview(@PathVariable("revisionId") Long revisionId);
+
+    /** SF08：释放领取 */
+    @PostMapping("/revisions/{revisionId}/release")
+    ApiResponse<Object> releaseReview(@PathVariable("revisionId") Long revisionId);
+
+    /** SF08：历史内容分页 */
+    @GetMapping("/items/{softwareId}/history")
+    ApiResponse<Object> softwareHistory(@PathVariable("softwareId") Long softwareId,
+                                        @RequestParam("page") int page,
+                                        @RequestParam("size") int size);
+
     /** SF04：访问申请分页 */
     @GetMapping("/access-requests")
     ApiResponse<Object> accessRequests(@RequestParam("status") String status,

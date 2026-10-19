@@ -81,6 +81,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/software/access-requests/mine").authenticated()
                 .requestMatchers(HttpMethod.POST, "/software/access-requests/{softwareId}",
                         "/software/access-requests/{requestId}/cancel").authenticated()
+                // SF08：恢复历史（owner 本人；复制为 DRAFT 走审核）
+                .requestMatchers(HttpMethod.POST, "/software/{id}/draft-from-history")
+                .authenticated()
                 .requestMatchers(HttpMethod.GET, "/software/{id}/access-state",
                         "/software/{id}/editor", "/software/{id}/subscription")
                 .authenticated()

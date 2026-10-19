@@ -60,6 +60,9 @@ public class SoftwareOperationService {
     public static final String OP_TAG_DISABLE = "TAG_DISABLE";
     public static final String OP_TOPIC_SAVE = "TOPIC_SAVE";
     public static final String OP_TOPIC_DISABLE = "TOPIC_DISABLE";
+    /** SF08：审核领取/释放（协作标记审计） */
+    public static final String OP_REVIEW_CLAIM = "REVIEW_CLAIM";
+    public static final String OP_REVIEW_RELEASE = "REVIEW_RELEASE";
 
     private final SoftwareOperationMapper operationMapper;
     private final ObjectMapper objectMapper;

@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminSoftwarePublishController {
 
     private final SoftwarePublishService softwarePublishService;
+    private final com.cloudmart.software.service.SoftwareReviewWorkflowService reviewWorkflowService;
     private final com.cloudmart.software.service.AdminSoftwareSourceService adminSoftwareSourceService;
 
     @org.springframework.web.bind.annotation.DeleteMapping("/items/{softwareId}")
@@ -41,6 +42,34 @@ public class AdminSoftwarePublishController {
             @org.springframework.web.bind.annotation.PathVariable("softwareId") Long softwareId) {
         softwarePublishService.adminDelete(adminUserId, softwareId);
         return ApiResponse.ok(true);
+    }
+
+    /** SF08：领取待审提交（协作标记；最终决定仍走服务端原子审核） */
+    @PostMapping("/revisions/{revisionId}/claim")
+    @Operation(summary = "领取待审提交", description = "原子抢领；他人未超时领取被拒；超时 1 小时惰性释放")
+    public ApiResponse<java.util.Map<String, Object>> claim(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
+            @org.springframework.web.bind.annotation.PathVariable("revisionId") Long revisionId) {
+        return ApiResponse.ok(reviewWorkflowService.claim(adminUserId, revisionId));
+    }
+
+    /** SF08：释放领取（仅本人；幂等） */
+    @PostMapping("/revisions/{revisionId}/release")
+    @Operation(summary = "释放领取", description = "仅领取人本人；未领取/已释放幂等成功")
+    public ApiResponse<Boolean> release(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
+            @org.springframework.web.bind.annotation.PathVariable("revisionId") Long revisionId) {
+        return ApiResponse.ok(reviewWorkflowService.release(adminUserId, revisionId));
+    }
+
+    /** SF08：历史内容分页（只读；字段 diff + 人工决定 + 来源状态） */
+    @GetMapping("/items/{softwareId}/history")
+    @Operation(summary = "历史内容", description = "按提交时间倒序；不含锁版本或递增修订号")
+    public ApiResponse<com.baomidou.mybatisplus.extension.plugins.pagination.Page<java.util.Map<String, Object>>> history(
+            @org.springframework.web.bind.annotation.PathVariable("softwareId") Long softwareId,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(reviewWorkflowService.history(softwareId, page, size));
     }
 
     @PostMapping("/revisions/{revisionId}/decision")

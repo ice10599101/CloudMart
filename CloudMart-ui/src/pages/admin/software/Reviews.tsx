@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Drawer, Input, Radio, Space, Table, Tag, Typography } from 'antd'
+import { Button, Drawer, Input, Radio, Select, Space, Table, Tag, Typography } from 'antd'
 import DOMPurify from 'dompurify'
 import {
+  claimReview,
   decideReview,
   getReviewDetail,
   listPendingReviews,
+  releaseReview,
 } from '@/api/admin/software'
 import type { AdminReviewDetail, AdminRevisionSnapshot } from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
@@ -126,6 +128,31 @@ export default function SoftwareReviews() {
     }
   }
 
+  /** SF08：审核领取（协作标记；本地记忆仅用于按钮切换，服务端是事实源） */
+  const [claimedIds, setClaimedIds] = useState<Set<string>>(new Set())
+
+  const handleClaim = (record: PendingRow) => {
+    claimReview(record.revisionId)
+      .then(() => {
+        message.success('已领取，请及时处理（超时 1 小时未释放可被他人抢领）')
+        setClaimedIds((prev) => new Set(prev).add(record.revisionId))
+      })
+      .catch(() => undefined)
+  }
+
+  const handleRelease = (record: PendingRow) => {
+    releaseReview(record.revisionId)
+      .then(() => {
+        message.success('已释放')
+        setClaimedIds((prev) => {
+          const next = new Set(prev)
+          next.delete(record.revisionId)
+          return next
+        })
+      })
+      .catch(() => undefined)
+  }
+
   const openDetail = (record: PendingRow) => {
     // 详情复用审核弹窗（reviewDetail 接口对管理员可用，内容含完整预览）
     void openReview(record.revisionId)
@@ -167,6 +194,15 @@ export default function SoftwareReviews() {
         >
           详情
         </Button>,
+        claimedIds.has(record.revisionId) ? (
+          <Button key="release" type="link" onClick={() => handleRelease(record)}>
+            释放
+          </Button>
+        ) : (
+          <Button key="claim" type="link" onClick={() => handleClaim(record)}>
+            领取
+          </Button>
+        ),
         <Button
           key="review"
           type="link"
@@ -364,6 +400,23 @@ export default function SoftwareReviews() {
               <Radio.Button value={true}>通过</Radio.Button>
               <Radio.Button value={false}>退回</Radio.Button>
             </Radio.Group>
+            {/* SF08：操作原因模板——只帮助填写，管理员仍可编辑为具体理由 */}
+            <Select
+              allowClear
+              placeholder="套用原因模板（选填）"
+              style={{ width: '100%', marginBottom: 8 }}
+              onChange={(value) => {
+                if (value) setReason(value)
+              }}
+              options={[
+                { value: '功能与描述相符，来源核验通过，同意发布。', label: '通过：功能与描述相符' },
+                { value: '来源链接可用且与声明一致，同意发布。', label: '通过：来源核验通过' },
+                { value: '安装后无法正常运行，请核对系统要求与安装指南。', label: '退回：无法正常运行' },
+                { value: '来源链接无法打开，请修复后重新提交。', label: '退回：来源无法打开' },
+                { value: '描述与实际功能不符，请如实填写简介与说明。', label: '退回：描述不符' },
+                { value: '缺少必要的来源声明或授权依据，请补充。', label: '退回：来源声明缺失' },
+              ]}
+            />
             <Input.TextArea
               rows={3}
               maxLength={1000}

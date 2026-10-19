@@ -107,6 +107,15 @@ public class SoftwareRevision {
 
     private String reviewReason;
 
+    /** SF08：审核领取人（协作标记；最终决定以服务端原子审核为准） */
+    private Long claimedBy;
+
+    /** SF08：领取时间（超时惰性释放判定依据） */
+    private LocalDateTime claimedAt;
+
+    /** SF08：历史恢复——来源快照ID（DRAFT 复制自哪次历史提交） */
+    private Long copiedFromRevisionId;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

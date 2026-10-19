@@ -103,6 +103,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     private final SoftwareSnapshotAssembler assembler;
     private final SoftwareOperationService operationService;
     private final SoftwareAuditService auditService;
+    private final com.cloudmart.software.service.SoftwareReviewWorkflowService reviewWorkflowService;
     private final com.cloudmart.software.service.SoftwareAssetBindingService assetBindingService;
     private final OutboxService outboxService;
     private final com.cloudmart.software.feign.CommunitySupportFeignClient communitySupportFeignClient;
@@ -266,7 +267,111 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         return buildEditor(software, revisionId);
     }
 
+    /**
+     * SF08：恢复历史内容——历史快照复制为新的 DRAFT 工作副本（走同样检查/人工审核）。
+     * 不直接篡改 publishedRevisionId；幂等见接口注释。
+     */
     @Override
+    public SoftwareEditorVO draftFromHistory(Long userId, Long softwareId,
+                                             Long sourceRevisionId, String idempotencyKey) {
+        Software software = ownedSoftware(userId, softwareId);
+        SoftwareRevision source = revisionMapper.selectById(sourceRevisionId);
+        if (source == null || !source.getSoftwareId().equals(softwareId)
+                || source.getSubmittedAt() == null) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "历史提交不存在");
+        }
+        if (software.getWorkingRevisionId() != null) {
+            SoftwareRevision working = revisionMapper.selectById(software.getWorkingRevisionId());
+            if (working != null
+                    && sourceRevisionId.equals(working.getCopiedFromRevisionId())) {
+                return buildEditor(software, working.getId()); // 幂等：同一来源的既有副本
+            }
+            throw new BusinessException("SOFTWARE_DRAFT_EXISTS",
+                    "已有未完成的工作副本，请先保存提交或删除后再恢复历史");
+        }
+        // 创建/获取工作副本（克隆线上；从未发布软件的历史恢复列入后续小批）
+        SoftwareEditorVO working = workingRevision(userId, softwareId, idempotencyKey);
+        // 历史快照 → 全量保存输入（稳定 releaseKey/sourceKey 随快照携带，装配器沿用）
+        SoftwareSnapshotInput input = snapshotInputFromEditor(softwareId, sourceRevisionId);
+        SoftwareEditorVO saved = saveDraft(userId, softwareId, working.revisionId(), input);
+        // 标记复制来源（幂等判定与追溯依据）
+        SoftwareRevision workingRow = revisionMapper.selectById(working.revisionId());
+        workingRow.setCopiedFromRevisionId(sourceRevisionId);
+        revisionMapper.updateById(workingRow);
+        auditService.record(softwareId, working.revisionId(), userId, "USER",
+                "DRAFT_FROM_HISTORY", "DRAFT", "DRAFT",
+                "恢复历史内容 sourceRevisionId=" + sourceRevisionId, null);
+        return saved;
+    }
+
+    /** SF08：历史快照（编辑器视图）→ 全量保存输入（含稳定键） */
+    private SoftwareSnapshotInput snapshotInputFromEditor(Long softwareId, Long revisionId) {
+        SoftwareEditorVO editor = revisionSnapshot(softwareId, revisionId);
+        SoftwareSnapshotInput input = new SoftwareSnapshotInput();
+        input.setName(editor.name());
+        input.setSummary(editor.summary());
+        input.setCategoryId(editor.categoryId());
+        input.setIconAssetId(editor.iconAssetId());
+        input.setDescriptionHtml(editor.descriptionHtml());
+        input.setLicenseType(editor.licenseType());
+        input.setDeveloperName(editor.developerName());
+        input.setOfficialUrl(editor.officialUrl());
+        input.setAttributionType(editor.attributionType());
+        input.setAttributionNote(editor.attributionNote());
+        input.setSystemRequirements(editor.systemRequirements());
+        input.setInstallationGuide(editor.installationGuide());
+        input.setKnownIssues(editor.knownIssues());
+        input.setLanguages(editor.languages());
+        input.setAccessMode(editor.accessMode());
+        input.setMinCommunityLevel(editor.minCommunityLevel());
+        input.setAccessContactId(editor.accessContactId());
+        input.setAccessNote(editor.accessNote());
+        input.setTagIds(editor.tagIds());
+        if (editor.screenshots() != null) {
+            input.setScreenshots(editor.screenshots().stream().map(media -> {
+                SoftwareSnapshotInput.MediaInput mediaInput = new SoftwareSnapshotInput.MediaInput();
+                mediaInput.setAssetId(media.assetId());
+                mediaInput.setAltText(media.altText());
+                mediaInput.setDisplayOrder(media.displayOrder());
+                return mediaInput;
+            }).toList());
+        }
+        if (editor.releases() != null) {
+            input.setReleases(editor.releases().stream().map(release -> {
+                SoftwareSnapshotInput.ReleaseInput releaseInput = new SoftwareSnapshotInput.ReleaseInput();
+                releaseInput.setReleaseKey(release.releaseKey());
+                releaseInput.setVersionName(release.versionName());
+                releaseInput.setChannel(release.channel());
+                releaseInput.setRecommended(release.recommended());
+                releaseInput.setReleaseDate(release.releaseDate());
+                releaseInput.setChangelog(release.changelog());
+                releaseInput.setDisplayOrder(release.displayOrder());
+                if (release.sources() != null) {
+                    releaseInput.setSources(release.sources().stream().map(source -> {
+                        SoftwareSnapshotInput.SourceInput sourceInput =
+                                new SoftwareSnapshotInput.SourceInput();
+                        sourceInput.setSourceKey(source.sourceKey());
+                        sourceInput.setSourceType(source.sourceType());
+                        sourceInput.setProvider(source.provider());
+                        sourceInput.setPlatform(source.platform());
+                        sourceInput.setArch(source.arch());
+                        sourceInput.setLabel(source.label());
+                        sourceInput.setUrl(source.url());
+                        sourceInput.setExtractionCode(source.extractionCode());
+                        sourceInput.setArchivePassword(source.archivePassword());
+                        sourceInput.setSizeLabel(source.sizeLabel());
+                        sourceInput.setClaimedSha256(source.claimedSha256());
+                        sourceInput.setNote(source.note());
+                        sourceInput.setDisplayOrder(source.displayOrder());
+                        return sourceInput;
+                    }).toList());
+                }
+                return releaseInput;
+            }).toList());
+        }
+        return input;
+    }
+
     public SoftwareEditorVO revisionSnapshot(Long softwareId, Long revisionId) {
         Software software = softwareMapper.selectById(softwareId);
         if (software == null) {

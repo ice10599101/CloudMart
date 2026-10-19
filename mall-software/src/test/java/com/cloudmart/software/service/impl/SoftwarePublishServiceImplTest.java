@@ -163,6 +163,8 @@ class SoftwarePublishServiceImplTest {
                         com.cloudmart.software.repository.SoftwareAccessContactMapper.class),
                 lockMapper,
                 publisherPolicy, assembler, operationService, auditService,
+                org.mockito.Mockito.mock(
+                        com.cloudmart.software.service.SoftwareReviewWorkflowService.class),
                 assetBindingService,
                 outboxService,
                 communitySupportFeignClient, userSupportFeignClient, softwareProperties,

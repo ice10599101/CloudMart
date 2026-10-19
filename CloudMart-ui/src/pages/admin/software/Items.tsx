@@ -24,7 +24,9 @@ import {
   listAdminSoftware,
   listAdminSoftwareCategories,
   unbanAdminSoftware,
-} from '@/api/admin/software'
+  listSoftwareHistory,
+  type SoftwareHistoryRow,
+} from '@/api/admin/software';
 import type { AdminSoftwareDetail, AdminSoftwareItem } from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
@@ -58,6 +60,20 @@ export default function SoftwareItems() {
   const [banTarget, setBanTarget] = useState<AdminSoftwareItem | null>(null)
   const [banReason, setBanReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  /** SF08：历史内容（只读；字段 diff + 人工决定 + 来源状态） */
+  const [historyFor, setHistoryFor] = useState<string | null>(null)
+  const [historyRows, setHistoryRows] = useState<SoftwareHistoryRow[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  const openHistory = (softwareId: string) => {
+    setHistoryFor(softwareId)
+    setHistoryLoading(true)
+    listSoftwareHistory(softwareId, 1, 50)
+      .then((res) => setHistoryRows(res.data.data?.records ?? []))
+      .catch(() => undefined)
+      .finally(() => setHistoryLoading(false))
+  }
 
   const openDetail = async (softwareId: string) => {
     try {
@@ -244,6 +260,9 @@ export default function SoftwareItems() {
         <a key="sources" onClick={() => setSourcesFor(record.softwareId)}>
           来源管理
         </a>,
+        <a key="history" onClick={() => openHistory(record.softwareId)}>
+          历史
+        </a>,
         <a
           key="featured"
           onClick={() => {
@@ -365,6 +384,69 @@ export default function SoftwareItems() {
           value={banReason}
           onChange={(e) => setBanReason(e.target.value)}
         />
+      </Modal>
+
+      {/* SF08：历史内容（只读） */}
+      <Modal
+        title={`历史内容（软件 ${historyFor ?? ''}）`}
+        open={!!historyFor}
+        onCancel={() => setHistoryFor(null)}
+        footer={null}
+        width={720}
+      >
+        {historyLoading ? (
+          <Typography.Text type="secondary">加载中…</Typography.Text>
+        ) : historyRows.length === 0 ? (
+          <Typography.Text type="secondary">暂无提交历史</Typography.Text>
+        ) : (
+          <Timeline
+            items={historyRows.map((row) => ({
+              children: (
+                <div key={row.revisionId} style={{ marginBottom: 8 }}>
+                  <Space size={8} wrap>
+                    <Typography.Text strong>快照 {row.revisionId}</Typography.Text>
+                    <Tag
+                      color={
+                        row.reviewStatus === 'APPROVED'
+                          ? 'success'
+                          : row.reviewStatus === 'REJECTED'
+                            ? 'error'
+                            : row.reviewStatus === 'PENDING'
+                              ? 'processing'
+                              : 'default'
+                      }
+                    >
+                      {row.reviewStatus}
+                    </Tag>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      提交 {row.submittedAt.replace('T', ' ').slice(0, 16)}
+                      {row.reviewedAt
+                        ? ` · 审定 ${row.reviewedAt.replace('T', ' ').slice(0, 16)}`
+                        : ''}
+                    </Typography.Text>
+                  </Space>
+                  {row.reviewReason ? (
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>说明：{row.reviewReason}</div>
+                  ) : null}
+                  {row.fieldDiff.length > 0 ? (
+                    <div style={{ fontSize: 12 }}>
+                      变化字段：
+                      {row.fieldDiff.map((diff) => diff.field).join('、')}
+                    </div>
+                  ) : null}
+                  {row.sourceStates.length > 0 ? (
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>
+                      来源：
+                      {row.sourceStates
+                        .map((source) => `${source.platform ?? '-'}·${source.availability}`)
+                        .join('；')}
+                    </div>
+                  ) : null}
+                </div>
+              ),
+            }))}
+          />
+        )}
       </Modal>
     </>
   )

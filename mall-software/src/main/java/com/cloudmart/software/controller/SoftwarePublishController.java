@@ -64,6 +64,23 @@ public class SoftwarePublishController {
         return ApiResponse.ok(softwarePublishService.create(userId, idempotencyKey));
     }
 
+    /** SF08：恢复历史内容（owner 本人；复制为新的 DRAFT 走审核） */
+    @PostMapping("/{id}/draft-from-history")
+    @Operation(summary = "从历史恢复草稿",
+            description = "把某个已提交历史快照复制为新 DRAFT 工作副本；幂等；不绕过审核")
+    public ApiResponse<SoftwareEditorVO> draftFromHistory(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @org.springframework.web.bind.annotation.PathVariable("id") Long id,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody DraftFromHistoryRequest request) {
+        return ApiResponse.ok(softwarePublishService.draftFromHistory(
+                userId, id, request.sourceRevisionId(), idempotencyKey));
+    }
+
+    /** SF08：恢复历史请求体 */
+    public record DraftFromHistoryRequest(Long sourceRevisionId) {
+    }
+
     @PostMapping("/{id}/working-revision")
     @Operation(summary = "克隆工作快照", description = "已有工作副本直接返回；否则克隆 published（仅本人）")
     public ApiResponse<SoftwareEditorVO> workingRevision(
