@@ -99,7 +99,8 @@ public class SoftwareSnapshotAssembler {
     private static final Set<String> PATCH_FIELDS = Set.of(
             "name", "summary", "categoryId", "iconAssetId", "descriptionHtml", "licenseType",
             "developerName", "officialUrl", "attributionType", "attributionNote",
-            "systemRequirements", "languages", "accessMode", "minCommunityLevel",
+            "systemRequirements", "installationGuide", "knownIssues",
+            "languages", "accessMode", "minCommunityLevel",
             "accessContactId", "accessNote", "tagIds", "screenshots", "releases");
 
     /**
@@ -206,6 +207,21 @@ public class SoftwareSnapshotAssembler {
                 throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "系统要求最长 300 字");
             }
             revision.setSystemRequirements(trimToNull(value));
+        }
+        // SF02：完整资料字段随 PATCH 局部保存（D37 复测发现白名单遗漏，与 PUT 全量保存同限 2000 字）
+        if (patch.has("installationGuide")) {
+            String value = textOrNull(patch.get("installationGuide"));
+            if (value != null && value.length() > 2000) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "安装指南最长 2000 字");
+            }
+            revision.setInstallationGuide(trimToNull(value));
+        }
+        if (patch.has("knownIssues")) {
+            String value = textOrNull(patch.get("knownIssues"));
+            if (value != null && value.length() > 2000) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "已知问题最长 2000 字");
+            }
+            revision.setKnownIssues(trimToNull(value));
         }
         if (patch.has("languages")) {
             revision.setLanguages(serializeLanguages(stringList(patch.get("languages"), "languages")));
