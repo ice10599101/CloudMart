@@ -72,13 +72,6 @@ spring:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:8379}
 
-live:
-  netty:
-    port: ${NETTY_WS_PORT:9016}
-    boss-threads: 1
-    worker-threads: 0
-    idle-timeout-seconds: 300
-
 management:
   endpoints:
     web:

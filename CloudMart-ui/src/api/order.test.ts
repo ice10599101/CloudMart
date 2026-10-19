@@ -7,7 +7,7 @@ vi.mock('@/utils/request', () => ({
 import request from '@/utils/request'
 import {
   createOrder, fetchOrders, fetchOrderById, cancelOrder,
-  shipOrder, confirmReceipt, requestRefund,
+  confirmReceipt, requestRefund,
 } from './order'
 
 describe('order API', () => {
@@ -50,14 +50,6 @@ describe('order API', () => {
 
   // T01：旧订单支付代理用例（payForOrder/fetchPaymentByOrderId/simulatePaymentSuccess）
   // 已随旧链路删除——收银台用例见 api/payment.test.ts（payment-attempts 契约）
-
-  it('shipOrder() calls PUT /order/orders/:id/ship', async () => {
-    vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
-
-    await shipOrder(42)
-
-    expect(request.put).toHaveBeenCalledWith('/order/orders/42/ship')
-  })
 
   it('confirmReceipt() calls PUT /order/orders/:id/confirm', async () => {
     vi.mocked(request.put).mockResolvedValue({ data: {} } as any)
