@@ -189,21 +189,31 @@ public class FileController {
     /** S01：签名授权下载（PRIVATE 附件唯一读取通道）——正确的 Content-Type、nosniff、attachment */
     @GetMapping("/assets/{id}/download")
     @Operation(summary = "签名授权下载", description = "凭短期签名 token 下载；未授权访问一律拒绝")
-    public org.springframework.http.ResponseEntity<byte[]> download(
+    public org.springframework.http.ResponseEntity<org.springframework.core.io.Resource> download(
             @Parameter(description = "资产ID", required = true) @PathVariable("id") Long id,
             @RequestParam(value = "token", required = false) String token,
             @RequestParam(value = "expires", required = false) String expires) {
         fileAssetService.validateDownloadToken(id, token, expires);
         FileAsset asset = fileAssetService.requireAsset(id);
-        byte[] content = fileService.readByStorageKey(asset.getStorageKey());
-        if (content == null) {
+        // T26：流式下载——不再整对象读入堆（InputStreamResource 由容器回调关闭流）
+        java.io.InputStream stream = fileService.openByStorageKey(asset.getStorageKey());
+        if (stream == null) {
             throw new BusinessException("FILE_NOT_FOUND", "文件不存在");
         }
+        long size = fileService.sizeOfStorageKey(asset.getStorageKey());
+        org.springframework.core.io.Resource resource =
+                new org.springframework.core.io.InputStreamResource(stream) {
+                    @Override
+                    public String getFilename() {
+                        return "asset-" + id;
+                    }
+                };
         return org.springframework.http.ResponseEntity.ok()
                 .header("Content-Type", asset.getMime())
                 .header("X-Content-Type-Options", "nosniff")
                 .header("Content-Disposition", "attachment; filename=\"asset-" + id + "\"")
-                .body(content);
+                .header("Content-Length", size > 0 ? String.valueOf(size) : null)
+                .body(resource);
     }
 
     public record AssetUploadResponse(

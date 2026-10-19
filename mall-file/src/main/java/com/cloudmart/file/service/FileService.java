@@ -20,4 +20,13 @@ public interface FileService {
 
     /** FILE-01：按存储键读取文件内容（下载授权通道用）；不存在返回 null */
     byte[] readByStorageKey(String storageKey);
+
+    /**
+     * T26：流式读取（下载大文件不再整对象读入堆）。
+     * 返回的 InputStream 由调用方负责关闭；对象不存在返回 null。
+     */
+    java.io.InputStream openByStorageKey(String storageKey);
+
+    /** T26：对象大小（Content-Length 用；对象不存在返回 -1） */
+    long sizeOfStorageKey(String storageKey);
 }

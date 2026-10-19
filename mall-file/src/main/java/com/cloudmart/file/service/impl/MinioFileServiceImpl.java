@@ -172,6 +172,35 @@ public class MinioFileServiceImpl implements FileService {
         }
     }
 
+    /** T26：流式读取——不经堆整读；InputStream 由调用方关闭 */
+    @Override
+    public java.io.InputStream openByStorageKey(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        try {
+            return minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(storageKey).build());
+        } catch (Exception e) {
+            log.error("[T26] MinIO 流式读取失败: key={}, err={}", storageKey, e.getMessage());
+            return null;
+        }
+    }
+
+    /** T26：对象大小（下载 Content-Length 用；不存在返回 -1） */
+    @Override
+    public long sizeOfStorageKey(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return -1;
+        }
+        try {
+            return minioClient.statObject(
+                    io.minio.StatObjectArgs.builder().bucket(bucket).object(storageKey).build()).size();
+        } catch (Exception e) {
+            log.warn("[T26] MinIO stat 失败: key={}, err={}", storageKey, e.getMessage());
+            return -1;
+        }
+    }
+
     private String extractExtension(String filename) {
         if (filename == null) return "";
         int dot = filename.lastIndexOf('.');

@@ -53,6 +53,10 @@ public class AiChatServiceImpl implements AiChatService {
         """;
 
     private static final int MAX_CONVERSATION_HISTORY = 20;
+
+    /** T26：单用户每日对话额度（可配置；0=不限制） */
+    @org.springframework.beans.factory.annotation.Value("${ai.chat.daily-limit:50}")
+    private int dailyLimit;
     private static final Duration CONVERSATION_TTL = Duration.ofMinutes(30);
     private static final String REDIS_KEY_PREFIX = "ai:conversation:";
 
@@ -74,6 +78,8 @@ public class AiChatServiceImpl implements AiChatService {
     @Override
     @SentinelResource(value = "chat", fallback = "chatFallback")
     public ChatResponse chat(Long userId, ChatRequest request) {
+        // T26：每日额度（显式业务错误，不是静默降级——额度是计费边界不是故障）
+        checkDailyQuota(userId);
         String conversationId = resolveConversationId(userId, request.conversationId());
         List<Message> history = loadHistory(userId, conversationId);
 
@@ -97,6 +103,9 @@ public class AiChatServiceImpl implements AiChatService {
             // 只存储用户原始消息到历史（不含 RAG 上下文，避免历史膨胀）；
             // AI-01：原子追加（RPUSH+LTRIM）替代整体覆盖——同会话并发消息不丢
             appendHistory(userId, conversationId, request.message(), reply == null ? "" : reply);
+
+            // T26：用量统计（requests 计数；对话条数即费用代理指标——按条计费的模型成本与请求量线性相关）
+            recordUsage(userId);
 
             return new ChatResponse(reply, conversationId, false);
         } catch (Exception e) {
@@ -198,5 +207,38 @@ public class AiChatServiceImpl implements AiChatService {
     public ChatResponse chatFallback(Long userId, ChatRequest request, Throwable throwable) {
         log.warn("chat fallback triggered, userId={}: {}", userId, throwable.getMessage());
         return null;
+    }
+
+    /** T26：每日额度检查——Redis INCR 原子计数，首个请求设置当日 24 点（Asia/Shanghai）过期 */
+    private void checkDailyQuota(Long userId) {
+        if (dailyLimit <= 0) {
+            return;
+        }
+        String date = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString();
+        String key = "ai:chat:quota:" + date + ":" + userId;
+        Long count = redisTemplate.opsForValue().increment(key);
+        if (count != null && count == 1L) {
+            // 当日 24 点过期（Asia/Shanghai）
+            java.time.LocalDateTime midnight = java.time.LocalDate
+                    .now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(1).atStartOfDay();
+            long ttlSeconds = Math.max(60, java.time.Duration.between(
+                    java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai")), midnight).getSeconds());
+            redisTemplate.expire(key, java.time.Duration.ofSeconds(ttlSeconds));
+        }
+        if (count != null && count > dailyLimit) {
+            throw new com.cloudmart.common.exception.BusinessException("AI_QUOTA_EXCEEDED",
+                    "今日 AI 对话额度已用完（" + dailyLimit + " 次/天），明天再来吧");
+        }
+    }
+
+    /** T26：用量统计——按日计数（费用统计的最小可行形态：请求量=按条计费成本的线性代理） */
+    private void recordUsage(Long userId) {
+        try {
+            String date = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString();
+            redisTemplate.opsForValue().increment("ai:chat:usage:" + date + ":requests");
+            redisTemplate.opsForValue().increment("ai:chat:usage:" + date + ":users:" + userId);
+        } catch (Exception e) {
+            log.debug("AI 用量统计失败（不阻断对话）: {}", e.getMessage());
+        }
     }
 }

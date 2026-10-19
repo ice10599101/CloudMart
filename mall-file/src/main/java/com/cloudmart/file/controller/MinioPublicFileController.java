@@ -73,7 +73,7 @@ public class MinioPublicFileController {
     }
 
     @GetMapping("/**")
-    public ResponseEntity<byte[]> serve(jakarta.servlet.http.HttpServletRequest request) {
+    public ResponseEntity<org.springframework.core.io.Resource> serve(jakarta.servlet.http.HttpServletRequest request) {
         // /files/{path} → 对象键 public/{path}（静态映射语义对齐本地模式）
         String fullPath = request.getRequestURI();
         String relative = fullPath.substring("/files/".length());
@@ -83,16 +83,17 @@ public class MinioPublicFileController {
         return serveByKey(MinioFileServiceImpl.DOMAIN_PUBLIC + "/" + relative);
     }
 
-    /** 按完整对象键读取并输出（by-id 与静态映射共用） */
-    private ResponseEntity<byte[]> serveByKey(String objectKey) {
+    /** 按完整对象键读取并输出（by-id 与静态映射共用；T26 切流式不经堆整读） */
+    private ResponseEntity<org.springframework.core.io.Resource> serveByKey(String objectKey) {
+        long size;
         try {
-            minioClient.statObject(StatObjectArgs.builder().bucket(bucket).object(objectKey).build());
+            size = minioClient.statObject(StatObjectArgs.builder().bucket(bucket).object(objectKey).build()).size();
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
 
-        try (var stream = minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(objectKey).build())) {
-            byte[] content = stream.readAllBytes();
+        try {
+            var stream = minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(objectKey).build());
             String ext = objectKey.contains(".")
                     ? objectKey.substring(objectKey.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT)
                     : "";
@@ -100,7 +101,8 @@ public class MinioPublicFileController {
             return ResponseEntity.ok()
                     .contentType(mediaType)
                     .cacheControl(org.springframework.http.CacheControl.maxAge(java.time.Duration.ofHours(1)))
-                    .body(content);
+                    .header("Content-Length", String.valueOf(size))
+                    .body(new org.springframework.core.io.InputStreamResource(stream));
         } catch (Exception e) {
             log.error("P1-19 /files 读取失败: key={}, err={}", objectKey, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

@@ -157,6 +157,41 @@ public class OssFileServiceImpl implements FileService {
         }
     }
 
+    /** T26：流式读取（本地盘实现——Files.newInputStream；不存在返回 null） */
+    @Override
+    public java.io.InputStream openByStorageKey(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return null;
+        }
+        Path resolved = storageRoot.resolve(storageKey).normalize();
+        if (!resolved.startsWith(storageRoot)) {
+            return null;
+        }
+        try {
+            return Files.exists(resolved) ? Files.newInputStream(resolved) : null;
+        } catch (Exception e) {
+            log.error("[T26] 本地流式读取失败: key={}, err={}", storageKey, e.getMessage());
+            return null;
+        }
+    }
+
+    /** T26：对象大小（本地盘；不存在返回 -1） */
+    @Override
+    public long sizeOfStorageKey(String storageKey) {
+        if (storageKey == null || storageKey.isBlank()) {
+            return -1;
+        }
+        Path resolved = storageRoot.resolve(storageKey).normalize();
+        if (!resolved.startsWith(storageRoot)) {
+            return -1;
+        }
+        try {
+            return Files.exists(resolved) ? Files.size(resolved) : -1;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
     /** 落盘失败清理半成品 */
     private void quarantineCleanup(Path target) {
         try {

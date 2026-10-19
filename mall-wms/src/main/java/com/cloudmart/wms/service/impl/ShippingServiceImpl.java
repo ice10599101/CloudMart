@@ -28,6 +28,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -309,18 +310,29 @@ public class ShippingServiceImpl implements ShippingService {
         if (orderId != null) {
             wrapper.eq(ShippingOrder::getOrderId, orderId);
         }
-        wrapper.orderByDesc(ShippingOrder::getCreatedAt);
-        Page<ShippingOrder> orderPage = shippingOrderMapper.selectPage(new Page<>(page, size), wrapper);
+        // T26：pageSize 收口（正数 + 上限 100）与稳定排序（时间+ID），避免深翻页与同秒乱序
+        int safePage = Math.max(page, 1);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        wrapper.orderByDesc(ShippingOrder::getCreatedAt).orderByDesc(ShippingOrder::getId);
+        Page<ShippingOrder> orderPage = shippingOrderMapper.selectPage(new Page<>(safePage, safeSize), wrapper);
+        // T26：N+1 修复——按本页运单 ID 一次批量取轨迹，按运单分组（100 条列表 SQL 次数不随条数线性增长）
+        List<Long> pageIds = orderPage.getRecords().stream().map(ShippingOrder::getId).toList();
+        Map<Long, List<ShippingTracking>> trackingsByOrderId = pageIds.isEmpty() ? Map.of()
+                : shippingTrackingMapper.selectList(
+                        new LambdaQueryWrapper<ShippingTracking>()
+                                .in(ShippingTracking::getShippingOrderId, pageIds)
+                                .orderByAsc(ShippingTracking::getHappenedAt))
+                        .stream()
+                        .collect(java.util.stream.Collectors.groupingBy(ShippingTracking::getShippingOrderId));
         List<ShippingOrderVO> voList = orderPage.getRecords().stream()
                 .map(order -> {
-                    List<ShippingTracking> trackings = shippingTrackingMapper.selectList(
-                            new LambdaQueryWrapper<ShippingTracking>().eq(ShippingTracking::getShippingOrderId, order.getId())
-                    );
+                    List<ShippingTracking> trackings =
+                            trackingsByOrderId.getOrDefault(order.getId(), List.of());
                     ShippingOrderDTO dto = toOrderDTO(order, trackings.stream().map(this::toTrackingDTO).toList());
                     return wmsConverter.fromShippingOrderDTO(dto);
                 })
                 .toList();
-        Page<ShippingOrderVO> resultPage = new Page<>(page, size, orderPage.getTotal());
+        Page<ShippingOrderVO> resultPage = new Page<>(safePage, safeSize, orderPage.getTotal());
         resultPage.setRecords(voList);
         return resultPage;
     }
