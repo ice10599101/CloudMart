@@ -7,8 +7,10 @@ import {
   Card,
   Input,
   InputNumber,
+  Form,
   Modal,
   Popconfirm,
+  Select,
   Space,
   Timeline,
   Tag,
@@ -16,6 +18,11 @@ import {
 } from 'antd'
 import SoftwareDetailModal from '@/components/admin/SoftwareDetailModal'
 import SoftwareSourcesModal from '@/components/admin/SoftwareSourcesModal'
+import {
+  getSoftwareDeclared,
+  saveSoftwareDeclared,
+  type AdminSoftwareDeclared,
+} from '@/api/admin/software'
 import {
   banAdminSoftware,
   deleteAdminSoftware,
@@ -73,6 +80,40 @@ export default function SoftwareItems() {
       .then((res) => setHistoryRows(res.data.data?.records ?? []))
       .catch(() => undefined)
       .finally(() => setHistoryLoading(false))
+  }
+
+  // UX04-B：结构化声明编辑（是否开源/离线可用；null=未提供不推断）
+  const [declaredOpen, setDeclaredOpen] = useState(false)
+  const [declaredSaving, setDeclaredSaving] = useState(false)
+  const [declared, setDeclared] = useState<AdminSoftwareDeclared | null>(null)
+  const [declaredFor, setDeclaredFor] = useState('')
+
+  const openDeclared = async (softwareId: string) => {
+    setDeclaredFor(softwareId)
+    try {
+      const res = await getSoftwareDeclared(softwareId)
+      setDeclared(res.data.data ?? null)
+      setDeclaredOpen(true)
+    } catch {
+      message.error('加载声明失败')
+    }
+  }
+
+  const submitDeclared = async (patch: {
+    openSource: boolean | null
+    offlineCapable: boolean | null
+    declaredNote?: string | null
+  }) => {
+    setDeclaredSaving(true)
+    try {
+      const res = await saveSoftwareDeclared(declaredFor, patch)
+      if (res.data.success) {
+        message.success('声明已保存')
+        setDeclaredOpen(false)
+      }
+    } finally {
+      setDeclaredSaving(false)
+    }
   }
 
   const openDetail = async (softwareId: string) => {
@@ -257,6 +298,9 @@ export default function SoftwareItems() {
         <a key="detail" onClick={() => openDetail(record.softwareId)}>
           详情
         </a>,
+        <a key="declared" onClick={() => openDeclared(record.softwareId)}>
+          声明
+        </a>,
         <a key="sources" onClick={() => setSourcesFor(record.softwareId)}>
           来源管理
         </a>,
@@ -323,6 +367,60 @@ export default function SoftwareItems() {
       />
 
       {/* 详情：帖子预览 + 处置轨迹（共享组件） */}
+      {/* UX04-B：结构化声明编辑弹窗（null=未提供，不推断支持/不支持） */}
+      <Modal
+        title={`结构化声明（软件 ${declaredFor}）`}
+        open={declaredOpen}
+        onCancel={() => setDeclaredOpen(false)}
+        confirmLoading={declaredSaving}
+        footer={null}
+        width={480}
+      >
+        {declared ? (
+          <Form
+            layout="vertical"
+            initialValues={{
+              openSource: declared.openSource,
+              offlineCapable: declared.offlineCapable,
+              declaredNote: declared.declaredNote,
+            }}
+            onFinish={(values) =>
+              submitDeclared({
+                openSource: values.openSource ?? null,
+                offlineCapable: values.offlineCapable ?? null,
+                declaredNote: values.declaredNote || null,
+              })
+            }
+          >
+            <Form.Item name="openSource" label="是否开源">
+              <Select
+                allowClear
+                placeholder="未提供（不推断）"
+                options={[
+                  { value: true, label: '是' },
+                  { value: false, label: '否' },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="offlineCapable" label="离线可用">
+              <Select
+                allowClear
+                placeholder="未提供（不推断）"
+                options={[
+                  { value: true, label: '是' },
+                  { value: false, label: '否' },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="declaredNote" label="声明依据（≤200 字）" rules={[{ max: 200 }]}>
+              <Input.TextArea rows={2} placeholder="不伪造测试结论；写明依据来源" />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" loading={declaredSaving}>
+              保存
+            </Button>
+          </Form>
+        ) : null}
+      </Modal>
       <SoftwareDetailModal
         detail={detail}
         open={!!detail}

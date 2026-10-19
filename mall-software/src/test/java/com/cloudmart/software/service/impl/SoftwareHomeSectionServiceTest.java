@@ -64,7 +64,9 @@ class SoftwareHomeSectionServiceTest {
     @BeforeEach
     void setUp() {
         service = new SoftwareHomeSectionServiceImpl(sectionMapper, itemMapper,
-                softwareMapper, topicMapper, softwareQueryService,
+                softwareMapper, topicMapper,
+                org.mockito.Mockito.mock(com.cloudmart.software.repository.SoftwareGuideMapper.class),
+                softwareQueryService,
                 Clock.fixed(NOW.toInstant(ZoneOffset.UTC), ZoneOffset.UTC));
         lenient().when(sectionMapper.selectOne(any())).thenReturn(null);
     }

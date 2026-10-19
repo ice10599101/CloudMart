@@ -99,6 +99,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/software/compare").permitAll()
                 // UX06：大家在找什么（公开；≤3 条真实内容）
                 .requestMatchers(HttpMethod.GET, "/software/requests/public").permitAll()
+                // UX05：批量公开卡片（最近浏览回显；业务层过滤不可见）
+                .requestMatchers(HttpMethod.GET, "/software/cards").permitAll()
                 // UX06：我的需求/提交/关闭（登录）
                 .requestMatchers(HttpMethod.GET, "/software/requests/mine").authenticated()
                 .requestMatchers(HttpMethod.POST, "/software/requests",

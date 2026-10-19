@@ -52,6 +52,7 @@ import {
   listMyAccessRequests,
   cancelAccessRequest,
   type SoftwareAccessRequest,
+  recordRecentBrowse,
 } from "@/api/software";
 import ReportModal from "@/components/ReportModal";
 import RichText from "@/components/RichText";
@@ -143,6 +144,8 @@ export default function SoftwareDetail() {
         }
         if (detailRes.data.success) {
           setDetail(detailRes.data.data);
+          // UX05：本地最近浏览（≤30 条，纯 localStorage，不默认上传轨迹）
+          recordRecentBrowse(id);
           setMyScore(detailRes.data.data.myScore ?? 0);
           setRatingCount(detailRes.data.data.ratingCount ?? 0);
           setRatingAvg(detailRes.data.data.ratingAvg ?? null);

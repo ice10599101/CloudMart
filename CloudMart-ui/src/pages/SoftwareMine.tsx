@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "umi";
-import { App, Button, Empty, Input, List, Modal, Pagination, Popconfirm, Space, Spin, Switch, Tabs, Tag, Typography } from "antd";
+import { App, Button, Empty, Form, Input, List, Modal, Pagination, Popconfirm, Space, Spin, Switch, Tabs, Tag, Typography } from "antd";
 import { history } from "umi";
 import {
   deleteMySoftware,
@@ -10,6 +10,11 @@ import {
   listMySubscriptions,
   listMyUpdates,
   markUpdatesRead,
+  readRecentBrowse,
+  clearRecentBrowse,
+  getSoftwareCardsByIds,
+  subscribeSoftware,
+  type SoftwareCard,
   unsubscribeSoftware,
   updateSoftwarePreferences,
   type SoftwareMineItem,
@@ -32,6 +37,7 @@ const TAB_KEYS = [
   "favorites",
   "subscriptions",
   "updates",
+  "recent",
 ] as const;
 
 type TabKey =
@@ -41,7 +47,8 @@ type TabKey =
   | "rejected"
   | "favorites"
   | "subscriptions"
-  | "updates";
+  | "updates"
+  | "recent";
 
 const STATUS_LABEL: Record<string, string> = {
   PUBLISHED: "已发布",
@@ -86,6 +93,12 @@ export default function SoftwareMine() {
   const [updateLoading, setUpdateLoading] = useState(false);
   const [subRows, setSubRows] = useState<SoftwareSubscriptionRow[]>([]);
   const [unreadBadge, setUnreadBadge] = useState(0);
+  const [prefTarget, setPrefTarget] = useState<SoftwareSubscriptionRow | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [rejectedCount, setRejectedCount] = useState(0);
+  const [prefForm] = Form.useForm();
+  // UX05：最近浏览（本地 30 条 → 服务端批量查询过滤不可见）
+  const [recentCards, setRecentCards] = useState<SoftwareCard[]>([]);
 
   const loadUpdates = useCallback(async (append: boolean, cursor: string | null) => {
     setUpdateLoading(true);
@@ -150,6 +163,17 @@ export default function SoftwareMine() {
         .catch(() => undefined);
     }
     if (tab === "subscriptions") void loadSubscriptionRows();
+    if (tab === "recent") {
+      const entries = readRecentBrowse();
+      if (entries.length === 0) {
+        setRecentCards([]);
+        return;
+      }
+      // 服务端批量查询：不可见软件自然被过滤（cardsByIds 仅返回公开可见）
+      getSoftwareCardsByIds(entries.map((e) => e.softwareId))
+        .then((res) => setRecentCards(res.data.data ?? []))
+        .catch(() => setRecentCards([]));
+    }
   }, [isAuthenticated, tab, loadUpdates, loadSubscriptionRows]);
 
   const handleMarkRead = async (eventId: string) => {
@@ -169,6 +193,18 @@ export default function SoftwareMine() {
       await loadSubscriptionRows();
     }
   };
+
+  // 待办聚合：拉一次全量 mine 列表统计审核中/被退回（与页签数据无关）
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    listMySoftware({ page: 1, size: 50 })
+      .then((res) => {
+        const records = res.data.data?.records ?? [];
+        setPendingCount(records.filter((it) => it.status === "PENDING").length);
+        setRejectedCount(records.filter((it) => it.status === "REJECTED").length);
+      })
+      .catch(() => undefined);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -325,6 +361,25 @@ export default function SoftwareMine() {
           </Space>
         </div>
       )}
+      {/* SF03/UX05：作者工作台待办聚合（真实待办：审核中/需修复；不用虚拟打卡奖励制造回访） */}
+      {tab === "published" && (pendingCount > 0 || rejectedCount > 0) ? (
+        <div style={{ marginBottom: 12 }}>
+          <Space wrap>
+            {pendingCount > 0 ? (
+              <Tag color="processing">审核中 {pendingCount} 个快照</Tag>
+            ) : null}
+            {rejectedCount > 0 ? (
+              <Button
+                size="small"
+                type="link"
+                onClick={() => setTab("rejected")}
+              >
+                被退回 {rejectedCount} 个需修复 →
+              </Button>
+            ) : null}
+          </Space>
+        </div>
+      ) : null}
       <Tabs
         activeKey={tab}
         onChange={(key) => setTab(key as TabKey)}
@@ -335,6 +390,7 @@ export default function SoftwareMine() {
           { key: "rejected", label: "被退回" },
           { key: "favorites", label: "收藏" },
           { key: "subscriptions", label: "订阅" },
+          { key: "recent", label: "最近浏览" },
           {
             key: "updates",
             label: (
@@ -428,6 +484,46 @@ export default function SoftwareMine() {
               </div>
             ) : null}
           </div>
+        ) : tab === "recent" ? (
+          /* UX05：最近浏览（本地记录；服务端过滤不可见；可清空） */
+          <div>
+            {recentCards.length === 0 ? (
+              <Empty description="暂无浏览记录" />
+            ) : (
+              <>
+                <div style={{ marginBottom: 8, textAlign: "right" }}>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      clearRecentBrowse();
+                      setRecentCards([]);
+                    }}
+                  >
+                    清空浏览记录
+                  </Button>
+                </div>
+                <List
+                  size="small"
+                  dataSource={recentCards}
+                  renderItem={(card) => (
+                    <List.Item
+                      actions={[
+                        <Button
+                          key="go"
+                          type="link"
+                          onClick={() => history.push(`/software/${card.id}`)}
+                        >
+                          查看
+                        </Button>,
+                      ]}
+                    >
+                      <List.Item.Meta title={card.name} description={card.summary ?? ""} />
+                    </List.Item>
+                  )}
+                />
+              </>
+            )}
+          </div>
         ) : tab === "subscriptions" ? (
           /* UX05：订阅管理（偏好展示 + 退订；调整偏好走详情页订阅设置） */
           <div>
@@ -450,6 +546,19 @@ export default function SoftwareMine() {
                       ) : (
                         <Tag key="na">当前不可用</Tag>
                       ),
+                      <Button
+                        key="pref"
+                        type="link"
+                        onClick={() => {
+                          setPrefTarget(row);
+                          prefForm.setFieldsValue({
+                            platforms: row.platforms || "",
+                            channels: row.channels || "",
+                          });
+                        }}
+                      >
+                        调整偏好
+                      </Button>,
                       <Popconfirm
                         key="unsub"
                         title="确认取消订阅？取消后不再收到该软件的更新推送"
@@ -620,6 +729,40 @@ export default function SoftwareMine() {
           />
         </Modal>
       </Spin>
+      {/* UX05：订阅偏好调整（平台/渠道，空=全部） */}
+      <Modal
+        title={`调整订阅偏好（${prefTarget?.name ?? ""}）`}
+        open={!!prefTarget}
+        onCancel={() => setPrefTarget(null)}
+        onOk={async () => {
+          if (!prefTarget) return;
+          const values = await prefForm.validateFields();
+          const res = await subscribeSoftware(prefTarget.softwareId, {
+            platforms: values.platforms || undefined,
+            channels: values.channels || undefined,
+          });
+          if (res.data.success) {
+            message.success("偏好已更新");
+            setPrefTarget(null);
+            await loadSubscriptionRows();
+          }
+        }}
+        okText="保存"
+        destroyOnHidden
+      >
+        <Form form={prefForm} layout="vertical">
+          <Form.Item
+            name="platforms"
+            label="平台（逗号分隔，空=全部）"
+            extra="如：WINDOWS,MACOS"
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item name="channels" label="渠道（逗号分隔，空=全部）" extra="如：STABLE">
+            <Input />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

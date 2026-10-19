@@ -722,8 +722,11 @@ export function revokeSoftwareRating(id: string, expectedVersion?: number) {
 }
 
 /** 订阅更新（P1）：幂等；与收藏相互独立 */
-export function subscribeSoftware(id: string) {
-  return request.put<ApiResponse<void>>(`${BASE}/${id}/subscription`);
+export function subscribeSoftware(
+  id: string,
+  preference?: { platforms?: string; channels?: string },
+) {
+  return request.put<ApiResponse<void>>(`${BASE}/${id}/subscription`, preference);
 }
 
 /** 取消订阅（P1）：幂等；软件下架也成功 */
@@ -976,6 +979,7 @@ export interface SoftwareHomeSectionItem {
   filterPreset?: string
   software?: SoftwareCard
   topic?: { id: string; slug: string; title: string; summary?: string }
+  guide?: { id: string; title: string; summary?: string; guideType?: string }
 }
 
 export interface SoftwareHomeSection {
@@ -1169,4 +1173,49 @@ export function listMySoftwareRequests() {
 
 export function closeMySoftwareRequest(id: string) {
   return request.post<ApiResponse<boolean>>(`${BASE}/requests/${id}/close`);
+}
+
+// ==================== UX05：最近浏览（本地 ≤30 条，不默认上传轨迹） ====================
+
+const RECENT_BROWSE_KEY = 'software.recentBrowse.v1';
+
+export interface RecentBrowseEntry {
+  softwareId: string;
+  browsedAt: string;
+}
+
+export function getSoftwareCardsByIds(ids: string[]) {
+  return request.get<ApiResponse<SoftwareCard[]>>(`${BASE}/cards`, {
+    params: { ids: ids.join(',') },
+  });
+}
+
+/** 记录一次浏览（去重置顶，最多 30 条；纯本地存储） */
+export function recordRecentBrowse(softwareId: string) {
+  try {
+    const raw = localStorage.getItem(RECENT_BROWSE_KEY);
+    const list: RecentBrowseEntry[] = raw ? JSON.parse(raw) : [];
+    const filtered = list.filter((e) => e.softwareId !== softwareId);
+    filtered.unshift({ softwareId, browsedAt: new Date().toISOString() });
+    localStorage.setItem(RECENT_BROWSE_KEY, JSON.stringify(filtered.slice(0, 30)));
+  } catch {
+    // 存储不可用（隐私模式等）静默忽略——最近浏览是增强功能
+  }
+}
+
+export function readRecentBrowse(): RecentBrowseEntry[] {
+  try {
+    const raw = localStorage.getItem(RECENT_BROWSE_KEY);
+    return raw ? (JSON.parse(raw) as RecentBrowseEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function clearRecentBrowse() {
+  try {
+    localStorage.removeItem(RECENT_BROWSE_KEY);
+  } catch {
+    // 同上
+  }
 }

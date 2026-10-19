@@ -96,6 +96,26 @@ public class SoftwareController {
         return ApiResponse.ok(softwareQueryService.detail(id, viewerId));
     }
 
+    /** UX05：按 ID 批量取公开卡片（最近浏览回显；仅公开可见返回，不可见自然过滤） */
+    @GetMapping("/cards")
+    @Operation(summary = "批量公开卡片",
+            description = "ids 逗号分隔（≤30）；只返回当前公开可见的软件卡片（顺序按 ID 集内部处理）")
+    public ApiResponse<java.util.List<com.cloudmart.software.vo.software.SoftwareCardVO>> cards(
+            @RequestParam("ids") String ids) {
+        java.util.List<Long> idList = new java.util.ArrayList<>();
+        for (String part : ids.split(",")) {
+            try {
+                idList.add(Long.parseLong(part.trim()));
+            } catch (NumberFormatException ignored) {
+                // 非法 ID 跳过（最近浏览本地数据可能过期）
+            }
+        }
+        if (idList.size() > 30) {
+            idList = idList.subList(0, 30);
+        }
+        return ApiResponse.ok(softwareQueryService.cardsByIds(idList));
+    }
+
     /** UX03：分享者公开投稿（仅 ACTIVE+已发布；不含草稿/审核原因/内部权限） */
     @GetMapping("/publishers/{userId}/items")
     @Operation(summary = "分享者公开投稿分页",

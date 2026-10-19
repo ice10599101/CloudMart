@@ -53,6 +53,7 @@ public class SoftwareHomeSectionServiceImpl implements SoftwareHomeSectionServic
     private final SoftwareHomeSectionItemMapper itemMapper;
     private final SoftwareMapper softwareMapper;
     private final SoftwareTopicMapper topicMapper;
+    private final com.cloudmart.software.repository.SoftwareGuideMapper guideMapper;
     private final SoftwareQueryService softwareQueryService;
     private final Clock clock;
 
@@ -112,7 +113,7 @@ public class SoftwareHomeSectionServiceImpl implements SoftwareHomeSectionServic
             case "LATEST" -> items = softwareCards("latest", limit);
             case "RANKING" -> items = softwareCards("popular", limit);
             case "TOPIC" -> items = topicItems(limit);
-            case "GUIDE" -> items = List.of(); // 教程内容后续批次（UX04）接入
+            case "GUIDE" -> items = guideItems(limit);
             default -> items = List.of();
         }
         Map<String, Object> block = baseBlock(section);
@@ -176,7 +177,21 @@ public class SoftwareHomeSectionServiceImpl implements SoftwareHomeSectionServic
                             "slug", topic.getSlug() == null ? "" : topic.getSlug(),
                             "title", topic.getTitle() == null ? "" : topic.getTitle()));
                 }
-                case "GUIDE" -> { /* 教程后续批次 */ }
+                case "GUIDE" -> {
+                    // UX04 教程条目：enabled+文章公开的教程元数据（正文实时校验由 guide 服务负责）
+                    if (row.getTargetId() == null) {
+                        continue;
+                    }
+                    com.cloudmart.software.entity.SoftwareGuide guide =
+                            guideMapper.selectById(row.getTargetId());
+                    if (guide == null || guide.getDeletedAt() != null
+                            || !Boolean.TRUE.equals(guide.getEnabled())) {
+                        continue;
+                    }
+                    item.put("guide", java.util.Map.of(
+                            "id", String.valueOf(guide.getId()),
+                            "title", guide.getTitle()));
+                }
                 case "FILTER" -> item.put("filterPreset", row.getFilterPreset());
                 default -> { }
             }
@@ -235,6 +250,28 @@ public class SoftwareHomeSectionServiceImpl implements SoftwareHomeSectionServic
             item.put("coverAssetId", String.valueOf(row.getCoverAssetId()));
         }
         return item;
+    }
+
+    /** UX04：教程数据源——enabled+未删除（文章公开状态在教程详情实时校验） */
+    private List<Map<String, Object>> guideItems(int limit) {
+        List<com.cloudmart.software.entity.SoftwareGuide> guides = guideMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.software.entity.SoftwareGuide>()
+                        .eq(com.cloudmart.software.entity.SoftwareGuide::getEnabled, true)
+                        .isNull(com.cloudmart.software.entity.SoftwareGuide::getDeletedAt)
+                        .orderByAsc(com.cloudmart.software.entity.SoftwareGuide::getDisplayOrder)
+                        .last("LIMIT " + limit));
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (var guide : guides) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("targetType", "GUIDE");
+            item.put("guide", java.util.Map.of(
+                    "id", String.valueOf(guide.getId()),
+                    "title", guide.getTitle(),
+                    "summary", guide.getSummary() == null ? "" : guide.getSummary(),
+                    "guideType", guide.getGuideType()));
+            items.add(item);
+        }
+        return items;
     }
 
     private String moreTarget(SoftwareHomeSection section) {

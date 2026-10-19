@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import type { ActionType } from '@ant-design/pro-components'
 import {
   Button,
+  DatePicker,
   Form,
   Input,
   InputNumber,
@@ -13,6 +14,7 @@ import {
   Table,
   Tag,
 } from 'antd'
+import dayjs from 'dayjs'
 import {
   deleteHomeSection,
   listHomeSections,
@@ -121,6 +123,10 @@ export default function SoftwareHomeContent() {
       minItems: section.minItems,
       fallbackPolicy: section.fallbackPolicy,
       platformScope: section.platformScope,
+      range:
+        section.startAt && section.endAt
+          ? [dayjs(section.startAt), dayjs(section.endAt)]
+          : null,
     })
   }
 
@@ -140,8 +146,8 @@ export default function SoftwareHomeContent() {
         minItems: values.minItems,
         fallbackPolicy: values.fallbackPolicy,
         platformScope: values.platformScope,
-        startAt: null,
-        endAt: null,
+        startAt: values.range?.[0]?.format('YYYY-MM-DDTHH:mm:ss') ?? null,
+        endAt: values.range?.[1]?.format('YYYY-MM-DDTHH:mm:ss') ?? null,
         items: values.dataSource === 'MANUAL'
           ? items.map((it, i) => ({ ...it, displayOrder: i }))
           : undefined,
@@ -307,6 +313,11 @@ export default function SoftwareHomeContent() {
                   { value: 'EMPTY', label: '显示空态' },
                 ]}
               />
+            </Form.Item>
+          </Space>
+          <Space size="middle" wrap>
+            <Form.Item name="range" label="投放时间窗（不选=长期）">
+              <DatePicker.RangePicker showTime />
             </Form.Item>
           </Space>
           <Space size="middle" wrap>

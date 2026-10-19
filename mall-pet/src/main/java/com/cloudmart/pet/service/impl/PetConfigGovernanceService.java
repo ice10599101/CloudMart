@@ -226,6 +226,16 @@ public class PetConfigGovernanceService {
             case "furniture", "equipment", "skin" -> {
                 checkRange(data, "priceCoins", 0, 5000, "价格需 0~5000");
                 checkRange(data, "requiredLevel", 1, 100, "等级要求需 1~100");
+                // T28：上架（enabled=true）的展示型配置必须有图标资源（前端渲染兜底缺口）；
+                // 草稿/下架态不拦，发布即校验
+                Object enabled = data.get("enabled");
+                if (Boolean.TRUE.equals(enabled)) {
+                    Object icon = data.get("icon");
+                    if (icon == null || String.valueOf(icon).isBlank()) {
+                        throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
+                                "上架状态的配置必须提供 icon（展示资源）；请补充后发布或先保持下架");
+                    }
+                }
             }
             case "skill" -> {
                 // P1-7：数值型——价格/等级上限；effect 必须是服务端已实现枚举（否则配置形同虚设）；

@@ -242,6 +242,24 @@ export default function SoftwareHome() {
                   section.state === "EMPTY" ? (
                     <Empty description="内容准备中，敬请期待" />
                   ) : null
+                ) : section.kind === "GUIDE_LIST" ? (
+                  <div className={styles.categories}>
+                    {(section.items ?? []).map((item) =>
+                      item.guide ? (
+                        <button
+                          key={item.itemId}
+                          type="button"
+                          className={styles.categoryPill}
+                          onClick={() => history.push(`/software/guides/${item.guide!.id}`)}
+                        >
+                          <span className={styles.categoryEmoji} aria-hidden>
+                            📖
+                          </span>
+                          {item.headline || item.guide.title}
+                        </button>
+                      ) : null,
+                    )}
+                  </div>
                 ) : section.kind === "SCENARIOS" ? (
                   <div className={styles.categories}>
                     {(section.items ?? []).map((item) =>

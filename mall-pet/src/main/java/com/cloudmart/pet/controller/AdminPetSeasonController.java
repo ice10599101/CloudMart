@@ -65,10 +65,12 @@ public class AdminPetSeasonController {
         return ApiResponse.ok(result.getRecords(), result.getCurrent(), result.getSize(), result.getTotal());
     }
 
-    /** R05：皮肤承诺校验——配置存在才允许发布承诺；未配置=只发币，描述不承诺皮肤 */
+    /** R05/T28：皮肤承诺校验——配置存在且启用才允许发布承诺；
+     * 未配置=只发币，描述不承诺皮肤；已下架（enabled=false）=无效配置同样拦截（结果解释指明下架态） */
     private boolean skinConfigExists(String skinCode) {
         return skinConfigMapper.selectCount(new LambdaQueryWrapper<com.cloudmart.pet.entity.PetSkinConfig>()
-                .eq(com.cloudmart.pet.entity.PetSkinConfig::getCode, skinCode)) > 0;
+                .eq(com.cloudmart.pet.entity.PetSkinConfig::getCode, skinCode)
+                .eq(com.cloudmart.pet.entity.PetSkinConfig::getEnabled, true)) > 0;
     }
 
     private String seasonPassSkinCode() {
@@ -92,7 +94,8 @@ public class AdminPetSeasonController {
         String skinCode = seasonPassSkinCode();
         if (!skinCode.isBlank() && skinConfigExists(skinCode) == false) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
-                    "最终档皮肤配置不存在: " + skinCode + "，请先在皮肤配置中上架或清空 pet.season-pass.final-tier-skin-code");
+                    "最终档皮肤配置不存在或未启用: " + skinCode
+                            + "，请先在皮肤配置中上架（enabled=true）或清空 pet.season-pass.final-tier-skin-code");
         }
         // 进行中的赛季只允许一个（ACTIVE 状态唯一）
         PetSeason season = new PetSeason();
