@@ -76,7 +76,9 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     @Override
-    @SentinelResource(value = "chat", fallback = "chatFallback")
+    // T26：业务异常（额度/参数拒绝）不进降级——"默认空回复当成功"是被禁止的语义
+    @SentinelResource(value = "chat", fallback = "chatFallback",
+            exceptionsToIgnore = {com.cloudmart.common.exception.BusinessException.class})
     public ChatResponse chat(Long userId, ChatRequest request) {
         // T26：每日额度（显式业务错误，不是静默降级——额度是计费边界不是故障）
         checkDailyQuota(userId);

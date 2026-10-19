@@ -48,6 +48,10 @@ public class AiController {
             @Parameter(description = "用户ID") @RequestHeader("X-User-Id") Long userId,
             @Valid @RequestBody ChatRequest request) {
         ChatResponse dto = chatService.chat(userId, request);
+        // T26：降级返回 null 时显式失败（不能 success + 空回复冒充成功）
+        if (dto == null) {
+            return ApiResponse.fail("AI_UNAVAILABLE", "智能助手暂时不可用，请稍后重试");
+        }
         return ApiResponse.ok(aiConverter.chatResponseToVO(dto));
     }
 
