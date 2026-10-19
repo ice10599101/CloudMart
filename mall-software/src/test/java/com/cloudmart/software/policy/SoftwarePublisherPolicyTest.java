@@ -116,4 +116,17 @@ class SoftwarePublisherPolicyTest {
         // SoftwareProperties 默认 publish-enabled=false（上线前全关）
         assertThat(hint.publishEnabled()).isFalse();
     }
+    @Test
+    void modeDefaultsToDeniedAndRequiresExplicitDirectPermission() {
+        when(publisherPermissionMapper.selectOne(any())).thenReturn(null);
+        assertThat(policy.uiHint(42L).publishMode()).isEqualTo("DENIED");
+        SoftwarePublisherPermission permission = permission(true);
+        when(publisherPermissionMapper.selectOne(any())).thenReturn(permission);
+        assertThat(policy.uiHint(42L).publishMode()).isEqualTo("REVIEW");
+        permission.setReviewRequired(false);
+        assertThat(policy.uiHint(42L).publishMode()).isEqualTo("DIRECT");
+        permission.setCanPublish(false);
+        assertThat(policy.uiHint(42L).publishMode()).isEqualTo("DENIED");
+    }
+
 }

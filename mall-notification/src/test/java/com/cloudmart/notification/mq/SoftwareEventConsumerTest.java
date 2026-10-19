@@ -60,6 +60,15 @@ class SoftwareEventConsumerTest {
     }
 
     @Test
+    void directPublishNotificationDoesNotClaimManualReview() {
+        consumer.onMessage(message("evt-direct", "SOFTWARE_REVIEW_APPROVED", Map.of(
+                "softwareId", "100", "revisionId", "501", "authorId", 42L, "directPublish", true)));
+        verify(notificationService).sendSoftwareEventNotification(42L, "evt-direct",
+                "SOFTWARE_REVIEW_APPROVED", "软件发布成功",
+                "你的软件已直接发布，可在「我的软件」中查看与继续维护", 100L, "SOFTWARE", null);
+    }
+
+    @Test
     @DisplayName("评论可见事件 → recipientId 收通知；来源疑似失效 → 作者收提示")
     void commentAndSourceEventsMap() {
         consumer.onMessage(message("evt-2", "SOFTWARE_COMMENT_VISIBLE", Map.of(

@@ -69,7 +69,8 @@ public class SoftwarePublisherPolicy {
     public UiHint uiHint(Long userId) {
         PublisherDecision decision = decision(userId);
         return new UiHint(decision.canPublish(), decision.canPublish() ? null : decision.reasonCode(),
-                softwareProperties.isPublishEnabled());
+                softwareProperties.isPublishEnabled(),
+                decision.canPublish() ? decision.permission().getPublishMode() : "DENIED");
     }
 
     /**
@@ -77,7 +78,7 @@ public class SoftwarePublisherPolicy {
      * @param reasonCode  不可发布原因（UI 提示用）
      * @param publishEnabled 全站投稿开关（publish-enabled，控制提交/重新上架入口）
      */
-    public record UiHint(boolean canPublish, String reasonCode, boolean publishEnabled) {
+    public record UiHint(boolean canPublish, String reasonCode, boolean publishEnabled, String publishMode) {
     }
 
     /** 资格裁决结果：canPublish + 原因码 + 权限行（lockVersion 供后台开关并发控制） */

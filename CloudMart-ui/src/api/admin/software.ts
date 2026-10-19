@@ -1,3 +1,4 @@
+import type { SoftwarePublishMode } from '@/utils/softwarePublishMode'
 import request from '@/utils/request'
 import type { ApiResponse } from '@/types/api'
 import type { PageResult } from '@/api/software'
@@ -163,6 +164,7 @@ export interface AdminSoftwareTag {
 export interface AdminPublisherPermission {
   userId: string
   userNickname?: string | null
+  publishMode?: SoftwarePublishMode
   canPublish: boolean
   lockVersion: number
   reason: string | null
@@ -535,7 +537,7 @@ export function batchPublisherPermissions(userIds: Array<string | number>) {
 
 export function togglePublisherPermission(
   userId: string,
-  payload: { enable: boolean; reason: string },
+  payload: { enable?: boolean; publishMode?: SoftwarePublishMode; reason: string },
   idempotencyKey?: string,
 ) {
   const url = `${BASE}/publisher-permissions/${userId}/toggle`

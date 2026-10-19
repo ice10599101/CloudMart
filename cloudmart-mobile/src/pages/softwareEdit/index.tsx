@@ -79,6 +79,12 @@ export default function SoftwareEditPage() {
   const [contacts, setContacts] = useState<SoftwareContact[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [directPublish, setDirectPublish] = useState(false)
+  useEffect(() => {
+    softwarePublishApi.publisherStatus().then((res) => {
+      setDirectPublish(res.data.data?.canPublish === true && res.data.data?.publishMode === 'DIRECT')
+    }).catch(() => undefined)
+  }, [])
   const [submitting, setSubmitting] = useState(false)
 
   // 表单态（从 editor 展平）
@@ -318,16 +324,16 @@ export default function SoftwareEditPage() {
       return
     }
     Taro.showModal({
-      title: '提交审核',
-      content: '提交后进入人工审核，期间不可编辑（可撤回）。确认提交？',
+      title: directPublish ? '直接发布' : '提交审核',
+      content: directPublish ? '发布后软件将对外可见。确认发布？' : '提交后进入人工审核，期间不可编辑（可撤回）。确认提交？',
       success: async (r) => {
         if (!r.confirm) return
         setSubmitting(true)
         try {
           const saved = await doSave()
           if (!saved) return
-          await softwarePublishApi.submit(saved.softwareId, saved.revisionId)
-          Taro.showToast({ title: '已提交审核', icon: 'success' })
+          const submitted = await softwarePublishApi.submit(saved.softwareId, saved.revisionId)
+          Taro.showToast({ title: submitted.data.data.reviewStatus === 'APPROVED' ? '软件已发布' : '已提交审核', icon: 'success' })
           setTimeout(() => Taro.redirectTo({ url: '/pages/softwareMine/index?refreshed=1' }), 900)
         } catch (err) {
           Taro.showToast({ title: errorMessage(err, '提交失败'), icon: 'none' })
@@ -685,7 +691,7 @@ export default function SoftwareEditPage() {
           }}
         >
           <Text className={styles.submitBtnText}>
-            {editor?.reviewStatus === 'PENDING' ? '审核中…' : submitting ? '提交中…' : '提交审核'}
+            {editor?.reviewStatus === 'PENDING' ? '审核中…' : submitting ? '提交中…' : directPublish ? '直接发布' : '提交审核'}
           </Text>
         </View>
       </View>

@@ -107,6 +107,7 @@ public class SoftwareRevision {
     private LocalDateTime reviewedAt;
 
     /** 审核管理员 ID（mall-admin 管理员） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long reviewerId;
 
     private String reviewReason;

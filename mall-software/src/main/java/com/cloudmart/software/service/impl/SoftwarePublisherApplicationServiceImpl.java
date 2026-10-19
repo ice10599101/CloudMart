@@ -217,6 +217,7 @@ public class SoftwarePublisherApplicationServiceImpl implements SoftwarePublishe
             permission = new SoftwarePublisherPermission();
             permission.setUserId(userId);
             permission.setCanPublish(true);
+            permission.setReviewRequired(true);
             permission.setUpdatedBy(adminId);
             permission.setReason("发布者申请通过：" + reason);
             permission.setLockVersion(0);
@@ -226,8 +227,9 @@ public class SoftwarePublisherApplicationServiceImpl implements SoftwarePublishe
                 throw new BusinessException("SOFTWARE_OPERATION_CONFLICT", "资格记录已存在，请刷新后重试");
             }
         } else {
-            before = toSnapshotJson(permission.getCanPublish());
+            before = toSnapshotJson(permission.getCanPublish(), permission.getPublishMode());
             permission.setCanPublish(true);
+            permission.setReviewRequired(true);
             permission.setUpdatedBy(adminId);
             permission.setReason("发布者申请通过：" + reason);
             permission.setLockVersion(permission.getLockVersion() + 1);
@@ -238,7 +240,7 @@ public class SoftwarePublisherApplicationServiceImpl implements SoftwarePublishe
         audit.setActorAdminId(adminId);
         audit.setAction("PUBLISH_ENABLE");
         audit.setBeforeJson(before);
-        audit.setAfterJson(toSnapshotJson(true));
+        audit.setAfterJson(toSnapshotJson(true, "REVIEW"));
         audit.setReason("发布者申请通过：" + reason);
         audit.setRequestId(requestId);
         audit.setCreatedAt(LocalDateTime.now(clock));
@@ -282,9 +284,10 @@ public class SoftwarePublisherApplicationServiceImpl implements SoftwarePublishe
         return vo;
     }
 
-    private String toSnapshotJson(Boolean canPublish) {
+    private String toSnapshotJson(Boolean canPublish, String publishMode) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("canPublish", canPublish);
+        payload.put("publishMode", publishMode);
         try {
             return objectMapper.writeValueAsString(payload);
         } catch (Exception e) {

@@ -1,3 +1,4 @@
+import type { SoftwarePublishMode } from '@/utils/softwarePublishMode'
 import request from "@/utils/request";
 import type { ApiResponse } from "@/types/api";
 import { softwareWriteConfig } from "@/utils/softwareIntent";
@@ -260,6 +261,7 @@ export interface SoftwareCommentCreatePayload {
 // ========== 发布者（草稿/编辑/发布） ==========
 
 export interface SoftwarePublisherStatus {
+  publishMode?: SoftwarePublishMode
   canPublish: boolean;
   reason: string | null;
 }

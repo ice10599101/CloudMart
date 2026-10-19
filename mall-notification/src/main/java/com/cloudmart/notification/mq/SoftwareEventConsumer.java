@@ -66,9 +66,11 @@ public class SoftwareEventConsumer implements RocketMQListener<Map<String, Objec
         }
         Long softwareId = asLong(payload.get("softwareId"));
         if (approved) {
+            boolean direct = Boolean.TRUE.equals(payload.get("directPublish"));
             notificationService.sendSoftwareEventNotification(authorId, eventId,
-                    "SOFTWARE_REVIEW_APPROVED", "软件审核通过",
-                    "你的软件已通过审核并正式上线，可在「我的软件」中查看与继续维护",
+                    "SOFTWARE_REVIEW_APPROVED", direct ? "软件发布成功" : "软件审核通过",
+                    direct ? "你的软件已直接发布，可在「我的软件」中查看与继续维护"
+                            : "你的软件已通过审核并正式上线，可在「我的软件」中查看与继续维护",
                     softwareId, "SOFTWARE", null);
         } else {
             Object reasonObj = payload.get("reason");

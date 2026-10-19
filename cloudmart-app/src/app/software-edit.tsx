@@ -110,6 +110,12 @@ export default function SoftwareEditScreen() {
   const [contacts, setContacts] = useState<SoftwareContact[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [directPublish, setDirectPublish] = useState(false)
+  useEffect(() => {
+    softwarePublishApi.publisherStatus().then((res) => {
+      setDirectPublish(res.data.data?.canPublish === true && res.data.data?.publishMode === 'DIRECT')
+    }).catch(() => undefined)
+  }, [])
 
   const [name, setName] = useState('')
   const [summary, setSummary] = useState('')
@@ -348,7 +354,7 @@ export default function SoftwareEditScreen() {
       Alert.alert('提示', problem)
       return
     }
-    Alert.alert('提交审核', '提交后进入人工审核，期间不可编辑（可撤回）。确认提交？', [
+    Alert.alert(directPublish ? '直接发布' : '提交审核', directPublish ? '发布后软件将对外可见。确认发布？' : '提交后进入人工审核，期间不可编辑（可撤回）。确认提交？', [
       { text: '取消', style: 'cancel' },
       {
         text: '确认',
@@ -358,8 +364,8 @@ export default function SoftwareEditScreen() {
             try {
               const saved = await doSave()
               if (!saved) return
-              await softwarePublishApi.submit(saved.softwareId, saved.revisionId)
-              Alert.alert('提示', '已提交审核')
+              const submitted = await softwarePublishApi.submit(saved.softwareId, saved.revisionId)
+              Alert.alert('提示', submitted.data.data.reviewStatus === 'APPROVED' ? '软件已发布' : '已提交审核')
               router.replace('/software-mine?refreshed=1')
             } catch {
               Alert.alert('提示', '提交失败，请稍后再试')
@@ -571,7 +577,7 @@ export default function SoftwareEditScreen() {
         </TouchableOpacity>
         <TouchableOpacity disabled={saving} onPress={handleSubmit} style={{ flex: 1.4, padding: Spacing.sm, borderRadius: BorderRadius.full, backgroundColor: '#3d5afe', alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontSize: FontSize.sm, fontWeight: '600' }}>
-            {editor?.reviewStatus === 'PENDING' ? '审核中…' : '提交审核'}
+            {editor?.reviewStatus === 'PENDING' ? '审核中…' : directPublish ? '直接发布' : '提交审核'}
           </Text>
         </TouchableOpacity>
       </View>

@@ -157,6 +157,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         Map<String, Object> row = new HashMap<>();
         row.put("userId", String.valueOf(permission.getUserId()));
         row.put("canPublish", permission.getCanPublish());
+        row.put("publishMode", permission.getPublishMode());
         row.put("updatedBy", permission.getUpdatedBy() == null ? null
                 : String.valueOf(permission.getUpdatedBy()));
         row.put("reason", permission.getReason());
@@ -168,8 +169,16 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
     @Override
     public boolean togglePermission(Long adminId, Long userId, String idempotencyKey,
                                      AdminPermissionToggleRequest request) {
-        if (request.getEnable() == null) {
-            throw new BusinessException("SOFTWARE_PERMISSION_INVALID", "enable 不能为空");
+        String mode = request.getPublishMode();
+        if (mode == null && request.getEnable() != null) {
+            mode = request.getEnable() ? "REVIEW" : "DENIED";
+        }
+        if (mode == null || !List.of("DENIED", "DIRECT", "REVIEW").contains(mode)) {
+            throw new BusinessException("SOFTWARE_PERMISSION_INVALID", "请选择禁止发布、直接发布或发布后需审核");
+        }
+        final String publishMode = mode;
+        if (request.getEnable() != null && request.getEnable().booleanValue() != !"DENIED".equals(publishMode)) {
+            throw new BusinessException("SOFTWARE_PERMISSION_INVALID", "enable 与 publishMode 不一致");
         }
         if (request.getReason() == null || request.getReason().isBlank()
                 || request.getReason().length() > 500) {
@@ -187,24 +196,26 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         if (!profiles.get(0).accountAvailable()) {
             throw new BusinessException("ACCOUNT_UNAVAILABLE", "会员账号状态异常，不能变更发布资格");
         }
+        // 旧布尔请求保留原有幂等摘要，部署后重试不会因新增字段而发生同键异体冲突。
+        Map<String, Object> intent = new HashMap<>();
+        intent.put("userId", userId);
+        intent.put("enable", !"DENIED".equals(publishMode));
+        intent.put("reason", request.getReason());
+        if (request.getPublishMode() != null) intent.put("publishMode", publishMode);
         // 本地写事务：锁资格行 + 幂等占位 + 审计同事务提交；事务内重新验证必要本地条件
         transactionTemplate.execute(status -> {
             SoftwarePublisherPermission permission = lockMapper.lockPublisherByUser(userId);
-            boolean enabling = request.getEnable();
-            if (permission == null && !enabling) {
-                throw new BusinessException("SOFTWARE_PERMISSION_INVALID",
-                        "该会员尚无发布资格记录，无需关闭");
-            }
             String before = permission == null
                     ? null
-                    : toSnapshotJson(snapshotMap("canPublish", permission.getCanPublish()));
+                    : toSnapshotJson(Map.of("canPublish", Boolean.TRUE.equals(permission.getCanPublish()),
+                            "publishMode", permission.getPublishMode()));
             operationService.execute("ADMIN", adminId,
                     SoftwareOperationService.OP_PERMISSION_TOGGLE,
                     idempotencyKey,
-                    Map.of("userId", userId, "enable", enabling, "reason", request.getReason()),
+                    intent,
                     null,
                     (Supplier<Void>) () -> {
-                        doToggle(adminId, userId, enabling, request.getReason(), before,
+                        doToggle(adminId, userId, publishMode, request.getReason(), before,
                                 idempotencyKey);
                         return null;
                     },
@@ -214,17 +225,19 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
         return true;
     }
 
-    private void doToggle(Long adminId, Long userId, boolean enable, String reason, String before,
+    private void doToggle(Long adminId, Long userId, String publishMode, String reason, String before,
                           String requestId) {
+        boolean enable = !"DENIED".equals(publishMode);
         SoftwarePublisherPermission permission = publisherPermissionMapper.selectOne(
                 new LambdaQueryWrapper<SoftwarePublisherPermission>()
                         .eq(SoftwarePublisherPermission::getUserId, userId));
-        String after = toSnapshotJson(snapshotMap("canPublish", enable));
+        String after = toSnapshotJson(Map.of("canPublish", enable, "publishMode", publishMode));
         if (permission == null) {
             // 唯一键首开（4.0）；并发首开冲突按冲突拒绝（客户端重试命中幂等结果）
             permission = new SoftwarePublisherPermission();
             permission.setUserId(userId);
             permission.setCanPublish(enable);
+            permission.setReviewRequired(!"DIRECT".equals(publishMode));
             permission.setUpdatedBy(adminId);
             permission.setReason(reason);
             permission.setLockVersion(0);
@@ -236,6 +249,7 @@ public class AdminSoftwarePermissionServiceImpl implements AdminSoftwarePermissi
             }
         } else {
             permission.setCanPublish(enable);
+            permission.setReviewRequired(!"DIRECT".equals(publishMode));
             permission.setUpdatedBy(adminId);
             permission.setReason(reason);
             permission.setLockVersion(permission.getLockVersion() + 1);

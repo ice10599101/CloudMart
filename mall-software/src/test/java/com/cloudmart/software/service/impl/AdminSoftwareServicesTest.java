@@ -170,10 +170,45 @@ class AdminSoftwareServicesTest {
                 ArgumentCaptor.forClass(SoftwarePublisherPermission.class);
         verify(publisherPermissionMapper).insert((SoftwarePublisherPermission) captor.capture());
         assertThat(captor.getValue().getCanPublish()).isTrue();
+        assertThat(captor.getValue().getPublishMode()).isEqualTo("REVIEW");
         ArgumentCaptor<SoftwarePermissionAudit> auditCaptor =
                 ArgumentCaptor.forClass(SoftwarePermissionAudit.class);
         verify(permissionAuditMapper).insert((SoftwarePermissionAudit) auditCaptor.capture());
         assertThat(auditCaptor.getValue().getAction()).isEqualTo("PUBLISH_ENABLE");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"DENIED", "DIRECT", "REVIEW"})
+    void permissionModePersistsAndAudits(String mode) {
+        SoftwarePublisherPermission existing = new SoftwarePublisherPermission();
+        existing.setUserId(USER_ID);
+        existing.setCanPublish(true);
+        existing.setReviewRequired(false);
+        existing.setLockVersion(0);
+        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(existing);
+        when(publisherPermissionMapper.selectOne(any(Wrapper.class))).thenReturn(existing);
+        AdminPermissionToggleRequest request = new AdminPermissionToggleRequest();
+        request.setPublishMode(mode);
+        request.setReason("设置发布方式");
+
+        permissionService.togglePermission(ADMIN_ID, USER_ID, "mode-key-" + mode, request);
+
+        assertThat(existing.getPublishMode()).isEqualTo(mode);
+        assertThat(existing.getCanPublish()).isEqualTo(!"DENIED".equals(mode));
+        verify(publisherPermissionMapper).updateById(existing);
+        ArgumentCaptor<SoftwarePermissionAudit> audit = ArgumentCaptor.forClass(SoftwarePermissionAudit.class);
+        verify(permissionAuditMapper).insert(audit.capture());
+        assertThat(assertValidJson(audit.getValue().getBeforeJson()).get("publishMode").asString()).isEqualTo("DIRECT");
+        assertThat(assertValidJson(audit.getValue().getAfterJson()).get("publishMode").asString()).isEqualTo(mode);
+    }
+
+    @Test
+    void invalidModeCannotGrantPermission() {
+        AdminPermissionToggleRequest request = toggle(true, "测试");
+        request.setPublishMode("UNKNOWN");
+        assertThatThrownBy(() -> permissionService.togglePermission(ADMIN_ID, USER_ID, "invalid-mode", request))
+                .isInstanceOf(BusinessException.class).hasFieldOrPropertyWithValue("code", "SOFTWARE_PERMISSION_INVALID");
+        verify(publisherPermissionMapper, never()).insert(any(SoftwarePublisherPermission.class));
     }
 
     @Test

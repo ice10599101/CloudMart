@@ -1,3 +1,4 @@
+import { getPublishMode } from '@/utils/softwarePublishMode';
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   App,
@@ -126,6 +127,7 @@ export default function SoftwarePublish() {
 
   const [checking, setChecking] = useState(true);
   const [canPublish, setCanPublish] = useState(false);
+  const [directPublish, setDirectPublish] = useState(false);
   const [denyReason, setDenyReason] = useState<string | null>(null);
 
   const [categories, setCategories] = useState<SoftwareCategory[]>([]);
@@ -238,6 +240,7 @@ export default function SoftwarePublish() {
       .then((res) => {
         if (!res.data.success) return;
         setCanPublish(res.data.data?.canPublish ?? false);
+        setDirectPublish(getPublishMode(res.data.data) === "DIRECT");
         setDenyReason(res.data.data?.reason ?? null);
       })
       .finally(() => setChecking(false));
@@ -393,7 +396,7 @@ export default function SoftwarePublish() {
       const res = await submitSoftwareForReview(targetSoftwareId, targetRevisionId);
       if (!res.data.success) return;
       clearPageDraft(DRAFT_KEY);
-      message.success("已提交审核，审核通过后公开可见");
+      message.success(res.data.data.reviewStatus === "APPROVED" ? "软件已发布" : "已提交审核，审核通过后公开可见");
       history.push("/software/mine");
     } catch (err) {
       const code = (err as { code?: string } | null)?.code;
@@ -421,13 +424,13 @@ export default function SoftwarePublish() {
   /** 确认回调随当前表单更新，避免引用首次渲染时的空草稿。 */
   const confirmSubmit = useCallback(() => {
     Modal.confirm({
-      title: '提交审核',
-      content: '提交后内容冻结进入待审队列，审核期间不可再编辑（可撤回）。确认提交？',
-      okText: '确认提交',
+      title: directPublish ? '直接发布' : '提交审核',
+      content: directPublish ? '发布后软件将对外可见。确认发布？' : '提交后内容冻结进入待审队列，审核期间不可再编辑（可撤回）。确认提交？',
+      okText: directPublish ? '确认发布' : '确认提交',
       cancelText: '再改改',
       onOk: doSubmit,
     });
-  }, [doSubmit]);
+  }, [doSubmit, directPublish]);
 
   if (!isAuthenticated) {
     return (
@@ -476,7 +479,7 @@ export default function SoftwarePublish() {
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>发布软件</h1>
-      <p className={styles.subtitle}>填写资料并提交审核；审核通过后对外可见</p>
+      <p className={styles.subtitle}>{directPublish ? "你可直接发布软件，发布后对外可见" : "填写资料并提交审核；审核通过后对外可见"}</p>
 
       <Card className={styles.section} title="基础信息">
         <Space direction="vertical" style={{ width: "100%" }} size="middle">
@@ -839,7 +842,7 @@ export default function SoftwarePublish() {
           loading={submitting}
           onClick={confirmSubmit}
         >
-          提交审核
+          {directPublish ? "直接发布" : "提交审核"}
         </Button>
       </div>
     </div>

@@ -673,6 +673,18 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                     "内容在审核期间发生变化，请重新提交");
         }
 
+        if ("DIRECT".equals(permission.getPublishMode())) {
+            String fromStatus = lockedRevision.getReviewStatus().name();
+            lockedRevision.setContentDigest(contentHash);
+            lockedRevision.setSubmittedAt(LocalDateTime.now(clock));
+            lockedRevision.setReviewedAt(LocalDateTime.now(clock));
+            lockedRevision.setReviewerId(null);
+            lockedRevision.setReviewReason("发布者具有直接发布权限");
+            publishApproved(locked, lockedRevision, userId, "USER", "DIRECT_PUBLISH", fromStatus,
+                    "发布者具有直接发布权限", null);
+            return new SoftwareSubmittedVO(softwareId, revisionId, "APPROVED");
+        }
+
         lockedRevision.setReviewStatus(SoftwareReviewStatus.PENDING);
         lockedRevision.setContentDigest(contentHash);
         lockedRevision.setSubmittedAt(LocalDateTime.now(clock));
@@ -936,54 +948,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         revision.setReviewReason(reason);
 
         if (approve) {
-            revision.setReviewStatus(SoftwareReviewStatus.APPROVED);
-            revisionMapper.updateById(revision);
-            // 事务内切换指针（4.1.3）：published→本快照、working 清空、上线序号+1
-            int previousSeq = locked.getPublicationSeq() == null ? 0 : locked.getPublicationSeq();
-            // SF05：业务变化判定需要与"上一线上快照"比较——指针切换前捕获
-            Long previousRevisionId = locked.getPublishedRevisionId();
-            locked.setPublishedRevisionId(revisionId);
-            locked.setWorkingRevisionId(null);
-            locked.setPublicationSeq(previousSeq + 1);
-            if (locked.getPublishedAt() == null) {
-                locked.setPublishedAt(LocalDateTime.now(clock));
-            }
-            locked.setLastReleaseAt(LocalDateTime.now(clock));
-            // ⚠️ 必须用显式 UpdateWrapper 写 null：updateById 默认 NOT_NULL 策略会跳过
-            // working_revision_id=null，导致指针滞留在已审快照上——已发布内容从此无法
-            // 克隆编辑（A06/A07 回归，真实环境复现）
-            softwareMapper.update(null, new LambdaUpdateWrapper<Software>()
-                    .eq(Software::getId, softwareId)
-                    .set(Software::getPublishedRevisionId, revisionId)
-                    .set(Software::getWorkingRevisionId, null)
-                    .set(Software::getPublicationSeq, locked.getPublicationSeq())
-                    .set(Software::getPublishedAt, locked.getPublishedAt())
-                    .set(Software::getLastReleaseAt, locked.getLastReleaseAt()));
-            auditService.record(softwareId, revisionId, adminId, "ADMIN",
-                    "APPROVE", "PENDING", "APPROVED", reason, requestId);
-            // Outbox 与指针切换同事务（9.4）：软件事件载荷不含链接/提取码/正文
-            outboxService.record(EventEnvelope.of(
-                    SoftwareEvents.TAG_REVIEW_APPROVED, SCHEMA_VERSION,
-                    String.valueOf(softwareId), locked.getPublicationSeq(), requestId,
-                    objectMapper.writeValueAsString(Map.of(
-                            "softwareId", String.valueOf(softwareId),
-                            "revisionId", String.valueOf(revisionId),
-                            "authorId", String.valueOf(locked.getOwnerId()),
-                            "publicationSeq", String.valueOf(locked.getPublicationSeq())))));
-            // P1 更新订阅（9.4）：非首次上线才广播；事件与 fanout 任务同事务登记
-            if (previousSeq > 0) {
-                outboxService.record(EventEnvelope.of(
-                        SoftwareEvents.TAG_RELEASE_PUBLISHED, SCHEMA_VERSION,
-                        String.valueOf(softwareId), locked.getPublicationSeq(), requestId,
-                        objectMapper.writeValueAsString(Map.of(
-                                "softwareId", String.valueOf(softwareId),
-                                "revisionId", String.valueOf(revisionId),
-                                "publicationSeq", String.valueOf(locked.getPublicationSeq()),
-                                "authorId", String.valueOf(locked.getOwnerId())))));
-                fanoutService.registerTask(softwareId, revisionId, locked.getPublicationSeq(),
-                        locked.getLastReleaseAt(), previousRevisionId);
-            }
-            return new SoftwareReviewDecisionVO(softwareId, revisionId, "APPROVED");
+            return publishApproved(locked, revision, adminId, "ADMIN", "APPROVE", "PENDING", reason, requestId);
         }
 
         revision.setReviewStatus(SoftwareReviewStatus.REJECTED);
@@ -991,6 +956,63 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         auditService.record(softwareId, revisionId, adminId, "ADMIN",
                 "REJECT", "PENDING", "REJECTED", reason, requestId);
         return new SoftwareReviewDecisionVO(softwareId, revisionId, "REJECTED");
+    }
+
+    /** 人工审核通过与直接发布共用同一事务内上线流程。 */
+    private SoftwareReviewDecisionVO publishApproved(Software locked, SoftwareRevision revision,
+            Long actorId, String actorType, String action, String fromStatus,
+            String reason, String requestId) {
+        Long softwareId = locked.getId();
+        Long revisionId = revision.getId();
+        revision.setReviewStatus(SoftwareReviewStatus.APPROVED);
+        revisionMapper.updateById(revision);
+        // 事务内切换指针（4.1.3）：published→本快照、working 清空、上线序号+1
+        int previousSeq = locked.getPublicationSeq() == null ? 0 : locked.getPublicationSeq();
+        // SF05：业务变化判定需要与"上一线上快照"比较——指针切换前捕获
+        Long previousRevisionId = locked.getPublishedRevisionId();
+        locked.setPublishedRevisionId(revisionId);
+        locked.setWorkingRevisionId(null);
+        locked.setPublicationSeq(previousSeq + 1);
+        if (locked.getPublishedAt() == null) {
+            locked.setPublishedAt(LocalDateTime.now(clock));
+        }
+        locked.setLastReleaseAt(LocalDateTime.now(clock));
+        // ⚠️ 必须用显式 UpdateWrapper 写 null：updateById 默认 NOT_NULL 策略会跳过
+        // working_revision_id=null，导致指针滞留在已审快照上——已发布内容从此无法
+        // 克隆编辑（A06/A07 回归，真实环境复现）
+        softwareMapper.update(null, new LambdaUpdateWrapper<Software>()
+                .eq(Software::getId, softwareId)
+                .set(Software::getPublishedRevisionId, revisionId)
+                .set(Software::getWorkingRevisionId, null)
+                .set(Software::getPublicationSeq, locked.getPublicationSeq())
+                .set(Software::getPublishedAt, locked.getPublishedAt())
+                .set(Software::getLastReleaseAt, locked.getLastReleaseAt()));
+        auditService.record(softwareId, revisionId, actorId, actorType,
+                action, fromStatus, "APPROVED", reason, requestId);
+        // Outbox 与指针切换同事务（9.4）：软件事件载荷不含链接/提取码/正文
+        outboxService.record(EventEnvelope.of(
+                SoftwareEvents.TAG_REVIEW_APPROVED, SCHEMA_VERSION,
+                String.valueOf(softwareId), locked.getPublicationSeq(), requestId,
+                objectMapper.writeValueAsString(Map.of(
+                        "softwareId", String.valueOf(softwareId),
+                        "revisionId", String.valueOf(revisionId),
+                        "authorId", String.valueOf(locked.getOwnerId()),
+                        "publicationSeq", String.valueOf(locked.getPublicationSeq()),
+                        "directPublish", "DIRECT_PUBLISH".equals(action)))));
+        // P1 更新订阅（9.4）：非首次上线才广播；事件与 fanout 任务同事务登记
+        if (previousSeq > 0) {
+            outboxService.record(EventEnvelope.of(
+                    SoftwareEvents.TAG_RELEASE_PUBLISHED, SCHEMA_VERSION,
+                    String.valueOf(softwareId), locked.getPublicationSeq(), requestId,
+                    objectMapper.writeValueAsString(Map.of(
+                            "softwareId", String.valueOf(softwareId),
+                            "revisionId", String.valueOf(revisionId),
+                            "publicationSeq", String.valueOf(locked.getPublicationSeq()),
+                            "authorId", String.valueOf(locked.getOwnerId())))));
+            fanoutService.registerTask(softwareId, revisionId, locked.getPublicationSeq(),
+                    locked.getLastReleaseAt(), previousRevisionId);
+        }
+        return new SoftwareReviewDecisionVO(softwareId, revisionId, "APPROVED");
     }
 
     // ------------------------------------------------------------------

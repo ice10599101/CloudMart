@@ -1,3 +1,4 @@
+import { getPublishMode, PUBLISH_MODE_LABELS, type SoftwarePublishMode } from '@/utils/softwarePublishMode'
 import { useRef, useState } from 'react'
 import {
   ProTable,
@@ -71,7 +72,7 @@ export default function Members() {
   )
   const [permMap, setPermMap] = useState<Record<string, AdminPublisherPermission>>({})
   const [permTarget, setPermTarget] = useState<MemberRecord | null>(null)
-  const [permEnable, setPermEnable] = useState(true)
+  const [permMode, setPermMode] = useState<SoftwarePublishMode>('DENIED')
   const [permReason, setPermReason] = useState('')
   const [permSubmitting, setPermSubmitting] = useState(false)
 
@@ -100,10 +101,10 @@ export default function Members() {
     setPermSubmitting(true)
     try {
       await togglePublisherPermission(String(permTarget.id), {
-        enable: permEnable,
+        publishMode: permMode,
         reason: permReason.trim(),
       })
-      message.success(permEnable ? '已开通发布资格' : '已关闭发布资格')
+      message.success(`已设置为：${PUBLISH_MODE_LABELS[permMode]}`)
       setPermTarget(null)
       loadPublisherPermissions(
         Object.keys(permMap).length
@@ -216,11 +217,7 @@ export default function Members() {
             width: 110,
             search: false,
             render: (_: unknown, record: MemberRecord) =>
-              permMap[record.id]?.canPublish ? (
-                <Tag color="success">已开通</Tag>
-              ) : (
-                <Tag>未开通</Tag>
-              ),
+              <Tag color={getPublishMode(permMap[record.id]) === 'DIRECT' ? 'success' : undefined}>{PUBLISH_MODE_LABELS[getPublishMode(permMap[record.id])]}</Tag>,
           },
         ] as ProColumns<MemberRecord>[])
       : []),
@@ -254,7 +251,7 @@ export default function Members() {
             size="small"
             onClick={() => {
               setPermTarget(record)
-              setPermEnable(!(permMap[record.id]?.canPublish ?? false))
+              setPermMode(getPublishMode(permMap[record.id]))
               setPermReason('')
             }}
           >
@@ -348,25 +345,24 @@ export default function Members() {
 
       {/* 小答软件发布资格（方案 10.8）：开通/关闭同一端点，原因必填并写入权限审计 */}
       <Modal
-        title={permEnable ? '开通发布资格' : '关闭发布资格'}
+        title="设置发布权限"
         open={permTarget !== null}
         onCancel={() => setPermTarget(null)}
         onOk={submitPublisherPermission}
         confirmLoading={permSubmitting}
         okText="确认"
-        okButtonProps={{ danger: !permEnable }}
+        okButtonProps={{ danger: permMode === 'DENIED' }}
         destroyOnHidden
       >
         <Typography.Paragraph type="secondary">
           会员：{permTarget?.nickname}（{permTarget?.username} / ID {permTarget?.id}）。
-          {permEnable
-            ? '开通后可创建软件并提交审核；服务端会先核对会员可用。'
-            : '关闭后已发布内容保留，但不能再提交或重新上架。'}
+          默认禁止发布。可直接发布立即上线；发布后需审核须经管理员审核后公开。
         </Typography.Paragraph>
         <Space direction="vertical" style={{ width: '100%' }}>
-          <Radio.Group value={permEnable} onChange={(e) => setPermEnable(e.target.value)}>
-            <Radio.Button value={true}>开通</Radio.Button>
-            <Radio.Button value={false}>关闭</Radio.Button>
+          <Radio.Group value={permMode} onChange={(e) => setPermMode(e.target.value)}>
+            <Radio.Button value="DENIED">禁止发布</Radio.Button>
+            <Radio.Button value="DIRECT">可直接发布</Radio.Button>
+            <Radio.Button value="REVIEW">发布后需审核</Radio.Button>
           </Radio.Group>
           <Input.TextArea
             rows={3}

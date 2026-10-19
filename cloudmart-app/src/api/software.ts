@@ -323,6 +323,7 @@ export const softwareApi = {
 // ---------------------------------------------------------------------------
 
 export interface PublisherStatus {
+  publishMode?: 'DENIED' | 'DIRECT' | 'REVIEW'
   canPublish: boolean
   reasonCode: string | null
   publishEnabled: boolean

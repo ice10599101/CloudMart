@@ -25,6 +25,14 @@ public class SoftwarePublisherPermission {
 
     private Boolean canPublish;
 
+    /** 未指定时保守地要求人工审核，仅管理员可设置为 false。 */
+    private Boolean reviewRequired = true;
+
+    public String getPublishMode() {
+        if (!Boolean.TRUE.equals(canPublish)) return "DENIED";
+        return Boolean.FALSE.equals(reviewRequired) ? "DIRECT" : "REVIEW";
+    }
+
     /** 最近操作管理员 ID */
     private Long updatedBy;
 

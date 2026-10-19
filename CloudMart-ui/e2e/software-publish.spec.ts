@@ -3,8 +3,9 @@ import { test, expect } from '@playwright/test'
 // 所有 API 都拦截，不创建真实草稿或提交真实审核。
 test.use({ channel: process.env.PLAYWRIGHT_CHANNEL })
 
+for (const mode of ['DIRECT', 'REVIEW'] as const) {
 for (const saveFails of [false, true]) {
-  test(`发布页提交使用当前表单，保存${saveFails ? '失败时停止提交' : '成功后再审核'}`, async ({ page }) => {
+  test(`${mode} 发布页提交使用当前表单，保存${saveFails ? '失败时停止提交' : '成功后按权限发布'}`, async ({ page }) => {
     const writes: Array<{ method: string; path: string; body: any }> = []
     let failSave = false
     await page.addInitScript(() => {
@@ -17,7 +18,7 @@ for (const saveFails of [false, true]) {
       const method = request.method()
       const ok = (data: unknown) => route.fulfill({ json: { success: true, data } })
       if (method === 'GET') {
-        if (path.endsWith('/publisher-status')) return ok({ canPublish: true })
+        if (path.endsWith('/publisher-status')) return ok({ canPublish: true, publishMode: mode })
         if (path.includes('/user/profile')) return ok({ id: '42', nickname: '测试用户' })
         return ok([])
       }
@@ -31,10 +32,7 @@ for (const saveFails of [false, true]) {
         } })
         return ok({ softwareId: '100', revisionId: '501' })
       }
-      // 明确拒绝审核以保留页面，便于断言请求顺序；不会触达真实后端。
-      return route.fulfill({ status: 400, json: {
-        success: false, error: { code: 'CONTENT_REJECTED', message: '模拟审核拒绝' },
-      } })
+      return ok({ softwareId: '100', revisionId: '501', reviewStatus: mode === 'DIRECT' ? 'APPROVED' : 'PENDING' })
     })
     await page.goto('/software/publish')
     await page.getByPlaceholder('软件名称', { exact: true }).fill('初始软件')
@@ -44,12 +42,14 @@ for (const saveFails of [false, true]) {
     writes.length = 0
     failSave = saveFails
     await page.getByPlaceholder('软件名称', { exact: true }).fill('修改后的软件')
-    await page.getByRole('button', { name: '提交审核', exact: true }).click()
-    await page.getByRole('button', { name: '确认提交', exact: true }).click()
-    await expect(page.getByText(saveFails ? '模拟保存失败' : '模拟审核拒绝', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: mode === 'DIRECT' ? '直接发布' : '提交审核', exact: true }).click()
+    await page.getByRole('button', { name: mode === 'DIRECT' ? '确认发布' : '确认提交', exact: true }).click()
+    await expect(page.getByText(saveFails ? '模拟保存失败' : mode === 'DIRECT' ? '软件已发布' : '已提交审核，审核通过后公开可见', { exact: true })).toBeVisible()
     expect(writes.map(({ method, path }) => `${method} ${path}`)).toEqual(saveFails
       ? ['PUT /api/software/100/revisions/501']
       : ['PUT /api/software/100/revisions/501', 'POST /api/software/100/revisions/501/submit'])
     expect(writes[0].body.name).toBe('修改后的软件')
   })
+}
+
 }

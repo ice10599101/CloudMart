@@ -308,6 +308,55 @@ class SoftwarePublishServiceImplTest {
     }
 
     @Test
+    @DisplayName("直接发布权限在锁内裁决，立即上线并登记事件，不冒用管理员审核身份")
+    void submit_directPublishesAtomically() {
+        Software locked = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
+        locked.setPublicationSeq(0);
+        SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 1);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(locked);
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(locked);
+        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(draft);
+        SoftwarePublisherPermission permission = permission(true);
+        permission.setReviewRequired(false);
+        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission);
+        when(communitySupportFeignClient.review(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
+                new SoftwareReviewOutcomeVO("hash", true, true, java.util.List.of(), null, NOW)));
+        when(userSupportFeignClient.profiles(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
+                java.util.List.of(new com.cloudmart.software.dto.software.SoftwareProfileVO(USER_ID, "昵称", null, true))));
+
+        SoftwareSubmittedVO submitted = service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "direct-key");
+
+        assertThat(submitted.reviewStatus()).isEqualTo("APPROVED");
+        assertThat(draft.getReviewStatus()).isEqualTo(SoftwareReviewStatus.APPROVED);
+        assertThat(draft.getReviewerId()).isNull();
+        assertThat(locked.getPublishedRevisionId()).isEqualTo(REVISION_ID);
+        assertThat(locked.getWorkingRevisionId()).isNull();
+        assertThat(locked.getPublicationSeq()).isEqualTo(1);
+        verify(softwareMapper).update(org.mockito.ArgumentMatchers.isNull(), any(Wrapper.class));
+        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(USER_ID), eq("USER"),
+                eq("DIRECT_PUBLISH"), eq("DRAFT"), eq("APPROVED"), anyString(), any());
+        verify(outboxService).record(any());
+    }
+
+    @Test
+    @DisplayName("远程检查期间管理员禁止发布，锁内复核必须拒绝")
+    void submit_permissionRevokedBeforeCommit() {
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(revision(SoftwareReviewStatus.DRAFT, 0, 1));
+        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission(false));
+        when(communitySupportFeignClient.review(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
+                new SoftwareReviewOutcomeVO("hash", true, false, java.util.List.of(), null, NOW)));
+        when(userSupportFeignClient.profiles(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
+                java.util.List.of(new com.cloudmart.software.dto.software.SoftwareProfileVO(USER_ID, "昵称", null, true))));
+
+        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "revoked-key"))
+                .isInstanceOf(BusinessException.class).hasFieldOrPropertyWithValue("code", "SOFTWARE_PUBLISH_NOT_ENABLED");
+        verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
+        verify(outboxService, never()).record(any());
+    }
+
+    @Test
     @DisplayName("50000 字介绍分段送审且不丢内容，遵守社区单条 20000 字上限")
     void submit_longDescriptionRespectsReviewContract() {
         when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(

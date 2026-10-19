@@ -1,3 +1,4 @@
+import { getPublishMode } from '@/utils/softwarePublishMode';
 import { useCallback, useEffect, useState, useRef} from "react";
 import {
   Alert,
@@ -19,6 +20,7 @@ import TiptapEditor from "@/components/TiptapEditor";
 import {
   createWorkingRevision,
   getSoftwareEditor,
+  getPublisherStatus,
   listSoftwareAccessContacts,
   listSoftwareCategories,
   listAllSoftwareTags,
@@ -219,6 +221,11 @@ export default function SoftwareEdit() {
 
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [directPublish, setDirectPublish] = useState(false);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    getPublisherStatus().then((res) => setDirectPublish(getPublishMode(res.data.data) === 'DIRECT')).catch(() => undefined);
+  }, [isAuthenticated]);
 
   // ---------------- 未保存内容跨页保留（localStorage；保存/提交成功即清） ----------------
   const EDIT_DRAFT_KEY = "software-edit-draft";
@@ -564,7 +571,7 @@ export default function SoftwareEdit() {
         message.error(res.data.error?.message ?? "提交失败");
         return;
       }
-      message.success("已提交审核");
+      message.success(res.data.data.reviewStatus === "APPROVED" ? "软件已发布" : "已提交审核");
       history.push("/software/mine");
     } catch {
       message.error("提交失败，请稍后重试");
@@ -1185,7 +1192,7 @@ export default function SoftwareEdit() {
           loading={submitting}
           onClick={() => void handleSubmit()}
         >
-          提交审核
+          {directPublish ? "直接发布" : "提交审核"}
         </Button>
       </div>
     </div>

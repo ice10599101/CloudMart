@@ -1,3 +1,4 @@
+import { getPublishMode, PUBLISH_MODE_LABELS, type SoftwarePublishMode } from '@/utils/softwarePublishMode'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
@@ -34,14 +35,14 @@ export default function SoftwarePublishers() {
     userId: string
   } | null>(null)
   const [decisionReason, setDecisionReason] = useState('')
-  const [enable, setEnable] = useState(true)
+  const [publishMode, setPublishMode] = useState<SoftwarePublishMode>('REVIEW')
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const openToggle = (permission: AdminPublisherPermission) => {
     setTarget(permission)
     setGrantOpen(false)
-    setEnable(!permission.canPublish)
+    setPublishMode(getPublishMode(permission))
     setReason('')
   }
 
@@ -78,7 +79,7 @@ export default function SoftwarePublishers() {
     Modal.confirm({
       title: decisionTarget.approve ? '通过发布者申请' : '拒绝发布者申请',
       content: decisionTarget.approve
-        ? '通过将同事务授予该会员发布资格并写 targetUserId 审计。'
+        ? '通过后该会员可发布软件，发布后需审核；可在发布权限中改为直接发布。'
         : '拒绝原因会对申请人展示（可公开）。',
       okText: '确认',
       cancelText: '取消',
@@ -109,8 +110,8 @@ export default function SoftwarePublishers() {
     }
     setSubmitting(true)
     try {
-      await togglePublisherPermission(userId, { enable, reason: reason.trim() })
-      message.success(enable ? '已开通发布资格' : '已关闭发布资格')
+      await togglePublisherPermission(userId, { publishMode, reason: reason.trim() })
+      message.success(`已设置为：${PUBLISH_MODE_LABELS[publishMode]}`)
       setTarget(null)
       setGrantOpen(false)
       setGrantUserId('')
@@ -136,7 +137,7 @@ export default function SoftwarePublishers() {
       width: 110,
       search: false,
       render: (_, record) =>
-        record.canPublish ? <Tag color="success">已开通</Tag> : <Tag>未开通</Tag>,
+        <Tag color={getPublishMode(record) === 'DIRECT' ? 'success' : undefined}>{PUBLISH_MODE_LABELS[getPublishMode(record)]}</Tag>,
     },
     { title: '最近原因', dataIndex: 'reason', ellipsis: true, search: false },
     {
@@ -154,7 +155,7 @@ export default function SoftwarePublishers() {
       width: 100,
       render: (_, record) => [
         <a key="toggle" onClick={() => openToggle(record)}>
-          {record.canPublish ? '关闭资格' : '开通资格'}
+          更改发布权限
         </a>,
       ],
     },
@@ -262,7 +263,7 @@ export default function SoftwarePublishers() {
           onClick={() => {
             setGrantOpen(true)
             setTarget(null)
-            setEnable(true)
+            setPublishMode('REVIEW')
             setGrantUserId('')
             setReason('')
           }}
@@ -289,7 +290,7 @@ export default function SoftwarePublishers() {
       />
 
       <Modal
-        title={enable ? '开通发布资格' : '关闭发布资格'}
+        title="设置发布权限"
         open={!!target || grantOpen}
         onCancel={() => {
           setTarget(null)
@@ -298,11 +299,11 @@ export default function SoftwarePublishers() {
         onOk={confirmSubmit}
         confirmLoading={submitting}
         okText="确认"
-        okButtonProps={{ danger: !enable }}
+        okButtonProps={{ danger: publishMode === 'DENIED' }}
         destroyOnHidden
       >
         <Typography.Paragraph type="secondary">
-          开通后该会员可创建软件并提交审核；关闭后已发布内容保留，但不能再提交/重新上架。
+          默认禁止发布。可直接发布立即上线；发布后需审核须经管理员审核后公开。禁止发布后已有内容保留。
         </Typography.Paragraph>
         {grantOpen ? (
           <>
@@ -323,12 +324,13 @@ export default function SoftwarePublishers() {
           </Typography.Paragraph>
         )}
         <Radio.Group
-          value={enable}
-          onChange={(e) => setEnable(e.target.value)}
+          value={publishMode}
+          onChange={(e) => setPublishMode(e.target.value)}
           style={{ marginBottom: 12 }}
         >
-          <Radio.Button value={true}>开通</Radio.Button>
-          <Radio.Button value={false}>关闭</Radio.Button>
+          <Radio.Button value="DENIED">禁止发布</Radio.Button>
+          <Radio.Button value="DIRECT">可直接发布</Radio.Button>
+          <Radio.Button value="REVIEW">发布后需审核</Radio.Button>
         </Radio.Group>
         <Input.TextArea
           rows={3}
