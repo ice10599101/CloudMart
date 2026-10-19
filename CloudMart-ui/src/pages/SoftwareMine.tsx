@@ -5,10 +5,16 @@ import { history } from "umi";
 import {
   deleteMySoftware,
   getSoftwarePreferences,
+  getUpdatesUnreadCount,
   listMySoftware,
+  listMySubscriptions,
+  listMyUpdates,
+  markUpdatesRead,
   unsubscribeSoftware,
   updateSoftwarePreferences,
   type SoftwareMineItem,
+  type SoftwareSubscriptionRow,
+  type SoftwareUpdateItem,
   getPublisherStatus,
   submitPublisherApplication,
   listMyPublisherApplications,
@@ -25,6 +31,7 @@ const TAB_KEYS = [
   "rejected",
   "favorites",
   "subscriptions",
+  "updates",
 ] as const;
 
 type TabKey =
@@ -33,7 +40,8 @@ type TabKey =
   | "pending"
   | "rejected"
   | "favorites"
-  | "subscriptions";
+  | "subscriptions"
+  | "updates";
 
 const STATUS_LABEL: Record<string, string> = {
   PUBLISHED: "已发布",
@@ -70,6 +78,34 @@ export default function SoftwareMine() {
   const [updateNotify, setUpdateNotify] = useState(true);
   /** SF03：发布资格与申请状态 */
   const [pubStatus, setPubStatus] = useState<{ canPublish: boolean } | null>(null);
+
+  // UX05：订阅更新流（游标分页 + 批量已读）
+  const [updateItems, setUpdateItems] = useState<SoftwareUpdateItem[]>([]);
+  const [updateCursor, setUpdateCursor] = useState<string | null>(null);
+  const [updateHasMore, setUpdateHasMore] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [subRows, setSubRows] = useState<SoftwareSubscriptionRow[]>([]);
+  const [unreadBadge, setUnreadBadge] = useState(0);
+
+  const loadUpdates = useCallback(async (append: boolean, cursor: string | null) => {
+    setUpdateLoading(true);
+    try {
+      const res = await listMyUpdates(append ? cursor : null, 20);
+      if (res.data.success) {
+        const feed = res.data.data;
+        setUpdateItems((prev) => (append ? [...prev, ...feed.items] : feed.items));
+        setUpdateCursor(feed.nextCursor);
+        setUpdateHasMore(feed.hasMore);
+      }
+    } finally {
+      setUpdateLoading(false);
+    }
+  }, []);
+
+  const loadSubscriptionRows = useCallback(async () => {
+    const res = await listMySubscriptions();
+    if (res.data.success) setSubRows(res.data.data ?? []);
+  }, []);
   const [myApplications, setMyApplications] = useState<SoftwarePublisherApplication[]>([]);
   const [applyOpen, setApplyOpen] = useState(false);
   const [applyIntro, setApplyIntro] = useState("");
@@ -103,6 +139,36 @@ export default function SoftwareMine() {
     if (!isAuthenticated) return;
     void load(tab);
   }, [isAuthenticated, load, tab]);
+
+  // UX05：更新流/订阅行按页签加载
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (tab === "updates") {
+      void loadUpdates(false, null);
+      getUpdatesUnreadCount()
+        .then((res) => setUnreadBadge(res.data.data ?? 0))
+        .catch(() => undefined);
+    }
+    if (tab === "subscriptions") void loadSubscriptionRows();
+  }, [isAuthenticated, tab, loadUpdates, loadSubscriptionRows]);
+
+  const handleMarkRead = async (eventId: string) => {
+    const res = await markUpdatesRead([eventId]);
+    if (res.data.success) {
+      setUpdateItems((prev) =>
+        prev.map((it) => (it.eventId === eventId ? { ...it, read: true } : it)),
+      );
+      setUnreadBadge((n) => Math.max(0, n - 1));
+    }
+  };
+
+  const handleUnsubscribeRow = async (softwareId: string) => {
+    const res = await unsubscribeSoftware(softwareId);
+    if (res.data.success) {
+      message.success("已取消订阅");
+      await loadSubscriptionRows();
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -269,10 +335,156 @@ export default function SoftwareMine() {
           { key: "rejected", label: "被退回" },
           { key: "favorites", label: "收藏" },
           { key: "subscriptions", label: "订阅" },
+          {
+            key: "updates",
+            label: (
+              <span>
+                更新
+                {unreadBadge > 0 ? (
+                  <Tag color="red" style={{ marginLeft: 6, marginRight: 0 }}>
+                    {unreadBadge > 99 ? "99+" : unreadBadge}
+                  </Tag>
+                ) : null}
+              </span>
+            ),
+          },
         ]}
       />
-      <Spin spinning={loading}>
-        {items.length === 0 ? (
+      <Spin spinning={loading && tab !== "updates"}>
+        {tab === "updates" ? (
+          /* UX05：订阅更新流——突出"这次改了什么"，不重复简介 */
+          <div>
+            {updateItems.length === 0 ? (
+              <Empty description="暂无更新；订阅软件发布新版本后会出现在这里" />
+            ) : (
+              <List
+                dataSource={updateItems}
+                renderItem={(it) => (
+                  <List.Item
+                    actions={[
+                      it.softwareVisible ? (
+                        <Button
+                          key="go"
+                          type="link"
+                          onClick={() => history.push(`/software/${it.softwareId}`)}
+                        >
+                          查看软件
+                        </Button>
+                      ) : (
+                        <Tag key="na">当前不可用</Tag>
+                      ),
+                      !it.read ? (
+                        <Button
+                          key="read"
+                          type="link"
+                          onClick={() => void handleMarkRead(it.eventId)}
+                        >
+                          标记已读
+                        </Button>
+                      ) : (
+                        <Typography.Text key="read" type="secondary">
+                          已读
+                        </Typography.Text>
+                      ),
+                    ]}
+                  >
+                    <List.Item.Meta
+                      title={
+                        <span>
+                          {!it.read ? <Tag color="red">未读</Tag> : null}
+                          {it.softwareName || `软件 ${it.softwareId}`}
+                          {it.versionName ? (
+                            <Tag style={{ marginLeft: 8 }}>{it.versionName}</Tag>
+                          ) : null}
+                          {it.businessChange === false ? (
+                            <Tag style={{ marginLeft: 4 }}>文案更新</Tag>
+                          ) : null}
+                        </span>
+                      }
+                      description={
+                        <>
+                          {it.changelog ? (
+                            <Typography.Paragraph
+                              style={{ whiteSpace: "pre-wrap", marginBottom: 4 }}
+                            >
+                              {it.changelog}
+                            </Typography.Paragraph>
+                          ) : null}
+                          {it.publishedAt ? (
+                            <Typography.Text type="secondary">
+                              发布于 {it.publishedAt.slice(0, 16).replace("T", " ")}
+                            </Typography.Text>
+                          ) : null}
+                        </>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            )}
+            {updateHasMore ? (
+              <div style={{ textAlign: "center", marginTop: 12 }}>
+                <Button onClick={() => void loadUpdates(true, updateCursor)}>加载更多</Button>
+              </div>
+            ) : null}
+          </div>
+        ) : tab === "subscriptions" ? (
+          /* UX05：订阅管理（偏好展示 + 退订；调整偏好走详情页订阅设置） */
+          <div>
+            {subRows.length === 0 ? (
+              <Empty description="还没有订阅任何软件" />
+            ) : (
+              <List
+                dataSource={subRows}
+                renderItem={(row) => (
+                  <List.Item
+                    actions={[
+                      row.visible ? (
+                        <Button
+                          key="go"
+                          type="link"
+                          onClick={() => history.push(`/software/${row.softwareId}`)}
+                        >
+                          查看软件
+                        </Button>
+                      ) : (
+                        <Tag key="na">当前不可用</Tag>
+                      ),
+                      <Popconfirm
+                        key="unsub"
+                        title="确认取消订阅？取消后不再收到该软件的更新推送"
+                        okText="取消订阅"
+                        onConfirm={() => void handleUnsubscribeRow(row.softwareId)}
+                      >
+                        <Button key="unsub" type="link" danger>
+                          退订
+                        </Button>
+                      </Popconfirm>,
+                    ]}
+                  >
+                    <List.Item.Meta
+                      title={
+                        <span>
+                          {row.name || `软件 ${row.softwareId}`}
+                          {row.unreadCount > 0 ? (
+                            <Tag color="red" style={{ marginLeft: 8 }}>
+                              {row.unreadCount} 条未读
+                            </Tag>
+                          ) : null}
+                        </span>
+                      }
+                      description={
+                        <Typography.Text type="secondary">
+                          平台 {row.platforms || "全部"} · 渠道 {row.channels || "全部"}
+                        </Typography.Text>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            )}
+          </div>
+        ) : items.length === 0 ? (
           <Empty description="暂无内容" />
         ) : (
           <List
@@ -293,7 +505,7 @@ export default function SoftwareMine() {
                   <Button
                     key="edit"
                     type="link"
-                    disabled={tab === "favorites" || tab === "subscriptions"}
+                    disabled={tab === "favorites"}
                     onClick={() =>
                       history.push(`/software/${item.softwareId}/edit`)
                     }
@@ -328,7 +540,7 @@ export default function SoftwareMine() {
                       查看
                     </Button>
                   ) : null,
-                  tab === "subscriptions" ? (
+                  tab === "favorites" ? null : (
                     <Button
                       key="unsubscribe"
                       type="link"
@@ -336,7 +548,7 @@ export default function SoftwareMine() {
                     >
                       取消订阅
                     </Button>
-                  ) : null,
+                  ),
                 ].filter(Boolean)}
               >
                 <List.Item.Meta

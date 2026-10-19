@@ -997,3 +997,57 @@ export function getSoftwareHome(platform: 'WEB' | 'APP' | 'TARO' = 'WEB') {
     params: { platform },
   });
 }
+
+// ==================== UX05：我的订阅更新流 ====================
+
+export interface SoftwareSubscriptionRow {
+  softwareId: string
+  platforms: string
+  channels: string
+  subscribedAt: string | null
+  name: string | null
+  iconAssetId: string | null
+  visible: boolean
+  unreadCount: number
+}
+
+export interface SoftwareUpdateItem {
+  eventId: string
+  softwareId: string
+  read: boolean
+  publishedAt: string | null
+  /** false=纯文案发布（后台未推给订阅者，历史保留展示） */
+  businessChange?: boolean
+  softwareName?: string
+  versionName?: string
+  changelog?: string
+  /** 软件当前下架/封禁时为 false：历史保留，入口标注不可用 */
+  softwareVisible: boolean
+}
+
+export interface SoftwareUpdateFeed {
+  items: SoftwareUpdateItem[]
+  hasMore: boolean
+  nextCursor: string | null
+}
+
+export function listMySubscriptions() {
+  return request.get<ApiResponse<SoftwareSubscriptionRow[]>>(`${BASE}/subscriptions/mine`);
+}
+
+export function listMyUpdates(cursor: string | null, size = 20) {
+  return request.get<ApiResponse<SoftwareUpdateFeed>>(`${BASE}/updates/mine`, {
+    params: { cursor: cursor ?? 0, size },
+  });
+}
+
+/** 批量标记已读（≤50；重复标记幂等） */
+export function markUpdatesRead(eventIds: string[]) {
+  return request.post<ApiResponse<number>>(`${BASE}/updates/read`, {
+    eventIds: eventIds.map((v) => Number(v)),
+  });
+}
+
+export function getUpdatesUnreadCount() {
+  return request.get<ApiResponse<number>>(`${BASE}/updates/unread-count`);
+}
