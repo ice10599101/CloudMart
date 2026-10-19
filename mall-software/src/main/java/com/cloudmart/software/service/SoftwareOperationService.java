@@ -84,7 +84,7 @@ public class SoftwareOperationService {
                          String operationKey, Object request, Long softwareId,
                          Supplier<T> action, Function<String, T> resultReader) {
         String requestHash = requestHash(request);
-        validate(actorType, actorId, operationKey, requestHash);
+        validate(actorType, actorId, operationKey, requestHash, true);
         SoftwareOperation existing = find(actorType, actorId, operationType, operationKey);
         if (existing != null) {
             return replayOrConflict(existing, requestHash, resultReader);
@@ -125,12 +125,16 @@ public class SoftwareOperationService {
     /**
      * 副作用前的重放检查（SW04）：同键同请求直接返回历史结果，异体 409；
      * 未命中返回 empty。调用方须先完成身份/归属校验。
+     *
+     * <p>只读路径（SELECT，无写入），设计上在限频/远程检查之前、调用方事务之外执行
+     * （SW04：超时重试不得重复扣次数/触发远程审核）；事务断言仅约束写入路径 execute，
+     * 否则前置重放会误触发"幂等操作必须在事务内执行"（D29 部署实测缺陷）。</p>
      */
     public <T> java.util.Optional<T> replay(String actorType, Long actorId,
                                             String operationType, String operationKey,
                                             Object request, Function<String, T> resultReader) {
         String requestHash = requestHash(request);
-        validate(actorType, actorId, operationKey, requestHash);
+        validate(actorType, actorId, operationKey, requestHash, false);
         SoftwareOperation existing = find(actorType, actorId, operationType, operationKey);
         if (existing == null) {
             return java.util.Optional.empty();
@@ -172,7 +176,8 @@ public class SoftwareOperationService {
                 .last("FOR UPDATE"));
     }
 
-    private void validate(String actorType, Long actorId, String operationKey, String requestHash) {
+    private void validate(String actorType, Long actorId, String operationKey, String requestHash,
+                          boolean requireTransaction) {
         if (!"USER".equals(actorType) && !"ADMIN".equals(actorType)) {
             throw new BusinessException("SOFTWARE_OPERATION_INVALID", "actorType 非法");
         }
@@ -186,8 +191,9 @@ public class SoftwareOperationService {
         if (!requestHash.matches("[0-9a-f]{64}")) {
             throw new BusinessException("SOFTWARE_OPERATION_INVALID", "requestHash 须为 SHA-256 hex");
         }
-        // 结果记录与业务变更同事务：无事务上下文即为编程错误（6.10）
-        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+        // 结果记录与业务变更同事务：写入路径无事务上下文即为编程错误（6.10）；
+        // replay 为只读前置检查，允许在事务外执行（见 replay Javadoc）
+        if (requireTransaction && !TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("幂等操作必须在事务内执行（业务变更与结果记录同事务提交）");
         }
     }
