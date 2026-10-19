@@ -41,6 +41,7 @@ public class AdminSoftwareCatalogController {
 
     private final AdminSoftwareCatalogService adminSoftwareCatalogService;
     private final com.cloudmart.software.service.SoftwareRelationService relationService;
+    private final com.cloudmart.software.service.SoftwareCompareService compareService;
 
     // ---------------- 目录（software:list / moderate / feature） ----------------
 
@@ -89,6 +90,32 @@ public class AdminSoftwareCatalogController {
         return ApiResponse.ok(adminSoftwareCatalogService.feature(
                 adminUserId, softwareId, idempotencyKey,
                 request.getFeaturedRank()));
+    }
+
+    // ---------------- 结构化声明（UX04-B；software:manage 守卫沿用类级 INTERNAL） ----------------
+
+    @GetMapping("/items/{softwareId}/declared")
+    @Operation(summary = "结构化声明读取", description = "对比用客观字段；null=未提供")
+    public ApiResponse<java.util.Map<String, Object>> declared(@PathVariable("softwareId") Long softwareId) {
+        return ApiResponse.ok(compareService.declaredOf(softwareId));
+    }
+
+    @PutMapping("/items/{softwareId}/declared")
+    @Operation(summary = "结构化声明保存", description = "是否开源/离线可用（null=清除为未提供）；不伪造测试结论")
+    public ApiResponse<Boolean> saveDeclared(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,
+            @PathVariable("softwareId") Long softwareId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody java.util.Map<String, Object> body) {
+        Object open = body.get("openSource");
+        Object offline = body.get("offlineCapable");
+        Object note = body.get("declaredNote");
+        compareService.saveDeclared(softwareId,
+                open instanceof Boolean b ? b : null,
+                offline instanceof Boolean b2 ? b2 : null,
+                note == null ? null : String.valueOf(note),
+                adminUserId, idempotencyKey);
+        return ApiResponse.ok(true);
     }
 
     // ---------------- 同类关系（UX03；software:manage 守卫沿用类级 INTERNAL） ----------------

@@ -379,6 +379,27 @@ public class AdminSoftwareController {
         return softwareFeignClient.saveRelations(softwareId, body);
     }
 
+    // ---------------- 结构化声明（UX04-B；software:manage） ----------------
+
+    @GetMapping("/items/{softwareId}/declared")
+    @RequiresPermission("software:manage")
+    @Operation(summary = "结构化声明读取", description = "null=未提供")
+    public ApiResponse<Object> declaredOf(@PathVariable("softwareId") Long softwareId) {
+        return softwareFeignClient.declaredOf(softwareId);
+    }
+
+    @OperLog(title = "结构化声明维护", businessType = 2)
+    @PutMapping("/items/{softwareId}/declared")
+    @RequiresPermission("software:manage")
+    @Operation(summary = "结构化声明保存", description = "是否开源/离线可用；不伪造测试结论")
+    public ApiResponse<Object> saveDeclared(
+            @PathVariable("softwareId") Long softwareId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.saveDeclared(softwareId,
+                idempotencyHeaders(idempotencyKey, body));
+    }
+
     // ---------------- 教程（UX04；software:guide:list/manage） ----------------
 
     @GetMapping("/guides")

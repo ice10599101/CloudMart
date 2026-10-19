@@ -84,6 +84,15 @@ public interface SoftwareFeignClient {
     ApiResponse<Object> saveRelations(@PathVariable("softwareId") Long softwareId,
                                       @RequestBody Map<String, Object> body);
 
+    // ---------------- 结构化声明（UX04-B） ----------------
+
+    @GetMapping("/items/{softwareId}/declared")
+    ApiResponse<Object> declaredOf(@PathVariable("softwareId") Long softwareId);
+
+    @PutMapping("/items/{softwareId}/declared")
+    ApiResponse<Object> saveDeclared(@PathVariable("softwareId") Long softwareId,
+                                     @RequestBody Map<String, Object> body);
+
     // ---------------- 教程（UX04） ----------------
 
     @GetMapping("/guides")

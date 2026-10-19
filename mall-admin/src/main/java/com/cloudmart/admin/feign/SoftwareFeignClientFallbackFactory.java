@@ -162,6 +162,16 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> declaredOf(Long softwareId) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> saveDeclared(Long softwareId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> guides(String guideType, int page, int size) {
                 throw unavailable(cause);
             }

@@ -1098,3 +1098,31 @@ export function listSoftwareGuides(
 export function getSoftwareGuide(id: string) {
   return request.get<ApiResponse<SoftwareGuideDetail>>(`${BASE}/guides/${id}`);
 }
+
+// ==================== UX04-B：软件对比（2~3 款并排） ====================
+
+export interface SoftwareCompareItem {
+  softwareId: string
+  name: string
+  summary: string | null
+  iconAssetId: string | null
+  lastReleaseAt: string | null
+  ratingCount: number
+  ratingAvg: number | null
+  accessMode: string | null
+  fields: {
+    platforms: string[]
+    licenseType: string | null
+    /** null=未提供（不推断支持/不支持） */
+    openSource: boolean | null
+    offlineCapable: boolean | null
+    languages: string[]
+    systemRequirements: string | null
+  }
+}
+
+export function compareSoftware(ids: string[]) {
+  return request.get<ApiResponse<SoftwareCompareItem[]>>(`${BASE}/compare`, {
+    params: { ids: ids.join(',') },
+  });
+}

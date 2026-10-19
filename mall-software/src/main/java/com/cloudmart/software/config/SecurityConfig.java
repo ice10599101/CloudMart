@@ -95,6 +95,10 @@ public class SecurityConfig {
                         "/software/topics/{slug}").permitAll()
                 // UX03：分享者公开投稿（仅 ACTIVE+已发布；业务层过滤）
                 .requestMatchers(HttpMethod.GET, "/software/publishers/{userId}/items").permitAll()
+                // UX04-B：软件对比（公开；每次读取重校验可见性）
+                .requestMatchers(HttpMethod.GET, "/software/compare").permitAll()
+                // UX04-A：教程公开读取（正文真源在社区）
+                .requestMatchers(HttpMethod.GET, "/software/guides", "/software/guides/{id}").permitAll()
                 // 公开浏览：详情、查看条件摘要、版本来源摘要（无 URL/提取码）
                 .requestMatchers(HttpMethod.GET, "/software/{id}", "/software/{id}/access-policy",
                         "/software/{id}/releases").permitAll()

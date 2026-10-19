@@ -1105,3 +1105,27 @@ export function toggleAdminGuide(guideId: string, enabled: boolean) {
 export function deleteAdminGuide(guideId: string) {
   return request.delete<ApiResponse<boolean>>(`${BASE}/guides/${guideId}`)
 }
+
+// ==================== 结构化声明（UX04-B） ====================
+
+export interface AdminSoftwareDeclared {
+  softwareId: string
+  openSource: boolean | null
+  offlineCapable: boolean | null
+  declaredNote: string | null
+  updatedAt: string | null
+}
+
+export function getSoftwareDeclared(softwareId: string) {
+  return request.get<ApiResponse<AdminSoftwareDeclared>>(
+    `${BASE}/items/${softwareId}/declared`,
+  )
+}
+
+export function saveSoftwareDeclared(
+  softwareId: string,
+  payload: { openSource: boolean | null; offlineCapable: boolean | null; declaredNote?: string | null },
+) {
+  const url = `${BASE}/items/${softwareId}/declared`
+  return request.put<ApiResponse<boolean>>(url, payload)
+}

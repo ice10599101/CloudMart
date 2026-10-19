@@ -101,6 +101,8 @@ export default defineConfig({
         // UX04：教程（固定路径先于 /software/:id）
         { path: '/software/guides', component: '@/pages/SoftwareGuides' },
         { path: '/software/guides/:id', component: '@/pages/SoftwareGuideDetail' },
+        // UX04-B：对比（固定路径先于 /software/:id）
+        { path: '/software/compare', component: '@/pages/SoftwareCompare' },
         { path: '/software/:id', component: '@/pages/SoftwareDetail' },
         { path: '/software/:id/edit', component: '@/pages/SoftwareEdit' },
         { path: '/software/:id/preview', component: '@/pages/SoftwarePreview' },
