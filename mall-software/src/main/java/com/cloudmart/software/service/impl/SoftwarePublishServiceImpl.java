@@ -325,7 +325,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 tagIds, screenshots, releases, revision.getSubmittedAt(), revision.getReviewedAt(),
                 revision.getReviewerId(), revision.getReviewReason(),
                 software.getLifecycle().name(),
-                software.getPublishedRevisionId(), software.getWorkingRevisionId());
+                software.getPublishedRevisionId(), software.getWorkingRevisionId(),
+                revision.getInstallationGuide(), revision.getKnownIssues());
     }
 
     private List<String> parseLanguages(String languagesJson) {

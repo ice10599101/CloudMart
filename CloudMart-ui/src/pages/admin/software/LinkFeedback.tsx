@@ -20,6 +20,8 @@ const REASON_CODE_MAP: Record<string, string> = {
   CODE_WRONG: '提取码错误',
   FILE_MISMATCH: '文件不符',
   SUSPICIOUS: '疑似风险',
+  PLATFORM_MISMATCH: '平台不兼容（SF02）',
+  INSTALL_FAILURE: '安装失败（SF02）',
   OTHER: '其他',
 }
 
@@ -99,7 +101,10 @@ export default function SoftwareLinkFeedback() {
       title: '反馈类型',
       dataIndex: 'reasonCode',
       width: 110,
-      search: false,
+      valueType: 'select',
+      valueEnum: Object.fromEntries(
+        Object.entries(REASON_CODE_MAP).map(([value, label]) => [value, { text: label }]),
+      ),
       render: (_, record) => REASON_CODE_MAP[record.reasonCode] ?? record.reasonCode,
     },
     { title: '补充说明', dataIndex: 'description', ellipsis: true, search: false },
@@ -158,6 +163,7 @@ export default function SoftwareLinkFeedback() {
           safeProTableRequest(() =>
             listLinkFeedbacks({
               status: (params as Record<string, unknown>).status as string | undefined,
+              reasonCode: (params as Record<string, unknown>).reasonCode as string | undefined,
               page: params.current,
               size: params.pageSize,
             }),

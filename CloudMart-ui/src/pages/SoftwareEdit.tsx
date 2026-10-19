@@ -199,6 +199,9 @@ export default function SoftwareEdit() {
   const [developerName, setDeveloperName] = useState("");
   const [officialUrl, setOfficialUrl] = useState("");
   const [systemRequirements, setSystemRequirements] = useState("");
+  /** SF02：安装指南/已知问题（随快照审核；仅通用文本） */
+  const [installationGuide, setInstallationGuide] = useState("");
+  const [knownIssues, setKnownIssues] = useState("");
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [accessMode, setAccessMode] =
     useState<SoftwareAccessMode>("REGISTERED");
@@ -249,8 +252,11 @@ export default function SoftwareEdit() {
       developerName,
       officialUrl,
       systemRequirements,
+      installationGuide,
+      knownIssues,
     });
-  }, [name, summary, descriptionHtml, developerName, officialUrl, systemRequirements]);
+  }, [name, summary, descriptionHtml, developerName, officialUrl, systemRequirements,
+    installationGuide, knownIssues]);
 
   /**
    * 用服务端规范化结果重建页面状态（载入与保存共用）。
@@ -268,6 +274,8 @@ export default function SoftwareEdit() {
     setDeveloperName(data.developerName ?? "");
     setOfficialUrl(data.officialUrl ?? "");
     setSystemRequirements(data.systemRequirements ?? "");
+    setInstallationGuide(data.installationGuide ?? "");
+    setKnownIssues(data.knownIssues ?? "");
     setLanguages(data.languages ?? []);
     setAttributionNote(data.attributionNote ?? "");
     setAccessNote(data.accessNote ?? "");
@@ -396,6 +404,12 @@ export default function SoftwareEdit() {
     if (!sameText(systemRequirements, editor.systemRequirements)) {
       patch.systemRequirements = systemRequirements.trim() || null;
     }
+    if (!sameText(installationGuide, editor.installationGuide ?? "")) {
+      patch.installationGuide = installationGuide.trim() || null;
+    }
+    if (!sameText(knownIssues, editor.knownIssues ?? "")) {
+      patch.knownIssues = knownIssues.trim() || null;
+    }
     if (!sameList(languages, editor.languages)) patch.languages = languages;
     if (accessMode !== editor.accessMode) patch.accessMode = accessMode;
     if (accessMode === "COMMUNITY_LEVEL" && minCommunityLevel !== (editor.minCommunityLevel ?? 1)) {
@@ -438,6 +452,8 @@ export default function SoftwareEdit() {
     screenshots,
     summary,
     systemRequirements,
+    installationGuide,
+    knownIssues,
     tagIds,
   ]);
 
@@ -756,6 +772,22 @@ export default function SoftwareEdit() {
               onChange={setLanguages}
               options={LANGUAGE_OPTIONS}
             />
+          <Input.TextArea
+            disabled={frozen}
+            rows={3}
+            maxLength={2000}
+            placeholder="安装指南（选填：步骤文本，随内容一并提交审核）"
+            value={installationGuide}
+            onChange={(event) => setInstallationGuide(event.target.value)}
+          />
+          <Input.TextArea
+            disabled={frozen}
+            rows={3}
+            maxLength={2000}
+            placeholder="已知问题（选填：随内容一并提交审核）"
+            value={knownIssues}
+            onChange={(event) => setKnownIssues(event.target.value)}
+          />
           </Space>
           <Input.TextArea
             disabled={frozen}

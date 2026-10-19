@@ -38,7 +38,11 @@ public record SoftwareEditorVO(
         /** 主体状态（作者整理视角需要 lifecycle：UNLISTED/BANNED 等） */
         String lifecycle,
         Long publishedRevisionId,
-        Long workingRevisionId) {
+        Long workingRevisionId,
+        /** SF02：安装指南（随快照审核） */
+        String installationGuide,
+        /** SF02：已知问题（随快照审核） */
+        String knownIssues) {
 
     /** 编辑器截图（素材 ID，非渲染 URL） */
     public record MediaVO(Long assetId, String altText, Integer displayOrder) {

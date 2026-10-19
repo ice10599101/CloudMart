@@ -69,6 +69,10 @@ export interface SoftwareDetail {
   attributionType: string | null
   attributionNote: string | null
   systemRequirements: string | null
+  /** SF02：安装指南（随快照审核） */
+  installationGuide: string | null
+  /** SF02：已知问题（随快照审核） */
+  knownIssues: string | null
   languages: string[]
   publishedAt: string | null
   lastReleaseAt: string | null
@@ -94,10 +98,16 @@ export interface SoftwareRelease {
   sources: Array<{
     sourceId: string
     sourceKey: string
+    /** 所属版本的稳定键（SF02：兼容性反馈定位） */
+    releaseKey?: string
     sourceType: string
     provider: string | null
     platform: string | null
+    arch?: string | null
     label: string | null
+    sizeLabel?: string | null
+    claimedSha256?: string | null
+    note?: string | null
     availability: string
     availabilityTip: string | null
   }>
@@ -253,9 +263,20 @@ export const softwareApi = {
     ),
 
   /** SW11：来源失效反馈 */
-  sourceFeedback: (id: string, sourceId: string, reasonCode: string) => {
+  /** SF02：兼容性反馈可携带 releaseKey/平台/架构/系统版本文本（不收集设备标识） */
+  sourceFeedback: (
+    id: string,
+    sourceId: string,
+    reasonCode: string,
+    context?: {
+      releaseKey?: string | null
+      platform?: string | null
+      arch?: string | null
+      systemVersionText?: string | null
+    },
+  ) => {
     const url = `${BASE}/${id}/sources/${sourceId}/feedback`
-    const payload = { reasonCode }
+    const payload = { reasonCode, ...(context ?? {}) }
     return write<{ feedbackId: string; status: string }>('POST', url, payload, (header) =>
       request({ url, method: 'POST', data: payload, header }),
     )
@@ -389,6 +410,9 @@ export interface SoftwareEditor {
   attributionType: 'ORIGINAL' | 'AUTHORIZED' | 'OFFICIAL_PUBLIC' | null
   attributionNote: string | null
   systemRequirements: string | null
+  /** SF02：安装指南/已知问题（随快照审核） */
+  installationGuide: string | null
+  knownIssues: string | null
   languages: string[] | null
   accessMode: 'REGISTERED' | 'COMMUNITY_LEVEL' | 'ADMIN_PAID'
   minCommunityLevel: number | null

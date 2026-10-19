@@ -273,9 +273,10 @@ public class AdminSoftwareController {
     @Operation(summary = "失效反馈列表", description = "status 过滤")
     public ApiResponse<Object> linkFeedbacks(
             @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "reasonCode", required = false) String reasonCode,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
-        return softwareFeignClient.linkFeedbacks(status, page, size);
+        return softwareFeignClient.linkFeedbacks(status, reasonCode, page, size);
     }
 
     @OperLog(title = "软件反馈处理", businessType = 2)

@@ -461,3 +461,20 @@
   color: #d3392f;
   font-weight: 600;
 }
+
+/* SF02：来源附加信息与指南文本 */
+.sourceMetaExtra {
+  display: block;
+  font-size: 22rpx;
+  color: #94a3b8;
+  margin-top: 4rpx;
+}
+
+.guideText {
+  display: block;
+  font-size: 26rpx;
+  color: #475569;
+  line-height: 1.6;
+  margin-top: 8rpx;
+  white-space: pre-wrap;
+}

@@ -109,7 +109,8 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
-            public ApiResponse<Object> linkFeedbacks(String status, int page, int size) {
+            public ApiResponse<Object> linkFeedbacks(String status, String reasonCode,
+                                                     int page, int size) {
                 throw unavailable(cause);
             }
 

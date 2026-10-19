@@ -49,7 +49,11 @@ import java.util.Set;
 public class SoftwareSourceFeedbackServiceImpl implements SoftwareSourceFeedbackService {
 
     private static final Set<String> REASON_CODES =
-            Set.of("LINK_INVALID", "CODE_WRONG", "FILE_MISMATCH", "SUSPICIOUS", "OTHER");
+            Set.of("LINK_INVALID", "CODE_WRONG", "FILE_MISMATCH", "SUSPICIOUS",
+                    "PLATFORM_MISMATCH", "INSTALL_FAILURE", "OTHER");
+    /** SF02：兼容性反馈类型（定位到业务版本/平台/架构；与链接失效分开统计） */
+    private static final Set<String> COMPAT_REASON_CODES =
+            Set.of("PLATFORM_MISMATCH", "INSTALL_FAILURE");
     private static final int SCHEMA_VERSION = 1;
     private static final long REPORT_WINDOW_HOURS = 24;
 
@@ -68,14 +72,24 @@ public class SoftwareSourceFeedbackServiceImpl implements SoftwareSourceFeedback
     @Override
     @Transactional
     public SoftwareFeedbackVO feedback(Long userId, Long softwareId, Long sourceId,
-                                       String reasonCode, String description) {
+                                       String reasonCode, String description,
+                                       String releaseKey, String platform, String arch,
+                                       String systemVersionText) {
         if (reasonCode == null || !REASON_CODES.contains(reasonCode)) {
             throw new BusinessException("SOFTWARE_FEEDBACK_INVALID",
-                    "反馈类型须为 LINK_INVALID/CODE_WRONG/FILE_MISMATCH/SUSPICIOUS/OTHER");
+                    "反馈类型须为 LINK_INVALID/CODE_WRONG/FILE_MISMATCH/SUSPICIOUS"
+                            + "/PLATFORM_MISMATCH/INSTALL_FAILURE/OTHER");
         }
         if (description != null && description.length() > 500) {
             throw new BusinessException("SOFTWARE_FEEDBACK_INVALID", "补充说明最长 500 字");
         }
+        // SF02：兼容性反馈上下文——仅记录业务定位字段（版本键/平台/架构/系统版本文本），
+        // 不收集设备唯一标识；链接类反馈忽略兼容性字段，避免脏数据混入统计。
+        boolean compat = COMPAT_REASON_CODES.contains(reasonCode);
+        String safeReleaseKey = compat ? trimLimit(releaseKey, 64) : null;
+        String safePlatform = compat ? trimLimit(platform, 16) : null;
+        String safeArch = compat ? trimLimit(arch, 16) : null;
+        String safeSystemText = compat ? trimLimit(systemVersionText, 200) : null;
         // 11.2 限频：单用户每日失效反馈上限（重复提交同指纹去重另有兜底）
         if (!rateLimiter.allowFeedback(userId)) {
             throw new BusinessException("SOFTWARE_RATE_LIMITED", "反馈过于频繁，请稍后再试");
@@ -118,6 +132,10 @@ public class SoftwareSourceFeedbackServiceImpl implements SoftwareSourceFeedback
         feedback.setReporterId(userId);
         feedback.setReasonCode(reasonCode);
         feedback.setDescription(description);
+        feedback.setReleaseKey(safeReleaseKey);
+        feedback.setPlatform(safePlatform);
+        feedback.setArch(safeArch);
+        feedback.setSystemVersionText(safeSystemText);
         feedback.setStatus(LinkFeedbackStatus.OPEN);
         feedback.setLockVersion(0);
         feedbackMapper.insert(feedback);
@@ -187,5 +205,18 @@ public class SoftwareSourceFeedbackServiceImpl implements SoftwareSourceFeedback
                         "distinctReporters", String.valueOf(distinctReporters)))));
         log.info("来源标记 SUSPECTED 并通知分享者 softwareId={} sourceKey={} reporters={}",
                 softwareId, sourceKey, distinctReporters);
+    }
+
+    /** SF02：限长并去空白（空白串视为空） */
+    private String trimLimit(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() > max) {
+            throw new BusinessException("SOFTWARE_FEEDBACK_INVALID",
+                    "兼容性反馈字段超长（≤" + max + " 字）");
+        }
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

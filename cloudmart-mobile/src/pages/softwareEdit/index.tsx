@@ -89,6 +89,11 @@ export default function SoftwareEditPage() {
   const [attributionType, setAttributionType] = useState<string>('ORIGINAL')
   const [developerName, setDeveloperName] = useState('')
   const [officialUrl, setOfficialUrl] = useState('')
+  /** SF02：完整资料（随快照审核） */
+  const [systemRequirements, setSystemRequirements] = useState('')
+  const [languagesText, setLanguagesText] = useState('')
+  const [installationGuide, setInstallationGuide] = useState('')
+  const [knownIssues, setKnownIssues] = useState('')
   const [descriptionText, setDescriptionText] = useState('')
   /** SW02：未编辑富文本时不回写 HTML，避免移动端把富文本降级为纯文本 */
   const descriptionBaselineRef = useRef('')
@@ -138,6 +143,10 @@ export default function SoftwareEditPage() {
     setAttributionType(ed.attributionType || 'ORIGINAL')
     setDeveloperName(ed.developerName || '')
     setOfficialUrl(ed.officialUrl || '')
+    setSystemRequirements(ed.systemRequirements || '')
+    setLanguagesText((ed.languages ?? []).join(', '))
+    setInstallationGuide(ed.installationGuide || '')
+    setKnownIssues(ed.knownIssues || '')
     const loadedText = descriptionHtmlToText(ed.descriptionHtml)
     setDescriptionText(loadedText)
     descriptionBaselineRef.current = loadedText.trim()
@@ -216,6 +225,20 @@ export default function SoftwareEditPage() {
     }
     if ((officialUrl.trim() || null) !== (editor.officialUrl ?? null)) {
       patch.officialUrl = officialUrl.trim() || null
+    }
+    // SF02：完整资料变更才提交
+    if ((systemRequirements.trim() || null) !== (editor.systemRequirements ?? null)) {
+      patch.systemRequirements = systemRequirements.trim() || null
+    }
+    const langs = languagesText.split(/[,，、]/).map((x) => x.trim()).filter(Boolean)
+    if (JSON.stringify(langs) !== JSON.stringify(editor.languages ?? [])) {
+      patch.languages = langs
+    }
+    if ((installationGuide.trim() || null) !== (editor.installationGuide ?? null)) {
+      patch.installationGuide = installationGuide.trim() || null
+    }
+    if ((knownIssues.trim() || null) !== (editor.knownIssues ?? null)) {
+      patch.knownIssues = knownIssues.trim() || null
     }
     if (attributionType !== (editor.attributionType ?? '')) patch.attributionType = attributionType
     if (accessMode !== editor.accessMode) patch.accessMode = accessMode
@@ -437,6 +460,30 @@ export default function SoftwareEditPage() {
             <Text className={styles.label}>官网（可选，https）</Text>
             <Input className={styles.input} value={officialUrl}
               onInput={(e) => setOfficialUrl(e.detail.value)} placeholder='https://…' />
+          </View>
+          <View className={styles.field}>
+            <Text className={styles.label}>系统要求（可选）</Text>
+            <Input className={styles.input} value={systemRequirements} maxlength={300}
+              onInput={(e) => setSystemRequirements(e.detail.value)}
+              placeholder='如：Windows 10 及以上 / macOS 12+' />
+          </View>
+          <View className={styles.field}>
+            <Text className={styles.label}>支持语言（可选，逗号分隔）</Text>
+            <Input className={styles.input} value={languagesText}
+              onInput={(e) => setLanguagesText(e.detail.value)}
+              placeholder='如：简体中文, English' />
+          </View>
+          <View className={styles.field}>
+            <Text className={styles.label}>安装指南（可选，随内容提交审核）</Text>
+            <Textarea className={styles.input} value={installationGuide} maxlength={2000}
+              onInput={(e) => setInstallationGuide(e.detail.value)}
+              placeholder='步骤文本；换行会保留' />
+          </View>
+          <View className={styles.field}>
+            <Text className={styles.label}>已知问题（可选，随内容提交审核）</Text>
+            <Textarea className={styles.input} value={knownIssues} maxlength={2000}
+              onInput={(e) => setKnownIssues(e.detail.value)}
+              placeholder='如实说明已知缺陷或限制' />
           </View>
           <View className={styles.field}>
             <Text className={styles.label}>软件介绍 *</Text>

@@ -158,6 +158,7 @@ public interface SoftwareFeignClient {
     @GetMapping("/link-feedbacks")
     ApiResponse<Object> linkFeedbacks(
             @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "reasonCode", required = false) String reasonCode,
             @RequestParam("page") int page, @RequestParam("size") int size);
 
     @PostMapping("/link-feedbacks/{feedbackId}/mark")

@@ -116,6 +116,10 @@ export interface SoftwareDetail {
   attributionType: string | null;
   attributionNote: string | null;
   systemRequirements: string | null;
+  /** SF02：安装指南（随快照审核） */
+  installationGuide: string | null;
+  /** SF02：已知问题（随快照审核） */
+  knownIssues: string | null;
   languages: string[];
   publishedAt: string | null;
   lastReleaseAt: string | null;
@@ -300,6 +304,8 @@ export interface SoftwareSnapshotInput {  name?: string;
   attributionType?: string;
   attributionNote?: string;
   systemRequirements?: string;
+  installationGuide?: string;
+  knownIssues?: string;
   languages?: string[];
   accessMode?: SoftwareAccessMode;
   minCommunityLevel?: number;
@@ -326,6 +332,8 @@ export interface SoftwarePatchInput {
   attributionType?: string | null;
   attributionNote?: string | null;
   systemRequirements?: string | null;
+  installationGuide?: string | null;
+  knownIssues?: string | null;
   languages?: string[];
   accessMode?: SoftwareAccessMode;
   minCommunityLevel?: number | null;
@@ -381,6 +389,10 @@ export interface SoftwareEditorData {
   attributionType: string | null;
   attributionNote: string | null;
   systemRequirements: string | null;
+  /** SF02：安装指南（随快照审核） */
+  installationGuide: string | null;
+  /** SF02：已知问题（随快照审核） */
+  knownIssues: string | null;
   languages: string[];
   accessMode: SoftwareAccessMode;
   minCommunityLevel: number | null;

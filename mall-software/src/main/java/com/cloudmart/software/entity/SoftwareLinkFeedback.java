@@ -31,6 +31,18 @@ public class SoftwareLinkFeedback {
     /** 反馈时来源内容指纹（去重键之一） */
     private String sourceFingerprint;
 
+    /** SF02：兼容性反馈定位的业务版本键（链接类反馈为空） */
+    private String releaseKey;
+
+    /** SF02：反馈时的平台（兼容性反馈） */
+    private String platform;
+
+    /** SF02：反馈时的架构（兼容性反馈） */
+    private String arch;
+
+    /** SF02：系统版本文本（用户自述，非设备指纹） */
+    private String systemVersionText;
+
     private Long reporterId;
 
     /** LINK_INVALID/CODE_WRONG/FILE_MISMATCH/SUSPICIOUS/OTHER */

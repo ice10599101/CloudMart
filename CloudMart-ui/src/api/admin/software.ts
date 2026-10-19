@@ -220,6 +220,11 @@ export interface AdminLinkFeedback {
   reporterId: string
   reasonCode: string
   description: string | null
+  /** SF02：兼容性反馈定位字段（链接类为空） */
+  releaseKey: string | null
+  platform: string | null
+  arch: string | null
+  systemVersionText: string | null
   status: string
   resolvedRevisionId: string | null
   createdAt: string
@@ -624,6 +629,7 @@ export function handleSoftwareReport(
 
 export function listLinkFeedbacks(params?: {
   status?: string
+  reasonCode?: string
   page?: number
   size?: number
 }) {

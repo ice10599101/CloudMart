@@ -123,11 +123,42 @@ class SoftwareSourceFeedbackServiceImplTest {
     }
 
     @Test
+    @DisplayName("SF02：兼容性反馈携带版本/平台/架构上下文落库；链接类忽略兼容性字段")
+    void feedback_compatContextPersisted() {
+        when(feedbackMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+
+        service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "INSTALL_FAILURE", "安装报错",
+                "rel-key-1", "WINDOWS", "X64", "Windows 11 23H2");
+
+        org.mockito.ArgumentCaptor<SoftwareLinkFeedback> captor =
+                org.mockito.ArgumentCaptor.forClass(SoftwareLinkFeedback.class);
+        verify(feedbackMapper).insert(captor.capture());
+        SoftwareLinkFeedback saved = captor.getValue();
+        org.assertj.core.api.Assertions.assertThat(saved.getReasonCode()).isEqualTo("INSTALL_FAILURE");
+        org.assertj.core.api.Assertions.assertThat(saved.getReleaseKey()).isEqualTo("rel-key-1");
+        org.assertj.core.api.Assertions.assertThat(saved.getPlatform()).isEqualTo("WINDOWS");
+        org.assertj.core.api.Assertions.assertThat(saved.getArch()).isEqualTo("X64");
+        org.assertj.core.api.Assertions.assertThat(saved.getSystemVersionText())
+                .isEqualTo("Windows 11 23H2");
+
+        // 链接类反馈：兼容性字段一律忽略置空（独立 captor，避免捕获值累积）
+        when(feedbackMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+        service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", "打不开",
+                "rel-key-1", "WINDOWS", "X64", "Windows 11");
+        org.mockito.ArgumentCaptor<SoftwareLinkFeedback> linkCaptor =
+                org.mockito.ArgumentCaptor.forClass(SoftwareLinkFeedback.class);
+        verify(feedbackMapper, org.mockito.Mockito.times(2)).insert(linkCaptor.capture());
+        SoftwareLinkFeedback linkSaved = linkCaptor.getAllValues().get(1);
+        org.assertj.core.api.Assertions.assertThat(linkSaved.getReleaseKey()).isNull();
+        org.assertj.core.api.Assertions.assertThat(linkSaved.getPlatform()).isNull();
+    }
+
+    @Test
     @DisplayName("首次反馈：OPEN 落库；重复提交返回现有反馈不重复创建（A19）")
     void feedback_dedupByReporterAndFingerprint() {
         when(feedbackMapper.selectOne(any(Wrapper.class))).thenReturn(null);
 
-        var created = service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", "打不开");
+        var created = service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", "打不开", null, null, null, null);
 
         assertThat(created.status()).isEqualTo("OPEN");
         verify(feedbackMapper).insert(any(SoftwareLinkFeedback.class));
@@ -139,7 +170,7 @@ class SoftwareSourceFeedbackServiceImplTest {
         existing.setStatus(LinkFeedbackStatus.OPEN);
         when(feedbackMapper.selectOne(any(Wrapper.class))).thenReturn(existing);
 
-        var replay = service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", "还是打不开");
+        var replay = service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", "还是打不开", null, null, null, null);
 
         assertThat(replay.feedbackId()).isEqualTo(9L);
         verify(feedbackMapper, org.mockito.Mockito.times(1)).insert(any(SoftwareLinkFeedback.class));
@@ -148,7 +179,7 @@ class SoftwareSourceFeedbackServiceImplTest {
     @Test
     @DisplayName("非法 reasonCode 拒绝；旧快照来源 SOFTWARE_SOURCE_STALE")
     void feedback_validation() {
-        assertThatThrownBy(() -> service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "HACK", null))
+        assertThatThrownBy(() -> service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "HACK", null, null, null, null, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "SOFTWARE_FEEDBACK_INVALID");
 
@@ -157,7 +188,7 @@ class SoftwareSourceFeedbackServiceImplTest {
         oldRelease.setRevisionId(999L);
         when(releaseMapper.selectById(RELEASE_ID)).thenReturn(oldRelease);
 
-        assertThatThrownBy(() -> service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null))
+        assertThatThrownBy(() -> service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null, null, null, null, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "SOFTWARE_SOURCE_STALE");
     }
@@ -172,7 +203,7 @@ class SoftwareSourceFeedbackServiceImplTest {
                 .thenReturn(0);
         when(sourceStateMapper.selectCount(any(Wrapper.class))).thenReturn(0L);
 
-        service.feedback(999L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null);
+        service.feedback(999L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null, null, null, null, null);
 
         ArgumentCaptor<SoftwareSourceState> captor = ArgumentCaptor.forClass(SoftwareSourceState.class);
         verify(sourceStateMapper).insert((SoftwareSourceState) captor.capture());
@@ -185,7 +216,7 @@ class SoftwareSourceFeedbackServiceImplTest {
         when(feedbackMapper.selectOne(any(Wrapper.class))).thenReturn(null);
         when(feedbackMapper.countRecentDistinctReporters(any(), any(), any(), any())).thenReturn(2L);
 
-        service.feedback(998L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null);
+        service.feedback(998L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null, null, null, null, null);
 
         verify(sourceStateMapper, never()).insert(any(SoftwareSourceState.class));
         verify(outboxService, never()).record(any());
@@ -201,7 +232,7 @@ class SoftwareSourceFeedbackServiceImplTest {
                 .thenReturn(0);
         when(sourceStateMapper.selectCount(any(Wrapper.class))).thenReturn(1L);
 
-        service.feedback(996L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null);
+        service.feedback(996L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null, null, null, null, null);
 
         verify(sourceStateMapper, never()).insert(any(SoftwareSourceState.class));
         verify(sourceStateMapper, never()).updateById(any(SoftwareSourceState.class));
@@ -217,7 +248,7 @@ class SoftwareSourceFeedbackServiceImplTest {
                 .thenReturn(0);
         when(sourceStateMapper.selectCount(any(Wrapper.class))).thenReturn(1L);
 
-        service.feedback(995L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null);
+        service.feedback(995L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null, null, null, null, null);
 
         verify(sourceStateMapper, never()).insert(any(SoftwareSourceState.class));
         verify(sourceStateMapper, never()).updateById(any(SoftwareSourceState.class));
@@ -232,7 +263,7 @@ class SoftwareSourceFeedbackServiceImplTest {
         when(sourceStateMapper.raiseSuspectedIfEligible(any(), any(), any(), any(), any()))
                 .thenReturn(1);
 
-        service.feedback(994L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null);
+        service.feedback(994L, SOFTWARE_ID, SOURCE_ID, "LINK_INVALID", null, null, null, null, null);
 
         verify(sourceStateMapper, never()).insert(any(SoftwareSourceState.class));
         verify(outboxService).record(any());
@@ -245,7 +276,7 @@ class SoftwareSourceFeedbackServiceImplTest {
         // 记录 resolved_revision_id——字段存在性由实体与迁移 V2 保证，此处验证插入载荷
         when(feedbackMapper.selectOne(any(Wrapper.class))).thenReturn(null);
 
-        service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "CODE_WRONG", "提取码不对");
+        service.feedback(USER_ID, SOFTWARE_ID, SOURCE_ID, "CODE_WRONG", "提取码不对", null, null, null, null);
 
         ArgumentCaptor<SoftwareLinkFeedback> captor = ArgumentCaptor.forClass(SoftwareLinkFeedback.class);
         verify(feedbackMapper).insert(captor.capture());

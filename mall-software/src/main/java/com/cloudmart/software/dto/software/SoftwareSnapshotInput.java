@@ -40,6 +40,12 @@ public class SoftwareSnapshotInput {
 
     private String systemRequirements;
 
+    /** SF02：安装指南（随快照审核；仅通用文本） */
+    private String installationGuide;
+
+    /** SF02：已知问题（随快照审核） */
+    private String knownIssues;
+
     /** 语言代码数组（JSON 序列化存储） */
     private List<String> languages;
 

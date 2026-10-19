@@ -584,6 +584,12 @@ export default function SoftwareDetail() {
           .filter(Boolean)
           .join(" · ")}
       </div>
+      {item.claimedSha256 ? (
+        <div className={styles.sourceMeta}>
+          发布者提供的校验值（SHA-256）：{item.claimedSha256}
+        </div>
+      ) : null}
+      {item.note ? <div className={styles.sourceMeta}>{item.note}</div> : null}
     </div>
   ));
 
@@ -666,6 +672,20 @@ export default function SoftwareDetail() {
                       {detail.systemRequirements ? (
                         <Descriptions.Item label="系统要求">
                           {detail.systemRequirements}
+                        </Descriptions.Item>
+                      ) : null}
+                      {detail.installationGuide ? (
+                        <Descriptions.Item label="安装指南" span={2}>
+                          <div style={{ whiteSpace: "pre-wrap" }}>
+                            {detail.installationGuide}
+                          </div>
+                        </Descriptions.Item>
+                      ) : null}
+                      {detail.knownIssues ? (
+                        <Descriptions.Item label="已知问题" span={2}>
+                          <div style={{ whiteSpace: "pre-wrap" }}>
+                            {detail.knownIssues}
+                          </div>
                         </Descriptions.Item>
                       ) : null}
                     </Descriptions>

@@ -11,5 +11,7 @@ public interface SoftwareSourceFeedbackService {
      * @return 反馈结果（重复提交返回现有反馈；不重复创建）
      */
     SoftwareFeedbackVO feedback(Long userId, Long softwareId, Long sourceId,
-                                String reasonCode, String description);
+                                String reasonCode, String description,
+                                String releaseKey, String platform, String arch,
+                                String systemVersionText);
 }

@@ -413,6 +413,15 @@ public class SoftwareSnapshotAssembler {
         }
         revision.setSystemRequirements(trimToNull(input.getSystemRequirements()));
         revision.setLanguages(serializeLanguages(input.getLanguages()));
+        // SF02：安装指南/已知问题随快照审核（revision 即审核单位）；仅通用文本，禁止远程脚本说明
+        if (input.getInstallationGuide() != null && input.getInstallationGuide().length() > 2000) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "安装指南最长 2000 字");
+        }
+        revision.setInstallationGuide(trimToNull(input.getInstallationGuide()));
+        if (input.getKnownIssues() != null && input.getKnownIssues().length() > 2000) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "已知问题最长 2000 字");
+        }
+        revision.setKnownIssues(trimToNull(input.getKnownIssues()));
 
         applyAccessMode(revision, input);
         if (input.getAccessNote() != null && input.getAccessNote().length() > 500) {

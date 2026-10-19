@@ -23,7 +23,7 @@ public interface AdminSoftwareModerationService {
                            AdminReportHandleRequest request);
 
     /** 失效反馈列表 */
-    Page<Map<String, Object>> feedbackPage(String status, int page, int size);
+    Page<Map<String, Object>> feedbackPage(String status, String reasonCode, int page, int size);
 
     /** 反馈标记：VERIFYING/RESOLVED（必须携带修复 revisionId，保留 original 指纹）/REJECTED */
     boolean markFeedback(Long adminId, Long feedbackId, String idempotencyKey,

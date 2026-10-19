@@ -60,9 +60,10 @@ public class AdminSoftwareModerationController {
     @Operation(summary = "失效反馈列表", description = "status 过滤")
     public ApiResponse<Page<Map<String, Object>>> feedbacks(
             @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "reasonCode", required = false) String reasonCode,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
-        return ApiResponse.ok(adminSoftwareModerationService.feedbackPage(status, page, size));
+        return ApiResponse.ok(adminSoftwareModerationService.feedbackPage(status, reasonCode, page, size));
     }
 
     @PostMapping("/link-feedbacks/{feedbackId}/mark")

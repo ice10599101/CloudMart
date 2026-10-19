@@ -58,7 +58,9 @@ public class SoftwareSourceController {
             @PathVariable("sourceId") Long sourceId,
             @Valid @RequestBody FeedbackRequest request) {
         return ApiResponse.ok(sourceFeedbackService.feedback(userId, id, sourceId,
-                request.getReasonCode(), request.getDescription()));
+                request.getReasonCode(), request.getDescription(),
+                request.getReleaseKey(), request.getPlatform(), request.getArch(),
+                request.getSystemVersionText()));
     }
 
     @GetMapping("/{id}/access-state")
@@ -79,5 +81,10 @@ public class SoftwareSourceController {
         @NotBlank(message = "反馈类型不能为空")
         private String reasonCode;
         private String description;
+        /** SF02：兼容性反馈定位字段（PLATFORM_MISMATCH/INSTALL_FAILURE 时使用） */
+        private String releaseKey;
+        private String platform;
+        private String arch;
+        private String systemVersionText;
     }
 }

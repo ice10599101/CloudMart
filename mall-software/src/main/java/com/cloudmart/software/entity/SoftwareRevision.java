@@ -74,6 +74,12 @@ public class SoftwareRevision {
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String systemRequirements;
 
+    /** SF02：安装指南（步骤文本；随快照审核；仅通用文本，不含远程脚本） */
+    private String installationGuide;
+
+    /** SF02：已知问题（随快照审核） */
+    private String knownIssues;
+
     /** 语言代码 JSON 数组 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String languages;

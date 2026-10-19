@@ -188,14 +188,46 @@ export default function SoftwareDetailScreen() {
     }
   }
 
-  /** SW11：来源失效反馈（同指纹同人幂等返回既有反馈） */
-  const handleSourceFeedback = async (sourceId: string) => {
+  /** SF02：来源反馈——链接类直提；兼容性类 Alert 选择并携带定位上下文 */
+  const submitSourceFeedback = async (
+    source: {
+      sourceId: string
+      releaseKey?: string
+      platform?: string | null
+      arch?: string | null
+    },
+    reasonCode: string,
+  ) => {
     try {
-      await softwareApi.sourceFeedback(id, sourceId, 'LINK_INVALID')
+      const compat = reasonCode === 'PLATFORM_MISMATCH' || reasonCode === 'INSTALL_FAILURE'
+      await softwareApi.sourceFeedback(id, source.sourceId, reasonCode, compat
+        ? {
+            releaseKey: source.releaseKey,
+            platform: source.platform,
+            arch: source.arch,
+          }
+        : undefined)
       Alert.alert('提示', '感谢反馈，我们会尽快核实该来源')
     } catch {
       // 限频等由拦截器提示
     }
+  }
+
+  const handleSourceFeedback = (source: {
+    sourceId: string
+    releaseKey?: string
+    platform?: string | null
+    arch?: string | null
+  }) => {
+    Alert.alert('反馈问题类型', '选择要反馈的问题（仅提交指纹结论，不收集设备标识）', [
+      { text: '链接失效', onPress: () => void submitSourceFeedback(source, 'LINK_INVALID') },
+      {
+        text: '平台不兼容',
+        onPress: () => void submitSourceFeedback(source, 'PLATFORM_MISMATCH'),
+      },
+      { text: '安装失败', onPress: () => void submitSourceFeedback(source, 'INSTALL_FAILURE') },
+      { text: '取消', style: 'cancel' },
+    ])
   }
 
   /** SW11：撤销评分 */
@@ -386,6 +418,32 @@ export default function SoftwareDetailScreen() {
           </View>
         </View>
 
+        {/* SF02：安装指南/已知问题（随快照审核；有内容才显示） */}
+        {(detail.installationGuide || detail.knownIssues) ? (
+          <View style={{ borderRadius: BorderRadius.md, padding: Spacing.md, backgroundColor: theme.bgContainer }}>
+            {detail.installationGuide ? (
+              <View>
+                <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>
+                  安装指南
+                </Text>
+                <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary, marginTop: 4, lineHeight: 20 }}>
+                  {detail.installationGuide}
+                </Text>
+              </View>
+            ) : null}
+            {detail.knownIssues ? (
+              <View style={{ marginTop: detail.installationGuide ? Spacing.md : 0 }}>
+                <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>
+                  已知问题
+                </Text>
+                <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary, marginTop: 4, lineHeight: 20 }}>
+                  {detail.knownIssues}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         {/* 下载来源与获取链接 */}
         <View style={{ borderRadius: BorderRadius.md, padding: Spacing.md, backgroundColor: theme.bgContainer }}>
           <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>下载来源</Text>
@@ -453,16 +511,26 @@ export default function SoftwareDetailScreen() {
                     {source.label || source.provider || source.sourceType}
                     {source.platform ? ` · ${source.platform}` : ''}
                   </Text>
+                  {source.sizeLabel || source.note ? (
+                    <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>
+                      {[source.sizeLabel, source.note].filter(Boolean).join(' · ')}
+                    </Text>
+                  ) : null}
+                  {source.claimedSha256 ? (
+                    <Text style={{ fontSize: FontSize.xs, color: theme.textTertiary, marginTop: 2 }}>
+                      发布者提供的校验值（SHA-256）
+                    </Text>
+                  ) : null}
                 </TouchableOpacity>
                 {/* SW11：来源失效反馈（不向无权限者泄露 URL，仅提交指纹结论） */}
                 <TouchableOpacity
-                  onPress={() => void handleSourceFeedback(source.sourceId)}
+                  onPress={() => handleSourceFeedback(source)}
                   style={{
                     paddingHorizontal: Spacing.sm,
                     paddingVertical: Spacing.sm,
                   }}
                 >
-                  <Text style={{ color: '#f5a623', fontSize: FontSize.xs }}>反馈失效</Text>
+                  <Text style={{ color: '#f5a623', fontSize: FontSize.xs }}>反馈问题</Text>
                 </TouchableOpacity>
               </View>
             ))}

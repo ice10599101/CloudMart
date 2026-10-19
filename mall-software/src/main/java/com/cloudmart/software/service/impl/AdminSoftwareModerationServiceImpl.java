@@ -201,12 +201,14 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
     }
 
     @Override
-    public Page<Map<String, Object>> feedbackPage(String status, int page, int size) {
+    public Page<Map<String, Object>> feedbackPage(String status, String reasonCode, int page, int size) {
         Page<SoftwareLinkFeedback> feedbackPage = feedbackMapper.selectPage(
                 Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 100)),
                 new LambdaQueryWrapper<SoftwareLinkFeedback>()
                         .eq(status != null && !status.isBlank(), SoftwareLinkFeedback::getStatus,
                                 status == null ? null : LinkFeedbackStatus.valueOf(status))
+                        .eq(reasonCode != null && !reasonCode.isBlank(),
+                                SoftwareLinkFeedback::getReasonCode, reasonCode)
                         .orderByAsc(SoftwareLinkFeedback::getCreatedAt));
         Page<Map<String, Object>> result = new Page<>(feedbackPage.getCurrent(),
                 feedbackPage.getSize(), feedbackPage.getTotal());
@@ -219,6 +221,10 @@ public class AdminSoftwareModerationServiceImpl implements AdminSoftwareModerati
                     row.put("reporterId", String.valueOf(feedback.getReporterId()));
                     row.put("reasonCode", feedback.getReasonCode());
                     row.put("description", feedback.getDescription());
+                    row.put("releaseKey", feedback.getReleaseKey());
+                    row.put("platform", feedback.getPlatform());
+                    row.put("arch", feedback.getArch());
+                    row.put("systemVersionText", feedback.getSystemVersionText());
                     row.put("status", feedback.getStatus().name());
                     row.put("resolvedRevisionId", feedback.getResolvedRevisionId() == null
                             ? null : String.valueOf(feedback.getResolvedRevisionId()));

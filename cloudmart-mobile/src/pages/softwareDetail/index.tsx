@@ -178,14 +178,44 @@ export default function SoftwareDetailPage() {
     }
   }
 
-  /** SW11：来源失效反馈（同指纹同人幂等） */
-  const handleSourceFeedback = async (sourceId: string) => {
+  /** SF02：来源反馈——ActionSheet 选类型；兼容性类携带定位上下文（不收集设备标识） */
+  const submitSourceFeedback = async (
+    source: {
+      sourceId: string
+      releaseKey?: string
+      platform?: string | null
+      arch?: string | null
+    },
+    reasonCode: string,
+  ) => {
     try {
-      await softwareApi.sourceFeedback(id, sourceId, 'LINK_INVALID')
+      const compat = reasonCode === 'PLATFORM_MISMATCH' || reasonCode === 'INSTALL_FAILURE'
+      await softwareApi.sourceFeedback(id, source.sourceId, reasonCode, compat
+        ? {
+            releaseKey: source.releaseKey,
+            platform: source.platform,
+            arch: source.arch,
+          }
+        : undefined)
       Taro.showToast({ title: '感谢反馈', icon: 'success' })
     } catch {
       // 限频由拦截器提示
     }
+  }
+
+  const handleSourceFeedback = (source: {
+    sourceId: string
+    releaseKey?: string
+    platform?: string | null
+    arch?: string | null
+  }) => {
+    Taro.showActionSheet({
+      itemList: ['链接失效', '平台不兼容', '安装失败'],
+      success: (res) => {
+        const codes = ['LINK_INVALID', 'PLATFORM_MISMATCH', 'INSTALL_FAILURE']
+        void submitSourceFeedback(source, codes[res.tapIndex])
+      },
+    })
   }
 
   /** SW11：撤销评分（真实均分随刷新返回） */
@@ -333,6 +363,23 @@ export default function SoftwareDetailPage() {
         </View>
       </View>
 
+      {(detail.installationGuide || detail.knownIssues) && (
+        <View className={styles.card}>
+          {detail.installationGuide && (
+            <>
+              <Text className={styles.cardTitle}>安装指南</Text>
+              <Text className={styles.guideText}>{detail.installationGuide}</Text>
+            </>
+          )}
+          {detail.knownIssues && (
+            <>
+              <Text className={styles.cardTitle}>已知问题</Text>
+              <Text className={styles.guideText}>{detail.knownIssues}</Text>
+            </>
+          )}
+        </View>
+      )}
+
       <View className={styles.card}>
         <Text className={styles.cardTitle}>下载来源</Text>
         {releases.length > 1 ? (
@@ -375,11 +422,21 @@ export default function SoftwareDetailPage() {
                   ? `（${source.availabilityTip ?? '需核实'}）`
                   : ''}
               </Text>
+              {(source.sizeLabel || source.note) && (
+                <Text className={styles.sourceMetaExtra}>
+                  {[source.sizeLabel, source.note].filter(Boolean).join(' · ')}
+                </Text>
+              )}
+              {source.claimedSha256 && (
+                <Text className={styles.sourceMetaExtra}>
+                  发布者提供的校验值（SHA-256）
+                </Text>
+              )}
               <Text
                 className={styles.sourceFeedback}
-                onClick={() => void handleSourceFeedback(source.sourceId)}
+                onClick={() => handleSourceFeedback(source)}
               >
-                反馈失效
+                反馈问题
               </Text>
             </View>
           ))

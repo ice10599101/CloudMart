@@ -41,7 +41,11 @@ public record SoftwareDetailVO(
         /** 登录用户个性化：我的评分 1~5（未评分/游客 null；P1） */
         Integer myScore,
         /** 登录用户个性化：是否已订阅更新（游客 null；P1） */
-        Boolean isSubscribed) {
+        Boolean isSubscribed,
+        /** SF02：安装指南（随快照审核） */
+        String installationGuide,
+        /** SF02：已知问题（随快照审核） */
+        String knownIssues) {
 
     /** 截图（无障碍文本随素材走） */
     public record ScreenshotVO(Long assetId, Integer displayOrder, String altText) {

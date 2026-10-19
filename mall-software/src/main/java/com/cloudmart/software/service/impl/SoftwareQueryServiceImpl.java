@@ -195,7 +195,8 @@ public class SoftwareQueryServiceImpl implements com.cloudmart.software.service.
                 software.getRatingCount(), ratingAvg(software.getRatingCount(),
                 software.getRatingSum()),
                 ownerNickname, ownerAvatar, isFavorited,
-                software.getOwnerId(), myScore, isSubscribed);
+                software.getOwnerId(), myScore, isSubscribed,
+                revision.getInstallationGuide(), revision.getKnownIssues());
     }
 
     private List<SoftwareTagVO> loadTags(Long revisionId) {
