@@ -530,6 +530,16 @@ public class AdminSoftwareController {
         return softwareFeignClient.decideAccessRequest(requestId, body);
     }
 
+    // ---------------- 来源健康巡检（SF07：software:link） ----------------
+
+    @OperLog(title = "来源巡检重检", businessType = 2)
+    @PostMapping("/sources/{sourceId}/patrol")
+    @RequiresPermission("software:link")
+    @Operation(summary = "来源手动重检", description = "立即探测单条 HTTPS 来源；不覆盖人工状态；磁力/种子不支持")
+    public ApiResponse<Object> patrolSource(@PathVariable("sourceId") Long sourceId) {
+        return softwareFeignClient.patrolSource(sourceId);
+    }
+
     // ---------------- 审核工作流（SF08：software:review） ----------------
 
     @OperLog(title = "审核领取", businessType = 2)

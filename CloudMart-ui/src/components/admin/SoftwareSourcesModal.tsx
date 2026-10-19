@@ -3,6 +3,7 @@ import { Button, Modal, Space, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
   listAdminSoftwareSources,
+  patrolSource,
   type AdminSoftwareSourceItem,
 } from '@/api/admin/software'
 import { useMessage } from '@/utils/useMessage'
@@ -109,11 +110,33 @@ export default function SoftwareSourcesModal({
     },
     {
       title: '操作',
-      width: 90,
+      width: 130,
       render: (_, record) => (
-        <Button type="link" size="small" onClick={() => setTarget(record)}>
-          处置
-        </Button>
+        <Space size={4}>
+          <Button type="link" size="small" onClick={() => setTarget(record)}>
+            处置
+          </Button>
+          {/* SF07：HTTPS 类来源可立即重检；不覆盖人工结论 */}
+          {record.sourceType === 'HTTPS_DOWNLOAD'
+            || record.sourceType === 'OFFICIAL_PAGE'
+            || record.sourceType === 'WEB_APP' ? (
+            <Button
+              type="link"
+              size="small"
+              onClick={() =>
+                patrolSource(record.sourceId)
+                  .then((res) =>
+                    message.success(
+                      `重检完成：${res.data.data?.outcome ?? '-'}（${res.data.data?.reasonCode ?? '-'}）`,
+                    ),
+                  )
+                  .catch(() => undefined)
+              }
+            >
+              重检
+            </Button>
+          ) : null}
+        </Space>
       ),
     },
   ]

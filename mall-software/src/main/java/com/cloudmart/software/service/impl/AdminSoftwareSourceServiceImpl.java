@@ -179,6 +179,7 @@ public class AdminSoftwareSourceServiceImpl implements AdminSoftwareSourceServic
             }
             SoftwareSourceState state = stateByKey.get(source.getSourceKey());
             result.add(new AdminSoftwareSourceVO(
+                    source.getId(),
                     release.getReleaseKey(),
                     release.getVersionName(),
                     release.getChannel() == null ? null : release.getChannel().name(),

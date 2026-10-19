@@ -324,6 +324,8 @@ export function decideReview(
 
 /** SW06：后台来源清单（当前线上快照；链接已脱敏，不含提取码/解压密码） */
 export interface AdminSoftwareSourceItem {
+  /** SF07：来源行主键（手动巡检重检用） */
+  sourceId: string
   releaseKey: string
   versionName: string
   channel: string | null
@@ -888,5 +890,15 @@ export function listSoftwareHistory(softwareId: string, page = 1, size = 20) {
   return request.get<ApiResponse<PageResult<SoftwareHistoryRow>>>(
     `${BASE}/items/${softwareId}/history`,
     { params: { page, size } },
+  )
+}
+
+/** SF07：来源手动重检（仅官方 HTTPS 来源；不覆盖人工状态） */
+export function patrolSource(sourceId: string, idempotencyKey?: string) {
+  const url = `${BASE}/sources/${sourceId}/patrol`
+  return request.post<ApiResponse<{ sourceId: string; outcome: string; reasonCode: string | null }>>(
+    url,
+    {},
+    softwareWriteConfig('POST', url, {}, idempotencyKey),
   )
 }

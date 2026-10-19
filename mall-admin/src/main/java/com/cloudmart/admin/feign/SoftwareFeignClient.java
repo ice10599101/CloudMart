@@ -193,6 +193,10 @@ public interface SoftwareFeignClient {
     @GetMapping("/statistics")
     ApiResponse<Object> statistics();
 
+    /** SF07：来源手动重检 */
+    @PostMapping("/sources/{sourceId}/patrol")
+    ApiResponse<Object> patrolSource(@org.springframework.web.bind.annotation.PathVariable("sourceId") Long sourceId);
+
     /** SF08：审核领取 */
     @PostMapping("/revisions/{revisionId}/claim")
     ApiResponse<Object> claimReview(@PathVariable("revisionId") Long revisionId);

@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
  * <p>默认脱敏：url 只保留协议与主机；提取码/解压密码不进入该视图，禁止导出。</p>
  */
 public record AdminSoftwareSourceVO(
+        /** SF07：来源行主键（手动巡检重检用） */
+        Long sourceId,
         String releaseKey,
         String versionName,
         String channel,

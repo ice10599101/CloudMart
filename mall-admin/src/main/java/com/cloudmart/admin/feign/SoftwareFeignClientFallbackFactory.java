@@ -248,6 +248,11 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> patrolSource(Long sourceId) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> claimReview(Long revisionId) {
                 throw unavailable(cause);
             }
