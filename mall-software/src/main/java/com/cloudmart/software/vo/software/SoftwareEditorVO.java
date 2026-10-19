@@ -42,7 +42,9 @@ public record SoftwareEditorVO(
         /** SF02：安装指南（随快照审核） */
         String installationGuide,
         /** SF02：已知问题（随快照审核） */
-        String knownIssues) {
+        String knownIssues,
+        /** UX03：短亮点（≤3 条、每条 ≤60 字，随快照审核） */
+        java.util.List<String> highlights) {
 
     /** 编辑器截图（素材 ID，非渲染 URL） */
     public record MediaVO(Long assetId, String altText, Integer displayOrder) {

@@ -32,6 +32,7 @@ import com.cloudmart.software.repository.SoftwareSourceMapper;
 import com.cloudmart.software.repository.SoftwareSourceStateMapper;
 import com.cloudmart.software.repository.SoftwareTagMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -52,6 +53,7 @@ import java.util.stream.Collectors;
  * <p>全量替换语义：子项按输入整体重建；releaseKey/sourceKey 携带则沿用
  * （更新识别/统计/禁用继承的稳定标识），null 则服务端生成 UUID，不接受客户端伪造。</p>
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class SoftwareSnapshotAssembler {
@@ -100,7 +102,7 @@ public class SoftwareSnapshotAssembler {
             "name", "summary", "categoryId", "iconAssetId", "descriptionHtml", "licenseType",
             "developerName", "officialUrl", "attributionType", "attributionNote",
             "systemRequirements", "installationGuide", "knownIssues",
-            "languages", "accessMode", "minCommunityLevel",
+            "languages", "highlights", "accessMode", "minCommunityLevel",
             "accessContactId", "accessNote", "tagIds", "screenshots", "releases");
 
     /**
@@ -225,6 +227,13 @@ public class SoftwareSnapshotAssembler {
         }
         if (patch.has("languages")) {
             revision.setLanguages(serializeLanguages(stringList(patch.get("languages"), "languages")));
+        }
+        // UX03：短亮点 PATCH（数组整体替换；校验同 PUT）
+        if (patch.has("highlights")) {
+            if (!patch.get("highlights").isArray()) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "highlights 必须为数组");
+            }
+            revision.setHighlights(serializeHighlights(stringList(patch.get("highlights"), "highlights")));
         }
         if (patch.has("accessMode") || patch.has("minCommunityLevel") || patch.has("accessContactId")) {
             applyAccessModePatch(revision, patch);
@@ -428,6 +437,8 @@ public class SoftwareSnapshotAssembler {
             throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "系统要求最长 300 字");
         }
         revision.setSystemRequirements(trimToNull(input.getSystemRequirements()));
+        revision.setHighlights(serializeHighlights(
+                input.getHighlights() == null ? java.util.List.of() : input.getHighlights()));
         revision.setLanguages(serializeLanguages(input.getLanguages()));
         // SF02：安装指南/已知问题随快照审核（revision 即审核单位）；仅通用文本，禁止远程脚本说明
         if (input.getInstallationGuide() != null && input.getInstallationGuide().length() > 2000) {
@@ -485,6 +496,43 @@ public class SoftwareSnapshotAssembler {
                     languages.stream().map(String::trim).toList());
         } catch (Exception e) {
             throw new IllegalStateException("语言列表序列化失败", e);
+        }
+    }
+
+    /** UX03：短亮点序列化——≤3 条、每条 trim 后 1~60 字；空列表清空（存 NULL） */
+    public String serializeHighlights(List<String> highlights) {
+        if (highlights == null || highlights.isEmpty()) {
+            return null;
+        }
+        if (highlights.size() > 3) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "亮点最多 3 条");
+        }
+        List<String> cleaned = highlights.stream()
+                .map(h -> h == null ? "" : h.trim())
+                .toList();
+        for (String h : cleaned) {
+            if (h.isEmpty() || h.length() > 60) {
+                throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "亮点每条须为 1~60 字");
+            }
+        }
+        try {
+            return objectMapper.writeValueAsString(cleaned);
+        } catch (Exception e) {
+            throw new IllegalStateException("亮点序列化失败", e);
+        }
+    }
+
+    /** UX03：亮点反序列化（脏数据安全降级为空列表） */
+    public List<String> deserializeHighlights(String highlightsJson) {
+        if (highlightsJson == null || highlightsJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(highlightsJson,
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
+        } catch (Exception e) {
+            log.warn("亮点反序列化失败，按空处理: {}", e.getMessage());
+            return List.of();
         }
     }
 
@@ -956,6 +1004,7 @@ public class SoftwareSnapshotAssembler {
         clone.setAttributionType(source.getAttributionType());
         clone.setAttributionNote(source.getAttributionNote());
         clone.setSystemRequirements(source.getSystemRequirements());
+        clone.setHighlights(source.getHighlights());
         // SF02：完整资料三件套之安装指南/已知问题（D37 复测发现克隆丢失，同步补齐）
         clone.setInstallationGuide(source.getInstallationGuide());
         clone.setKnownIssues(source.getKnownIssues());

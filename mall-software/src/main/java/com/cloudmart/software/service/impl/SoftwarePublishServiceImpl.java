@@ -431,7 +431,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 revision.getReviewerId(), revision.getReviewReason(),
                 software.getLifecycle().name(),
                 software.getPublishedRevisionId(), software.getWorkingRevisionId(),
-                revision.getInstallationGuide(), revision.getKnownIssues());
+                revision.getInstallationGuide(), revision.getKnownIssues(),
+                assembler.deserializeHighlights(revision.getHighlights()));
     }
 
     private List<String> parseLanguages(String languagesJson) {
@@ -690,6 +691,10 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         List<String> texts = new ArrayList<>();
         if (snapshot.getDescriptionText() != null && !snapshot.getDescriptionText().isBlank()) {
             texts.add(snapshot.getDescriptionText());
+        }
+        // UX03：短亮点属审核内容，纳入摘要（改动亮点后旧审核结论失效）
+        if (snapshot.getHighlights() != null && !snapshot.getHighlights().isBlank()) {
+            texts.add(snapshot.getHighlights());
         }
         for (SoftwareRelease release : releaseMapper.selectList(new LambdaQueryWrapper<SoftwareRelease>()
                 .eq(SoftwareRelease::getRevisionId, snapshot.getId()))) {

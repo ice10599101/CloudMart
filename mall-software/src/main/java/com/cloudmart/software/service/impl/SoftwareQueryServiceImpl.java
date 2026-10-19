@@ -72,8 +72,10 @@ public class SoftwareQueryServiceImpl implements com.cloudmart.software.service.
     private final com.cloudmart.software.repository.SoftwareRatingMapper ratingMapper;
     private final com.cloudmart.software.repository.SoftwareSubscriptionMapper subscriptionMapper;
     private final SoftwareAccessContactMapper accessContactMapper;
+    private final com.cloudmart.software.repository.SoftwareRelationMapper relationMapper;
     private final UserSupportFeignClient userSupportFeignClient;
     private final ObjectMapper objectMapper;
+    private final com.cloudmart.software.service.SoftwareSnapshotAssembler snapshotAssembler;
 
     @Override
     public Page<SoftwareCardVO> pageCards(SoftwareListQuery query) {
@@ -123,8 +125,7 @@ public class SoftwareQueryServiceImpl implements com.cloudmart.software.service.
     }
 
     @Override
-    public SoftwareDetailVO detail(Long softwareId, Long viewerId) {
-        Software software = accessPolicy.visibleSoftware(softwareId);
+    public SoftwareDetailVO detail(Long softwareId, Long viewerId) {        Software software = accessPolicy.visibleSoftware(softwareId);
         SoftwareRevision revision = software == null ? null
                 : accessPolicy.visiblePublishedRevision(softwareId);
         if (software == null || revision == null) {
@@ -196,7 +197,112 @@ public class SoftwareQueryServiceImpl implements com.cloudmart.software.service.
                 software.getRatingSum()),
                 ownerNickname, ownerAvatar, isFavorited,
                 software.getOwnerId(), myScore, isSubscribed,
-                revision.getInstallationGuide(), revision.getKnownIssues());
+                revision.getInstallationGuide(), revision.getKnownIssues(),
+                snapshotAssembler.deserializeHighlights(revision.getHighlights()),
+                loadRelatedItems(softwareId),
+                loadPublisherSummary(software.getOwnerId(), ownerNickname, ownerAvatar));
+    }
+
+    /** UX03：同类选择——人工关系，实时过滤不可见/封禁目标，排除自身；≤4 条按展示序 */
+    private List<SoftwareDetailVO.RelatedItemVO> loadRelatedItems(Long softwareId) {
+        List<com.cloudmart.software.entity.SoftwareRelation> relations =
+                relationMapper.selectList(new LambdaQueryWrapper<com.cloudmart.software.entity.SoftwareRelation>()
+                        .eq(com.cloudmart.software.entity.SoftwareRelation::getSoftwareId, softwareId)
+                        .orderByAsc(com.cloudmart.software.entity.SoftwareRelation::getDisplayOrder)
+                        .orderByAsc(com.cloudmart.software.entity.SoftwareRelation::getId));
+        if (relations.isEmpty()) {
+            return List.of();
+        }
+        List<Long> relatedIds = relations.stream()
+                .map(com.cloudmart.software.entity.SoftwareRelation::getRelatedId)
+                .distinct().toList();
+        // 实时可见性：lifecycle=ACTIVE 且存在已发布快照（封禁/下架不泄露，D44 同语义）
+        List<com.cloudmart.software.entity.Software> visible = softwareMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.software.entity.Software>()
+                        .in(com.cloudmart.software.entity.Software::getId, relatedIds)
+                        .eq(com.cloudmart.software.entity.Software::getLifecycle, "ACTIVE")
+                        .isNotNull(com.cloudmart.software.entity.Software::getPublishedRevisionId));
+        var visibleById = visible.stream().collect(java.util.stream.Collectors
+                .toMap(com.cloudmart.software.entity.Software::getId, s -> s));
+        List<SoftwareDetailVO.RelatedItemVO> items = new java.util.ArrayList<>();
+        for (var rel : relations) {
+            var target = visibleById.get(rel.getRelatedId());
+            if (target == null) {
+                continue;
+            }
+            var published = accessPolicy.visiblePublishedRevision(rel.getRelatedId());
+            if (published == null) {
+                continue;
+            }
+            items.add(new SoftwareDetailVO.RelatedItemVO(rel.getRelatedId(),
+                    published.getName(), published.getSummary(),
+                    published.getIconAssetId(), rel.getRelationType(), rel.getReason()));
+            if (items.size() >= 4) {
+                break;
+            }
+        }
+        return items;
+    }
+
+    /** UX03：发布者资料卡——仅公开统计（可见投稿数 + 最近发布时间），不含草稿/审核信息 */
+    private SoftwareDetailVO.PublisherSummaryVO loadPublisherSummary(Long ownerId,
+                                                                     String nickname, String avatar) {
+        Integer publishedCount = softwareMapper.selectCount(
+                new LambdaQueryWrapper<com.cloudmart.software.entity.Software>()
+                        .eq(com.cloudmart.software.entity.Software::getOwnerId, ownerId)
+                        .eq(com.cloudmart.software.entity.Software::getLifecycle, "ACTIVE")
+                        .isNotNull(com.cloudmart.software.entity.Software::getPublishedRevisionId))
+                .intValue();
+        var lastPublished = softwareMapper.selectOne(
+                new LambdaQueryWrapper<com.cloudmart.software.entity.Software>()
+                        .eq(com.cloudmart.software.entity.Software::getOwnerId, ownerId)
+                        .eq(com.cloudmart.software.entity.Software::getLifecycle, "ACTIVE")
+                        .isNotNull(com.cloudmart.software.entity.Software::getPublishedRevisionId)
+                        .orderByDesc(com.cloudmart.software.entity.Software::getPublishedAt)
+                        .last("LIMIT 1"));
+        return new SoftwareDetailVO.PublisherSummaryVO(ownerId, nickname, avatar,
+                publishedCount, lastPublished == null ? null : lastPublished.getPublishedAt());
+    }
+
+    /** UX03：分享者公开投稿分页——仅 ACTIVE+已发布；不含草稿/审核原因/内部权限 */
+    @Override
+    public Page<SoftwareCardVO> publisherItems(Long publisherUserId, int page, int size) {
+        int safePage = Math.max(1, page);
+        int safeSize = Math.min(Math.max(1, size), 50);
+        Page<com.cloudmart.software.entity.Software> p = softwareMapper.selectPage(
+                Page.of(safePage, safeSize),
+                new LambdaQueryWrapper<com.cloudmart.software.entity.Software>()
+                        .eq(com.cloudmart.software.entity.Software::getOwnerId, publisherUserId)
+                        .eq(com.cloudmart.software.entity.Software::getLifecycle, "ACTIVE")
+                        .isNotNull(com.cloudmart.software.entity.Software::getPublishedRevisionId)
+                        .orderByDesc(com.cloudmart.software.entity.Software::getPublishedAt)
+                        .orderByDesc(com.cloudmart.software.entity.Software::getId));
+        Page<SoftwareCardVO> result = new Page<>(p.getCurrent(), p.getSize(), p.getTotal());
+        List<SoftwareCardVO> cards = new java.util.ArrayList<>();
+        for (var software : p.getRecords()) {
+            var revision = revisionForPublished(software);
+            if (revision == null) {
+                continue;
+            }
+            String categoryName = revision.getCategoryId() == null ? null
+                    : java.util.Optional.ofNullable(categoryMapper.selectById(revision.getCategoryId()))
+                            .map(com.cloudmart.software.entity.SoftwareCategory::getName).orElse(null);
+            cards.add(new SoftwareCardVO(software.getId(), revision.getName(),
+                    revision.getSummary(), revision.getIconAssetId(), revision.getCategoryId(),
+                    categoryName,
+                    revision.getLicenseType() == null ? null : revision.getLicenseType().name(),
+                    List.of(), software.getLastReleaseAt(),
+                    software.getFavoriteCount(), software.getCommentCount(),
+                    software.getRatingCount(), ratingAvg(software.getRatingCount(),
+                    software.getRatingSum())));
+        }
+        result.setRecords(cards);
+        return result;
+    }
+
+    private com.cloudmart.software.entity.SoftwareRevision revisionForPublished(
+            com.cloudmart.software.entity.Software software) {
+        return accessPolicy.visiblePublishedRevision(software.getId());
     }
 
     private List<SoftwareTagVO> loadTags(Long revisionId) {

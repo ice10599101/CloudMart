@@ -85,10 +85,21 @@ class SoftwareQueryServiceImplTest {
     @Mock
     private SoftwareAccessContactMapper accessContactMapper;
     @Mock
+    private com.cloudmart.software.repository.SoftwareRelationMapper relationMapper;
+    @Mock
     private UserSupportFeignClient userSupportFeignClient;
+    @Mock
+    private com.cloudmart.software.service.SoftwareSnapshotAssembler snapshotAssembler;
 
     @InjectMocks
     private SoftwareQueryServiceImpl service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubAssembler() {
+        org.mockito.Mockito.lenient()
+                .when(snapshotAssembler.deserializeHighlights(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(java.util.List.of());
+    }
 
     private Software visibleSoftware() {
         Software software = new Software();

@@ -26,6 +26,10 @@ public interface SoftwareQueryService {
     /** 详情（viewerId 可空：游客个性化字段为 null；登录返回 isFavorited） */
     SoftwareDetailVO detail(Long softwareId, Long viewerId);
 
+    /** UX03：分享者公开投稿分页（仅 ACTIVE+已发布；不含草稿/审核原因/内部权限） */
+    Page<com.cloudmart.software.vo.software.SoftwareCardVO> publisherItems(Long publisherUserId,
+                                                                           int page, int size);
+
     /** 启用中的分类（筛选字典） */
     List<SoftwareCategoryVO> categories();
 

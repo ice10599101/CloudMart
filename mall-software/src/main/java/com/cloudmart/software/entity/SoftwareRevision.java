@@ -74,6 +74,10 @@ public class SoftwareRevision {
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String systemRequirements;
 
+    /** UX03：短亮点 JSON 数组（≤3 条、每条 ≤60 字，随快照审核） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String highlights;
+
     /** SF02：安装指南（步骤文本；随快照审核；仅通用文本，不含远程脚本） */
     private String installationGuide;
 

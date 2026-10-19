@@ -657,6 +657,16 @@ export default function SoftwareDetail() {
                 label: "软件介绍",
                 children: (
                   <div>
+                    {/* UX03：短亮点（≤3 条，随快照审核；无数据省略） */}
+                    {(detail.highlights || []).length > 0 ? (
+                      <ul style={{ margin: "0 0 12px", paddingLeft: 18 }}>
+                        {(detail.highlights || []).map((h, i) => (
+                          <li key={i}>
+                            <Typography.Text strong>{h}</Typography.Text>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                     <RichText content={detail.descriptionHtml} />
                     <Descriptions column={1} size="small" bordered>
                       {detail.developerName ? (
@@ -1005,6 +1015,59 @@ export default function SoftwareDetail() {
           </div>
         </Card>
       </div>
+
+      {/* UX03：发布者资料卡（"本站分享者"≠开发者）+ 同类选择（人工关系，不宣称优劣） */}
+      {detail.publisherSummary || (detail.relatedItems || []).length > 0 ? (
+        <Card style={{ marginTop: 16 }} title="同类选择与分享者">
+          {detail.publisherSummary ? (
+            <div style={{ marginBottom: 12 }}>
+              <Typography.Text type="secondary">
+                本站分享者（区别于软件开发者）：
+              </Typography.Text>
+              <Typography.Text strong>
+                {detail.publisherSummary.nickname || `用户 ${detail.publisherSummary.userId}`}
+              </Typography.Text>
+              <Typography.Text type="secondary" style={{ marginLeft: 12 }}>
+                公开投稿 {detail.publisherSummary.publishedCount} 款
+                {detail.publisherSummary.lastPublishedAt
+                  ? ` · 最近发布 ${detail.publisherSummary.lastPublishedAt.slice(0, 10)}`
+                  : ""}
+              </Typography.Text>
+            </div>
+          ) : null}
+          {(detail.relatedItems || []).length > 0 ? (
+            <div>
+              {(detail.relatedItems || []).map((rel) => (
+                <Card
+                  key={`${rel.softwareId}-${rel.relationType}`}
+                  type="inner"
+                  size="small"
+                  style={{ marginBottom: 8 }}
+                  title={
+                    <span>
+                      <Tag color={rel.relationType === "SIMILAR_USE" ? "blue" : "green"}>
+                        {rel.relationType === "SIMILAR_USE" ? "同类用途" : "同平台替代"}
+                      </Tag>
+                      <a href={`/software/${rel.softwareId}`}>{rel.name}</a>
+                    </span>
+                  }
+                >
+                  {rel.reason ? (
+                    <Typography.Paragraph type="secondary" style={{ marginBottom: 4 }}>
+                      {rel.reason}
+                    </Typography.Paragraph>
+                  ) : null}
+                  {rel.summary ? (
+                    <Typography.Paragraph ellipsis={{ rows: 2 }} style={{ marginBottom: 0 }}>
+                      {rel.summary}
+                    </Typography.Paragraph>
+                  ) : null}
+                </Card>
+              ))}
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
 
       {reportTarget ? (
         <ReportModal

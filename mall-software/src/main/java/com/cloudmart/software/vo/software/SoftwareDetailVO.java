@@ -45,9 +45,37 @@ public record SoftwareDetailVO(
         /** SF02：安装指南（随快照审核） */
         String installationGuide,
         /** SF02：已知问题（随快照审核） */
-        String knownIssues) {
+        String knownIssues,
+        /** UX03：短亮点（≤3 条，随快照审核） */
+        List<String> highlights,
+        /** UX03：同类选择（人工关系；不可见目标实时过滤；≤4 条） */
+        List<RelatedItemVO> relatedItems,
+        /** UX03：发布者资料卡（"本站分享者"公开资料，区别于开发者） */
+        PublisherSummaryVO publisherSummary) {
 
     /** 截图（无障碍文本随素材走） */
     public record ScreenshotVO(Long assetId, Integer displayOrder, String altText) {
+    }
+
+    /** UX03：同类选择条目（只含公开可见目标） */
+    public record RelatedItemVO(
+            Long softwareId,
+            String name,
+            String summary,
+            Long iconAssetId,
+            /** SIMILAR_USE(同类用途) / ALTERNATIVE_PLATFORM(同平台替代) */
+            String relationType,
+            String reason) {
+    }
+
+    /** UX03：发布者资料卡（仅公开资料与当前可见投稿统计） */
+    public record PublisherSummaryVO(
+            Long userId,
+            String nickname,
+            String avatar,
+            /** 当前可见投稿数（不含草稿/已删除） */
+            Integer publishedCount,
+            /** 最近一次发布时间（无则 null） */
+            LocalDateTime lastPublishedAt) {
     }
 }

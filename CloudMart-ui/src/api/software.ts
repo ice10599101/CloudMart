@@ -100,9 +100,27 @@ export interface SoftwareScreenshot {
   altText: string | null;
 }
 
-export interface SoftwareDetail {
-  id: string;
+/** UX03：同类选择条目（公开可见目标；relationType=SIMILAR_USE/ALTERNATIVE_PLATFORM） */
+export interface SoftwareRelatedItem {
+  softwareId: string;
   name: string;
+  summary: string | null;
+  iconAssetId: string | null;
+  relationType: string;
+  reason: string | null;
+}
+
+/** UX03：发布者资料卡（"本站分享者"公开资料；不返回草稿/审核信息） */
+export interface SoftwarePublisherSummary {
+  userId: string;
+  nickname: string | null;
+  avatar: string | null;
+  publishedCount: number;
+  lastPublishedAt: string | null;
+}
+
+export interface SoftwareDetail {
+  id: string;  name: string;
   summary: string;
   descriptionHtml: string;
   iconAssetId: string | null;
@@ -120,6 +138,12 @@ export interface SoftwareDetail {
   installationGuide: string | null;
   /** SF02：已知问题（随快照审核） */
   knownIssues: string | null;
+  /** UX03：短亮点（≤3 条，随快照审核） */
+  highlights: string[];
+  /** UX03：同类选择（人工关系；不可见目标已实时过滤） */
+  relatedItems: SoftwareRelatedItem[];
+  /** UX03：发布者资料卡（"本站分享者"公开资料） */
+  publisherSummary: SoftwarePublisherSummary | null;
   languages: string[];
   publishedAt: string | null;
   lastReleaseAt: string | null;
@@ -306,6 +330,8 @@ export interface SoftwareSnapshotInput {  name?: string;
   systemRequirements?: string;
   installationGuide?: string;
   knownIssues?: string;
+  /** UX03：短亮点（≤3 条、每条 1~60 字） */
+  highlights?: string[];
   languages?: string[];
   accessMode?: SoftwareAccessMode;
   minCommunityLevel?: number;
@@ -334,6 +360,8 @@ export interface SoftwarePatchInput {
   systemRequirements?: string | null;
   installationGuide?: string | null;
   knownIssues?: string | null;
+  /** UX03：短亮点（数组整体替换；空数组清空） */
+  highlights?: string[];
   languages?: string[];
   accessMode?: SoftwareAccessMode;
   minCommunityLevel?: number | null;
@@ -393,6 +421,8 @@ export interface SoftwareEditorData {
   installationGuide: string | null;
   /** SF02：已知问题（随快照审核） */
   knownIssues: string | null;
+  /** UX03：短亮点（≤3 条） */
+  highlights: string[];
   languages: string[];
   accessMode: SoftwareAccessMode;
   minCommunityLevel: number | null;

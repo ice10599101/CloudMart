@@ -40,6 +40,9 @@ public class SoftwareSnapshotInput {
 
     private String systemRequirements;
 
+    /** UX03：短亮点（≤3 条、每条 1~60 字，随快照审核） */
+    private java.util.List<String> highlights;
+
     /** SF02：安装指南（随快照审核；仅通用文本） */
     private String installationGuide;
 

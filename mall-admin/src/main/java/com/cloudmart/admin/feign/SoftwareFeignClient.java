@@ -74,6 +74,15 @@ public interface SoftwareFeignClient {
     ApiResponse<Object> featured(@PathVariable("softwareId") Long softwareId,
                                  @RequestBody Map<String, Object> body);
 
+    // ---------------- 同类关系（UX03） ----------------
+
+    @GetMapping("/items/{softwareId}/relations")
+    ApiResponse<Object> relations(@PathVariable("softwareId") Long softwareId);
+
+    @PutMapping("/items/{softwareId}/relations")
+    ApiResponse<Object> saveRelations(@PathVariable("softwareId") Long softwareId,
+                                      @RequestBody Map<String, Object> body);
+
     // ---------------- 分类与标签（software:category） ----------------
 
     @GetMapping("/categories")

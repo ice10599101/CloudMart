@@ -40,6 +40,7 @@ import java.util.Map;
 public class AdminSoftwareCatalogController {
 
     private final AdminSoftwareCatalogService adminSoftwareCatalogService;
+    private final com.cloudmart.software.service.SoftwareRelationService relationService;
 
     // ---------------- 目录（software:list / moderate / feature） ----------------
 
@@ -88,6 +89,23 @@ public class AdminSoftwareCatalogController {
         return ApiResponse.ok(adminSoftwareCatalogService.feature(
                 adminUserId, softwareId, idempotencyKey,
                 request.getFeaturedRank()));
+    }
+
+    // ---------------- 同类关系（UX03；software:manage 守卫沿用类级 INTERNAL） ----------------
+
+    @GetMapping("/items/{softwareId}/relations")
+    @Operation(summary = "同类关系清单", description = "管理视图全量（不过滤可见性，供编辑检查目标状态）")
+    public ApiResponse<List<Map<String, Object>>> relations(@PathVariable("softwareId") Long softwareId) {
+        return ApiResponse.ok(relationService.listRelations(softwareId));
+    }
+
+    @PutMapping("/items/{softwareId}/relations")
+    @Operation(summary = "同类关系全量替换",
+            description = "≤4 条；禁自关联/去重/目标须已发布；type=SIMILAR_USE/ALTERNATIVE_PLATFORM")
+    public ApiResponse<Integer> saveRelations(
+            @PathVariable("softwareId") Long softwareId,
+            @RequestBody com.cloudmart.software.dto.software.AdminRelationSaveRequest request) {
+        return ApiResponse.ok(relationService.saveRelations(softwareId, request));
     }
 
     // ---------------- 分类与标签（software:category） ----------------

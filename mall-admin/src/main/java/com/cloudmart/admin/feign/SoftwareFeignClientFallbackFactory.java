@@ -157,6 +157,16 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> relations(Long softwareId) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> saveRelations(Long softwareId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> categories() {
                 throw unavailable(cause);
             }

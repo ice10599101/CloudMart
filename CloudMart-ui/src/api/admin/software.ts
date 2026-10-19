@@ -358,6 +358,36 @@ export function setSourceState(  softwareId: string,
   )
 }
 
+// ==================== 同类关系（UX03） ====================
+
+export interface AdminSoftwareRelation {
+  relatedId: string
+  relationType: 'SIMILAR_USE' | 'ALTERNATIVE_PLATFORM'
+  reason: string
+  displayOrder: number
+}
+
+/** 管理视图全量（不过滤可见性，供编辑检查目标状态） */
+export function listSoftwareRelations(softwareId: string) {
+  return request.get<ApiResponse<AdminSoftwareRelation[]>>(
+    `${BASE}/items/${softwareId}/relations`,
+  )
+}
+
+/** 全量替换：≤4 条；禁自关联/去重/目标须已发布 */
+export function saveSoftwareRelations(
+  softwareId: string,
+  items: Array<{
+    relatedId: string
+    relationType: 'SIMILAR_USE' | 'ALTERNATIVE_PLATFORM'
+    reason?: string
+    displayOrder?: number
+  }>,
+) {
+  const url = `${BASE}/items/${softwareId}/relations`
+  return request.put<ApiResponse<number>>(url, items.length ? { items } : { items: [] })
+}
+
 // ==================== 评论（software:comment） ====================
 
 /** 软件模块运营统计总览（Dashboard 软件区块数据源） */

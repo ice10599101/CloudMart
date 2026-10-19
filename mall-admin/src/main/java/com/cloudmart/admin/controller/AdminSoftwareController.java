@@ -357,6 +357,26 @@ public class AdminSoftwareController {
         return softwareFeignClient.featured(softwareId, body);
     }
 
+    // ---------------- 同类关系（UX03；software:manage 权限） ----------------
+
+    @GetMapping("/items/{softwareId}/relations")
+    @RequiresPermission("software:manage")
+    @Operation(summary = "同类关系清单", description = "管理视图全量（不过滤可见性）")
+    public ApiResponse<Object> relations(@PathVariable("softwareId") Long softwareId) {
+        return softwareFeignClient.relations(softwareId);
+    }
+
+    @OperLog(title = "同类关系维护", businessType = 2)
+    @PutMapping("/items/{softwareId}/relations")
+    @RequiresPermission("software:manage")
+    @Operation(summary = "同类关系全量替换",
+            description = "≤4 条；禁自关联/去重/目标须已发布；type=SIMILAR_USE/ALTERNATIVE_PLATFORM")
+    public ApiResponse<Object> saveRelations(
+            @PathVariable("softwareId") Long softwareId,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.saveRelations(softwareId, body);
+    }
+
     // ---------------- 分类与标签（software:category） ----------------
 
     @GetMapping("/categories")

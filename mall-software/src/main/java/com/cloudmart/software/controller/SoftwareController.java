@@ -96,6 +96,18 @@ public class SoftwareController {
         return ApiResponse.ok(softwareQueryService.detail(id, viewerId));
     }
 
+    /** UX03：分享者公开投稿（仅 ACTIVE+已发布；不含草稿/审核原因/内部权限） */
+    @GetMapping("/publishers/{userId}/items")
+    @Operation(summary = "分享者公开投稿分页",
+            description = "发布者资料卡跳转用；只展示当前可见投稿，不返回草稿/审核/内部信息")
+    public ApiResponse<com.baomidou.mybatisplus.extension.plugins.pagination.Page<
+            com.cloudmart.software.vo.software.SoftwareCardVO>> publisherItems(
+            @PathVariable("userId") Long userId,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "12") int size) {
+        return ApiResponse.ok(softwareQueryService.publisherItems(userId, page, size));
+    }
+
     @GetMapping("/{id}/access-policy")
     @Operation(summary = "查看条件摘要",
             description = "当前线上条件；无用户授权记录、付款备注、源 URL 或提取码")
