@@ -621,6 +621,37 @@ export default function SoftwareDetailScreen() {
                     </TouchableOpacity>
                   ))
                 : null}
+              {/* SF04：访问申请入口（付款查看模式；提交后 PENDING 可见；审批结果见 notifications） */}
+              {accessState.accessMode === 'ADMIN_PAID' ? (
+                accessState.pendingRequest ? (
+                  <Text style={{ color: theme.textSecondary, fontSize: FontSize.xs, marginTop: 4 }}>
+                    访问申请{accessState.pendingRequest.status === 'PENDING' ? '审核中' : accessState.pendingRequest.status}
+                    {accessState.pendingRequest.reviewNote
+                      ? `：${accessState.pendingRequest.reviewNote}` : ''}
+                  </Text>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => {
+                      void (async () => {
+                        try {
+                          await softwareApi.submitAccessRequest(
+                            id,
+                            '申请访问受限来源（App 端提交，请补充用途说明后管理员核验）',
+                          )
+                          Alert.alert('已提交', '访问申请已提交，请等待管理员核验')
+                        } catch {
+                          Alert.alert('提示', '提交失败（可能已有申请）')
+                        }
+                      })()
+                    }}
+                    style={{ marginTop: 6 }}
+                  >
+                    <Text style={{ color: theme.primary, fontSize: FontSize.sm }}>
+                      提交访问申请（说明用途，人工核验后开通） →
+                    </Text>
+                  </TouchableOpacity>
+                )
+              ) : null}
             </View>
           ) : resolved ? (
             <View style={{ marginTop: Spacing.sm }}>

@@ -10,7 +10,9 @@ import {
 } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { softwareApi, softwarePublishApi } from '@/api/software'
+import { softwareApi, softwarePublishApi, getMyPublisherApplication,
+  submitPublisherApplication, cancelPublisherApplication,
+  type SoftwarePublisherApplication } from '@/api/software'
 import type { SoftwareMineItem } from '@/api/software'
 import { useAuthStore } from '@/store/auth'
 import { useTheme } from '@/hooks/use-theme-context'
@@ -64,6 +66,8 @@ export default function SoftwareMineScreen() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [busy, setBusy] = useState(false)
+  // SF03：发布资格申请状态卡
+  const [application, setApplication] = useState<SoftwarePublisherApplication | null>(null)
   /** SW11：更新提醒总开关（与订阅关系相互独立；退订≠关闭提醒） */
   const [updateNotify, setUpdateNotify] = useState(true)
 
@@ -114,7 +118,13 @@ export default function SoftwareMineScreen() {
     void load(tab, 1)
   }, [load, tab, params.refreshed])
 
-  const gate = async (fn: () => Promise<unknown>, doneTip: string) => {
+
+  // SF03：加载我的发布资格申请（状态卡）
+  useEffect(() => {
+    getMyPublisherApplication()
+      .then((res) => setApplication(res.data?.data ?? null))
+      .catch(() => undefined);
+  }, []);  const gate = async (fn: () => Promise<unknown>, doneTip: string) => {
     setBusy(true)
     try {
       await fn()
@@ -267,6 +277,106 @@ export default function SoftwareMineScreen() {
           </TouchableOpacity>
         )}
       </View>
+      {/* SF03：发布资格申请状态卡（PENDING 可撤回；REJECTED 显示原因可重申） */}
+      {application ? (
+        <View
+          style={{
+            marginHorizontal: Spacing.md,
+            marginBottom: Spacing.sm,
+            padding: Spacing.md,
+            borderRadius: BorderRadius.md,
+            backgroundColor: theme.bgContainer,
+            borderWidth: 1,
+            borderColor: theme.border ?? '#e2e8f0',
+          }}
+        >
+          <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: theme.text }}>
+            发布资格申请：{
+              application.status === 'PENDING' ? '审核中'
+              : application.status === 'APPROVED' ? '已通过'
+              : application.status === 'REJECTED' ? '未通过'
+              : '已撤回'
+            }
+          </Text>
+          {application.reviewNote ? (
+            <Text style={{ fontSize: FontSize.xs, color: theme.textSecondary, marginTop: 2 }}>
+              审核意见：{application.reviewNote}
+            </Text>
+          ) : null}
+          {application.status === 'PENDING' || application.status === 'REJECTED' ? (
+            <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm }}>
+              {application.status === 'PENDING' ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    void (async () => {
+                      try {
+                        await cancelPublisherApplication(application.id)
+                        setApplication(null)
+                      } catch {
+                        Alert.alert('提示', '撤回失败，请稍后再试')
+                      }
+                    })()
+                  }}
+                >
+                  <Text style={{ fontSize: FontSize.sm, color: '#d3392f' }}>撤回申请</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => {
+                    void (async () => {
+                      try {
+                        const res = await submitPublisherApplication({
+                          motivation: '重新申请发布资格',
+                        })
+                        setApplication(res.data?.data ?? null)
+                      } catch {
+                        Alert.alert('提示', '提交失败，请稍后再试')
+                      }
+                    })()
+                  }}
+                >
+                  <Text style={{ fontSize: FontSize.sm, color: '#3d5afe' }}>重新申请</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null}
+        </View>
+      ) : (
+        <View
+          style={{
+            marginHorizontal: Spacing.md,
+            marginBottom: Spacing.sm,
+            padding: Spacing.md,
+            borderRadius: BorderRadius.md,
+            backgroundColor: theme.bgContainer,
+            borderWidth: 1,
+            borderColor: theme.border ?? '#e2e8f0',
+          }}
+        >
+          <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>
+            想发布软件？提交发布资格申请，审核通过后开放发布。
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              void (async () => {
+                try {
+                  const res = await submitPublisherApplication({
+                    motivation: '申请发布资格（App 端提交）',
+                  })
+                  setApplication(res.data?.data ?? null)
+                } catch {
+                  Alert.alert('提示', '提交失败（可能已有申请或已具资格）')
+                }
+              })()
+            }}
+          >
+            <Text style={{ fontSize: FontSize.sm, color: '#3d5afe', marginTop: 4 }}>
+              提交发布资格申请 →
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* SW11：更新提醒开关（我的软件设置；退订与关闭语义不同） */}
       <View
         style={{

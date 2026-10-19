@@ -127,6 +127,12 @@ export interface SoftwareAccessState {
   requiredLevel: number | null
   grantExpiresAt: string | null
   contacts: Array<{ id: string; name: string; contactType: string; contactValue: string }>
+  /** SF04：进行中的访问申请（PENDING 可见；无申请 null） */
+  pendingRequest?: {
+    requestId: string
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
+    reviewNote: string | null
+  } | null
 }
 
 export interface SoftwareResolveResult {
@@ -326,7 +332,19 @@ export const softwareApi = {
     request<void>({ url: `${BASE}/${id}/comments/${commentId}/like`, method: 'DELETE' }),
   favorite: (id: string) => request<void>({ url: `${BASE}/${id}/favorite`, method: 'PUT' }),
   unfavorite: (id: string) => request<void>({ url: `${BASE}/${id}/favorite`, method: 'DELETE' }),
-  subscribe: (id: string) => request<void>({ url: `${BASE}/${id}/subscription`, method: 'PUT' }),
+  subscribe: (id: string, preference?: { platforms?: string; channels?: string }) =>
+    request<void>({ url: `${BASE}/${id}/subscription`, method: 'PUT', data: preference }),
+  /** SF05：订阅偏好查询（是否订阅+平台/渠道偏好） */
+  subscriptionPreference: (id: string) =>
+    request<{ subscribed: boolean; platforms: string | null; channels: string | null }>({
+      url: `${BASE}/${id}/subscription`, method: 'GET' }),
+  /** SF04：提交访问申请（付款查看门槛；人工核验） */
+  submitAccessRequest: (softwareId: string, message: string) =>
+    request<void>({
+      url: `/software/access-requests/${softwareId}`,
+      method: 'POST',
+      data: { message },
+    }),
   unsubscribe: (id: string) =>
     request<void>({ url: `${BASE}/${id}/subscription`, method: 'DELETE' }),
   rate: (id: string, score: number) => {
@@ -652,3 +670,31 @@ export function listMySoftwareRequests() {
     createdAt: string | null
   }>>({ url: `${BASE}/requests/mine`, method: 'GET' })
 }
+
+// ==================== SF03/SF04：发布资格与受限来源申请（App 端） ====================
+
+export interface SoftwarePublisherApplication {
+  id: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
+  motivation: string | null
+  reviewNote: string | null
+  createdAt: string | null
+  reviewedAt: string | null
+}
+
+export function getMyPublisherApplication() {
+  return request<SoftwarePublisherApplication | null>({
+    url: `${BASE}/publisher-applications/mine`, method: 'GET' })
+}
+
+export function submitPublisherApplication(input: { motivation: string }) {
+  return request<SoftwarePublisherApplication>({
+    url: `${BASE}/publisher-applications`, method: 'POST', data: input })
+}
+
+export function cancelPublisherApplication(applicationId: string) {
+  return request<void>({
+    url: `${BASE}/publisher-applications/${applicationId}/cancel`, method: 'POST' })
+}
+
+
