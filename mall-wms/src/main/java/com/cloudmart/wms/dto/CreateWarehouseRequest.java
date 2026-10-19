@@ -8,5 +8,5 @@ public record CreateWarehouseRequest(
     @Schema(description = "仓库名称") @NotBlank String name,
     @Schema(description = "仓库地址") String address,
     @Schema(description = "联系电话") String contactPhone,
-    @Schema(description = "状态: 0=正常, 1=禁用") Integer status
+    @Schema(description = "状态: 0=禁用, 1=正常（与 warehouses 表语义一致，默认 1）") Integer status
 ) {}

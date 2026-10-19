@@ -594,17 +594,28 @@ public class OrderServiceImpl implements OrderService {
         if (carrier == null || carrier.isBlank() || trackingNo == null || trackingNo.isBlank()) {
             throw new BusinessException("TRACKING_NO_REQUIRED", "承运商与运单号不能为空");
         }
+        // T21（D22 部署实测缺陷修复）：仓库指定必须透传给 WMS——此前 warehouseId
+        // 被静默丢弃，WMS 永远走默认仓分配，"停用仓库被拒"约束从未真正生效
+        java.util.Map<String, Object> shippingPayload = new java.util.LinkedHashMap<>();
+        shippingPayload.put("orderId", orderId);
+        shippingPayload.put("carrier", carrier);
+        shippingPayload.put("trackingNo", trackingNo);
+        shippingPayload.put("receiverName", order.getReceiverName() == null ? "" : order.getReceiverName());
+        shippingPayload.put("receiverPhone", order.getReceiverPhone() == null ? "" : order.getReceiverPhone());
+        shippingPayload.put("receiverAddress", order.getReceiverAddress() == null ? "" : order.getReceiverAddress());
+        if (warehouseId != null) {
+            shippingPayload.put("warehouseId", warehouseId);
+        }
         com.cloudmart.common.api.ApiResponse<Map<String, Object>> packageResp =
-                wmsShippingFeignClient.createShipping(new java.util.LinkedHashMap<>(java.util.Map.of(
-                        "orderId", orderId,
-                        "carrier", carrier,
-                        "trackingNo", trackingNo,
-                        "receiverName", order.getReceiverName() == null ? "" : order.getReceiverName(),
-                        "receiverPhone", order.getReceiverPhone() == null ? "" : order.getReceiverPhone(),
-                        "receiverAddress", order.getReceiverAddress() == null ? "" : order.getReceiverAddress())));
+                wmsShippingFeignClient.createShipping(shippingPayload);
         if (packageResp == null || !packageResp.success() || packageResp.data() == null
                 || packageResp.data().get("id") == null) {
-            throw new BusinessException("WMS_CREATE_FAILED", "包裹创建失败，发货未完成");
+            // 透传 WMS 的具体错误（如 WAREHOUSE_UNAVAILABLE），不吞成笼统的创建失败
+            String wmsCode = packageResp == null || packageResp.error() == null
+                    ? "WMS_CREATE_FAILED" : String.valueOf(packageResp.error().code());
+            String wmsMsg = packageResp == null || packageResp.error() == null
+                    ? "包裹创建失败，发货未完成" : String.valueOf(packageResp.error().message());
+            throw new BusinessException(wmsCode, wmsMsg);
         }
         Long shipmentId = ((Number) packageResp.data().get("id")).longValue();
         wmsShippingFeignClient.updateStatus(shipmentId, "SHIPPED");
