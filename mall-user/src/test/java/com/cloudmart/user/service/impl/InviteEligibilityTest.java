@@ -122,9 +122,10 @@ class InviteEligibilityTest {
                 anyString(), anyString(), anyString(), anyLong(), anyString(), anyInt(), anyString());
         ArgumentCaptor<UserInviteRelation> captor = ArgumentCaptor.forClass(UserInviteRelation.class);
         verify(inviteRelationMapper, org.mockito.Mockito.atLeastOnce()).updateById(captor.capture());
+        // T15：双向奖励回执——入队后置 SETTLING，两侧义务 SETTLED 由义务服务推进 GRANTED
         assertThat(captor.getAllValues().stream()
                 .map(UserInviteRelation::getRewardStatus)
-                .reduce((a, b) -> b)).contains("GRANTED");
+                .reduce((a, b) -> b)).contains("SETTLING");
     }
 
     @Test

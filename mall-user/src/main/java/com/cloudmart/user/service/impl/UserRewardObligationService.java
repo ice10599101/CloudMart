@@ -34,6 +34,7 @@ public class UserRewardObligationService {
 
     private final UserRewardObligationMapper obligationMapper;
     private final WishStarlightFeignClient wishStarlightFeignClient;
+    private final com.cloudmart.user.repository.UserInviteRelationMapper inviteRelationMapper;
 
     /** 义务入队（调用方事务内）+ 提交后即送；重复 bizKey 幂等跳过 */
     public void enqueueWithCommitDelivery(String bizKey, String source, String sourceBizId,
@@ -99,6 +100,8 @@ public class UserRewardObligationService {
                 settle(obligation.getId());
                 log.info("R07 邀请奖励义务交付完成: bizKey={}, beneficiary={}, amount={}",
                         obligation.getBizKey(), obligation.getBeneficiary(), obligation.getAmount());
+                // T15：双向奖励回执——同 relationId 两侧义务全部 SETTLED 才把台账置 GRANTED
+                advanceInviteRelationIfBothSettled(obligation.getSource(), obligation.getSourceBizId());
                 return true;
             }
             recordFailure(obligation, res == null ? "wish 空响应" : String.valueOf(res.error()));
@@ -135,5 +138,40 @@ public class UserRewardObligationService {
             return "unknown";
         }
         return error.length() > 300 ? error.substring(0, 300) : error;
+    }
+
+    /**
+     * T15：双侧回执推进——source=INVITE_REWARD 的义务按 sourceBizId（relationId）配对，
+     * 该 relationId 名下所有义务均 SETTLED 时把台账 SETTLING → GRANTED（条件更新幂等）。
+     * 非邀请来源直接跳过；单侧失败时台账保持 SETTLING 如实展示"发放中"。
+     */
+    private void advanceInviteRelationIfBothSettled(String source, String sourceBizId) {
+        if (!"INVITE_REWARD".equals(source) || sourceBizId == null || sourceBizId.isBlank()) {
+            return;
+        }
+        try {
+            Long relationId = Long.valueOf(sourceBizId);
+            long total = obligationMapper.selectCount(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<UserRewardObligation>()
+                            .eq(UserRewardObligation::getSource, source)
+                            .eq(UserRewardObligation::getSourceBizId, sourceBizId));
+            long settled = obligationMapper.selectCount(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<UserRewardObligation>()
+                            .eq(UserRewardObligation::getSource, source)
+                            .eq(UserRewardObligation::getSourceBizId, sourceBizId)
+                            .eq(UserRewardObligation::getStatus, UserRewardObligation.STATUS_SETTLED));
+            if (total > 0 && settled == total) {
+                int updated = inviteRelationMapper.update(null,
+                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<com.cloudmart.user.entity.UserInviteRelation>()
+                                .eq(com.cloudmart.user.entity.UserInviteRelation::getId, relationId)
+                                .eq(com.cloudmart.user.entity.UserInviteRelation::getRewardStatus, "SETTLING")
+                                .set(com.cloudmart.user.entity.UserInviteRelation::getRewardStatus, "GRANTED"));
+                if (updated > 0) {
+                    log.info("[T15] 邀请奖励双侧到账，台账置 GRANTED: relationId={}", relationId);
+                }
+            }
+        } catch (NumberFormatException e) {
+            log.debug("[T15] sourceBizId 非 relationId，跳过回执推进: {}", sourceBizId);
+        }
     }
 }

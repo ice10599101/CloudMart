@@ -72,6 +72,7 @@ public class DailySigninServiceImpl implements DailySigninService {
     private final CommunityFeignClient communityFeignClient;
     private final WishRewardObligationService rewardObligationService;
     private final com.cloudmart.wish.feign.UserFeignClient userFeignClient;
+    private final WishInviteCallbackOutboxService inviteCallbackOutboxService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -116,24 +117,10 @@ public class DailySigninServiceImpl implements DailySigninService {
         log.info("每日签到成功, userId={}, date={}, consecutive={}, credited={}, expGranted={}, levelUp={}",
                 userId, today, consecutiveDays, credited, expGranted, levelUp != null);
 
-        // WISH-04：邀请资格回调（事务提交后执行，Feign 失败不阻断签到——
-        // 下一次签到会再次触发资格检查，最终一致）
+        // WISH-04/T15：邀请资格回调 outbox——签到事务内落库（同用户旧 PENDING 置
+        // SUPERSEDED），提交即送/失败退避补发（用户停签也最终一致，不再依赖下次签到）
         final int distinctDays = wishDailySigninMapper.countDistinctSigninDays(userId);
-        // 无事务上下文（单测/边缘路径）跳过注册——下次签到自然重试
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    try {
-                        userFeignClient.inviteEligibilityCheck(
-                                java.util.Map.of("userId", userId, "distinctSigninDays", distinctDays));
-                    } catch (Exception ex) {
-                        log.warn("[WISH04] 邀请资格回调失败（下次签到重试）: userId={}, err={}",
-                                userId, ex.getMessage());
-                    }
-                }
-            });
-        }
+        inviteCallbackOutboxService.enqueue(userId, distinctDays);
 
         return new DailySigninVO(true, consecutiveDays, credited, SIGNIN_REWARD + levelBonus,
                 SIGNIN_EXP_REWARD, expGranted, levelUp, levelBonus);

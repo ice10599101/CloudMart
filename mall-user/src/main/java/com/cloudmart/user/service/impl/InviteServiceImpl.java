@@ -197,9 +197,11 @@ public class InviteServiceImpl implements InviteService {
                 SOURCE_INVITE + ":" + relation.getId() + ":" + inviteeId,
                 SOURCE_INVITE, String.valueOf(relation.getId()), inviteeId,
                 UserRewardObligation.TYPE_STARLIGHT, rewardInvitee, "受邀奖励（资格达标）");
-        relation.setRewardStatus("GRANTED");
+        // T15：双向奖励回执——两侧义务 SETTLED 才置 GRANTED（由义务交付回调推进）；
+        // 先置 SETTLING 如实反映"已入队未全部到账"，避免一边失败一边显示成功
+        relation.setRewardStatus("SETTLING");
         inviteRelationMapper.updateById(relation);
-        log.info("[WISH04] 邀请奖励发放: relationId={}, inviter={}, invitee={}, dayPeriod={}, monthPeriod={}",
+        log.info("[WISH04] 邀请奖励入队（等待双侧到账回执）: relationId={}, inviter={}, invitee={}, dayPeriod={}, monthPeriod={}",
                 relation.getId(), relation.getInviterId(), inviteeId, dayPeriod, monthPeriod);
         return Map.of("result", "granted", "relationId", relation.getId());
     }

@@ -20,6 +20,7 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   PENDING_ELIGIBILITY: { label: '待资格', color: 'processing' },
   ELIGIBLE: { label: '资格达标', color: 'blue' },
   GRANTED: { label: '已发放', color: 'success' },
+  SETTLING: { label: '发放中（等待双侧到账）', color: 'processing' },
   HOLD: { label: '挂起待核', color: 'error' },
   REJECTED_LIMIT: { label: '额度超限', color: 'warning' },
 }
@@ -86,6 +87,7 @@ export default function AdminInvites() {
             { value: 'PENDING_ELIGIBILITY', label: '待资格' },
             { value: 'ELIGIBLE', label: '资格达标' },
             { value: 'GRANTED', label: '已发放' },
+            { value: 'SETTLING', label: '发放中' },
             { value: 'REJECTED_LIMIT', label: '额度超限' },
           ]}
         />

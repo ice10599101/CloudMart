@@ -49,7 +49,8 @@ class UserRewardObligationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new UserRewardObligationService(obligationMapper, wishStarlightFeignClient);
+        service = new UserRewardObligationService(obligationMapper, wishStarlightFeignClient,
+                org.mockito.Mockito.mock(com.cloudmart.user.repository.UserInviteRelationMapper.class));
         when(obligationMapper.selectById(any())).thenAnswer(inv -> {
             UserRewardObligation o = new UserRewardObligation();
             o.setId(inv.getArgument(0, Long.class));
