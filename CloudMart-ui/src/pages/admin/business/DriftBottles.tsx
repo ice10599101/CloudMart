@@ -18,6 +18,8 @@ import {
 } from 'antd'
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table'
 import RichText from '@/components/RichText'
+import CommentContent from '@/components/CommentContent'
+import { formatTimeOnly } from '@/utils/format'
 import {
   getAdminDriftBottleDashboard,
   getAdminDriftBottleDetail,
@@ -432,10 +434,10 @@ export default function DriftBottles() {
               <div key={comment.id} style={{ marginBottom: 8 }}>
                 <Text strong>用户 {comment.userId}</Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  （{comment.isAnonymous ? '匿名' : comment.nickname}）· {formatTime(comment.createdAt)}
+                  （{comment.isAnonymous ? '匿名' : comment.nickname}）· {formatTimeOnly(comment.createdAt)}
                   {comment.parentId ? ` · 回复 #${comment.parentId}` : ''}
                 </Text>
-                <div style={{ fontSize: 13 }}>{comment.content}</div>
+                <div style={{ fontSize: 13 }}><CommentContent content={comment.content} /></div>
               </div>
             ))}
           </>

@@ -52,7 +52,7 @@ import ShareModal from '@/components/ShareModal'
 import ReportModal from '@/components/ReportModal'
 import GiftSection from '@/components/GiftSection'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
-import { formatDateTime } from '@/utils/format'
+import { formatDateTime, formatTimeOnly } from '@/utils/format'
 
 function formatCount(n: number): string {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w'
@@ -308,7 +308,7 @@ function CommentItem({
               </>
             )}
             <span style={{ color: 'var(--color-text-tertiary)', fontSize: 12, marginLeft: 'auto' }}>
-              {formatDateTime(comment.createdAt)}
+              {formatTimeOnly(comment.createdAt)}
             </span>
             <Dropdown
               menu={{

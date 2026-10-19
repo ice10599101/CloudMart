@@ -17,4 +17,5 @@ public final class SecurityConstants {
     public static final String ADMIN_LOGIN_FAIL_PREFIX = "admin:login_fail:";
     public static final String ADMIN_LOCK_PREFIX = "admin:lock:";
     public static final String ADMIN_ONLINE_PREFIX = "admin:online:";
+    public static final String USER_ONLINE_PREFIX = "user:online:";
 }

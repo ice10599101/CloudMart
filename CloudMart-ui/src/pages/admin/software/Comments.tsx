@@ -9,6 +9,8 @@ import {
 import type { AdminSoftwareComment } from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
+import CommentContent from '@/components/CommentContent'
+import { formatTimeOnly } from '@/utils/format'
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   PENDING: { label: '待审', color: 'processing' },
@@ -84,7 +86,9 @@ export default function SoftwareComments() {
       ellipsis: true,
       search: false,
       render: (_, record) =>
-        record.content ?? <Typography.Text type="secondary">（不回传原文）</Typography.Text>,
+        record.content != null
+          ? <CommentContent content={record.content} />
+          : <Typography.Text type="secondary">（不回传原文）</Typography.Text>,
     },
     {
       title: '状态',
@@ -100,7 +104,7 @@ export default function SoftwareComments() {
       },
     },
     { title: '点赞', dataIndex: 'likeCount', width: 70, search: false },
-    { title: '时间', dataIndex: 'createdAt', valueType: 'dateTime', width: 160, search: false },
+    { title: '时间', dataIndex: 'createdAt', width: 100, search: false, render: (_, record) => formatTimeOnly(record.createdAt) },
     {
       title: '操作',
       valueType: 'option',

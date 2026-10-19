@@ -11,6 +11,7 @@ import { useCartStore } from '@/stores/cart'
 import { useAuthStore } from '@/stores/auth'
 import type { Product, Category, Sku } from '@/types'
 import type { ReviewItem, ReviewStats } from '@/api/review'
+import { formatTimeOnly } from '@/utils/format'
 
 function SkuSelector({
   skus,
@@ -780,7 +781,7 @@ export default function ProductDetail() {
                             <Rate disabled value={review.rating} style={{ fontSize: 11 }} />
                           </div>
                           <div style={{ marginLeft: 'auto', color: 'var(--color-text-tertiary)', fontSize: 12 }}>
-                            {review.createdAt}
+                            {formatTimeOnly(review.createdAt)}
                           </div>
                         </div>
                         <div style={{ color: 'var(--color-text-secondary)', fontSize: 14, lineHeight: 1.6, marginBottom: 8 }}>

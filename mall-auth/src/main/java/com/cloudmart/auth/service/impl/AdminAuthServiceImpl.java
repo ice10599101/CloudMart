@@ -117,7 +117,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         String refreshToken = refreshTokenService.createRefreshToken(SubjectType.ADMIN, admin.id(), session.sid());
 
         String tokenId = UUID.randomUUID().toString();
-        storeOnlineUser(tokenId, admin.id(), admin.username(), ip, browser);
+        storeOnlineUser(tokenId, admin.id(), admin.username(), ip, browser, os);
 
         recordLoginLogSafe(account, ip, browser, os, 0, "登录成功");
 
@@ -171,7 +171,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         authSessionService.invalidate(SubjectType.ADMIN, userId, true);
     }
 
-    private void storeOnlineUser(String tokenId, Long userId, String username, String ip, String browser) {
+    private void storeOnlineUser(String tokenId, Long userId, String username, String ip, String browser, String os) {
         try {
             String key = SecurityConstants.ADMIN_ONLINE_PREFIX + tokenId;
             Map<String, String> onlineInfo = Map.of(
@@ -179,7 +179,9 @@ public class AdminAuthServiceImpl implements AdminAuthService {
                     "username", username,
                     "loginTime", LocalDateTime.now().toString(),
                     "ipaddr", ip != null ? ip : "未知",
-                    "browser", browser != null ? browser : "未知"
+                    "loginLocation", parseLocation(ip),
+                    "browser", browser != null ? browser : "未知",
+                    "os", os != null ? os : "未知"
             );
             String value = objectMapper.writeValueAsString(onlineInfo);
             redisTemplate.opsForValue().set(key, value, Duration.ofSeconds(accessTokenExpiration));
@@ -301,19 +303,29 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         if (userAgent == null) {
             return "未知";
         }
-        if (userAgent.contains("Edg/")) {
+        String ua = userAgent.toLowerCase(java.util.Locale.ROOT);
+        if (ua.contains("edg/") || ua.contains("edga/") || ua.contains("edgios/")) {
             return "Edge";
         }
-        if (userAgent.contains("Chrome/") && !userAgent.contains("Edg/")) {
+        if (ua.contains("crios/")) {
+            return "Chrome (iOS)";
+        }
+        if (ua.contains("chrome/")) {
             return "Chrome";
         }
-        if (userAgent.contains("Firefox/")) {
+        if (ua.contains("fxios/")) {
+            return "Firefox (iOS)";
+        }
+        if (ua.contains("firefox/")) {
             return "Firefox";
         }
-        if (userAgent.contains("Safari/") && !userAgent.contains("Chrome/")) {
+        if (ua.contains("opr/") || ua.contains("opera/")) {
+            return "Opera";
+        }
+        if (ua.contains("safari/") && !ua.contains("chrome/") && !ua.contains("crios/")) {
             return "Safari";
         }
-        if (userAgent.contains("MSIE") || userAgent.contains("Trident/")) {
+        if (ua.contains("msie") || ua.contains("trident/")) {
             return "IE";
         }
         return "未知";
@@ -323,20 +335,21 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         if (userAgent == null) {
             return "未知";
         }
-        if (userAgent.contains("Windows")) {
+        String ua = userAgent.toLowerCase(java.util.Locale.ROOT);
+        if (ua.contains("windows")) {
             return "Windows";
         }
-        if (userAgent.contains("Mac OS")) {
-            return "Mac OS";
-        }
-        if (userAgent.contains("Linux")) {
-            return "Linux";
-        }
-        if (userAgent.contains("Android")) {
+        if (ua.contains("android")) {
             return "Android";
         }
-        if (userAgent.contains("iPhone") || userAgent.contains("iPad")) {
+        if (ua.contains("iphone") || ua.contains("ipad") || ua.contains("ipod")) {
             return "iOS";
+        }
+        if (ua.contains("mac os") || ua.contains("macintosh")) {
+            return "Mac OS";
+        }
+        if (ua.contains("linux")) {
+            return "Linux";
         }
         return "未知";
     }

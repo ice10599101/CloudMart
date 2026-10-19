@@ -14,6 +14,7 @@ vi.mock('@/api/file', () => ({ uploadFileAsset: mocks.upload, deleteFileAsset: v
 vi.mock('@/api/software', () => ({
   getSoftwareEditor: mocks.getEditor, patchSoftwareDraft: mocks.save,
   submitSoftwareForReview: mocks.submit, createWorkingRevision: vi.fn(),
+  getPublisherStatus: async () => ({ data: { data: { canPublish: true, publishMode: 'REVIEW' } } }),
   listSoftwareCategories: async () => ({ data: { success: true, data: [] } }),
   listAllSoftwareTags: async () => [],
   listSoftwareAccessContacts: async () => ({ data: { success: true, data: [] } }),

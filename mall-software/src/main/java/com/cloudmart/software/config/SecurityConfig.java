@@ -88,6 +88,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/software/{id}/access-state",
                         "/software/{id}/editor", "/software/{id}/subscription")
                 .authenticated()
+                // 公开接口只给来源摘要；真实下载链接的解析必须有登录身份，再由业务层校验查看条件。
+                .requestMatchers(HttpMethod.POST, "/software/{id}/sources/{sourceId}/resolve")
+                .authenticated()
                 // 公开浏览：软件广场/分类/标签/榜单/专题（7.2，可见性由业务层过滤）
                 // UX01：首页聚合为固定路径，必须先于 /software/{id} 动态匹配
                 .requestMatchers(HttpMethod.GET, "/software", "/software/home", "/software/categories",

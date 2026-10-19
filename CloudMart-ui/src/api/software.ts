@@ -1231,5 +1231,9 @@ export interface SoftwareSourceIssue {
 }
 
 export function listMySourceIssues() {
-  return request.get<ApiResponse<SoftwareSourceIssue[]>>(`${BASE}/mine/source-issues`);
+  // 工作台辅助待办：旧版/未同步后端没有此聚合接口时，主列表仍可正常使用。
+  return request.get<ApiResponse<SoftwareSourceIssue[]>>(
+    `${BASE}/mine/source-issues`,
+    { silentError: true },
+  );
 }

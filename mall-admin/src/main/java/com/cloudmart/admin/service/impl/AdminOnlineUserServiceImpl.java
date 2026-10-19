@@ -36,29 +36,9 @@ public class AdminOnlineUserServiceImpl implements AdminOnlineUserService {
     @Override
     public List<AdminOnlineUserResponse> list() {
         try {
-            var keys = redisTemplate.keys(SecurityConstants.ADMIN_ONLINE_PREFIX + "*");
-            if (keys == null || keys.isEmpty()) {
-                return Collections.emptyList();
-            }
-
             List<AdminOnlineUserResponse> result = new ArrayList<>();
-            for (String key : keys) {
-                String value = redisTemplate.opsForValue().get(key);
-                if (value == null) {
-                    continue;
-                }
-                Map<String, String> info = objectMapper.readValue(value, new TypeReference<>() {});
-                String tokenId = key.substring(SecurityConstants.ADMIN_ONLINE_PREFIX.length());
-                result.add(new AdminOnlineUserResponse(
-                        Long.valueOf(info.get("userId")),
-                        info.get("username"),
-                        info.get("username"),
-                        null,
-                        info.get("ipaddr"),
-                        parseDateTime(info.get("loginTime")),
-                        tokenId
-                ));
-            }
+            appendOnlineUsers(SecurityConstants.USER_ONLINE_PREFIX, "USER", result);
+            appendOnlineUsers(SecurityConstants.ADMIN_ONLINE_PREFIX, "ADMIN", result);
             return result;
         } catch (Exception e) {
             log.warn("Failed to list online users: {}", e.getMessage());
@@ -68,7 +48,10 @@ public class AdminOnlineUserServiceImpl implements AdminOnlineUserService {
 
     @Override
     public void forceLogout(String tokenId) {
-        String key = SecurityConstants.ADMIN_ONLINE_PREFIX + tokenId;
+        boolean frontendUser = tokenId != null && tokenId.startsWith("USER:");
+        String sessionId = frontendUser ? tokenId.substring("USER:".length()) : tokenId;
+        String prefix = frontendUser ? SecurityConstants.USER_ONLINE_PREFIX : SecurityConstants.ADMIN_ONLINE_PREFIX;
+        String key = prefix + sessionId;
         String value = redisTemplate.opsForValue().get(key);
         if (value != null) {
             try {
@@ -77,12 +60,85 @@ public class AdminOnlineUserServiceImpl implements AdminOnlineUserService {
                 if (userId != null) {
                     // SEC-02：刷新令牌家族的键结构是 mall-auth 私有实现，撤销必须经
                     // 其内部接口执行（admin:auth 服务令牌）；失败向上抛出，绝不静默。
-                    authRevocationFeignClient.revokeSubject(AuthRevocationFeignClient.adminSubject(Long.valueOf(userId)));
+                    if (frontendUser) {
+                        authRevocationFeignClient.invalidateState(Map.of(
+                                "subjectType", "USER",
+                                "subjectId", Long.valueOf(userId),
+                                "revokeRefreshTokens", true));
+                    } else {
+                        authRevocationFeignClient.revokeSubject(
+                                AuthRevocationFeignClient.adminSubject(Long.valueOf(userId)));
+                    }
                 }
             } catch (Exception e) {
                 throw new IllegalStateException("强制下线时撤销刷新令牌失败: " + e.getMessage(), e);
             }
-            redisTemplate.delete(key);
+            if (frontendUser) {
+                deleteOnlineEntriesForUser(SecurityConstants.USER_ONLINE_PREFIX, infoUserId(value), key);
+            } else {
+                redisTemplate.delete(key);
+            }
+        }
+    }
+
+    private void appendOnlineUsers(String prefix, String userType, List<AdminOnlineUserResponse> result)
+            throws Exception {
+        var keys = redisTemplate.keys(prefix + "*");
+        if (keys == null || keys.isEmpty()) {
+            return;
+        }
+        for (String key : keys) {
+            String value = redisTemplate.opsForValue().get(key);
+            if (value == null) {
+                continue;
+            }
+            Map<String, String> info = objectMapper.readValue(value, new TypeReference<>() {});
+            String sessionId = key.substring(prefix.length());
+            String tokenId = "USER".equals(userType) ? "USER:" + sessionId : sessionId;
+            result.add(new AdminOnlineUserResponse(
+                    Long.valueOf(info.get("userId")),
+                    info.get("username"),
+                    info.getOrDefault("nickname", info.get("username")),
+                    info.get("deptName"),
+                    info.get("ipaddr"),
+                    info.get("loginLocation"),
+                    info.get("browser"),
+                    info.get("os"),
+                    parseDateTime(info.get("loginTime")),
+                    tokenId,
+                    userType));
+        }
+    }
+
+    private String infoUserId(String value) {
+        try {
+            return objectMapper.readValue(value, new TypeReference<Map<String, String>>() {}).get("userId");
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void deleteOnlineEntriesForUser(String prefix, String userId, String selectedKey) {
+        redisTemplate.delete(selectedKey);
+        if (userId == null) {
+            return;
+        }
+        var keys = redisTemplate.keys(prefix + "*");
+        if (keys == null || keys.isEmpty()) {
+            return;
+        }
+        for (String key : keys) {
+            String value = redisTemplate.opsForValue().get(key);
+            if (!selectedKey.equals(key) && value != null) {
+                try {
+                    Map<String, String> info = objectMapper.readValue(value, new TypeReference<>() {});
+                    if (userId.equals(info.get("userId"))) {
+                        redisTemplate.delete(key);
+                    }
+                } catch (Exception ignored) {
+                    // Ignore malformed metadata and allow its short TTL to expire.
+                }
+            }
         }
     }
 

@@ -14,6 +14,7 @@ import DecoratedAvatar from '@/components/DecoratedAvatar'
 import EmojiPanel from '@/components/EmojiPanel'
 import VoiceRecorderModal from '@/components/TiptapEditor/modals/VoiceRecorderModal'
 import styles from './style.module.css'
+import { formatTimeOnly } from '@/utils/format'
 
 /**
  * 漂流瓶瓶下评论树（捞到瓶后与瓶子作者交流的载体）：
@@ -25,8 +26,8 @@ import styles from './style.module.css'
 
 const COMMENT_PAGE_SIZE = 10
 
-/** 行内附件标记：图片 ![图片](url) / 语音 [语音](url)，仅接受 http(s) 链接 */
-const INLINE_ATTACHMENT_PATTERN = /!\[[^\]]*\]\((https?:\/\/[^)\s]+)\)|\[语音\]\((https?:\/\/[^)\s]+)\)/g
+/** 行内附件标记兼容历史图片链接（无 !）及文件服务的 /files/... 地址。 */
+const INLINE_ATTACHMENT_PATTERN = /(?:!\[[^\]]*\]|\[图片\])\((https?:\/\/[^)\s]+|\/files\/[^)\s]+)\)|\[语音\]\((https?:\/\/[^)\s]+|\/files\/[^)\s]+)\)/g
 
 /** 评论内容 → 文本 + 图片/语音节点（未匹配部分按纯文本渲染，React 自动转义） */
 function renderInlineContent(content: string) {
@@ -199,8 +200,7 @@ export default function DriftBottleComments({ bottleId }: DriftBottleCommentsPro
     if (userId !== null) history.push(`/user/${userId}`)
   }
 
-  const renderTime = (createdAt: string) =>
-    new Date(createdAt).toLocaleString('zh-CN', { hour12: false })
+  const renderTime = (createdAt: string) => formatTimeOnly(createdAt)
 
   const isComposerEmpty = !draft.trim() && pendingImages.length === 0 && pendingVoices.length === 0
 

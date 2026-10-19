@@ -6,6 +6,7 @@ import { listInteractions, type InteractionItem } from '@/api/wish'
 import { splitCommentImages } from '@/components/CommentToolbar'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import styles from './style.module.css'
+import { formatTimeOnly } from '@/utils/format'
 
 /**
  * 心愿祝福列表（文档 2.2 节补充）：展示该心愿收到的全部 BLESS 互动。
@@ -127,7 +128,7 @@ export default function WishBlessList({ wishId, blessCount, refreshTick = 0 }: W
                     {blessing.nickname}
                   </span>
                   <span className={styles.itemTime}>
-                    {new Date(blessing.createdAt).toLocaleString('zh-CN')}
+                    {formatTimeOnly(blessing.createdAt)}
                   </span>
                 </div>
                 <p className={styles.itemContent}>{renderContent(blessing.content ?? '')}</p>

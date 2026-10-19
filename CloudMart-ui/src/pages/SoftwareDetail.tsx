@@ -57,6 +57,7 @@ import {
 import ReportModal from "@/components/ReportModal";
 import RichText from "@/components/RichText";
 import { useAuthStore } from "@/stores/auth";
+import { formatTimeOnly } from "@/utils/format";
 import styles from "./SoftwareDetail.module.css";
 
 const LICENSE_LABEL: Record<string, string> = {
@@ -123,11 +124,11 @@ export default function SoftwareDetail() {
 
   // SF04：加载本人访问申请（用于门槛面板状态展示）
   useEffect(() => {
-    if (!id) return;
+    if (!id || !isAuthenticated) return;
     listMyAccessRequests(1, 10)
       .then((res) => setMyRequests(res.data.data?.records ?? []))
       .catch(() => undefined);
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   useEffect(() => {
     if (!id) return;
@@ -151,14 +152,16 @@ export default function SoftwareDetail() {
           setRatingAvg(detailRes.data.data.ratingAvg ?? null);
           setSubscribed(Boolean(detailRes.data.data.isSubscribed));
           // 浏览足迹上报（静默）：同一软件重复浏览仅由后端刷新时间
-          void recordBrowseHistory({
-            targetType: "SOFTWARE",
-            targetId: id,
-            title: detailRes.data.data.name ?? undefined,
-            cover: detailRes.data.data.iconAssetId
-              ? `/files/by-id/${detailRes.data.data.iconAssetId}`
-              : undefined,
-          }).catch(() => undefined);
+          if (isAuthenticated) {
+            void recordBrowseHistory({
+              targetType: "SOFTWARE",
+              targetId: id,
+              title: detailRes.data.data.name ?? undefined,
+              cover: detailRes.data.data.iconAssetId
+                ? `/files/by-id/${detailRes.data.data.iconAssetId}`
+                : undefined,
+            }).catch(() => undefined);
+          }
         }
         if (releaseRes.data.success)
           setReleases(releaseRes.data.data?.records ?? []);
@@ -176,7 +179,7 @@ export default function SoftwareDetail() {
         );
       })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   // 游客也能看到查看条件（联系入口/等级要求），但不拉需要登录的 access-state
   useEffect(() => {
@@ -195,6 +198,14 @@ export default function SoftwareDetail() {
   }, [releases, releaseKey]);
 
   const sources = currentRelease?.sources ?? [];
+
+  // 默认选中当前版本的首个来源，避免唯一来源场景下按钮一直处于禁用态；
+  // 用户仍可从下拉框切换来源。若版本改变或来源失效则清掉旧解析结果。
+  useEffect(() => {
+    if (sources.some((item) => item.sourceId === sourceId)) return;
+    setSourceId(sources[0]?.sourceId);
+    setResolved(null);
+  }, [sources, sourceId]);
 
   const refreshAccessState = useCallback(async () => {
     if (!id) return;
@@ -849,7 +860,7 @@ export default function SoftwareDetail() {
                             <strong>{item.nickname}</strong>
                             {item.pinned ? <Tag color="gold" style={{ marginLeft: 8 }}>置顶</Tag> : null}
                             <span style={{ opacity: 0.6, marginLeft: 8 }}>
-                              {item.createdAt}
+                              {formatTimeOnly(item.createdAt)}
                             </span>
                           </div>
                           <div>
@@ -890,7 +901,7 @@ export default function SoftwareDetail() {
                               <div>
                                 <strong>{reply.nickname}</strong>
                               </div>
-                              <div>{reply.content}</div>
+                              <div><CommentContent content={reply.content} /></div>
                             </div>
                           ))}
                         </div>

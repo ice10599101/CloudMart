@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Input, Modal, Popconfirm, Tag, Tooltip } from 'antd'
+import { Button, Modal, Popconfirm, Tag, Tooltip } from 'antd'
 import {
   getAdminWishComments,
   updateAdminWishCommentStatus,
@@ -10,6 +10,8 @@ import {
 import type { AdminWishCommentRecord } from '@/api/admin/wish'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
+import CommentContent from '@/components/CommentContent'
+import { formatTimeOnly } from '@/utils/format'
 
 /**
  * 心愿评论审核（Sprint 1.2）：敏感词命中处理 + 评论上下架。
@@ -103,7 +105,7 @@ export default function WishComments() {
         return info ? <Tag color={info.color}>{info.label}</Tag> : record.status
       },
     },
-    { title: '评论时间', dataIndex: 'createdAt', valueType: 'dateTime', width: 160, search: false },
+    { title: '评论时间', dataIndex: 'createdAt', width: 100, search: false, render: (_, record) => formatTimeOnly(record.createdAt) },
     {
       title: '操作',
       valueType: 'option',
@@ -180,10 +182,12 @@ export default function WishComments() {
                 {WISH_COMMENT_STATUS_MAP[detail.status]?.label ?? detail.status}
               </Tag>
             </div>
-            <Input.TextArea value={detail.content} readOnly autoSize={{ minRows: 3, maxRows: 10 }} />
+            <div style={{ minHeight: 72, padding: 8, border: '1px solid var(--color-border)', borderRadius: 6, whiteSpace: 'pre-wrap' }}>
+              <CommentContent content={detail.content} />
+            </div>
             <div style={{ marginTop: 8, color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
               心愿：#{detail.wishId} {detail.wishTitle} · 用户：{detail.nickname}(#{detail.userId}) ·
-              评论时间：{detail.createdAt} · 状态变更：{detail.updatedAt}
+              评论时间：{formatTimeOnly(detail.createdAt)} · 状态变更：{formatTimeOnly(detail.updatedAt)}
             </div>
           </>
         )}

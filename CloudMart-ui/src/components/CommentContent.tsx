@@ -1,5 +1,5 @@
 import { history } from 'umi'
-import { splitCommentImages } from '@/components/CommentToolbar'
+import { splitCommentImages } from '@/utils/commentImages'
 
 /**
  * 评论内容统一渲染（社区/软件共用）：markdown 图片段 + @昵称高亮跳搜索。

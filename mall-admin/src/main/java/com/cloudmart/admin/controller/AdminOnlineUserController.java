@@ -24,7 +24,7 @@ public class AdminOnlineUserController {
 
     @GetMapping("/list")
     @RequiresPermission("admin:online:list")
-    @Operation(summary = "在线用户列表", description = "获取当前在线的管理员用户列表")
+    @Operation(summary = "在线用户列表", description = "获取当前在线的前台用户与后台管理用户列表")
     public ApiResponse<List<AdminOnlineUserResponse>> list() {
         return ApiResponse.ok(adminOnlineUserService.list());
     }

@@ -9,6 +9,7 @@ import com.cloudmart.common.exception.BusinessException;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,8 +28,9 @@ public class AuthController {
 
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(
-            @Parameter(description = "登录请求体") @Valid @RequestBody LoginRequest request) {
-        return ApiResponse.ok(authService.login(request));
+            @Parameter(description = "登录请求体") @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
+        return ApiResponse.ok(authService.login(request, httpRequest));
     }
 
     @PostMapping("/refresh")

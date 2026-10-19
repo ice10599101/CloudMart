@@ -41,8 +41,9 @@ import { listWishes, listWishCollections } from '@/api/wish'
 import type { WishListItem, WishCollectionItem } from '@/api/wish'
 import { getWishlistList } from '@/api/wishlist'
 import type { WishlistItem } from '@/api/wishlist'
-import { stripHtml } from '@/utils/format'
+import { stripHtml, formatTimeOnly } from '@/utils/format'
 import RichText from '@/components/RichText'
+import CommentContent from '@/components/CommentContent'
 import { useAuthStore } from '@/stores/auth'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 
@@ -1369,18 +1370,15 @@ export default function UserProfile() {
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>
                       {comment.postTitle || '原帖已删除'}
                     </div>
-                    <RichText
-                      content={comment.content}
-                      clamp={2}
-                      variant="preview"
-                      style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginBottom: 6 }}
-                    />
+                    <div style={{ fontSize: 12, color: 'var(--color-text-tertiary)', marginBottom: 6 }}>
+                      <CommentContent content={comment.content} />
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
                         <HeartOutlined /> {formatCount(comment.likeCount)}
                       </span>
                       <span style={{ marginLeft: 'auto', color: 'var(--color-text-tertiary)', fontSize: 11 }}>
-                        {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : ''}
+                        {formatTimeOnly(comment.createdAt)}
                       </span>
                     </div>
                   </div>

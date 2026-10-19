@@ -14,6 +14,7 @@ import {
 } from '@/api/wish'
 import styles from './style.module.css'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
+import { formatTimeOnly } from '@/utils/format'
 
 /**
  * 心愿评论模块（文档 2.2 节，Sprint 1.2）。
@@ -214,7 +215,7 @@ export default function WishCommentSection({
                       {comment.nickname}
                     </span>
                     <span className={styles.itemTime}>
-                      {new Date(comment.createdAt).toLocaleString('zh-CN')}
+                      {formatTimeOnly(comment.createdAt)}
                     </span>
                   </div>
                   {/* content 后端已 XSS 转义；图片模式在渲染层还原为图片 */}

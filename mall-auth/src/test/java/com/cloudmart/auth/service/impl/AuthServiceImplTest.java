@@ -11,11 +11,18 @@ import com.cloudmart.auth.service.AuthSessionService;
 import com.cloudmart.auth.service.SubjectType;
 import com.cloudmart.auth.util.JwtProvider;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.common.exception.BusinessException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import tools.jackson.databind.ObjectMapper;
+
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -23,6 +30,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 
 class AuthServiceImplTest {
 
@@ -30,6 +39,8 @@ class AuthServiceImplTest {
     private JwtProvider jwtProvider;
     private RefreshTokenService refreshTokenService;
     private AuthSessionService authSessionService;
+    private StringRedisTemplate redisTemplate;
+    private ValueOperations<String, String> valueOperations;
     private AuthServiceImpl authService;
 
     private static final Long USER_ID = 1L;
@@ -43,11 +54,14 @@ class AuthServiceImplTest {
         userFeignClient = mock(UserFeignClient.class);
         jwtProvider = mock(JwtProvider.class);
         refreshTokenService = mock(RefreshTokenService.class);
+        redisTemplate = mock(StringRedisTemplate.class);
+        valueOperations = mock(ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         authSessionService = mock(AuthSessionService.class);
         when(authSessionService.issueSession(any(), org.mockito.ArgumentMatchers.anyLong()))
                 .thenReturn(new AuthSessionService.IssuedSession("session-1", 0L));
         authService = new AuthServiceImpl(userFeignClient, jwtProvider, refreshTokenService,
-                authSessionService, 900L);
+                authSessionService, redisTemplate, new ObjectMapper(), 900L);
     }
 
     @Nested
@@ -75,6 +89,33 @@ class AuthServiceImplTest {
             assertThat(result.refreshToken()).isEqualTo(REFRESH_TOKEN);
             assertThat(result.tokenType()).isEqualTo("Bearer");
             verify(refreshTokenService).createRefreshToken(SubjectType.USER, USER_ID, "session-1");
+        }
+
+        @Test
+        @DisplayName("login records frontend session metadata for online monitoring")
+        void login_recordsOnlineSession() {
+            LoginRequest request = new LoginRequest(USERNAME, PASSWORD);
+            UserDTO userDTO = new UserDTO(USER_ID, USERNAME, "test@example.com",
+                    "13800138000", "测试用户", null, 1, null);
+            HttpServletRequest httpRequest = mock(HttpServletRequest.class);
+            when(httpRequest.getHeader("X-Forwarded-For")).thenReturn("192.168.1.20");
+            when(httpRequest.getHeader("User-Agent")).thenReturn(
+                    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
+            when(httpRequest.getRemoteAddr()).thenReturn("127.0.0.1");
+            when(userFeignClient.validateUser(any(ValidateRequest.class))).thenReturn(ApiResponse.ok(userDTO));
+            when(jwtProvider.generateUserAccessToken(any(com.cloudmart.auth.util.JwtProvider.TokenPrincipal.class)))
+                    .thenReturn(ACCESS_TOKEN);
+            when(refreshTokenService.createRefreshToken(SubjectType.USER, USER_ID, "session-1"))
+                    .thenReturn(REFRESH_TOKEN);
+
+            authService.login(request, httpRequest);
+
+            verify(valueOperations).set(
+                    eq(SecurityConstants.USER_ONLINE_PREFIX + "session-1"),
+                    argThat(value -> value.contains("\"browser\":\"Chrome\"")
+                            && value.contains("\"os\":\"Android\"")
+                            && value.contains("\"username\":\"testuser\"")),
+                    eq(Duration.ofSeconds(900)));
         }
 
         @Test

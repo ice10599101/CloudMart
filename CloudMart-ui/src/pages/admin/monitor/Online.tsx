@@ -1,7 +1,7 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Popconfirm } from 'antd'
+import { Button, Popconfirm, Tabs } from 'antd'
 import { LogoutOutlined } from '@ant-design/icons'
 import { getOnlineUsers, forceLogout } from '@/api/admin/monitor'
 import { safeProTableRequest } from '@/utils/proTable'
@@ -10,17 +10,20 @@ import { useMessage } from '@/utils/useMessage'
 interface OnlineUserRecord {
   tokenId: string
   username: string
-  deptName: string
+  nickname?: string
+  deptName: string | null
   ipaddr: string
   loginLocation: string
   browser: string
   os: string
   loginTime: string
+  userType: 'USER' | 'ADMIN'
 }
 
 export default function Online() {
   const message = useMessage()
   const actionRef = useRef<ActionType>(null)
+  const [userType, setUserType] = useState<'USER' | 'ADMIN'>('USER')
 
   const handleForceLogout = async (tokenId: string) => {
     await forceLogout(tokenId)
@@ -31,6 +34,7 @@ export default function Online() {
   const columns: ProColumns<OnlineUserRecord>[] = [
     { title: '会话ID', dataIndex: 'tokenId', width: 200, search: false, ellipsis: true },
     { title: '用户名', dataIndex: 'username', width: 120 },
+    { title: '昵称', dataIndex: 'nickname', width: 120, search: false },
     { title: '部门', dataIndex: 'deptName', width: 120, search: false },
     { title: '登录IP', dataIndex: 'ipaddr', width: 140 },
     { title: '登录地点', dataIndex: 'loginLocation', width: 140, search: false },
@@ -57,23 +61,46 @@ export default function Online() {
   ]
 
   return (
-    <ProTable<OnlineUserRecord>
-      headerTitle="在线用户"
-      actionRef={actionRef}
-      rowKey="tokenId"
-      scroll={{ x: 1200 }}
-      request={async (params) => {
-        return safeProTableRequest<OnlineUserRecord>(() =>
-          getOnlineUsers({
-            page: params.current,
-            pageSize: params.pageSize,
-            username: params.username,
-            ipaddr: params.ipaddr,
+    <>
+      <Tabs
+        activeKey={userType}
+        onChange={(key) => setUserType(key as 'USER' | 'ADMIN')}
+        items={[
+          { key: 'USER', label: '前台在线用户' },
+          { key: 'ADMIN', label: '后台管理在线用户' },
+        ]}
+      />
+      <ProTable<OnlineUserRecord>
+        key={userType}
+        headerTitle="在线用户"
+        actionRef={actionRef}
+        rowKey="tokenId"
+        scroll={{ x: 1200 }}
+        request={async (params) =>
+          safeProTableRequest<OnlineUserRecord>(async () => {
+            const response = await getOnlineUsers()
+            const rows = response.data?.data ?? []
+            const keyword = String(params.username ?? '').trim().toLowerCase()
+            const ip = String(params.ipaddr ?? '').trim().toLowerCase()
+            const filteredRows = rows.filter((row: OnlineUserRecord) =>
+              row.userType === userType
+              && (!keyword || row.username?.toLowerCase().includes(keyword))
+              && (!ip || row.ipaddr?.toLowerCase().includes(ip)),
+            )
+            return {
+              data: {
+                ...response.data,
+                data: filteredRows,
+                meta: { ...response.data.meta, total: filteredRows.length },
+              },
+            }
           })
-        )
-      }}
-      columns={columns}
-      pagination={{ defaultPageSize: 10, showSizeChanger: true }}
-    />
+        }
+        columns={userType === 'ADMIN'
+          ? columns
+          : columns.filter((column) => column.dataIndex !== 'deptName')}
+        pagination={{ defaultPageSize: 10, showSizeChanger: true }}
+      />
+    </>
   )
 }

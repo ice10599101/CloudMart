@@ -52,6 +52,16 @@ type TabKey =
   | "updates"
   | "recent";
 
+/** Only these tabs are backed by GET /software/mine. */
+const MINE_LIST_TABS: readonly TabKey[] = [
+  "published",
+  "draft",
+  "pending",
+  "rejected",
+  "favorites",
+  "subscriptions",
+];
+
 const STATUS_LABEL: Record<string, string> = {
   PUBLISHED: "已发布",
   DRAFT: "草稿",
@@ -83,6 +93,17 @@ export default function SoftwareMine() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const PAGE_SIZE = 20;
+
+  // 浏览器前进/后退会改变 URL；让当前页签跟随 URL 恢复，避免保留旧的本地 tab。
+  useEffect(() => {
+    const routeTab = searchParams.get("tab");
+    const nextTab: TabKey = routeTab && TAB_KEYS.includes(routeTab as TabKey)
+      ? (routeTab as TabKey)
+      : "published";
+    setTabState((current) => current === nextTab ? current : nextTab);
+    setPage(1);
+  }, [searchParams]);
+
   /** P1 更新提醒总开关（缺省开启；与订阅关系相互独立） */
   const [updateNotify, setUpdateNotify] = useState(true);
   /** SF03：发布资格与申请状态 */
@@ -132,6 +153,9 @@ export default function SoftwareMine() {
 
   const load = useCallback(
     async (nextTab: TabKey, nextPage = 1) => {
+      // “最近浏览”和“更新”使用各自的数据源；不能把 UI tab 透传给
+      // GET /software/mine（后端只接受 MINE_LIST_TABS）。
+      if (!MINE_LIST_TABS.includes(nextTab)) return;
       setLoading(true);
       try {
         const res = await listMySoftware({
@@ -153,7 +177,7 @@ export default function SoftwareMine() {
   );
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !MINE_LIST_TABS.includes(tab)) return;
     void load(tab);
   }, [isAuthenticated, load, tab]);
 

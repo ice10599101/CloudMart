@@ -23,8 +23,7 @@ import SoftwareCardGrid from "@/components/software/SoftwareCardGrid";
 import styles from "./SoftwareHome.module.css";
 
 const SECTION_SIZE = 8;
-/** 最新更新多取一批：剔除已出现在推荐区的软件，避免同页重复同一张卡片 */
-const LATEST_FETCH_SIZE = SECTION_SIZE * 2;
+const LATEST_FETCH_SIZE = SECTION_SIZE;
 
 /** 跳转到筛选页：搜索条件一律写进 URL，由 /software/explore 统一解释（方案 §7.2） */
 function goExplore(params: Record<string, string>) {
@@ -93,7 +92,8 @@ export default function SoftwareHome() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      listSoftware({ sort: "featured", page: 1, size: SECTION_SIZE }),
+      // recommend 会优先展示精选项，也会在没有精选项时用已发布软件填充推荐区。
+      listSoftware({ sort: "recommend", page: 1, size: SECTION_SIZE }),
       listSoftware({ sort: "latest", page: 1, size: LATEST_FETCH_SIZE }),
     ])
       .then(([recommendRes, latestRes]) => {
@@ -110,11 +110,8 @@ export default function SoftwareHome() {
 
   const isEmpty = !loading && recommended.length === 0 && latest.length === 0;
 
-  // 推荐区优先级最高，同页不再重复出现同一张卡片
-  const recommendedIds = new Set(recommended.map((item) => item.id));
-  const latestVisible = latest
-    .filter((item) => !recommendedIds.has(item.id))
-    .slice(0, SECTION_SIZE);
+  // 推荐与最新表达的是不同维度，同一软件符合条件时允许同时出现。
+  const latestVisible = latest.slice(0, SECTION_SIZE);
 
   return (
     <div className={styles.page}>
@@ -299,11 +296,11 @@ export default function SoftwareHome() {
                   className={styles.moreLink}
                   role="button"
                   tabIndex={0}
-                  onClick={() => goExplore({ sort: "featured" })}
+                  onClick={() => goExplore({ sort: "recommend" })}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      goExplore({ sort: "featured" });
+                      goExplore({ sort: "recommend" });
                     }
                   }}
                 >

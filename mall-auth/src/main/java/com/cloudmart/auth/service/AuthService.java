@@ -3,9 +3,11 @@ package com.cloudmart.auth.service;
 import com.cloudmart.auth.dto.LoginRequest;
 import com.cloudmart.auth.dto.LoginResponse;
 import com.cloudmart.auth.dto.RefreshRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 public interface AuthService {
     LoginResponse login(LoginRequest request);
+    LoginResponse login(LoginRequest request, HttpServletRequest httpRequest);
     LoginResponse refresh(RefreshRequest request);
     /**
      * 退出当前设备（SEC-02）：撤销当前会话（访问令牌立即失效）及其绑定的

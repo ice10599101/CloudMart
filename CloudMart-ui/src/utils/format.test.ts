@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatCount, formatDateTime, timeAgo, stripHtml } from '@/utils/format'
+import { formatCount, formatDateTime, formatTimeOnly, timeAgo, stripHtml } from '@/utils/format'
 
 describe('stripHtml', () => {
   it('returns empty string for null/undefined/empty input', () => {
@@ -83,5 +83,14 @@ describe('formatDateTime', () => {
 
   it('formats server local datetime string as concrete time', () => {
     expect(formatDateTime('2026-09-18T08:30:45')).toBe('2026/9/18 08:30:45')
+  })
+})
+
+describe('formatTimeOnly', () => {
+  it('keeps only hours, minutes, and seconds from server timestamps', () => {
+    expect(formatTimeOnly('2026-10-19T21:32:20.21')).toBe('21:32:20')
+    expect(formatTimeOnly('2026-10-19 08:05:09')).toBe('08:05:09')
+    expect(formatTimeOnly('21:32:20')).toBe('21:32:20')
+    expect(formatTimeOnly('')).toBe('')
   })
 })

@@ -59,6 +59,12 @@ export function formatDateTime(
   return new Date(ts).toLocaleString(locale, { hour12: false })
 }
 
+/** 仅显示服务端日期时间中的时分秒（评论等紧凑时间标签使用）。 */
+export function formatTimeOnly(input: string | null | undefined): string {
+  if (!input) return ''
+  return input.match(/(?:T|\s|^)(\d{2}:\d{2}:\d{2})/)?.[1] ?? ''
+}
+
 export function timeAgo(dateStr: string | number | null | undefined): string {
   const ts = parseServerTime(dateStr)
   // 无法解析时不显示误导性的"XX年前"，直接隐藏时间

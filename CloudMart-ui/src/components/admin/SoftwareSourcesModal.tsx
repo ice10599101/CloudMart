@@ -89,8 +89,9 @@ export default function SoftwareSourcesModal({
     {
       title: '链接（脱敏）',
       dataIndex: 'maskedUrl',
+      width: 300,
       ellipsis: true,
-      render: (v) => v || '-',
+      render: (v) => v ? <Typography.Text title={v}>{v}</Typography.Text> : '-',
     },
     {
       title: '状态',
@@ -148,7 +149,7 @@ export default function SoftwareSourcesModal({
         open={open}
         onCancel={onClose}
         footer={null}
-        width={960}
+        width={1180}
         destroyOnHidden
       >
         <Typography.Paragraph type="secondary">
@@ -162,7 +163,7 @@ export default function SoftwareSourcesModal({
           columns={columns}
           dataSource={rows}
           pagination={false}
-          scroll={{ x: 900 }}
+          scroll={{ x: 1250 }}
           locale={{ emptyText: '当前线上内容暂无来源' }}
         />
       </Modal>

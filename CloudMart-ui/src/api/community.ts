@@ -373,7 +373,7 @@ export interface BrowseHistoryItem {
   viewedAt: string
 }
 
-/** 上报浏览足迹（商品/帖子/心愿详情页打开时静默调用；同一对象重复浏览仅刷新时间） */
+/** 上报浏览足迹（详情页打开时的可选遥测；同一对象重复浏览仅刷新时间） */
 export function recordBrowseHistory(data: {
   targetType: 'PRODUCT' | 'POST' | 'WISH' | 'SOFTWARE'
   /** B22/T25：心愿等雪花 ID 由后端以字符串下发，禁止 Number() 转换（精度丢失）；透传原值 */
@@ -381,7 +381,7 @@ export function recordBrowseHistory(data: {
   title?: string
   cover?: string
 }) {
-  return request.post<ApiResponse<null>>('/community/browse-history', data)
+  return request.post<ApiResponse<null>>('/community/browse-history', data, { silentError: true })
 }
 
 /** 我的浏览足迹（分页，按最近浏览时间倒序） */

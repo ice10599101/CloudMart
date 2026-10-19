@@ -12,6 +12,7 @@ import {
 } from '@/api/admin/business'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
+import { formatTimeOnly } from '@/utils/format'
 
 interface ReviewRecord {
   id: number
@@ -130,7 +131,7 @@ export default function Reviews() {
       ellipsis: true,
       render: (_, record) => record.hideReason || <span style={{ color: '#bbb' }}>—</span>,
     },
-    { title: '评论时间', dataIndex: 'createdAt', width: 180, valueType: 'dateTime', search: false },
+    { title: '评论时间', dataIndex: 'createdAt', width: 110, search: false, render: (_, record) => formatTimeOnly(record.createdAt) },
     {
       title: '操作',
       valueType: 'option',
@@ -253,7 +254,7 @@ export default function Reviews() {
               <Descriptions.Item label="下架理由">{currentReview.hideReason}</Descriptions.Item>
             )}
             <Descriptions.Item label="商家回复">{currentReview.reply || '暂无回复'}</Descriptions.Item>
-            <Descriptions.Item label="评论时间">{currentReview.createdAt}</Descriptions.Item>
+            <Descriptions.Item label="评论时间">{formatTimeOnly(currentReview.createdAt)}</Descriptions.Item>
           </Descriptions>
         </ModalForm>
       )}

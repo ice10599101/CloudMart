@@ -364,14 +364,16 @@ export default function Members() {
             <Radio.Button value="DIRECT">可直接发布</Radio.Button>
             <Radio.Button value="REVIEW">发布后需审核</Radio.Button>
           </Radio.Group>
-          <Input.TextArea
-            rows={3}
-            maxLength={500}
-            showCount
-            placeholder="原因（1~500 字，必填，写入权限审计）"
-            value={permReason}
-            onChange={(e) => setPermReason(e.target.value)}
-          />
+          <div style={{ paddingBottom: 18 }}>
+            <Input.TextArea
+              rows={3}
+              maxLength={500}
+              showCount
+              placeholder="原因（1~500 字，必填，写入权限审计）"
+              value={permReason}
+              onChange={(e) => setPermReason(e.target.value)}
+            />
+          </div>
         </Space>
       </Modal>
     </>

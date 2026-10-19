@@ -10,6 +10,8 @@ import {
 import type { AdminCommentRecord } from '@/api/admin/community'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
+import CommentContent from '@/components/CommentContent'
+import { formatTimeOnly } from '@/utils/format'
 
 const COMMENT_STATUS_MAP: Record<number, { label: string; color: string }> = {
   0: { label: '正常', color: 'success' },
@@ -39,6 +41,7 @@ export default function Comments() {
       width: 260,
       ellipsis: true,
       search: false,
+      render: (_, record) => <CommentContent content={record.content} />,
     },
     { title: '点赞数', dataIndex: 'likeCount', width: 90, search: false },
     {
@@ -50,7 +53,7 @@ export default function Comments() {
         return <Tag color={statusInfo.color}>{statusInfo.label}</Tag>
       },
     },
-    { title: '创建时间', dataIndex: 'createdAt', width: 180, valueType: 'dateTime', search: false },
+    { title: '创建时间', dataIndex: 'createdAt', width: 120, search: false, render: (_, record) => formatTimeOnly(record.createdAt) },
     {
       title: '内容搜索',
       dataIndex: 'keyword',
@@ -128,7 +131,7 @@ export default function Comments() {
           <Descriptions.Item label="ID">{detailRecord?.id}</Descriptions.Item>
           <Descriptions.Item label="帖子ID">{detailRecord?.postId}</Descriptions.Item>
           <Descriptions.Item label="用户ID">{detailRecord?.userId}</Descriptions.Item>
-          <Descriptions.Item label="内容">{detailRecord?.content}</Descriptions.Item>
+          <Descriptions.Item label="内容">{detailRecord && <CommentContent content={detailRecord.content} />}</Descriptions.Item>
           <Descriptions.Item label="点赞数">{detailRecord?.likeCount}</Descriptions.Item>
           <Descriptions.Item label="状态">
             {(() => {
@@ -136,8 +139,8 @@ export default function Comments() {
               return info ? <Tag color={info.color}>{info.label}</Tag> : '未知'
             })()}
           </Descriptions.Item>
-          <Descriptions.Item label="创建时间">{detailRecord?.createdAt}</Descriptions.Item>
-          <Descriptions.Item label="更新时间">{detailRecord?.updatedAt}</Descriptions.Item>
+          <Descriptions.Item label="创建时间">{formatTimeOnly(detailRecord?.createdAt)}</Descriptions.Item>
+          <Descriptions.Item label="更新时间">{formatTimeOnly(detailRecord?.updatedAt)}</Descriptions.Item>
         </Descriptions>
       </Modal>
     </>

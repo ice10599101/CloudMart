@@ -99,7 +99,8 @@ class AdminAuthServiceImplTest {
         @Test
         @DisplayName("should login successfully with valid credentials")
         void login_validCredentials_returnsLoginResponse() {
-            HttpServletRequest httpRequest = mockRequest("127.0.0.1", "Chrome/120");
+            HttpServletRequest httpRequest = mockRequest("127.0.0.1",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36");
             LoginRequest request = new LoginRequest(USERNAME, PASSWORD);
             AdminUserDTO adminDTO = createAdminDTO(false);
 
@@ -117,6 +118,12 @@ class AdminAuthServiceImplTest {
             assertThat(result.refreshToken()).isEqualTo(REFRESH_TOKEN);
             assertThat(result.tokenType()).isEqualTo("Bearer");
             assertThat(result.tokenId()).isNotBlank();
+
+            org.mockito.ArgumentCaptor<LoginLogRecordRequest> loginLog =
+                    org.mockito.ArgumentCaptor.forClass(LoginLogRecordRequest.class);
+            verify(loginLogFeignClient).recordLogin(loginLog.capture());
+            assertThat(loginLog.getValue().browser()).isEqualTo("Chrome");
+            assertThat(loginLog.getValue().os()).isEqualTo("Windows");
         }
 
         @Test

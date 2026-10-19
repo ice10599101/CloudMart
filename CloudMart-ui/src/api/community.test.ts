@@ -162,6 +162,7 @@ describe('community API', () => {
     expect(request.post).toHaveBeenCalledWith(
       '/community/browse-history',
       { targetType: 'WISH', targetId: 9, title: '心愿标题', cover: 'http://x/w.jpg' },
+      { silentError: true },
     )
   })
 

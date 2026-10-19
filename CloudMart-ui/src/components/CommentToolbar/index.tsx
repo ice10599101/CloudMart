@@ -11,24 +11,7 @@ import { searchUsers } from '@/api/community'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
 import s from './style.module.css'
 
-/** 评论中图片片段模式：![alt](https url)。该模式可安全穿过服务端 HTML 转义，渲染层再还原为 <img> */
-export const COMMENT_IMAGE_PATTERN = /!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/g
-
-/** 把评论内容拆分为 文本/图片 段（渲染层据此还原图片，文本部分继续走 @高亮/转义逻辑） */
-export function splitCommentImages(
-    content: string,
-): Array<{ type: 'text' | 'image'; value: string }> {
-  const parts: Array<{ type: 'text' | 'image'; value: string }> = []
-  let last = 0
-  for (const match of content.matchAll(COMMENT_IMAGE_PATTERN)) {
-    const idx = match.index ?? 0
-    if (idx > last) parts.push({ type: 'text', value: content.slice(last, idx) })
-    parts.push({ type: 'image', value: match[1] })
-    last = idx + match[0].length
-  }
-  if (last < content.length) parts.push({ type: 'text', value: content.slice(last) })
-  return parts
-}
+export { splitCommentImages } from '@/utils/commentImages'
 
 /**
  * 在 textarea/input 光标处插入片段并恢复焦点与光标。

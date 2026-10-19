@@ -27,6 +27,7 @@ import {
   saveSoftwareDraft,
   submitSoftwareForReview,
   listMySoftware,
+  listMySourceIssues,
   createWorkingRevision,
 } from './software'
 
@@ -294,6 +295,16 @@ describe('software API', () => {
 
     expect(request.get).toHaveBeenCalledWith('/software/mine', {
       params: { tab: 'rejected', page: 1, size: 20 },
+    })
+  })
+
+  it('listMySourceIssues() 作为可选工作台待办静默请求', async () => {
+    vi.mocked(request.get).mockResolvedValue(ok)
+
+    await listMySourceIssues()
+
+    expect(request.get).toHaveBeenCalledWith('/software/mine/source-issues', {
+      silentError: true,
     })
   })
 

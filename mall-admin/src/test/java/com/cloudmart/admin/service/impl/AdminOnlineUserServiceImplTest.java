@@ -86,8 +86,36 @@ class AdminOnlineUserServiceImplTest {
             AdminOnlineUserResponse response = result.getFirst();
             assertThat(response.userId()).isEqualTo(1L);
             assertThat(response.username()).isEqualTo("admin");
-            assertThat(response.loginIp()).isEqualTo("127.0.0.1");
+            assertThat(response.ipaddr()).isEqualTo("127.0.0.1");
             assertThat(response.tokenId()).isEqualTo("token-abc");
+        }
+
+        @Test
+        @DisplayName("list includes both frontend and admin sessions")
+        @SuppressWarnings("unchecked")
+        void list_IncludesFrontendAndAdminSessions() throws Exception {
+            String userKey = SecurityConstants.USER_ONLINE_PREFIX + "user-session";
+            String adminKey = SecurityConstants.ADMIN_ONLINE_PREFIX + "admin-session";
+            String userJson = "{\"userId\":\"2\",\"username\":\"member\",\"ipaddr\":\"10.0.0.2\"}";
+            String adminJson = "{\"userId\":\"1\",\"username\":\"admin\",\"ipaddr\":\"10.0.0.1\"}";
+            when(redisTemplate.keys(SecurityConstants.USER_ONLINE_PREFIX + "*")).thenReturn(Set.of(userKey));
+            when(redisTemplate.keys(SecurityConstants.ADMIN_ONLINE_PREFIX + "*")).thenReturn(Set.of(adminKey));
+            ValueOperations<String, String> valueOps = mock(ValueOperations.class);
+            when(redisTemplate.opsForValue()).thenReturn(valueOps);
+            when(valueOps.get(userKey)).thenReturn(userJson);
+            when(valueOps.get(adminKey)).thenReturn(adminJson);
+            when(objectMapper.readValue(eq(userJson), any(TypeReference.class))).thenReturn(Map.of(
+                    "userId", "2", "username", "member", "ipaddr", "10.0.0.2"));
+            when(objectMapper.readValue(eq(adminJson), any(TypeReference.class))).thenReturn(Map.of(
+                    "userId", "1", "username", "admin", "ipaddr", "10.0.0.1"));
+
+            List<AdminOnlineUserResponse> result = adminOnlineUserService.list();
+
+            assertThat(result).hasSize(2);
+            assertThat(result).extracting(AdminOnlineUserResponse::userType)
+                    .containsExactlyInAnyOrder("USER", "ADMIN");
+            assertThat(result).extracting(AdminOnlineUserResponse::tokenId)
+                    .contains("USER:user-session", "admin-session");
         }
 
         @Test
@@ -127,6 +155,28 @@ class AdminOnlineUserServiceImplTest {
 
             // SEC-02：刷新令牌家族撤销经 mall-auth 内部接口执行
             verify(authRevocationFeignClient).revokeSubject(AuthRevocationFeignClient.adminSubject(42L));
+            verify(redisTemplate).delete(key);
+        }
+
+        @Test
+        @DisplayName("frontend user session force logout invalidates the user authentication state")
+        @SuppressWarnings("unchecked")
+        void forceLogout_FrontendSession_InvalidatesUserState() throws Exception {
+            String tokenId = "USER:session-123";
+            String key = SecurityConstants.USER_ONLINE_PREFIX + "session-123";
+            String json = "{\"userId\":\"42\",\"username\":\"member\"}";
+            ValueOperations<String, String> valueOps = mock(ValueOperations.class);
+            when(redisTemplate.opsForValue()).thenReturn(valueOps);
+            when(valueOps.get(key)).thenReturn(json);
+            when(objectMapper.readValue(eq(json), any(TypeReference.class)))
+                    .thenReturn(Map.of("userId", "42", "username", "member"));
+
+            adminOnlineUserService.forceLogout(tokenId);
+
+            verify(authRevocationFeignClient).invalidateState(Map.of(
+                    "subjectType", "USER",
+                    "subjectId", 42L,
+                    "revokeRefreshTokens", true));
             verify(redisTemplate).delete(key);
         }
 

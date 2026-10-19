@@ -18,6 +18,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.http.MediaType;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -59,7 +60,7 @@ class AuthControllerTest {
     void login_ShouldReturnSuccessEnvelope() throws Exception {
         LoginResponse response = new LoginResponse(
                 "access-token", "refresh-token", "Bearer", 3600L, "token-id");
-        given(authService.login(any(LoginRequest.class))).willReturn(response);
+        given(authService.login(any(LoginRequest.class), any(HttpServletRequest.class))).willReturn(response);
 
         mockMvc.perform(post("/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -77,7 +78,7 @@ class AuthControllerTest {
     @DisplayName("POST /login - 登录失败返回错误信封")
     void login_WhenAuthFailed_ShouldReturnErrorEnvelope() throws Exception {
         willThrow(new BusinessException("AUTH_FAILED", "用户名或密码错误"))
-                .given(authService).login(any(LoginRequest.class));
+                .given(authService).login(any(LoginRequest.class), any(HttpServletRequest.class));
 
         mockMvc.perform(post("/login")
                         .contentType(MediaType.APPLICATION_JSON)

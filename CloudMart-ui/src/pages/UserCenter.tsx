@@ -1,5 +1,5 @@
 import RichText, { richTextToPlainText } from '@/components/RichText'
-import { stripHtml, formatDateTime } from '@/utils/format'
+import { stripHtml, formatDateTime, formatTimeOnly } from '@/utils/format'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useUrlTab } from '@/hooks/useUrlTab'
 import { createPortal } from 'react-dom'
@@ -36,6 +36,7 @@ import type { MyComment } from '@/api/community'
 import { useAuthStore } from '@/stores/auth'
 import { useDecorationStore } from '@/stores/decoration'
 import DecoratedAvatar from '@/components/DecoratedAvatar'
+import CommentContent from '@/components/CommentContent'
 import { uploadFile } from '@/api/file'
 import s from './UserCenter.module.css'
 
@@ -969,7 +970,7 @@ function MyRepliesTab() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginBottom: 6, lineHeight: 1.5 }}>
-                    {comment.content}
+                    <CommentContent content={comment.content} />
                   </div>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                     <span style={{ fontSize: 12, color: 'var(--color-primary)', cursor: 'pointer' }}>
@@ -982,7 +983,7 @@ function MyRepliesTab() {
                     )}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 6 }}>
-                    {new Date(comment.createdAt).toLocaleString()}
+                    {formatTimeOnly(comment.createdAt)}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginLeft: 16 }}>
@@ -2107,7 +2108,9 @@ export default function UserCenterPage() {
                           {act.preview && (
                             <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.preview}</div>
                           )}
-                          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 2 }}>{new Date(act.createdAt).toLocaleDateString()}</div>
+                          <div style={{ fontSize: 11, color: 'var(--color-text-tertiary)', marginTop: 2 }}>
+                            {act.type === 'comment' ? formatTimeOnly(act.createdAt) : new Date(act.createdAt).toLocaleDateString()}
+                          </div>
                         </div>
                         <span style={{ fontSize: 12, color: 'var(--color-text-tertiary)', flexShrink: 0 }}>→</span>
                       </div>
