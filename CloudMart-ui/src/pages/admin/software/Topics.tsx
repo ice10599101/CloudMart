@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import dayjs, { type Dayjs } from 'dayjs'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
 import { Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Tag, DatePicker } from 'antd'
@@ -63,6 +64,9 @@ export default function SoftwareTopics() {
         (detail.items ?? []).map((item) => ({
           softwareId: item.softwareId,
           sortOrder: item.sortOrder ?? null,
+          groupKey: item.groupKey,
+          roleNote: item.roleNote,
+          optional: item.optional,
         })),
       )
       form.setFieldsValue({
@@ -72,6 +76,17 @@ export default function SoftwareTopics() {
         coverAssetId: detail.coverAssetId ?? null,
         status: detail.status ?? 'DRAFT',
         sortOrder: detail.sortOrder ?? 0,
+        description: detail.description ?? '',
+        scheduledRange:
+          detail.scheduledStartAt && detail.scheduledEndAt
+            ? ([dayjs(detail.scheduledStartAt), dayjs(detail.scheduledEndAt)] as [
+                Dayjs,
+                Dayjs,
+              ])
+            : undefined,
+        audience: detail.audience ?? '',
+        problem: detail.problem ?? '',
+        prerequisites: detail.prerequisites ?? '',
       })
     } catch {
       message.error('加载专题失败')
@@ -115,6 +130,9 @@ export default function SoftwareTopics() {
         description: values.description || undefined,
         scheduledStartAt: values.scheduledRange?.[0]?.toISOString(),
         scheduledEndAt: values.scheduledRange?.[1]?.toISOString(),
+        audience: values.audience || undefined,
+        problem: values.problem || undefined,
+        prerequisites: values.prerequisites || undefined,
         items: cleanItems,
       }
       if (editing?.topicId) {
