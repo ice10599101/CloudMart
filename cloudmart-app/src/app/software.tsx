@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { softwareApi } from '@/api/software'
+import { softwareApi, getSoftwareHome, type SoftwareHomeSection } from '@/api/software'
 import type { SoftwareCard, SoftwareCategory, SoftwareTopicSummary } from '@/api/software'
 import { useTheme } from '@/hooks/use-theme-context'
 import { FontSize, Spacing, BorderRadius } from '@/constants/theme'
@@ -55,6 +55,8 @@ export default function SoftwareScreen() {
   const [rankTotal, setRankTotal] = useState(0)
   const [topics, setTopics] = useState<SoftwareTopicSummary[]>([])
   const [topicsLoaded, setTopicsLoaded] = useState(false)
+  // UX01：运营配置区块（无配置=null 降级内置列表；单块失败由后端 ERROR 标记）
+  const [homeSections, setHomeSections] = useState<SoftwareHomeSection[] | null>(null)
 
   const load = useCallback(
     async (nextPage: number, replace: boolean) => {
@@ -90,6 +92,15 @@ export default function SoftwareScreen() {
   useEffect(() => {
     void load(1, true)
   }, [load])
+  // UX01：首页运营区块（失败/空配置降级 null）
+  useEffect(() => {
+    getSoftwareHome('APP')
+      .then((res) => {
+        const blocks = res.data.data ?? []
+        setHomeSections(blocks.length > 0 ? blocks : null)
+      })
+      .catch(() => setHomeSections(null))
+  }, [])
 
   const loadRankings = useCallback(
     async (nextPage: number, replace: boolean) => {
@@ -292,6 +303,54 @@ export default function SoftwareScreen() {
         data={cards}
         keyExtractor={(item) => item.id}
         renderItem={renderCard}
+        ListHeaderComponent={
+          (homeSections ?? []).length > 0 ? (
+            <View>
+              {(homeSections ?? []).map((section) => (
+                <View key={section.id} style={{ paddingHorizontal: Spacing.md, marginTop: Spacing.sm }}>
+                  <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>
+                    {section.title}
+                  </Text>
+                  {section.state === 'ERROR' ? (
+                    <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary, marginTop: 4 }}>
+                      本区块加载失败，下拉重试
+                    </Text>
+                  ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: Spacing.xs }}>
+                      {(section.items ?? [])
+                        .filter((item) => item.software || item.topic)
+                        .map((item) => (
+                        <TouchableOpacity
+                          key={item.itemId}
+                          onPress={() => {
+                            if (item.software) router.push(`/software-detail?id=${item.software.id}`)
+                            else if (item.topic) router.push(`/software-topic?slug=${item.topic.slug}`)
+                          }}
+                          style={{
+                            width: 132,
+                            marginRight: Spacing.sm,
+                            padding: Spacing.sm,
+                            borderRadius: BorderRadius.md,
+                            backgroundColor: theme.bgContainer,
+                          }}
+                        >
+                          <Text numberOfLines={1} style={{ fontSize: FontSize.sm, fontWeight: '600', color: theme.text }}>
+                            {item.headline || item.software?.name || item.topic?.title || item.guide?.title || ''}
+                          </Text>
+                          {(item.editorNote || item.software?.summary || item.topic?.summary) ? (
+                            <Text numberOfLines={2} style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>
+                              {item.editorNote || item.software?.summary || item.topic?.summary || item.guide?.summary}
+                            </Text>
+                          ) : null}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : null
+        }
         onEndReachedThreshold={0.3}
         onEndReached={() => {
           if (!loading && cards.length < total) {

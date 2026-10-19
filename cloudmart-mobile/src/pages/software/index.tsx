@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Image, Input, ScrollView, Text, View } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
-import { softwareApi } from '@/api/software'
+import { softwareApi, getSoftwareHome, type SoftwareHomeSection } from '@/api/software'
 import type { SoftwareTopicSummary, SoftwareCard, SoftwareCategory  } from '@/api/software'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
@@ -45,6 +45,17 @@ export default function SoftwareList() {
   const [rankItems, setRankItems] = useState<SoftwareCard[]>([])
   const [topics, setTopics] = useState<SoftwareTopicSummary[]>([])
   const [topicsLoaded, setTopicsLoaded] = useState(false)
+  // UX01：运营配置区块（无配置=null 降级内置列表）
+  const [homeSections, setHomeSections] = useState<SoftwareHomeSection[] | null>(null)
+
+  useEffect(() => {
+    getSoftwareHome('TARO')
+      .then((res) => {
+        const blocks = res.data?.data ?? []
+        setHomeSections(blocks.length > 0 ? blocks : null)
+      })
+      .catch(() => setHomeSections(null))
+  }, [])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
 
@@ -215,6 +226,47 @@ export default function SoftwareList() {
 
       {mode === 'list' && (
       <>
+      {/* UX01：运营区块（横滑条；ERROR 本区标注；guide 条目不渲染——小程序教程页未建，不做死链） */}
+      {(homeSections ?? []).length > 0
+        ? (homeSections ?? []).map((section) => (
+            <View key={section.id} className={styles.section}>
+              <Text className={styles.sectionTitle}>{section.title}</Text>
+              {section.state === 'ERROR' ? (
+                <Text className={styles.emptyText}>本区块加载失败，下拉重试</Text>
+              ) : (
+                <ScrollView scrollX enableFlex>
+                  <View style={{ display: 'flex', flexDirection: 'row' }}>
+                    {(section.items ?? [])
+                      .filter((item) => item.software || item.topic)
+                      .map((item) => (
+                        <View
+                          key={item.itemId}
+                          className={styles.card}
+                          style={{ width: 280, marginRight: 12, flexShrink: 0 }}
+                          onClick={() => {
+                            if (item.software) {
+                              Taro.navigateTo({ url: `/pages/softwareDetail/index?id=${item.software.id}` })
+                            } else if (item.topic) {
+                              Taro.navigateTo({ url: `/pages/softwareTopic/index?slug=${item.topic.slug}` })
+                            }
+                          }}
+                        >
+                          <Text className={styles.cardTitle}>
+                            {item.headline || item.software?.name || item.topic?.title}
+                          </Text>
+                          {(item.editorNote || item.software?.summary || item.topic?.summary) ? (
+                            <Text className={styles.cardSummary}>
+                              {item.editorNote || item.software?.summary || item.topic?.summary}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ))}
+                  </View>
+                </ScrollView>
+              )}
+            </View>
+          ))
+        : null}
       {cards.length === 0 && !loading ? (
         <Text className={styles.emptyText}>没有找到相关软件</Text>
       ) : (

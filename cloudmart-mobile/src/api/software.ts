@@ -633,3 +633,34 @@ export function listMySoftwareRequests() {
     createdAt: string | null
   }>>({ url: `${BASE}/requests/mine`, method: 'GET' })
 }
+
+// ==================== UX01：首页区块聚合（小程序端） ====================
+
+export interface SoftwareHomeSectionItem {
+  itemId: string
+  targetType: 'SOFTWARE' | 'TOPIC' | 'GUIDE' | 'FILTER'
+  headline?: string
+  editorNote?: string
+  software?: SoftwareCard
+  topic?: { id: string; slug: string; title: string; summary?: string }
+  guide?: { id: string; title: string; summary?: string; guideType?: string }
+}
+
+export interface SoftwareHomeSection {
+  id: string
+  slotKey: string
+  kind: string
+  title: string
+  subtitle?: string
+  state?: 'OK' | 'ERROR' | 'EMPTY'
+  items: SoftwareHomeSectionItem[]
+  hasMore: boolean
+}
+
+export function getSoftwareHome(platform: 'TARO' = 'TARO') {
+  return request<SoftwareHomeSection[]>({
+    url: `${BASE}/home`,
+    method: 'GET',
+    data: { platform },
+  })
+}
