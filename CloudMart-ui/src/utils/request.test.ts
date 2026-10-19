@@ -56,6 +56,20 @@ describe('request 请求拦截器（真实实例）', () => {
     expect(config.headers.Authorization).toBe('Bearer user-token')
   })
 
+  it('公网 HTTP 缺少 randomUUID 时登录 POST 仍能生成并复用幂等键', () => {
+    vi.stubGlobal('crypto', {
+      getRandomValues: originalCrypto.getRandomValues.bind(originalCrypto),
+    })
+    const input = { url: '/auth/login', method: 'post', data: { account: 'test', password: 'invalid' } }
+    const first = runRequestInterceptor(input)
+    const second = runRequestInterceptor(input)
+    const other = runRequestInterceptor({ ...input, data: { account: 'other', password: 'invalid' } })
+
+    expect(first.headers['X-Idempotency-Key']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+    expect(second.headers['X-Idempotency-Key']).toBe(first.headers['X-Idempotency-Key'])
+    expect(other.headers['X-Idempotency-Key']).not.toBe(first.headers['X-Idempotency-Key'])
+  })
+
   it('admin 路径使用 admin_access_token', () => {
     localStorage.setItem('admin_access_token', 'admin-token')
     localStorage.setItem('access_token', 'user-token')

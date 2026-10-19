@@ -1,5 +1,6 @@
 import type { ApiResponse } from '@/types/api'
 import request from '@/utils/request'
+import { createUuid } from '@/utils/uuid'
 
 export function getProducts(params?: Record<string, any>) {
   return request.get('/admin/business/products', { params })
@@ -570,7 +571,7 @@ export function receiveInboundItem(
 
 /** C19：生成收货流水 ID（后台确认时生成，重试原样回传；去横线 UUID 前 32 位以内） */
 export function newInboundReceiptId() {
-  return `RCP${crypto.randomUUID().replace(/-/g, '').slice(0, 28)}`
+  return `RCP${createUuid().replace(/-/g, '').slice(0, 28)}`
 }
 
 /** 完成入库（关闭入库单） */

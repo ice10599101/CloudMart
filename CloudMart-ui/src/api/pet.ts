@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { createUuid } from '@/utils/uuid'
 import type { ApiResponse } from '@/types/api'
 
 // ========== 社区宠物（契约对齐 mall-pet PetController 等，实施文档 §1.16） ==========
@@ -1833,7 +1834,7 @@ export function claimPetQuestChestInSet(setId: string) {
  * 同键重复提交返回原结果；每次用户动作生成一个新键，不复用。
  */
 function newPetRequestKey(): string {
-  return crypto.randomUUID().replace(/-/g, '')
+  return createUuid().replace(/-/g, '')
 }
 
 /** 协作 PVE 回合流水（对齐 PetPveRunVO.RoundLog） */

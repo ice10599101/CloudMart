@@ -7,6 +7,7 @@ import { useAdminAuthStore } from '@/stores/adminAuth'
 import { useAuthStore } from '@/stores/auth'
 import { getAppMessage } from '@/utils/appMessage'
 import { getDeviceId } from '@/utils/deviceFingerprint'
+import { createUuid } from '@/utils/uuid'
 import {
   WRITE_METHODS,
   hashFingerprint,
@@ -210,7 +211,7 @@ request.interceptors.request.use(
             localStorage.getItem(storeKey),
             Date.now(),
             config.persistentIntent === true,
-            () => crypto.randomUUID(),
+            createUuid,
           )
           config.headers['X-Idempotency-Key'] = decision.key
           config._intentStoreKey = storeKey

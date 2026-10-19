@@ -3,6 +3,7 @@ import { Button, Card, Empty, Form, Input, InputNumber, Statistic, Table, Tag } 
 import { ArrowLeftOutlined, SendOutlined } from '@ant-design/icons'
 import { history } from 'umi'
 import { message } from '@/utils/appMessage'
+import { createUuid } from '@/utils/uuid'
 import {
   createTransfer,
   getMyTransfers,
@@ -77,8 +78,8 @@ export default function StarlightTransfer() {
   const handleSubmit = async (values: TransferFormValues) => {
     setSubmitting(true)
     try {
-      // idempotency.ts 未导出通用 uuid 生成器：按约定用 crypto.randomUUID() 去横线作为幂等键
-      const requestKey = globalThis.crypto.randomUUID().replace(/-/g, '')
+      // 去横线 UUID 作为幂等键，同时兼容公网 HTTP。
+      const requestKey = createUuid().replace(/-/g, '')
       const res = await createTransfer({
         toUserId: values.toUserId,
         amount: values.amount,

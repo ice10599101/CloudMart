@@ -1,4 +1,5 @@
 import { decideIntent, hashFingerprint } from '@/utils/idempotency'
+import { createUuid } from '@/utils/uuid'
 
 /**
  * 软件模块写操作幂等键（手册 6.14/7.3/7.5：请求携带 `Idempotency-Key`）。
@@ -32,9 +33,7 @@ export function softwareWriteConfig(
     [method.toUpperCase(), url, JSON.stringify(payload ?? null), 'software'].join('|'),
   )
   const storeKey = `idem:software:${fingerprint}`
-  const decision = decideIntent(localStorage.getItem(storeKey), Date.now(), false, () =>
-    crypto.randomUUID(),
-  )
+  const decision = decideIntent(localStorage.getItem(storeKey), Date.now(), false, createUuid)
   if (decision.action === 'create') {
     localStorage.setItem(storeKey, JSON.stringify(decision.entry))
   }
