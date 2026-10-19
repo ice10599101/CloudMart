@@ -204,6 +204,8 @@ export default function SoftwareEdit() {
   /** SF02：安装指南/已知问题（随快照审核；仅通用文本） */
   const [installationGuide, setInstallationGuide] = useState("");
   const [knownIssues, setKnownIssues] = useState("");
+  /** UX03：短亮点（≤3 条、每条 1~60 字，随快照审核） */
+  const [highlights, setHighlights] = useState<string[]>(["", "", ""]);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [accessMode, setAccessMode] =
     useState<SoftwareAccessMode>("REGISTERED");
@@ -261,9 +263,10 @@ export default function SoftwareEdit() {
       systemRequirements,
       installationGuide,
       knownIssues,
+      highlights,
     });
   }, [name, summary, descriptionHtml, developerName, officialUrl, systemRequirements,
-    installationGuide, knownIssues]);
+    installationGuide, knownIssues, highlights]);
 
   /**
    * 用服务端规范化结果重建页面状态（载入与保存共用）。
@@ -283,6 +286,11 @@ export default function SoftwareEdit() {
     setSystemRequirements(data.systemRequirements ?? "");
     setInstallationGuide(data.installationGuide ?? "");
     setKnownIssues(data.knownIssues ?? "");
+    {
+      // UX03：亮点回填（不足 3 槽补空，保持三槽输入）
+      const loaded = data.highlights ?? [];
+      setHighlights([loaded[0] ?? "", loaded[1] ?? "", loaded[2] ?? ""]);
+    }
     setLanguages(data.languages ?? []);
     setAttributionNote(data.attributionNote ?? "");
     setAccessNote(data.accessNote ?? "");
@@ -416,6 +424,13 @@ export default function SoftwareEdit() {
     }
     if (!sameText(knownIssues, editor.knownIssues ?? "")) {
       patch.knownIssues = knownIssues.trim() || null;
+    }
+    {
+      // UX03：亮点 patch（数组整体替换；去除空槽；与基线不同才提交）
+      const cleaned = highlights.map((h) => h.trim()).filter(Boolean);
+      if (JSON.stringify(cleaned) !== JSON.stringify(editor.highlights ?? [])) {
+        patch.highlights = cleaned;
+      }
     }
     if (!sameList(languages, editor.languages)) patch.languages = languages;
     if (accessMode !== editor.accessMode) patch.accessMode = accessMode;
@@ -779,6 +794,20 @@ export default function SoftwareEdit() {
               onChange={setLanguages}
               options={LANGUAGE_OPTIONS}
             />
+          {highlights.map((value, index) => (
+            <Input
+              key={index}
+              disabled={frozen}
+              maxLength={60}
+              placeholder={`亮点 ${index + 1}（选填，≤60 字；至少填第 1 条，随内容一并提交审核）`}
+              value={value}
+              onChange={(event) => {
+                const next = [...highlights];
+                next[index] = event.target.value;
+                setHighlights(next);
+              }}
+            />
+          ))}
           <Input.TextArea
             disabled={frozen}
             rows={3}

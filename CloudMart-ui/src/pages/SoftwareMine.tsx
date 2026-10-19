@@ -7,6 +7,8 @@ import {
   getSoftwarePreferences,
   getUpdatesUnreadCount,
   listMySoftware,
+  listMySourceIssues,
+  type SoftwareSourceIssue,
   listMySubscriptions,
   listMyUpdates,
   markUpdatesRead,
@@ -96,6 +98,8 @@ export default function SoftwareMine() {
   const [prefTarget, setPrefTarget] = useState<SoftwareSubscriptionRow | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [rejectedCount, setRejectedCount] = useState(0);
+  // SF07：待修复来源聚合（巡检 INVALID）
+  const [sourceIssues, setSourceIssues] = useState<SoftwareSourceIssue[]>([]);
   const [prefForm] = Form.useForm();
   // UX05：最近浏览（本地 30 条 → 服务端批量查询过滤不可见）
   const [recentCards, setRecentCards] = useState<SoftwareCard[]>([]);
@@ -203,6 +207,9 @@ export default function SoftwareMine() {
         setPendingCount(records.filter((it) => it.status === "PENDING").length);
         setRejectedCount(records.filter((it) => it.status === "REJECTED").length);
       })
+      .catch(() => undefined);
+    listMySourceIssues()
+      .then((res) => setSourceIssues(res.data.data ?? []))
       .catch(() => undefined);
   }, [isAuthenticated]);
 
@@ -362,7 +369,7 @@ export default function SoftwareMine() {
         </div>
       )}
       {/* SF03/UX05：作者工作台待办聚合（真实待办：审核中/需修复；不用虚拟打卡奖励制造回访） */}
-      {tab === "published" && (pendingCount > 0 || rejectedCount > 0) ? (
+      {tab === "published" && (pendingCount > 0 || rejectedCount > 0 || sourceIssues.length > 0) ? (
         <div style={{ marginBottom: 12 }}>
           <Space wrap>
             {pendingCount > 0 ? (
@@ -377,7 +384,28 @@ export default function SoftwareMine() {
                 被退回 {rejectedCount} 个需修复 →
               </Button>
             ) : null}
+            {sourceIssues.length > 0 ? (
+              <Tag color="warning">
+                {sourceIssues.length} 个来源待修复（巡检失效）
+              </Tag>
+            ) : null}
           </Space>
+          {sourceIssues.length > 0 ? (
+            <div style={{ marginTop: 4 }}>
+              {sourceIssues.slice(0, 5).map((issue) => (
+                <div key={`${issue.softwareId}-${issue.sourceKey}`}>
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={() => history.push(`/software/${issue.softwareId}/edit`)}
+                  >
+                    {issue.softwareName || `软件 ${issue.softwareId}`} · {issue.sourceKey}
+                    {issue.reason ? `（${issue.reason.slice(0, 40)}）` : ""} →
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
       <Tabs

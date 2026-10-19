@@ -1219,3 +1219,17 @@ export function clearRecentBrowse() {
     // 同上
   }
 }
+
+// ==================== SF07：作者待修复来源聚合 ====================
+
+export interface SoftwareSourceIssue {
+  softwareId: string
+  softwareName: string | null
+  sourceKey: string
+  reason: string | null
+  checkedAt: string | null
+}
+
+export function listMySourceIssues() {
+  return request.get<ApiResponse<SoftwareSourceIssue[]>>(`${BASE}/mine/source-issues`);
+}
