@@ -53,3 +53,65 @@ for (const saveFails of [false, true]) {
 }
 
 }
+
+test('迁移 SW03 前本地草稿中的平台/架构多选，保存时展开为字符串配对', async ({ page }) => {
+  const writes: Array<{ method: string; path: string; body: any }> = []
+  await page.addInitScript(() => {
+    localStorage.clear()
+    localStorage.setItem('access_token', 'mock-token')
+    localStorage.setItem('software-publish-draft', JSON.stringify({
+      name: '旧版草稿',
+      summary: '',
+      descriptionHtml: '',
+      licenseType: 'FREE',
+      accessMode: 'REGISTERED',
+      tagIds: [],
+      releases: [{
+        uid: 'release-1',
+        versionName: '3.8.2',
+        changelog: '',
+        recommended: true,
+        sources: [{
+          uid: 'source-1',
+          label: '网盘',
+          platform: ['WINDOWS', 'LINUX'],
+          arch: ['X64', 'ARM64'],
+          sourceType: 'NETDISK',
+          link: 'https://example.com/download',
+          extractionCode: '',
+        }],
+      }],
+      softwareId: '5',
+      revisionId: '9',
+    }))
+  })
+  await page.route('**/api/**', async (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    const method = request.method()
+    const ok = (data: unknown) => route.fulfill({ json: { success: true, data } })
+    if (method === 'GET') {
+      if (path.endsWith('/publisher-status')) return ok({ canPublish: true, publishMode: 'DIRECT' })
+      if (path.includes('/user/profile')) return ok({ id: '42', nickname: '测试用户' })
+      return ok([])
+    }
+    writes.push({ method, path, body: request.postDataJSON() })
+    return ok({ softwareId: '5', revisionId: '9' })
+  })
+
+  await page.goto('/software/publish')
+  await page.getByRole('button', { name: '保存草稿', exact: true }).click()
+  await expect(page.getByText('草稿已保存', { exact: true })).toBeVisible()
+
+  expect(writes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+    'PUT /api/software/5/revisions/9',
+  ])
+  const sources = writes[0].body.releases[0].sources
+  expect(sources.map((source: any) => [source.platform, source.arch])).toEqual([
+    ['WINDOWS', 'X64'],
+    ['WINDOWS', 'ARM64'],
+    ['LINUX', 'X64'],
+    ['LINUX', 'ARM64'],
+  ])
+  expect(sources.every((source: any) => typeof source.platform === 'string' && typeof source.arch === 'string')).toBe(true)
+})

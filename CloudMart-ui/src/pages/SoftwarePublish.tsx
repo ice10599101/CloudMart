@@ -121,6 +121,64 @@ const emptyRelease = (): ReleaseDraft => ({
   ],
 });
 
+/**
+ * 本地草稿跨前端版本保留。SW03 前 platform/arch 为多选数组；
+ * 当前 API 每条来源只接受一个平台与架构，因此恢复时展开为配对行。
+ */
+function stringChoices(value: unknown, fallback: string): string[] {
+  const values = Array.isArray(value) ? value : [value];
+  const choices = [...new Set(values.filter(
+    (item): item is string => typeof item === "string" && item.length > 0,
+  ))];
+  return choices.length > 0 ? choices : [fallback];
+}
+
+function normalizeSourceDrafts(value: unknown): SourceDraft[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const source = entry as Record<string, unknown>;
+    const platforms = stringChoices(source.platform, "WINDOWS");
+    const architectures = stringChoices(source.arch, "X64");
+    const pairs = new Map<string, { platform: string; arch: string }>();
+    for (const platform of platforms) {
+      for (const arch of architectures) {
+        pairs.set(`${platform}\u0000${arch}`, { platform, arch });
+      }
+    }
+
+    return [...pairs.values()].map(({ platform, arch }) => ({
+      // 旧 UID 可能与本次运行生成的 UID 冲突；这些仅供列表渲染，恢复时统一重建。
+      uid: nextDraftUid(),
+      label: typeof source.label === "string" ? source.label : "网盘",
+      platform,
+      arch,
+      sourceType:
+        typeof source.sourceType === "string"
+          ? (source.sourceType as SoftwareSourceType)
+          : "NETDISK",
+      link: typeof source.link === "string" ? source.link : "",
+      extractionCode:
+        typeof source.extractionCode === "string" ? source.extractionCode : "",
+    }));
+  });
+}
+
+function normalizeReleaseDrafts(value: unknown): ReleaseDraft[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const release = entry as Record<string, unknown>;
+    return [{
+      uid: typeof release.uid === "string" ? release.uid : nextDraftUid(),
+      versionName: typeof release.versionName === "string" ? release.versionName : "",
+      changelog: typeof release.changelog === "string" ? release.changelog : "",
+      recommended: typeof release.recommended === "boolean" ? release.recommended : true,
+      sources: normalizeSourceDrafts(release.sources),
+    }];
+  });
+}
+
 export default function SoftwarePublish() {
   const { message } = App.useApp();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -178,7 +236,7 @@ export default function SoftwarePublish() {
       accessMode: SoftwareAccessMode;
       minCommunityLevel: number;
       accessContactId?: string;
-      releases: ReleaseDraft[];
+      releases: unknown;
       softwareId: string | null;
       revisionId: string | null;
     }>(DRAFT_KEY);
@@ -196,7 +254,8 @@ export default function SoftwarePublish() {
     if (draft.accessMode) setAccessMode(draft.accessMode);
     if (draft.minCommunityLevel) setMinCommunityLevel(draft.minCommunityLevel);
     if (draft.accessContactId) setAccessContactId(draft.accessContactId);
-    if (draft.releases?.length) setReleases(draft.releases);
+    const restoredReleases = normalizeReleaseDrafts(draft.releases);
+    if (restoredReleases.length > 0) setReleases(restoredReleases);
     if (draft.softwareId) setSoftwareId(draft.softwareId);
     if (draft.revisionId) setRevisionId(draft.revisionId);
     // 仅挂载恢复一次；置位后保存 effect 才开始写档（防挂载初始值覆盖存档）
@@ -264,7 +323,9 @@ export default function SoftwarePublish() {
   }, [canPublish]);
 
   const buildPayload = useCallback(() => {
-    const sourcePayload = releases.flatMap((release) =>
+    // 同时在 API 边界归一化，避免遗留/异常运行时数据把数组传给字符串字段。
+    const payloadReleases = normalizeReleaseDrafts(releases);
+    const sourcePayload = payloadReleases.flatMap((release) =>
       release.sources
         .filter((source) => source.link.trim().length > 0)
         .map((source) => ({
@@ -296,7 +357,7 @@ export default function SoftwarePublish() {
       accessContactId:
         accessMode === "ADMIN_PAID" ? accessContactId : undefined,
       tagIds,
-      releases: releases
+      releases: payloadReleases
         .filter((release) => release.versionName.trim().length > 0)
         .map((release) => ({
           versionName: release.versionName.trim(),
