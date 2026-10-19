@@ -84,6 +84,29 @@ public interface SoftwareFeignClient {
     ApiResponse<Object> saveRelations(@PathVariable("softwareId") Long softwareId,
                                       @RequestBody Map<String, Object> body);
 
+    // ---------------- 教程（UX04） ----------------
+
+    @GetMapping("/guides")
+    ApiResponse<Object> guides(@RequestParam(value = "guideType", required = false) String guideType,
+                               @RequestParam("page") int page, @RequestParam("size") int size);
+
+    @PostMapping("/guides")
+    ApiResponse<Object> createGuide(@RequestBody Map<String, Object> body);
+
+    @PostMapping("/guides/{guideId}")
+    ApiResponse<Object> updateGuide(@PathVariable("guideId") Long guideId,
+                                    @RequestBody Map<String, Object> body);
+
+    @PostMapping("/guides/{guideId}/toggle")
+    ApiResponse<Object> toggleGuide(@PathVariable("guideId") Long guideId,
+                                    @RequestBody Map<String, Object> body);
+
+    @DeleteMapping("/guides/{guideId}")
+    ApiResponse<Object> deleteGuide(
+            @PathVariable("guideId") Long guideId,
+            @org.springframework.web.bind.annotation.RequestHeader(
+                    value = "Idempotency-Key", required = false) String idempotencyKey);
+
     // ---------------- 首页内容（UX01） ----------------
 
     @GetMapping("/home-sections")

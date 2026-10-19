@@ -1051,3 +1051,50 @@ export function markUpdatesRead(eventIds: string[]) {
 export function getUpdatesUnreadCount() {
   return request.get<ApiResponse<number>>(`${BASE}/updates/unread-count`);
 }
+
+// ==================== UX04：软件教程（正文真源在社区） ====================
+
+export type SoftwareGuideType =
+  | 'INSTALL_GUIDE'
+  | 'WORKFLOW'
+  | 'COMPARISON'
+  | 'TROUBLESHOOTING';
+
+export interface SoftwareGuideRow {
+  id: string
+  guideType: SoftwareGuideType
+  title: string
+  summary: string | null
+  coverAssetId: string | null
+  articleId: string
+  platformScope: string[]
+}
+
+export interface SoftwareGuideDetail extends SoftwareGuideRow {
+  appliesToVersion: string | null
+  checkedAt: string | null
+  checkNote: string | null
+  relatedSoftwares: Array<{ softwareId: string; name: string | null }>
+  relatedTopicId: string | null
+}
+
+export interface SoftwareGuidePage {
+  records: SoftwareGuideRow[]
+  total: number
+  page: number
+  size: number
+}
+
+export function listSoftwareGuides(
+  guideType: SoftwareGuideType | null,
+  page = 1,
+  size = 12,
+) {
+  return request.get<ApiResponse<SoftwareGuidePage>>(`${BASE}/guides`, {
+    params: { guideType: guideType ?? undefined, page, size },
+  });
+}
+
+export function getSoftwareGuide(id: string) {
+  return request.get<ApiResponse<SoftwareGuideDetail>>(`${BASE}/guides/${id}`);
+}

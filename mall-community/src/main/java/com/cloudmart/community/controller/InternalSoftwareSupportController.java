@@ -56,6 +56,14 @@ public class InternalSoftwareSupportController {
         return ApiResponse.ok(softwareSupportService.review(request));
     }
 
+    @GetMapping("/posts/status")
+    @Operation(summary = "批量查询帖子公开状态（UX04 教程入口）",
+            description = "public=true 严格沿用帖子可读谓词；非公开帖仅返回 public=false 不泄露细节")
+    public ApiResponse<java.util.List<java.util.Map<String, Object>>> postStatus(
+            @RequestParam("ids") java.util.List<Long> ids) {
+        return ApiResponse.ok(softwareSupportService.postPublicStatus(ids));
+    }
+
     @PostMapping("/interaction-context")
     @Operation(summary = "双向拉黑互动资格",
             description = "评论列表按候选作者批量查询；只返回拉黑结论，账号状态由软件服务另行核对")

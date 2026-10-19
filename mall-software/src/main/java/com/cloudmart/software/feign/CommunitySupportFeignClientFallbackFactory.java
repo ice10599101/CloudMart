@@ -52,6 +52,13 @@ public class CommunitySupportFeignClientFallbackFactory
                 throw new BusinessException("COMMUNITY_SERVICE_UNAVAILABLE",
                         "互动资格服务暂不可用，请稍后重试", cause);
             }
+
+            @Override
+            public ApiResponse<java.util.List<java.util.Map<String, Object>>> postPublicStatus(
+                    java.util.List<Long> ids) {
+                throw new BusinessException("COMMUNITY_SERVICE_UNAVAILABLE",
+                        "教程内容服务暂不可用，请稍后重试", cause);
+            }
         };
     }
 }

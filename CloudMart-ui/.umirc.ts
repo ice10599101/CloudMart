@@ -98,6 +98,9 @@ export default defineConfig({
         // P1：排行榜与专题（固定路径先于 /software/:id）
         { path: '/software/rankings', component: '@/pages/SoftwareRankings' },
         { path: '/software/topics/:slug', component: '@/pages/SoftwareTopicDetail' },
+        // UX04：教程（固定路径先于 /software/:id）
+        { path: '/software/guides', component: '@/pages/SoftwareGuides' },
+        { path: '/software/guides/:id', component: '@/pages/SoftwareGuideDetail' },
         { path: '/software/:id', component: '@/pages/SoftwareDetail' },
         { path: '/software/:id/edit', component: '@/pages/SoftwareEdit' },
         { path: '/software/:id/preview', component: '@/pages/SoftwarePreview' },
@@ -234,6 +237,8 @@ export default defineConfig({
         { path: '/admin/software/statistics', component: '@/pages/admin/software/Statistics' },
         // UX01（V14__ux01_home_content_menu.sql 5230~5232）
         { path: '/admin/software/home-content', component: '@/pages/admin/software/HomeContent' },
+        // UX04（V15__ux04_guides_menu.sql 5240~5242）
+        { path: '/admin/software/guides', component: '@/pages/admin/software/Guides' },
         { path: '/admin/monitor/operations', component: '@/pages/admin/monitor/Operations' },
         { path: '/admin/monitor/job', component: '@/pages/admin/monitor/Job' },
         { path: '/admin/monitor/server', component: '@/pages/admin/monitor/Server' },

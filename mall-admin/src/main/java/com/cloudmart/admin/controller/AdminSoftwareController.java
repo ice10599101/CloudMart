@@ -379,6 +379,60 @@ public class AdminSoftwareController {
         return softwareFeignClient.saveRelations(softwareId, body);
     }
 
+    // ---------------- 教程（UX04；software:guide:list/manage） ----------------
+
+    @GetMapping("/guides")
+    @RequiresPermission("software:guide:list")
+    @Operation(summary = "教程管理分页", description = "含未启用与文章非公开标注")
+    public ApiResponse<Object> guides(
+            @RequestParam(value = "guideType", required = false) String guideType,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "12") int size) {
+        return softwareFeignClient.guides(guideType, page, size);
+    }
+
+    @OperLog(title = "教程维护", businessType = 2)
+    @PostMapping("/guides")
+    @RequiresPermission("software:guide:manage")
+    @Operation(summary = "新增教程", description = "articleId 预检公开状态；幂等键")
+    public ApiResponse<Object> createGuide(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.createGuide(idempotencyHeaders(idempotencyKey, body));
+    }
+
+    @OperLog(title = "教程维护", businessType = 2)
+    @PostMapping("/guides/{guideId}")
+    @RequiresPermission("software:guide:manage")
+    @Operation(summary = "更新教程", description = "整体保存；幂等键")
+    public ApiResponse<Object> updateGuide(
+            @PathVariable("guideId") Long guideId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.updateGuide(guideId, idempotencyHeaders(idempotencyKey, body));
+    }
+
+    @OperLog(title = "教程维护", businessType = 2)
+    @PostMapping("/guides/{guideId}/toggle")
+    @RequiresPermission("software:guide:manage")
+    @Operation(summary = "启用/停用教程", description = "停用后公开入口立即隐藏")
+    public ApiResponse<Object> toggleGuide(
+            @PathVariable("guideId") Long guideId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.toggleGuide(guideId, idempotencyHeaders(idempotencyKey, body));
+    }
+
+    @OperLog(title = "教程维护", businessType = 2)
+    @DeleteMapping("/guides/{guideId}")
+    @RequiresPermission("software:guide:manage")
+    @Operation(summary = "删除教程", description = "软删除；重复删除幂等")
+    public ApiResponse<Object> deleteGuide(
+            @PathVariable("guideId") Long guideId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return softwareFeignClient.deleteGuide(guideId, idempotencyKey);
+    }
+
     // ---------------- 首页内容（UX01；software:home:list/manage/preview） ----------------
 
     @GetMapping("/home-sections")

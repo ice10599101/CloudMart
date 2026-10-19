@@ -22,6 +22,13 @@ public interface SoftwareSupportService {
     /** 启用中的等级配置（发布表单可短缓存展示；提交/resolve 仍实时校验） */
     List<SoftwareLevelOptionVO> levelOptions();
 
+    /**
+     * UX04：批量查询帖子公开状态（软件教程入口用）。
+     * public=true 严格沿用帖子可读谓词（未删除+已发布+审核通过）；
+     * title/summary 只返回公开信息，非公开帖不泄露存在性细节（仅 public=false）。
+     */
+    java.util.List<java.util.Map<String, Object>> postPublicStatus(java.util.List<Long> postIds);
+
     /** 批量审核软件消毒后的文本节点；结果与请求同序同长并回传 contentHash */
     SoftwareReviewOutcomeVO review(SoftwareReviewRequest request);
 

@@ -36,4 +36,9 @@ public interface CommunitySupportFeignClient {
     @PostMapping("/internal/software-support/interaction-context")
     ApiResponse<SoftwareInteractionContextVO> interactionContext(
             @RequestBody InteractionContextRequest request);
+
+    /** UX04：批量查询帖子公开状态（软件教程入口；谓词与社区可读一致） */
+    @GetMapping("/internal/software-support/posts/status")
+    ApiResponse<java.util.List<java.util.Map<String, Object>>> postPublicStatus(
+            @RequestParam("ids") java.util.List<Long> ids);
 }

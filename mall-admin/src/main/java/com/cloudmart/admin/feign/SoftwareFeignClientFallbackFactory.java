@@ -162,6 +162,31 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> guides(String guideType, int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> createGuide(Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> updateGuide(Long guideId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> toggleGuide(Long guideId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> deleteGuide(Long guideId, String idempotencyKey) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> homeSections() {
                 throw unavailable(cause);
             }

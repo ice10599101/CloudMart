@@ -1047,3 +1047,61 @@ export function previewHomeSections(platform?: string) {
     platform ? { params: { platform } } : undefined,
   )
 }
+
+// ==================== 教程（UX04） ====================
+
+export interface AdminSoftwareGuide {
+  id: string
+  guideType: string
+  title: string
+  summary: string | null
+  articleId: string
+  articlePublic?: boolean
+  articleTitle?: string | null
+  coverAssetId: string | null
+  relatedSoftwareIds: string[]
+  relatedTopicId: string | null
+  platformScope: string[]
+  appliesToVersion: string | null
+  checkedAt: string | null
+  checkNote: string | null
+  enabled: boolean
+  displayOrder: number
+}
+
+export function listAdminGuides(guideType: string | null, page = 1, size = 12) {
+  return request.get<ApiResponse<{ records: AdminSoftwareGuide[]; total: number }>>(
+    `${BASE}/guides`,
+    { params: { guideType: guideType ?? undefined, page, size } },
+  )
+}
+
+export function saveAdminGuide(
+  guideId: string | null,
+  payload: Omit<Partial<AdminSoftwareGuide>, 'relatedSoftwareIds'> & {
+    relatedSoftwareIds?: string[]
+  },
+) {
+  const body = {
+    ...payload,
+    articleId: payload.articleId ? Number(payload.articleId) : undefined,
+    relatedSoftwareIds: (payload.relatedSoftwareIds ?? [])
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v)),
+  }
+  if (guideId) {
+    return request.post<ApiResponse<string>>(`${BASE}/guides/${guideId}`, body)
+  }
+  return request.post<ApiResponse<string>>(`${BASE}/guides`, body)
+}
+
+export function toggleAdminGuide(guideId: string, enabled: boolean) {
+  return request.post<ApiResponse<boolean>>(
+    `${BASE}/guides/${guideId}/toggle`,
+    { enabled },
+  )
+}
+
+export function deleteAdminGuide(guideId: string) {
+  return request.delete<ApiResponse<boolean>>(`${BASE}/guides/${guideId}`)
+}

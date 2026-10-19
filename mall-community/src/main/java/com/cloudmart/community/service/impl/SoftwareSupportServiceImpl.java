@@ -39,6 +39,8 @@ public class SoftwareSupportServiceImpl implements SoftwareSupportService {
     private static final String PEER_BLOCKED = "PEER_BLOCKED";
 
     private final GrowthService growthService;
+    private final com.cloudmart.community.repository.PostMapper postMapper;
+    private final com.cloudmart.community.policy.ContentAccessPolicy contentAccessPolicy;
     private final ContentReviewService contentReviewService;
     private final UserBlockService userBlockService;
     private final Clock clock;
@@ -155,5 +157,41 @@ public class SoftwareSupportServiceImpl implements SoftwareSupportService {
         if (request.mediaCount() != null && request.mediaCount() < 0) {
             throw new BusinessException("SOFTWARE_SUPPORT_INVALID", "mediaCount 不能为负");
         }
+    }
+
+    // ------------------------------------------------------------------
+    // UX04：帖子公开状态（软件教程入口；严格沿用帖子可读谓词）
+    // ------------------------------------------------------------------
+
+    @Override
+    public java.util.List<java.util.Map<String, Object>> postPublicStatus(java.util.List<Long> postIds) {
+        java.util.List<Long> ids = postIds == null ? java.util.List.of()
+                : postIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.List<com.cloudmart.community.entity.Post> posts =
+                postMapper.selectBatchIds(ids);
+        java.util.Map<Long, com.cloudmart.community.entity.Post> byId = new java.util.HashMap<>();
+        for (com.cloudmart.community.entity.Post post : posts) {
+            byId.put(post.getId(), post);
+        }
+        java.util.List<java.util.Map<String, Object>> result = new java.util.ArrayList<>();
+        for (Long id : ids) {
+            com.cloudmart.community.entity.Post post = byId.get(id);
+            boolean readable = contentAccessPolicy.isPostReadable(post);
+            java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("postId", String.valueOf(id));
+            row.put("public", readable);
+            if (readable && post != null) {
+                row.put("title", post.getTitle());
+                String content = post.getContent() == null ? "" : post.getContent();
+                row.put("summary", content.length() > 120 ? content.substring(0, 120) : content);
+                row.put("coverImage", post.getCoverImage());
+                row.put("updatedAt", post.getUpdatedAt() == null ? null : post.getUpdatedAt().toString());
+            }
+            result.add(row);
+        }
+        return result;
     }
 }
