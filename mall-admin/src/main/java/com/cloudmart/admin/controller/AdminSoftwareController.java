@@ -20,7 +20,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map;
+
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.PatchMapping;
 
 /**
  * 小答软件管理代理（方案 7.1/7.5，S09 全量）：外部 /api/admin/software/** 经
@@ -375,6 +377,82 @@ public class AdminSoftwareController {
             @PathVariable("softwareId") Long softwareId,
             @RequestBody Map<String, Object> body) {
         return softwareFeignClient.saveRelations(softwareId, body);
+    }
+
+    // ---------------- 首页内容（UX01；software:home:list/manage/preview） ----------------
+
+    @GetMapping("/home-sections")
+    @RequiresPermission("software:home:list")
+    @Operation(summary = "首页区块管理列表", description = "含未启用；编辑视图（含 MANUAL 条目）")
+    public ApiResponse<Object> homeSections() {
+        return softwareFeignClient.homeSections();
+    }
+
+    @OperLog(title = "首页内容维护", businessType = 2)
+    @PostMapping("/home-sections")
+    @RequiresPermission("software:home:manage")
+    @Operation(summary = "新增首页区块", description = "kind/data_source 白名单；幂等键")
+    public ApiResponse<Object> createHomeSection(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.createHomeSection(idempotencyHeaders(idempotencyKey, body));
+    }
+
+    @OperLog(title = "首页内容维护", businessType = 2)
+    @PatchMapping("/home-sections/{sectionId}")
+    @RequiresPermission("software:home:manage")
+    @Operation(summary = "更新首页区块", description = "整体保存；幂等键")
+    public ApiResponse<Object> updateHomeSection(
+            @PathVariable("sectionId") Long sectionId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.updateHomeSection(sectionId,
+                idempotencyHeaders(idempotencyKey, body));
+    }
+
+    @OperLog(title = "首页内容维护", businessType = 2)
+    @PostMapping("/home-sections/{sectionId}/toggle")
+    @RequiresPermission("software:home:manage")
+    @Operation(summary = "启用/停用首页区块", description = "停用后公共聚合立即不返回；幂等键")
+    public ApiResponse<Object> toggleHomeSection(
+            @PathVariable("sectionId") Long sectionId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.toggleHomeSection(sectionId,
+                idempotencyHeaders(idempotencyKey, body));
+    }
+
+    @OperLog(title = "首页内容维护", businessType = 2)
+    @DeleteMapping("/home-sections/{sectionId}")
+    @RequiresPermission("software:home:manage")
+    @Operation(summary = "删除首页区块", description = "软删除；重复删除幂等")
+    public ApiResponse<Object> deleteHomeSection(
+            @PathVariable("sectionId") Long sectionId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        return softwareFeignClient.deleteHomeSection(sectionId, idempotencyKey);
+    }
+    @OperLog(title = "首页内容维护", businessType = 2)
+    @PostMapping("/home-sections/reorder")
+    @RequiresPermission("software:home:manage")
+    @Operation(summary = "首页区块原子重排", description = "完整集合校验（缺失/重复拒绝）")
+    public ApiResponse<Object> reorderHomeSections(@RequestBody Map<String, Object> body) {
+        return softwareFeignClient.reorderHomeSections(body);
+    }
+
+    @GetMapping("/home-sections/preview")
+    @RequiresPermission("software:home:preview")
+    @Operation(summary = "首页内容预览", description = "含未启用内容（LIVE/OFFLINE 标记）；只对管理员可读")
+    public ApiResponse<Object> homePreview(
+            @RequestParam(value = "platform", required = false) String platform) {
+        return softwareFeignClient.homePreview(platform);
+    }
+
+    /** 将幂等键并入请求体转发（mall-software 读取 Idempotency-Key 头；经 Feign 需透传） */
+    private Map<String, Object> idempotencyHeaders(String idempotencyKey, Map<String, Object> body) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            body.put("idempotencyKey", idempotencyKey);
+        }
+        return body;
     }
 
     // ---------------- 分类与标签（software:category） ----------------

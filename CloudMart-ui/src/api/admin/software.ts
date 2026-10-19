@@ -967,3 +967,81 @@ export function listStatTrends(params?: {
     params,
   })
 }
+
+// ==================== 首页内容（UX01） ====================
+
+export interface AdminHomeSectionItem {
+  id: string
+  targetType: 'SOFTWARE' | 'TOPIC' | 'GUIDE' | 'FILTER'
+  targetId: string | null
+  filterPreset: string | null
+  headline: string | null
+  editorNote: string | null
+  coverAssetId: string | null
+  displayOrder: number
+}
+
+export interface AdminHomeSection {
+  id: string
+  slotKey: string
+  title: string
+  subtitle: string | null
+  kind: 'SPOTLIGHT' | 'SCENARIOS' | 'SOFTWARE_GRID' | 'RANKING_LIST' | 'UPDATE_FEED' | 'GUIDE_LIST'
+  enabled: boolean
+  displayOrder: number
+  startAt: string | null
+  endAt: string | null
+  platformScope: string[]
+  limitCount: number
+  minItems: number
+  dataSource: 'MANUAL' | 'FEATURED' | 'LATEST' | 'RANKING' | 'TOPIC' | 'GUIDE'
+  fallbackPolicy: 'HIDE' | 'EMPTY'
+  items?: AdminHomeSectionItem[]
+  state?: 'LIVE' | 'OFFLINE'
+}
+
+export function listHomeSections() {
+  return request.get<ApiResponse<AdminHomeSection[]>>(`${BASE}/home-sections`)
+}
+
+export function saveHomeSection(
+  sectionId: string | null,
+  payload: Omit<Partial<AdminHomeSection>, 'items'> & {
+    items?: Array<{
+      targetType: string
+      targetId?: string | null
+      filterPreset?: string | null
+      headline?: string | null
+      editorNote?: string | null
+      displayOrder?: number
+    }>
+  },
+) {
+  if (sectionId) {
+    return request.patch<ApiResponse<string>>(`${BASE}/home-sections/${sectionId}`, payload)
+  }
+  return request.post<ApiResponse<string>>(`${BASE}/home-sections`, payload)
+}
+export function toggleHomeSection(sectionId: string, enabled: boolean) {
+  return request.post<ApiResponse<boolean>>(
+    `${BASE}/home-sections/${sectionId}/toggle`,
+    { enabled },
+  )
+}
+
+export function deleteHomeSection(sectionId: string) {
+  return request.delete<ApiResponse<boolean>>(`${BASE}/home-sections/${sectionId}`)
+}
+
+export function reorderHomeSections(sectionIds: string[]) {
+  return request.post<ApiResponse<boolean>>(`${BASE}/home-sections/reorder`, {
+    sectionIds: sectionIds.map((v) => Number(v)),
+  })
+}
+
+export function previewHomeSections(platform?: string) {
+  return request.get<ApiResponse<AdminHomeSection[]>>(
+    `${BASE}/home-sections/preview`,
+    platform ? { params: { platform } } : undefined,
+  )
+}

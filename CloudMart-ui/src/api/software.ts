@@ -962,3 +962,36 @@ export function draftFromHistory(
     softwareWriteConfig("POST", url, { sourceRevisionId }, idempotencyKey),
   );
 }
+
+// ==================== UX01：首页区块聚合（公共） ====================
+
+export interface SoftwareHomeSectionItem {
+  itemId: string
+  targetType: 'SOFTWARE' | 'TOPIC' | 'GUIDE' | 'FILTER'
+  headline?: string
+  editorNote?: string
+  coverAssetId?: string
+  filterPreset?: string
+  software?: SoftwareCard
+  topic?: { id: string; slug: string; title: string; summary?: string }
+}
+
+export interface SoftwareHomeSection {
+  id: string
+  slotKey: string
+  kind: 'SPOTLIGHT' | 'SCENARIOS' | 'SOFTWARE_GRID' | 'RANKING_LIST' | 'UPDATE_FEED' | 'GUIDE_LIST'
+  title: string
+  subtitle?: string
+  /** OK=正常；ERROR=本块失败（显示本区重试）；EMPTY=显式空态 */
+  state?: 'OK' | 'ERROR' | 'EMPTY'
+  items: SoftwareHomeSectionItem[]
+  hasMore: boolean
+  moreTarget?: string | null
+}
+
+/** 首页固定区块聚合（platform=WEB/APP/TARO，缺省 WEB） */
+export function getSoftwareHome(platform: 'WEB' | 'APP' | 'TARO' = 'WEB') {
+  return request.get<ApiResponse<SoftwareHomeSection[]>>(`${BASE}/home`, {
+    params: { platform },
+  });
+}

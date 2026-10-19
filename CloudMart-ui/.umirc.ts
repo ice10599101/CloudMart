@@ -232,6 +232,8 @@ export default defineConfig({
         // P1（V3__software_p1_menu.sql 5216~5217）
         { path: '/admin/software/topics', component: '@/pages/admin/software/Topics' },
         { path: '/admin/software/statistics', component: '@/pages/admin/software/Statistics' },
+        // UX01（V14__ux01_home_content_menu.sql 5230~5232）
+        { path: '/admin/software/home-content', component: '@/pages/admin/software/HomeContent' },
         { path: '/admin/monitor/operations', component: '@/pages/admin/monitor/Operations' },
         { path: '/admin/monitor/job', component: '@/pages/admin/monitor/Job' },
         { path: '/admin/monitor/server', component: '@/pages/admin/monitor/Server' },

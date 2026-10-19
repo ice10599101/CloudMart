@@ -5,6 +5,7 @@ import com.cloudmart.common.api.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -82,6 +83,34 @@ public interface SoftwareFeignClient {
     @PutMapping("/items/{softwareId}/relations")
     ApiResponse<Object> saveRelations(@PathVariable("softwareId") Long softwareId,
                                       @RequestBody Map<String, Object> body);
+
+    // ---------------- 首页内容（UX01） ----------------
+
+    @GetMapping("/home-sections")
+    ApiResponse<Object> homeSections();
+
+    @PostMapping("/home-sections")
+    ApiResponse<Object> createHomeSection(@RequestBody Map<String, Object> body);
+
+    @PatchMapping("/home-sections/{sectionId}")
+    ApiResponse<Object> updateHomeSection(@PathVariable("sectionId") Long sectionId,
+                                          @RequestBody Map<String, Object> body);
+
+    @PostMapping("/home-sections/{sectionId}/toggle")
+    ApiResponse<Object> toggleHomeSection(@PathVariable("sectionId") Long sectionId,
+                                          @RequestBody Map<String, Object> body);
+
+    @DeleteMapping("/home-sections/{sectionId}")
+    ApiResponse<Object> deleteHomeSection(
+            @PathVariable("sectionId") Long sectionId,
+            @org.springframework.web.bind.annotation.RequestHeader(
+                    value = "Idempotency-Key", required = false) String idempotencyKey);
+
+    @PostMapping("/home-sections/reorder")
+    ApiResponse<Object> reorderHomeSections(@RequestBody Map<String, Object> body);
+
+    @GetMapping("/home-sections/preview")
+    ApiResponse<Object> homePreview(@RequestParam(value = "platform", required = false) String platform);
 
     // ---------------- 分类与标签（software:category） ----------------
 

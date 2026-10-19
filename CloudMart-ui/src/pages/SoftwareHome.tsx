@@ -1,19 +1,22 @@
-import { useEffect, useState } from "react";
-import { Empty, Input, Spin } from "antd";
+import { useCallback, useEffect, useState } from "react";
+import { Button, Empty, Input, Spin, Tag, Typography } from "antd";
 import {
   CloudUploadOutlined,
   FolderOpenOutlined,
+  ReloadOutlined,
   RocketOutlined,
   SearchOutlined,
   TrophyOutlined,
 } from "@ant-design/icons";
 import { history } from "umi";
 import {
+  getSoftwareHome,
   listSoftware,
   listSoftwareTopics,
   listSoftwareCategories,
   type SoftwareCard,
   type SoftwareCategory,
+  type SoftwareHomeSection,
   type SoftwareTopicSummary,
 } from "@/api/software";
 import SoftwareCardGrid from "@/components/software/SoftwareCardGrid";
@@ -55,6 +58,21 @@ export default function SoftwareHome() {
   const [latest, setLatest] = useState<SoftwareCard[]>([]);
   /** 已收录软件总数（推荐列表接口返回的真实 total，用于 hero 统计条） */
   const [totalCount, setTotalCount] = useState(0);
+  /** UX01：运营配置的首页区块（null=接口不可用/未配置 → 降级内置渲染） */
+  const [homeSections, setHomeSections] = useState<SoftwareHomeSection[] | null>(null);
+
+  const loadHomeSections = useCallback(() => {
+    getSoftwareHome("WEB")
+      .then((res) => {
+        const blocks = res.data.data ?? [];
+        setHomeSections(blocks.length > 0 ? blocks : null);
+      })
+      .catch(() => setHomeSections(null));
+  }, []);
+
+  useEffect(() => {
+    loadHomeSections();
+  }, [loadHomeSections]);
 
   useEffect(() => {
     listSoftwareCategories()
@@ -190,6 +208,58 @@ export default function SoftwareHome() {
           <Empty description="还没有已发布的软件" />
         ) : (
           <>
+            {/* UX01：运营配置区块（配置存在时优先；单块失败显示本区重试，不拖垮其他块） */}
+            {(homeSections ?? []).map((section) => (
+              <section key={section.id} style={{ marginBottom: 28 }}>
+                <div className={styles.sectionHead}>
+                  <h2 className={styles.sectionTitle}>{section.title}</h2>
+                  {section.subtitle ? (
+                    <Typography.Text type="secondary">{section.subtitle}</Typography.Text>
+                  ) : null}
+                </div>
+                {section.state === "ERROR" ? (
+                  <Empty description="本区块加载失败">
+                    <Button
+                      icon={<ReloadOutlined />}
+                      onClick={() => {
+                        setHomeSections(null);
+                        loadHomeSections();
+                      }}
+                    >
+                      重试
+                    </Button>
+                  </Empty>
+                ) : (section.items ?? []).length === 0 ? (
+                  section.state === "EMPTY" ? (
+                    <Empty description="内容准备中，敬请期待" />
+                  ) : null
+                ) : section.kind === "SCENARIOS" ? (
+                  <div className={styles.categories}>
+                    {(section.items ?? []).map((item) =>
+                      item.topic ? (
+                        <button
+                          key={item.itemId}
+                          type="button"
+                          className={styles.categoryPill}
+                          onClick={() => history.push(`/software/topics/${item.topic!.slug}`)}
+                        >
+                          <span className={styles.categoryEmoji} aria-hidden>
+                            🧰
+                          </span>
+                          {item.headline || item.topic.title}
+                        </button>
+                      ) : null,
+                    )}
+                  </div>
+                ) : (
+                  <SoftwareCardGrid
+                    cards={(section.items ?? [])
+                      .filter((item) => item.software)
+                      .map((item) => item.software!)}
+                  />
+                )}
+              </section>
+            ))}
             <section>
               <div className={styles.sectionHead}>
                 <h2 className={styles.sectionTitle}>

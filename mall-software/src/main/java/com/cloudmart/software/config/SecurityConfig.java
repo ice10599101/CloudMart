@@ -89,9 +89,12 @@ public class SecurityConfig {
                         "/software/{id}/editor", "/software/{id}/subscription")
                 .authenticated()
                 // 公开浏览：软件广场/分类/标签/榜单/专题（7.2，可见性由业务层过滤）
-                .requestMatchers(HttpMethod.GET, "/software", "/software/categories",
+                // UX01：首页聚合为固定路径，必须先于 /software/{id} 动态匹配
+                .requestMatchers(HttpMethod.GET, "/software", "/software/home", "/software/categories",
                         "/software/tags", "/software/rankings", "/software/topics",
                         "/software/topics/{slug}").permitAll()
+                // UX03：分享者公开投稿（仅 ACTIVE+已发布；业务层过滤）
+                .requestMatchers(HttpMethod.GET, "/software/publishers/{userId}/items").permitAll()
                 // 公开浏览：详情、查看条件摘要、版本来源摘要（无 URL/提取码）
                 .requestMatchers(HttpMethod.GET, "/software/{id}", "/software/{id}/access-policy",
                         "/software/{id}/releases").permitAll()

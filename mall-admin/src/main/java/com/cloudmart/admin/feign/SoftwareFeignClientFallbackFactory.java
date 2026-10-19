@@ -162,6 +162,41 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> homeSections() {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> createHomeSection(Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> updateHomeSection(Long sectionId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> toggleHomeSection(Long sectionId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> deleteHomeSection(Long sectionId, String idempotencyKey) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> reorderHomeSections(Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> homePreview(String platform) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> saveRelations(Long softwareId, Map<String, Object> body) {
                 throw unavailable(cause);
             }
