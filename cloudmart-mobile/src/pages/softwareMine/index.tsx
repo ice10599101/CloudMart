@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { View, Text, ScrollView, Switch } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
-import { softwareApi, softwarePublishApi, type SoftwareMineItem } from '@/api/software'
+import { softwareApi, softwarePublishApi, type SoftwareMineItem , type SoftwarePublisherApplication } from '@/api/software'
 import { errorMessage } from '@/utils/request'
 import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import { useAuthStore } from '@/store/auth'
@@ -50,6 +50,8 @@ export default function SoftwareMinePage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
+  // SF03：发布资格申请状态卡
+  const [application, setApplication] = useState<SoftwarePublisherApplication | null>(null)
   /** SW11：更新提醒总开关（与订阅关系相互独立；退订≠关闭提醒） */
   const [updateNotify, setUpdateNotify] = useState(true)
 
@@ -91,6 +93,16 @@ export default function SoftwareMinePage() {
     void flag
   }, [isLoggedIn, router.params.refreshed, load, tab])
 
+  // SF03：加载我的发布资格申请
+  useEffect(() => {
+    softwareApi.myPublisherApplication()
+      .then((res) =>
+        setApplication(
+          (res.data as { data?: SoftwarePublisherApplication | null })?.data ?? null,
+        ),
+      )
+      .catch(() => undefined)
+  }, [])
   const handleToggleNotify = async (enabled: boolean) => {
     const prev = updateNotify
     setUpdateNotify(enabled)
@@ -216,6 +228,91 @@ export default function SoftwareMinePage() {
             checked={updateNotify}
             onChange={(event) => void handleToggleNotify(event.detail.value)}
           />
+        </View>
+
+        {/* SF03：发布资格申请状态卡 */}
+        <View className={styles.card}>
+          {application ? (
+            <>
+              <Text className={styles.cardTitle}>
+                发布资格申请：{
+                  application.status === 'PENDING' ? '审核中'
+                  : application.status === 'APPROVED' ? '已通过'
+                  : application.status === 'REJECTED' ? '未通过'
+                  : '已撤回'
+                }
+              </Text>
+              {application.reviewNote ? (
+                <Text className={styles.cardSummary}>审核意见：{application.reviewNote}</Text>
+              ) : null}
+              {application.status === 'PENDING' ? (
+                <Text
+                  className={styles.cardSummary}
+                  style={{ color: '#d3392f' }}
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await softwareApi.cancelPublisherApplication(application.id)
+                        setApplication(null)
+                      } catch {
+                        Taro.showToast({ title: '撤回失败', icon: 'none' })
+                      }
+                    })()
+                  }}
+                >
+                  撤回申请
+                </Text>
+              ) : null}
+              {application.status === 'REJECTED' ? (
+                <Text
+                  className={styles.cardSummary}
+                  style={{ color: '#3d5afe' }}
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        const res = await softwareApi.submitPublisherApplication({
+                          motivation: '重新申请发布资格',
+                        })
+                        setApplication(
+                          (res.data as { data?: SoftwarePublisherApplication | null })?.data ?? null,
+                        )
+                      } catch {
+                        Taro.showToast({ title: '提交失败', icon: 'none' })
+                      }
+                    })()
+                  }}
+                >
+                  重新申请
+                </Text>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Text className={styles.cardSummary}>
+                想发布软件？提交发布资格申请，审核通过后开放发布。
+              </Text>
+              <Text
+                className={styles.cardSummary}
+                style={{ color: '#3d5afe' }}
+                onClick={() => {
+                  void (async () => {
+                    try {
+                      const res = await softwareApi.submitPublisherApplication({
+                        motivation: '申请发布资格（小程序端提交）',
+                      })
+                      setApplication(
+                        (res.data as { data?: SoftwarePublisherApplication | null })?.data ?? null,
+                      )
+                    } catch {
+                      Taro.showToast({ title: '提交失败（可能已有申请）', icon: 'none' })
+                    }
+                  })()
+                }}
+              >
+                提交发布资格申请 →
+              </Text>
+            </>
+          )}
         </View>
 
         {/* SW11：页签——投稿/收藏/订阅 + 翻页加载更多 */}

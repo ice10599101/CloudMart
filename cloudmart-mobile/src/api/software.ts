@@ -139,6 +139,12 @@ export interface SoftwareAccessState {
   requiredLevel: number | null
   grantExpiresAt: string | null
   contacts: Array<{ id: string; name: string; contactType: string; contactValue: string }>
+  /** SF04：进行中的访问申请（PENDING 可见；无申请 null） */
+  pendingRequest?: {
+    requestId: string
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
+    reviewNote: string | null
+  } | null
 }
 
 export interface SoftwareResolveResult {
@@ -250,6 +256,13 @@ export const softwareApi = {
   categories: () => request<SoftwareCategory[]>({ url: `${BASE}/categories` }),
   detail: (id: string) => request<SoftwareDetail>({ url: `${BASE}/${id}` }),
   accessState: (id: string) => request<SoftwareAccessState>({ url: `${BASE}/${id}/access-state` }),
+  /** SF04：提交访问申请（付款查看门槛；人工核验） */
+  submitAccessRequest: (softwareId: string, message: string) =>
+    request<void>({
+      url: `/software/access-requests/${softwareId}`,
+      method: 'POST',
+      data: { message },
+    }),
   releases: (id: string, page = 1, size = 20) =>
     request<SoftwarePage<SoftwareRelease>>({
       url: `${BASE}/${id}/releases${buildQuery({ page, size })}`,
@@ -320,7 +333,24 @@ export const softwareApi = {
   // ---- 收藏 / 订阅 / 评分（P1） ----
   favorite: (id: string) => request<void>({ url: `${BASE}/${id}/favorite`, method: 'PUT' }),
   unfavorite: (id: string) => request<void>({ url: `${BASE}/${id}/favorite`, method: 'DELETE' }),
-  subscribe: (id: string) => request<void>({ url: `${BASE}/${id}/subscription`, method: 'PUT' }),
+  subscribe: (id: string, preference?: { platforms?: string; channels?: string }) =>
+    request<void>({ url: `${BASE}/${id}/subscription`, method: 'PUT', data: preference }),
+  /** SF05：订阅偏好查询 */
+  subscriptionPreference: (id: string) =>
+    request<{ subscribed: boolean; platforms: string | null; channels: string | null }>({
+      url: `${BASE}/${id}/subscription`,
+    }),
+  /** SF03：我的发布资格申请（无申请 null） */
+  myPublisherApplication: () =>
+    request<SoftwarePublisherApplication | null>({
+      url: `${BASE}/publisher-applications/mine`,
+    }),
+  submitPublisherApplication: (input: { motivation: string }) =>
+    request<SoftwarePublisherApplication>({
+      url: `${BASE}/publisher-applications`, method: 'POST', data: input }),
+  cancelPublisherApplication: (applicationId: string) =>
+    request<void>({
+      url: `${BASE}/publisher-applications/${applicationId}/cancel`, method: 'POST' }),
   unsubscribe: (id: string) =>
     request<void>({ url: `${BASE}/${id}/subscription`, method: 'DELETE' }),
   rate: (id: string, score: number) => {
@@ -663,4 +693,15 @@ export function getSoftwareHome(platform: 'TARO' = 'TARO') {
     method: 'GET',
     data: { platform },
   })
+}
+
+// ==================== SF03：发布资格申请（小程序端） ====================
+
+export interface SoftwarePublisherApplication {
+  id: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'
+  motivation: string | null
+  reviewNote: string | null
+  createdAt: string | null
+  reviewedAt: string | null
 }

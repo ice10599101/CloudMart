@@ -496,6 +496,35 @@ export default function SoftwareDetailPage() {
                   </Text>
                 ))
               : null}
+            {/* SF04：访问申请入口（付款查看模式；提交后 PENDING 展示状态） */}
+            {accessState.accessMode === 'ADMIN_PAID' ? (
+              accessState.pendingRequest ? (
+                <Text className={styles.lockedHint}>
+                  访问申请{accessState.pendingRequest.status === 'PENDING' ? '审核中' : accessState.pendingRequest.status}
+                  {accessState.pendingRequest.reviewNote ? `：${accessState.pendingRequest.reviewNote}` : ''}
+                </Text>
+              ) : (
+                <Text
+                  className={styles.lockedHint}
+                  style={{ color: '#3d5afe' }}
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        await softwareApi.submitAccessRequest(
+                          id,
+                          '申请访问受限来源（小程序端提交，请补充用途说明后管理员核验）',
+                        )
+                        Taro.showToast({ title: '已提交，等待管理员核验', icon: 'success' })
+                      } catch {
+                        Taro.showToast({ title: '提交失败（可能已有申请）', icon: 'none' })
+                      }
+                    })()
+                  }}
+                >
+                  提交访问申请（说明用途，人工核验后开通） →
+                </Text>
+              )
+            ) : null}
           </View>
         ) : resolved ? (
           <View className={styles.resolvedBox}>
