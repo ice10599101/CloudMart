@@ -126,4 +126,66 @@ public class SoftwareSubscriptionServiceImpl implements SoftwareSubscriptionServ
         view.put("lockVersion", preference == null ? 0 : preference.getLockVersion());
         return view;
     }
+
+    /** SF05：合法平台/渠道集合（与服务端枚举对齐；非法值整单拒绝） */
+    private static final java.util.Set<String> PLATFORMS = java.util.Set.of(
+            "WINDOWS", "MACOS", "LINUX", "ANDROID", "IOS", "CROSS_PLATFORM", "WEB");
+    private static final java.util.Set<String> CHANNELS = java.util.Set.of("STABLE", "BETA");
+
+    @Override
+    public java.util.Map<String, Object> updatePreference(Long userId, Long softwareId,
+                                                          String platforms, String channels) {
+        String safePlatforms = normalizeCsv(platforms, PLATFORMS, "platforms");
+        String safeChannels = normalizeCsv(channels, CHANNELS, "channels");
+        SoftwareSubscription subscription = subscriptionMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SoftwareSubscription>()
+                        .eq(SoftwareSubscription::getUserId, userId)
+                        .eq(SoftwareSubscription::getSoftwareId, softwareId));
+        if (subscription == null) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "尚未订阅该软件");
+        }
+        subscription.setPlatforms(safePlatforms);
+        subscription.setChannels(safeChannels);
+        subscriptionMapper.updateById(subscription);
+        return preferenceView(safePlatforms, safeChannels);
+    }
+
+    @Override
+    public java.util.Map<String, Object> preference(Long userId, Long softwareId) {
+        SoftwareSubscription subscription = subscriptionMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SoftwareSubscription>()
+                        .eq(SoftwareSubscription::getUserId, userId)
+                        .eq(SoftwareSubscription::getSoftwareId, softwareId));
+        if (subscription == null) {
+            return java.util.Map.of("subscribed", false);
+        }
+        return preferenceView(subscription.getPlatforms(), subscription.getChannels());
+    }
+
+    private java.util.Map<String, Object> preferenceView(String platforms, String channels) {
+        java.util.Map<String, Object> view = new java.util.LinkedHashMap<>();
+        view.put("subscribed", true);
+        view.put("platforms", platforms == null ? java.util.List.of() : java.util.List.of(platforms.split(",")));
+        view.put("channels", channels == null ? java.util.List.of() : java.util.List.of(channels.split(",")));
+        return view;
+    }
+
+    /** SF05：限长去空白 + 白名单校验（空白=全部，返回 null） */
+    private String normalizeCsv(String value, java.util.Set<String> allowed, String field) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        java.util.List<String> items = java.util.Arrays.stream(value.split(","))
+                .map(String::trim).filter(x -> !x.isEmpty()).toList();
+        if (items.size() > 10) {
+            throw new BusinessException("SOFTWARE_SUBSCRIPTION_INVALID", field + " 最多 10 项");
+        }
+        for (String item : items) {
+            if (!allowed.contains(item)) {
+                throw new BusinessException("SOFTWARE_SUBSCRIPTION_INVALID",
+                        field + " 含非法值：" + item);
+            }
+        }
+        return String.join(",", items);
+    }
 }

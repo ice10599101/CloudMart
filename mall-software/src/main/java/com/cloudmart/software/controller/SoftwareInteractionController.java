@@ -146,13 +146,31 @@ public class SoftwareInteractionController {
         return ApiResponse.ok(ratingService.revoke(userId, id, expectedVersion));
     }
 
+    /** SF05：订阅偏好请求体（platforms/channels 可空=全部） */
+    public record SubscriptionPreferenceRequest(String platforms, String channels) {
+    }
+
     @PutMapping("/{id}/subscription")
-    @Operation(summary = "订阅更新（P1）", description = "幂等；要求公开可见；仅接收新增版本通知")
+    @Operation(summary = "订阅更新（P1）", description = "幂等；要求公开可见；body 可携带平台/渠道偏好（空=全部）")
     public ApiResponse<Void> subscribe(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
-            @PathVariable("id") Long id) {
+            @PathVariable("id") Long id,
+            @RequestBody(required = false) SubscriptionPreferenceRequest request) {
         subscriptionService.subscribe(userId, id);
+        if (request != null && ((request.platforms() != null && !request.platforms().isBlank())
+                || (request.channels() != null && !request.channels().isBlank()))) {
+            subscriptionService.updatePreference(userId, id,
+                    request.platforms(), request.channels());
+        }
         return ApiResponse.ok(null);
+    }
+
+    @GetMapping("/{id}/subscription")
+    @Operation(summary = "订阅偏好查询（SF05）", description = "返回是否订阅与平台/渠道偏好")
+    public ApiResponse<java.util.Map<String, Object>> subscriptionPreference(
+            @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
+            @PathVariable("id") Long id) {
+        return ApiResponse.ok(subscriptionService.preference(userId, id));
     }
 
     @DeleteMapping("/{id}/subscription")

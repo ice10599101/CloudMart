@@ -58,6 +58,8 @@ public class SoftwareReleaseFanoutService {
     private static final int MAX_ROUNDS_PER_RUN = 20;
 
     private final SoftwareFanoutTaskMapper fanoutTaskMapper;
+    private final com.cloudmart.software.repository.SoftwareReleaseMapper releaseMapper;
+    private final com.cloudmart.software.repository.SoftwareSourceMapper sourceMapper;
     private final SoftwareSubscriptionMapper subscriptionMapper;
     private final SoftwareSubscriptionDeliveryMapper deliveryMapper;
     private final SoftwareUserPreferenceMapper preferenceMapper;
@@ -75,13 +77,19 @@ public class SoftwareReleaseFanoutService {
      */
     @Transactional
     public void registerTask(Long softwareId, Long revisionId, Integer publicationSeq,
-                             LocalDateTime publishedAt) {
+                             LocalDateTime publishedAt, Long previousRevisionId) {
         SoftwareFanoutTask task = new SoftwareFanoutTask();
         task.setSoftwareId(softwareId);
         task.setRevisionId(revisionId);
         task.setPublicationSeq(publicationSeq);
         task.setPublishedAt(publishedAt);
         task.setCursorSubscriptionId(0L);
+        // SF05：冻结本次发布的业务变化判定与平台/渠道集合——纯文案/排序修改不通知；
+        // 管理员可在后台按 task 查看触发原因（business_change + platforms/channels）
+        ReleaseScope scope = computeReleaseScope(revisionId);
+        task.setBusinessChange(hasBusinessChange(previousRevisionId, scope));
+        task.setPlatforms(String.join(",", scope.platforms()));
+        task.setChannels(String.join(",", scope.channels()));
         task.setStatus("PENDING");
         task.setLeaseVersion(0);
         task.setAttempts(0);
@@ -254,8 +262,17 @@ public class SoftwareReleaseFanoutService {
         }
         Long newCursor = batch.get(batch.size() - 1).getId();
 
-        // 非作者 + 未关闭更新提醒（偏好缺省视为开启）
+        // SF05：纯文案/排序修改（无业务版本变化）——不生成投递，任务完成并留触发原因
+        if (!Boolean.TRUE.equals(task.getBusinessChange())) {
+            deliveryMapper.cancelPending(task.getSoftwareId(), task.getPublicationSeq(), now);
+            return new Batch(false, true, List.of(), List.of());
+        }
+        java.util.Set<String> releasePlatforms = splitCsv(task.getPlatforms());
+        java.util.Set<String> releaseChannels = splitCsv(task.getChannels());
+        // 非作者 + 未关闭更新提醒（偏好缺省视为开启）+ 平台/渠道偏好与本次发布有交集（NULL=ALL）
         List<Long> candidateIds = batch.stream()
+                .filter(sub -> matchesPreference(sub.getPlatforms(), releasePlatforms)
+                        && matchesPreference(sub.getChannels(), releaseChannels))
                 .map(SoftwareSubscription::getUserId)
                 .filter(userId -> !userId.equals(software.getOwnerId()))
                 .distinct()
@@ -387,5 +404,100 @@ public class SoftwareReleaseFanoutService {
     /** 供测试与监控：当前实例领取身份 */
     String workerId() {
         return workerId;
+    }
+
+    // ------------------------------------------------------------------
+    // SF05：业务版本变化判定（不依赖版本字符串大小；不恢复 publicationSeq 之外的新序号）
+    // ------------------------------------------------------------------
+
+    /** 本次发布的业务签名：releaseKey → (sourceKey → 指纹)，及平台/渠道集合 */
+    private record ReleaseScope(
+            java.util.Map<String, java.util.Map<String, String>> releaseSources,
+            java.util.Set<String> platforms,
+            java.util.Set<String> channels) {
+    }
+
+    private ReleaseScope computeReleaseScope(Long revisionId) {
+        var releases = releaseMapper.selectList(
+                new LambdaQueryWrapper<com.cloudmart.software.entity.SoftwareRelease>()
+                        .eq(com.cloudmart.software.entity.SoftwareRelease::getRevisionId, revisionId));
+        java.util.Map<String, java.util.Map<String, String>> releaseSources = new java.util.LinkedHashMap<>();
+        java.util.Set<String> platforms = new java.util.TreeSet<>();
+        java.util.Set<String> channels = new java.util.TreeSet<>();
+        for (var release : releases) {
+            if (release.getChannel() != null) {
+                channels.add(release.getChannel().name());
+            }
+            releaseSources.put(release.getReleaseKey(), new java.util.LinkedHashMap<>());
+        }
+        if (!releases.isEmpty()) {
+            var sources = sourceMapper.selectList(
+                    new LambdaQueryWrapper<com.cloudmart.software.entity.SoftwareSource>()
+                            .in(com.cloudmart.software.entity.SoftwareSource::getReleaseId,
+                                    releases.stream().map(
+                                            com.cloudmart.software.entity.SoftwareRelease::getId).toList()));
+            java.util.Map<Long, String> releaseKeyById = releases.stream().collect(
+                    java.util.stream.Collectors.toMap(
+                            com.cloudmart.software.entity.SoftwareRelease::getId,
+                            com.cloudmart.software.entity.SoftwareRelease::getReleaseKey));
+            for (var source : sources) {
+                String releaseKey = releaseKeyById.get(source.getReleaseId());
+                if (releaseKey == null) {
+                    continue;
+                }
+                releaseSources.get(releaseKey).put(source.getSourceKey(), source.getContentFingerprint());
+                if (source.getPlatform() != null) {
+                    platforms.add(source.getPlatform().name());
+                }
+            }
+        }
+        return new ReleaseScope(releaseSources, platforms, channels);
+    }
+
+    /**
+     * 与上一线上快照比较：新增 releaseKey、新增 sourceKey、指纹变化（含换链）均视为
+     * 业务版本变化；description/排序等纯文案修改不触发通知。
+     */
+    private boolean hasBusinessChange(Long previousRevisionId, ReleaseScope current) {
+        if (previousRevisionId == null) {
+            return true;
+        }
+        ReleaseScope previous = computeReleaseScope(previousRevisionId);
+        for (var entry : current.releaseSources().entrySet()) {
+            var prevSources = previous.releaseSources().get(entry.getKey());
+            if (prevSources == null) {
+                return true; // 新版本
+            }
+            for (var sourceEntry : entry.getValue().entrySet()) {
+                String prevFingerprint = prevSources.get(sourceEntry.getKey());
+                if (prevFingerprint == null || !prevFingerprint.equals(sourceEntry.getValue())) {
+                    return true; // 新来源或内容变化（含换链）
+                }
+            }
+        }
+        return false;
+    }
+
+    private java.util.Set<String> splitCsv(String value) {
+        if (value == null || value.isBlank()) {
+            return java.util.Set.of();
+        }
+        return java.util.Arrays.stream(value.split(","))
+                .map(String::trim).filter(x -> !x.isEmpty())
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /** SF05：偏好为空=全部；有偏好时须与本次发布集合有交集 */
+    private boolean matchesPreference(String preference, java.util.Set<String> releaseValues) {
+        java.util.Set<String> wanted = splitCsv(preference);
+        if (wanted.isEmpty() || releaseValues.isEmpty()) {
+            return true;
+        }
+        for (String item : wanted) {
+            if (releaseValues.contains(item)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

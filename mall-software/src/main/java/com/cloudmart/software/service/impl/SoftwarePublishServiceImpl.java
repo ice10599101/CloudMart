@@ -807,6 +807,8 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             revisionMapper.updateById(revision);
             // 事务内切换指针（4.1.3）：published→本快照、working 清空、上线序号+1
             int previousSeq = locked.getPublicationSeq() == null ? 0 : locked.getPublicationSeq();
+            // SF05：业务变化判定需要与"上一线上快照"比较——指针切换前捕获
+            Long previousRevisionId = locked.getPublishedRevisionId();
             locked.setPublishedRevisionId(revisionId);
             locked.setWorkingRevisionId(null);
             locked.setPublicationSeq(previousSeq + 1);
@@ -846,7 +848,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                                 "publicationSeq", String.valueOf(locked.getPublicationSeq()),
                                 "authorId", String.valueOf(locked.getOwnerId())))));
                 fanoutService.registerTask(softwareId, revisionId, locked.getPublicationSeq(),
-                        locked.getLastReleaseAt());
+                        locked.getLastReleaseAt(), previousRevisionId);
             }
             return new SoftwareReviewDecisionVO(softwareId, revisionId, "APPROVED");
         }

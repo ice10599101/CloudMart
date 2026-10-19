@@ -26,6 +26,15 @@ public class SoftwareFanoutTask {
 
     private Integer publicationSeq;
 
+    /** SF05：本次发布是否含业务版本变化（新版本/新来源/指纹变化）；纯文案修改为 false 不通知 */
+    private Boolean businessChange;
+
+    /** SF05：本次发布涉及的平台集合（判定依据，管理员可见） */
+    private String platforms;
+
+    /** SF05：本次发布涉及的渠道集合 */
+    private String channels;
+
     private LocalDateTime publishedAt;
 
     private Long cursorSubscriptionId;

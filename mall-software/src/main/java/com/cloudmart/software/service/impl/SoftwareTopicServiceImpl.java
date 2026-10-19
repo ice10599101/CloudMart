@@ -36,8 +36,14 @@ public class SoftwareTopicServiceImpl implements SoftwareTopicService {
 
     @Override
     public List<Map<String, Object>> listPublished() {
+        // SF05：只返回生效专题——PUBLISHED 且在投放时间窗内（NULL 边界=不限制）
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.Clock.systemUTC());
         return topicMapper.selectList(new LambdaQueryWrapper<SoftwareTopic>()
                         .eq(SoftwareTopic::getStatus, "PUBLISHED")
+                        .and(w -> w.isNull(SoftwareTopic::getScheduledStartAt)
+                                .le(SoftwareTopic::getScheduledStartAt, now))
+                        .and(w -> w.isNull(SoftwareTopic::getScheduledEndAt)
+                                .gt(SoftwareTopic::getScheduledEndAt, now))
                         .orderByAsc(SoftwareTopic::getSortOrder)
                         .orderByAsc(SoftwareTopic::getId))
                 .stream().map(topic -> {
@@ -57,8 +63,13 @@ public class SoftwareTopicServiceImpl implements SoftwareTopicService {
     public Map<String, Object> publishedDetail(String slug) {
         SoftwareTopic topic = slug == null ? null : topicMapper.selectOne(
                 new LambdaQueryWrapper<SoftwareTopic>().eq(SoftwareTopic::getSlug, slug));
-        if (topic == null || !"PUBLISHED".equals(topic.getStatus())) {
-            throw new BusinessException("SOFTWARE_NOT_FOUND", "专题不存在");
+        // SF05：下线/未到投放时间的专题按"不存在"处理，不泄露未生效条目
+        java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.Clock.systemUTC());
+        boolean scheduledVisible = (topic.getScheduledStartAt() == null
+                || !topic.getScheduledStartAt().isAfter(now))
+                && (topic.getScheduledEndAt() == null || topic.getScheduledEndAt().isAfter(now));
+        if (topic == null || !"PUBLISHED".equals(topic.getStatus()) || !scheduledVisible) {
+            throw new BusinessException("SOFTWARE_NOT_FOUND", "专题不存在或已下线");
         }
         List<SoftwareTopicItem> items = topicItemMapper.selectList(
                 new LambdaQueryWrapper<SoftwareTopicItem>()
@@ -78,6 +89,7 @@ public class SoftwareTopicServiceImpl implements SoftwareTopicService {
         detail.put("slug", topic.getSlug());
         detail.put("title", topic.getTitle());
         detail.put("summary", topic.getSummary());
+        detail.put("description", topic.getDescription());
         detail.put("coverAssetId", topic.getCoverAssetId() == null ? null
                 : String.valueOf(topic.getCoverAssetId()));
         detail.put("items", visibleItems);

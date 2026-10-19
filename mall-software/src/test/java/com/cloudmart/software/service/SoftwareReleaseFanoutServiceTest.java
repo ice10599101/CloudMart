@@ -66,6 +66,10 @@ class SoftwareReleaseFanoutServiceTest {
     @Mock
     private SoftwareMapper softwareMapper;
     @Mock
+    private com.cloudmart.software.repository.SoftwareReleaseMapper releaseMapper;
+    @Mock
+    private com.cloudmart.software.repository.SoftwareSourceMapper sourceMapper;
+    @Mock
     private SoftwareNotificationFeignClient notificationClient;
     @Mock
     private TransactionTemplate transactionTemplate;
@@ -76,7 +80,8 @@ class SoftwareReleaseFanoutServiceTest {
     void setUp() {
         when(transactionTemplate.execute(any())).thenAnswer(invocation ->
                 ((TransactionCallback<?>) invocation.getArgument(0)).doInTransaction(null));
-        service = new SoftwareReleaseFanoutService(fanoutTaskMapper, subscriptionMapper,
+        service = new SoftwareReleaseFanoutService(fanoutTaskMapper, releaseMapper, sourceMapper,
+                subscriptionMapper,
                 deliveryMapper, preferenceMapper, softwareMapper, notificationClient,
                 org.mockito.Mockito.mock(SoftwareMetrics.class), transactionTemplate,
                 Clock.fixed(Instant.parse("2026-10-16T02:00:00Z"), ZoneId.systemDefault()));
@@ -99,6 +104,10 @@ class SoftwareReleaseFanoutServiceTest {
         task.setStatus("PENDING");
         task.setLeaseVersion(0);
         task.setAttempts(0);
+        // SF05：默认业务变化任务（有新版本），平台/渠道集合 WINDOWS/STABLE
+        task.setBusinessChange(true);
+        task.setPlatforms("WINDOWS");
+        task.setChannels("STABLE");
         return task;
     }
 
@@ -124,7 +133,7 @@ class SoftwareReleaseFanoutServiceTest {
     @Test
     @DisplayName("登记任务：PENDING、游标 0（唯一键幂等由数据库兜底）")
     void registerTask() {
-        service.registerTask(SOFTWARE_ID, 600L, 2, LocalDateTime.of(2026, 10, 16, 1, 0));
+        service.registerTask(SOFTWARE_ID, 600L, 2, LocalDateTime.of(2026, 10, 16, 1, 0), null);
 
         ArgumentCaptor<SoftwareFanoutTask> captor =
                 ArgumentCaptor.forClass(SoftwareFanoutTask.class);
@@ -162,6 +171,57 @@ class SoftwareReleaseFanoutServiceTest {
         verify(fanoutTaskMapper).advanceCursor(eq(1L), eq(3L), eq(1), anyString(), any());
         // 投递成功 → SENT；任务 DONE
         verify(deliveryMapper).markSent(eq(delivery.getValue().getId()), any());
+        verify(fanoutTaskMapper).finish(eq(1L), eq("DONE"), anyInt(), any(), any(),
+                anyInt(), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("SF05：平台/渠道偏好不匹配的订阅者不生成投递（Windows stable 订阅者不收 macOS beta）")
+    void runOnce_filtersByPreference() {
+        when(fanoutTaskMapper.findDue(any())).thenReturn(pendingTask(1), null);
+        when(fanoutTaskMapper.claim(any(), anyString(), any(), anyInt(), any())).thenReturn(1);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, 1));
+        // 任务平台/渠道集合 = WINDOWS/STABLE（夹具默认）
+        SoftwareSubscription macBeta = subscription(1L, 51L);
+        macBeta.setPlatforms("MACOS");
+        macBeta.setChannels("BETA");
+        SoftwareSubscription windowsStable = subscription(2L, 52L);
+        windowsStable.setPlatforms("WINDOWS");
+        windowsStable.setChannels("STABLE");
+        SoftwareSubscription allPlatforms = subscription(3L, 53L); // null=全部
+        when(subscriptionMapper.selectList(any(Wrapper.class))).thenReturn(List.of(
+                macBeta, windowsStable, allPlatforms));
+        when(preferenceMapper.selectList(any(Wrapper.class))).thenReturn(List.of());
+        when(notificationClient.releasePublished(any())).thenReturn(ApiResponse.ok(1));
+
+        service.runOnce();
+
+        // 只为 WINDOWS/STABLE 匹配者与偏好为空者生成投递；MACOS/BETA 被过滤
+        ArgumentCaptor<SoftwareSubscriptionDelivery> delivery =
+                ArgumentCaptor.forClass(SoftwareSubscriptionDelivery.class);
+        verify(deliveryMapper, org.mockito.Mockito.times(2)).insert(delivery.capture());
+        assertThat(delivery.getAllValues())
+                .extracting(SoftwareSubscriptionDelivery::getUserId)
+                .containsExactlyInAnyOrder(52L, 53L);
+    }
+
+    @Test
+    @DisplayName("SF05：纯文案修改（无业务版本变化）不生成投递，任务完成留原因")
+    void runOnce_skipsWhenNoBusinessChange() {
+        SoftwareFanoutTask task = pendingTask(1);
+        task.setBusinessChange(false);
+        when(fanoutTaskMapper.findDue(any())).thenReturn(task, null);
+        when(fanoutTaskMapper.claim(any(), anyString(), any(), anyInt(), any())).thenReturn(1);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, 1));
+        when(subscriptionMapper.selectList(any(Wrapper.class))).thenReturn(List.of(
+                subscription(1L, 42L)));
+
+        service.runOnce();
+
+        verify(deliveryMapper, never()).insert(any(SoftwareSubscriptionDelivery.class));
+        verify(deliveryMapper).cancelPending(eq(SOFTWARE_ID), eq(1), any());
         verify(fanoutTaskMapper).finish(eq(1L), eq("DONE"), anyInt(), any(), any(),
                 anyInt(), anyString(), any());
     }

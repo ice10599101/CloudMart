@@ -128,6 +128,17 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
         if (items.size() > MAX_ITEMS) {
             throw new BusinessException("SOFTWARE_TOPIC_INVALID", "专题软件最多 100 个");
         }
+        // SF05：专题介绍与投放时间窗（UTC 存储；end 必须晚于 start）
+        String description = request.getDescription() == null ? null : request.getDescription().trim();
+        if (description != null && description.length() > 2000) {
+            throw new BusinessException("SOFTWARE_TOPIC_INVALID", "专题介绍不能超过 2000 字");
+        }
+        java.time.LocalDateTime scheduledStartAt = request.getScheduledStartAt();
+        java.time.LocalDateTime scheduledEndAt = request.getScheduledEndAt();
+        if (scheduledStartAt != null && scheduledEndAt != null
+                && !scheduledEndAt.isAfter(scheduledStartAt)) {
+            throw new BusinessException("SOFTWARE_TOPIC_INVALID", "下线时间必须晚于上线时间");
+        }
         List<AdminTopicSaveRequest.Item> cleanItems = new ArrayList<>();
         for (AdminTopicSaveRequest.Item item : items) {
             if (item == null || item.getSoftwareId() == null) {
@@ -148,12 +159,14 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
                 null,
                 () -> doSave(resolvedTopicId, slug, title, summary, request.getCoverAssetId(),
                         status, request.getSortOrder() == null ? 0 : request.getSortOrder(),
-                        cleanItems),
+                        description, scheduledStartAt, scheduledEndAt, cleanItems),
                 Long::valueOf);
     }
 
     private Long doSave(Long topicId, String slug, String title, String summary,
                         Long coverAssetId, String status, int sortOrder,
+                        String description, java.time.LocalDateTime scheduledStartAt,
+                        java.time.LocalDateTime scheduledEndAt,
                         List<AdminTopicSaveRequest.Item> items) {
         // slug 唯一（排除自身）
         SoftwareTopic conflict = topicMapper.selectOne(new LambdaQueryWrapper<SoftwareTopic>()
@@ -171,6 +184,10 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
             topic.setCoverAssetId(coverAssetId);
             topic.setStatus(status);
             topic.setSortOrder(sortOrder);
+            // SF05：介绍与投放时间窗
+            topic.setDescription(description);
+            topic.setScheduledStartAt(scheduledStartAt);
+            topic.setScheduledEndAt(scheduledEndAt);
             topic.setCreatedAt(now);
             topic.setUpdatedAt(now);
             topicMapper.insert(topic);
@@ -185,6 +202,10 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
             topic.setCoverAssetId(coverAssetId);
             topic.setStatus(status);
             topic.setSortOrder(sortOrder);
+            // SF05：介绍与投放时间窗
+            topic.setDescription(description);
+            topic.setScheduledStartAt(scheduledStartAt);
+            topic.setScheduledEndAt(scheduledEndAt);
             topic.setUpdatedAt(now);
             topicMapper.updateById(topic);
         }

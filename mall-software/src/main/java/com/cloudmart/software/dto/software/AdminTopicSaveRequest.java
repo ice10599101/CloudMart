@@ -31,6 +31,15 @@ public class AdminTopicSaveRequest {
     /** 排序（可空=0） */
     private Integer sortOrder;
 
+    /** SF05：专题介绍 */
+    private String description;
+
+    /** SF05：定时上线时间（UTC；NULL=发布即生效） */
+    private java.time.LocalDateTime scheduledStartAt;
+
+    /** SF05：定时下线时间（UTC；NULL=不自动下线） */
+    private java.time.LocalDateTime scheduledEndAt;
+
     /** 软件清单（全量替换；≤100 项，顺序即展示顺序） */
     private List<Item> items;
 

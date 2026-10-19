@@ -24,5 +24,11 @@ public class SoftwareSubscription {
 
     private Long userId;
 
+    /** SF05：订阅平台偏好（逗号分隔；NULL=全部平台） */
+    private String platforms;
+
+    /** SF05：订阅渠道偏好（逗号分隔；NULL=全部渠道） */
+    private String channels;
+
     private LocalDateTime createdAt;
 }

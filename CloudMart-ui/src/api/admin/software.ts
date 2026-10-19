@@ -671,6 +671,10 @@ export interface AdminTopicPayload {
   coverAssetId?: string
   status?: 'DRAFT' | 'PUBLISHED' | 'DISABLED'
   sortOrder?: number
+  /** SF05：专题介绍与投放时间窗（UTC，ISO 字符串；空=不限制） */
+  description?: string
+  scheduledStartAt?: string
+  scheduledEndAt?: string
   items: Array<{ softwareId: string; sortOrder?: number }>
 }
 

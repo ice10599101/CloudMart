@@ -28,6 +28,15 @@ public class SoftwareTopic {
     /** DRAFT/PUBLISHED/DISABLED */
     private String status;
 
+    /** SF05：专题介绍（运营长文案） */
+    private String description;
+
+    /** SF05：定时上线时间（UTC；NULL=发布即生效） */
+    private LocalDateTime scheduledStartAt;
+
+    /** SF05：定时下线时间（UTC；NULL=不自动下线） */
+    private LocalDateTime scheduledEndAt;
+
     private Integer sortOrder;
 
     private LocalDateTime createdAt;

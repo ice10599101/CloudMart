@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Tag } from 'antd'
+import { Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Tag, DatePicker } from 'antd'
 import {
   createAdminTopic,
   disableAdminTopic,
@@ -105,6 +105,9 @@ export default function SoftwareTopics() {
         coverAssetId: values.coverAssetId ?? undefined,
         status: values.status,
         sortOrder: values.sortOrder ?? 0,
+        description: values.description || undefined,
+        scheduledStartAt: values.scheduledRange?.[0]?.toISOString(),
+        scheduledEndAt: values.scheduledRange?.[1]?.toISOString(),
         items: cleanItems,
       }
       if (editing?.topicId) {
@@ -237,6 +240,12 @@ export default function SoftwareTopics() {
           </Space>
           <Form.Item name="summary" label="运营说明（≤500 字）">
             <Input.TextArea rows={2} maxLength={500} showCount />
+          </Form.Item>
+          <Form.Item name="description" label="专题介绍（≤2000 字，随专题详情展示）">
+            <Input.TextArea rows={3} maxLength={2000} showCount />
+          </Form.Item>
+          <Form.Item name="scheduledRange" label="投放时间窗（UTC；留空=上线即生效/不自动下线）">
+            <DatePicker.RangePicker showTime format="YYYY-MM-DD HH:mm" />
           </Form.Item>
 
           <Form.Item label="软件清单（顺序即展示顺序；保存全量替换）" required>

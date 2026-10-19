@@ -82,7 +82,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/software/access-requests/{softwareId}",
                         "/software/access-requests/{requestId}/cancel").authenticated()
                 .requestMatchers(HttpMethod.GET, "/software/{id}/access-state",
-                        "/software/{id}/editor").authenticated()
+                        "/software/{id}/editor", "/software/{id}/subscription")
+                .authenticated()
                 // 公开浏览：软件广场/分类/标签/榜单/专题（7.2，可见性由业务层过滤）
                 .requestMatchers(HttpMethod.GET, "/software", "/software/categories",
                         "/software/tags", "/software/rankings", "/software/topics",
