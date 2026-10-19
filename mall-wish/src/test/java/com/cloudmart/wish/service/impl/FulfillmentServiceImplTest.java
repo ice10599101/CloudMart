@@ -351,7 +351,7 @@ class FulfillmentServiceImplTest {
         }
 
         @Test
-        @DisplayName("故事为富文本入库（不转义），感悟为纯文本 XSS 转义，audit_status=PENDING 先发后审")
+        @DisplayName("故事为富文本入库（不转义），感悟为纯文本 XSS 转义并直接发布")
         void submitFulfillment_storyRichText_feelingEscaped() {
             Wish wish = buildWish(WishStatus.ACTIVE);
             when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
@@ -370,10 +370,29 @@ class FulfillmentServiceImplTest {
                             && !f.getStory().contains("alert")
                             && f.getStory().contains("<p>坚持</p>")
                             && f.getFeeling().contains("&lt;b&gt;")
-                            && f.getAuditStatus() == AuditStatus.PENDING
+                            && f.getAuditStatus() == AuditStatus.APPROVED
                             && Boolean.TRUE.equals(f.getIsVisible())
                             && f.getMediaUrls().contains("oss://key1.png")
             ));
+        }
+
+        @Test
+        @DisplayName("还愿内容命中敏感词时保留 PENDING 标记")
+        void submitFulfillment_sensitiveContent_keepsPendingMarker() {
+            contentSanitizer = new WishContentSanitizer(List.of("敏感词"));
+            fulfillmentService = buildService(
+                    org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.WishOutboxService.class));
+            Wish wish = buildWish(WishStatus.ACTIVE);
+            when(wishMapper.selectById(WISH_ID)).thenReturn(wish);
+            when(wishMapper.update(any(), any())).thenReturn(1);
+            when(userStatService.incrementOnFulfilled(USER_ID)).thenReturn(Collections.emptyList());
+            when(userStatService.earnStarlight(anyLong(), anyInt(), any(), any())).thenReturn(STARLIGHT_REWARD);
+
+            fulfillmentService.submitFulfillment(USER_ID, WISH_ID,
+                    new SubmitFulfillmentRequest("普通故事里有敏感词", null, null), null);
+
+            verify(wishFulfillmentMapper).insert(org.mockito.ArgumentMatchers.<WishFulfillment>argThat(f ->
+                    f.getAuditStatus() == AuditStatus.PENDING && Boolean.TRUE.equals(f.getIsVisible())));
         }
     }
 

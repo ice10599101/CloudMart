@@ -127,7 +127,7 @@ public class WishController {
 
     @PostMapping("/{id}/fulfillment")
     @Operation(summary = "提交还愿", description = "仅作者可对 ACTIVE/OVERDUE 心愿提交还愿故事，"
-            + "提交即流转 FULFILLED + 果实 BLOOM，先发后审（audit_status=PENDING），奖励星光 +50")
+            + "普通内容提交即直接发布并流转 FULFILLED + 果实 BLOOM；命中敏感词保留既有标记，奖励星光 +50")
     @SentinelResource("WISH_FULFILL")
     public ApiResponse<WishFulfillmentSubmitVO> submitFulfillment(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)

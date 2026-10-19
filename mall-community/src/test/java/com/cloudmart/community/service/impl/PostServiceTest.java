@@ -143,17 +143,17 @@ class PostServiceTest {
     class CreatePostTests {
 
         @Test
-        @DisplayName("should create published post and trigger review and exp")
+        @DisplayName("should publish post with media immediately and trigger text review and exp")
         void createPost_success() {
             CreatePostRequest request = new CreatePostRequest(
-                    "Test Title", "Test content", null, null, "IMAGE",
+                    "Test Title", "Test content", null, List.of("https://example.test/photo.png"), "IMAGE",
                     null, null, null, 1
             );
 
             ContentReviewService.ReviewResult reviewResult = new ContentReviewService.ReviewResult(
                     true, false, "Test content", null
             );
-            when(contentReviewService.reviewContentWithMedia(eq("Test content"), anyInt())).thenReturn(reviewResult);
+            when(contentReviewService.reviewContent(eq("Test content"))).thenReturn(reviewResult);
             when(postMapper.insert(any(Post.class))).thenAnswer(invocation -> {
                 Post post = invocation.getArgument(0);
                 post.setId(POST_ID);
@@ -166,7 +166,9 @@ class PostServiceTest {
             assertThat(result).isNotNull();
             assertThat(result.title()).isEqualTo("Test Title");
             assertThat(result.status()).isEqualTo(1);
-            verify(contentReviewService).reviewContentWithMedia(eq("Test content"), anyInt());
+            assertThat(result.reviewStatus()).isEqualTo(1);
+            verify(contentReviewService).reviewContent(eq("Test content"));
+            verify(contentReviewService, never()).reviewContentWithMedia(any(), anyInt());
             verify(growthService).addExp(USER_ID, 20, "POST", POST_ID, "发布帖子《Test Title》");
             verify(communityCacheService).evictFeedPosts();
         }
@@ -190,7 +192,6 @@ class PostServiceTest {
 
             assertThat(result).isNotNull();
             assertThat(result.status()).isEqualTo(0);
-            verify(contentReviewService, never()).reviewContentWithMedia(any(), anyInt());
             verify(contentReviewService, never()).reviewContent(any());
             verify(growthService, never()).addExp(anyLong(), any(Integer.class), any(), anyLong(), any());
         }

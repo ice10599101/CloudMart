@@ -249,7 +249,7 @@ export default function CompanionBoard({ myPetId, onChanged }: {
                     previewUrl: res.data.previewUrl,
                     diaryEntryId: res.data.diaryEntryId,
                 }, ...prev])
-                message.success('照片已存入相册，待审核')
+                message.success('照片已存入相册，默认仅自己可见')
                 await loadDiary(true)
             } else if (up.data.fileId) {
                 // 绑定失败：文件已上传但未入相册——提示可删除孤儿文件，不算上传成功

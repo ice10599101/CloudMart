@@ -123,7 +123,7 @@ public class AdminPetReportController {
     }
 
     @PostMapping("/album/{assetId}/reject")
-    @Operation(summary = "相册资源审核驳回（R04）", description = "理由必填留痕；被驳回条目保留在相册且不可公开")
+    @Operation(summary = "限制相册资源（R04）", description = "理由必填留痕；限制后资源对访客不可见")
     public ApiResponse<com.cloudmart.pet.entity.PetAlbumAsset> rejectAlbum(
             @Parameter(description = "相册资源 ID") @PathVariable("assetId") Long assetId,
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long adminUserId,

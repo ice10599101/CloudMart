@@ -183,7 +183,7 @@ export function MemoryPanel(
         return
       }
       await petCompanionApi.uploadAlbumAsset(petId, fileId)
-      Taro.showToast({ title: '已上传（待审核展示）', icon: 'success' })
+      Taro.showToast({ title: '已上传（默认仅自己可见）', icon: 'success' })
       loadAlbum()
     } catch (err) {
       Taro.showToast({ title: errorMessage(err, '上传失败（≤5MB，每用户 100 张）'), icon: 'none' })

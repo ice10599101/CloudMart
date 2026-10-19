@@ -692,18 +692,18 @@ class CapsuleServiceImplTest {
         }
 
         @Test
-        @DisplayName("OPENED + 未申请：CAS 绑定 0/3/4 旧状态，提交成功")
+        @DisplayName("OPENED + 未申请：CAS 绑定 0/3/4 旧状态，直接发布成功")
         void apply_success() {
             when(timeCapsuleMapper.selectById(CAPSULE_ID)).thenReturn(openedWithWall(0));
             when(timeCapsuleMapper.update(isNull(), any())).thenReturn(1);
 
             capsuleService.applyToWall(USER_ID, CAPSULE_ID);
 
-            // CAS 必须绑定旧状态集合（IN 预编译占位）+ SET wall_status；
-            // 0/3/4 具体绑定值由 mapper 集成测试覆盖
+            // CAS 必须绑定旧状态集合并直接设置 wall_status=2。
             verify(timeCapsuleMapper).update(isNull(),
                     org.mockito.ArgumentMatchers.<com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<TimeCapsule>>argThat(w ->
                             w.getSqlSet().contains("wall_status")
+                                    && w.getParamNameValuePairs().containsValue(2)
                                     && w.getCustomSqlSegment().toUpperCase().contains(" IN ")));
         }
 

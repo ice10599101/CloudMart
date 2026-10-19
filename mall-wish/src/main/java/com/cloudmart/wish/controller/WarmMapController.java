@@ -83,7 +83,7 @@ public class WarmMapController {
 
     @PostMapping("/warm-events")
     @Operation(summary = "发布温暖事件", description = "UGC（标题≤60/内容≤500/坐标必填）；坐标服务端"
-            + "geohash7 模糊化，原始坐标不留存；DFA 命中敏感词 → AUTO_HIDDEN，未命中 → PENDING 先发后审")
+            + "geohash7 模糊化，原始坐标不留存；DFA 命中敏感词 → AUTO_HIDDEN，未命中 → 直接发布")
     @SentinelResource("WISH_WARM_EVENT_CREATE")
     public ApiResponse<WarmEventVO> publishWarmEvent(
             @Parameter(description = "当前用户 ID（网关注入）", required = true)

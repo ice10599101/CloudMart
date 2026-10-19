@@ -378,7 +378,7 @@ export function upsertPetPersonaPhrase(data: { personality: string; phrase: stri
 
 // ==================== BE-11 相册审核 / B21 配置治理 ====================
 
-/** 相册资源审核通过（仅审核链路可设 APPROVED；用户上传进入时为 PENDING） */
+/** 历史相册待审资源的通过处置；新上传默认 APPROVED */
 export function approvePetAlbumAsset(assetId: number | string) {
   return request.post<ApiResponse<Record<string, unknown>>>(`/admin/pet/album/${assetId}/approve`)
 }

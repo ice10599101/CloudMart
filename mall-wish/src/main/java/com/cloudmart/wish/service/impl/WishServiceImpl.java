@@ -965,7 +965,9 @@ public class WishServiceImpl implements WishService {
             record.setMediaUrls(WishJsonUtils.stringifyList(request.mediaUrls()));
         }
         record.setProgressDelta(request.progressDelta() != null ? request.progressDelta() : (short) 0);
-        record.setAuditStatus(AuditStatus.PENDING);
+        // 普通成长记录直接发布；敏感词命中沿用 PENDING 标记供既有处置流程识别。
+        record.setAuditStatus(contentSanitizer.containsSensitiveWord(request.content())
+                ? AuditStatus.PENDING : AuditStatus.APPROVED);
         record.setIsVisible(true);
         wishGrowthRecordMapper.insert(record);
 
@@ -1074,6 +1076,8 @@ public class WishServiceImpl implements WishService {
             record.setContent(contentCipher.encryptGrowth(
                     GrowthRecordType.DIARY == record.getType(),
                     "GROWTH:" + wishId + ":" + record.getUserId(), content.trim()));
+            record.setAuditStatus(contentSanitizer.containsSensitiveWord(content)
+                    ? AuditStatus.PENDING : AuditStatus.APPROVED);
         }
         if (mediaUrls != null) {
             record.setMediaUrls(com.cloudmart.wish.util.WishJsonUtils.stringifyList(mediaUrls));

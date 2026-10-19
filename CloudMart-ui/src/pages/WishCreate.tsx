@@ -301,7 +301,7 @@ export default function WishCreate() {
         expectedAt: values.expectedAt?.toISOString(),
       })
       if (res.data.success) {
-        message.success('心愿发布成功！审核通过后将展示在心愿广场')
+        message.success('心愿已发布到心愿广场')
         clearPageDraft(DRAFT_KEY)
         await materializeAttachments(values.description, 'WISH', res.data.data.id)
         history.push(`/wish/${res.data.data.id}`)

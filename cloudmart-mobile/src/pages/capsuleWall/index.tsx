@@ -6,8 +6,8 @@ import CustomNavBar, { getNavBarMetrics } from '@/components/CustomNavBar'
 import styles from './index.module.scss'
 
 /**
- * 公共胶囊墙（§6）：匿名精选墙（已审核通过的已开封胶囊，不暴露作者身份）。
- * 分页加载；申请上墙在胶囊详情/我的胶囊完成（作者本人）。
+ * 公共胶囊墙（§6）：匿名展示作者主动发布的已开封胶囊，不暴露作者身份。
+ * 分页加载；发布到公共墙在胶囊详情/我的胶囊完成（作者本人）。
  */
 export default function CapsuleWallPage() {
   const { statusBarHeight, navBarHeight } = getNavBarMetrics()

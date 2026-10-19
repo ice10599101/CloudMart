@@ -11,7 +11,7 @@ import java.util.List;
  * 提交还愿结果 VO（文档 2.4 节）。
  *
  * <p>产品决策（2026-08-20）：统一即时生效——提交后心愿直接 FULFILLED
- * 并生成绽放果实，还愿故事走先发后审；响应 status 恒为 FULFILLED，
+ * 并生成绽放果实，还愿故事直接发布；响应 status 恒为 FULFILLED，
  * FULFILLING 保留给后续 STRICT 审核流。</p>
  *
  * @param id              还愿记录 ID

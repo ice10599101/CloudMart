@@ -43,7 +43,7 @@ public class PetAlbumAsset {
     private String lastBindError;
     /** 用户说明（≤200 字，仅 owner 本人可改） */
     private String caption;
-    /** OWNER_ONLY / PUBLIC：访客仅见 PUBLIC+APPROVED+BOUND */
+    /** OWNER_ONLY / PUBLIC：访客仅见 PUBLIC+BOUND 且未被平台拒绝的资源 */
     private String visibility;
     /** 乐观版本（caption/visibility PATCH CAS） */
     private Integer version;

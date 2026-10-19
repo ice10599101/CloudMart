@@ -349,7 +349,7 @@ public class PetCompanionFeatureService {
     /**
      * 上传相册资源（N02/R04）：fileId 为不透明 ID，先本地落 BINDING 行（占配额 + 日记归属校验），
      * 再调 mall-file 内部接口校验归属/READY/MIME/大小/PRIVATE 并登记幂等引用键
-     * PET_ALBUM:{albumAssetId}——成功推进 BOUND+PENDING_REVIEW，远程失败留 BINDING 可重试
+     * PET_ALBUM:{albumAssetId}——成功推进 BOUND，远程失败留 BINDING 可重试
      * （删除该行即放弃绑定，孤儿文件由用户在文件服务侧自行清理，不占公开访问）。
      * 100 张配额含 BINDING 行（守卫行锁内串行化，T27）。
      */
@@ -389,13 +389,14 @@ public class PetCompanionFeatureService {
             row.setPetId(petId);
             row.setDiaryEntryId(diaryEntryId);
             row.setFileId(String.valueOf(fileAssetId));
-            row.setAuditStatus("PENDING");
+            // 上传绑定成功即完成内容审核；是否公开仍由主人单独设置 visibility=PUBLIC。
+            row.setAuditStatus("APPROVED");
             row.setBindStatus("BINDING");
             row.setBindAttempts(1);
             row.setNextBindRetryAt(properties.getFeatureSwitches().isAlbumBinding()
                     ? java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).plusSeconds(BIND_RETRY_BACKOFF_SECONDS)
                     : null);
-            // 默认私有（OWNER_ONLY）：PUBLIC 需审核通过后由 PATCH 显式开启
+            // 默认私有（OWNER_ONLY）：由主人通过 PATCH 显式选择是否公开。
             row.setVisibility("OWNER_ONLY");
             row.setCaption(normalizedCaption);
             try {
@@ -583,7 +584,7 @@ public class PetCompanionFeatureService {
         return albumMapper.selectById(assetId);
     }
 
-    /** 审核驳回（R04）：理由必填留痕；被驳回条目保留在相册（状态可见），不可公开 */
+    /** 平台限制相册资源：理由必填留痕；已公开资源被限制后立即对访客隐藏。 */
     @Transactional
     public PetAlbumAsset rejectAlbumAsset(Long assetId, Long reviewerId, String reason) {
         if (reason == null || reason.isBlank()) {
@@ -594,11 +595,11 @@ public class PetCompanionFeatureService {
                 .set(PetAlbumAsset::getReviewerId, reviewerId)
                 .set(PetAlbumAsset::getReviewReason, reason.strip())
                 .eq(PetAlbumAsset::getId, assetId)
-                .eq(PetAlbumAsset::getAuditStatus, "PENDING")
+                .in(PetAlbumAsset::getAuditStatus, "PENDING", "APPROVED")
                 .eq(PetAlbumAsset::getBindStatus, "BOUND"));
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_STATE_CONFLICT,
-                    "相册资源不存在、未绑定完成或已处理，不能重复审核");
+                    "相册资源不存在、未绑定完成或已限制，不能重复处置");
         }
         return albumMapper.selectById(assetId);
     }
@@ -626,7 +627,7 @@ public class PetCompanionFeatureService {
 
     /**
      * R04 相册列表：按权限签发短期预览地址（默认 60 秒），不返回任何持久化 URL——
-     * PENDING/REJECTED 对他人不可见；BINDING 行返回处理中占位（无地址）。
+     * REJECTED 对他人不可见；BINDING 行返回处理中占位（无地址）。
      */
     public List<AlbumAssetVO> albumList(Long userId, Long petId) {
         Pet pet = petMapper.selectById(petId);
@@ -638,8 +639,8 @@ public class PetCompanionFeatureService {
                 .eq(PetAlbumAsset::getPetId, petId)
                 .orderByDesc(PetAlbumAsset::getId);
         if (!owner) {
-            // 访客：审核通过 + 绑定完成 + 主人显式公开（默认私有，§7.2 album visibility）
-            wrapper.eq(PetAlbumAsset::getAuditStatus, "APPROVED")
+            // 访客：绑定完成 + 主人显式公开；仅平台拒绝的资源不展示。
+            wrapper.ne(PetAlbumAsset::getAuditStatus, "REJECTED")
                     .eq(PetAlbumAsset::getBindStatus, "BOUND")
                     .eq(PetAlbumAsset::getVisibility, "PUBLIC");
         }
@@ -678,7 +679,7 @@ public class PetCompanionFeatureService {
 
     /**
      * §7.2 PATCH /pets/{petId}/album/{assetId}：修改说明/可见性（expectedVersion CAS）。
-     * 审核通过前 PUBLIC 被拒绝（上传默认私有待审）；字段缺省 = 不修改（部分更新语义）。
+     * 上传默认私有；字段缺省 = 不修改（部分更新语义）。REJECTED 资源仍不可公开。
      */
     @Transactional
     public PetAlbumAsset updateAlbumAsset(Long userId, Long petId, Long assetId, String caption,
@@ -698,8 +699,8 @@ public class PetCompanionFeatureService {
                 default -> throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR,
                         "visibility 仅支持 PUBLIC/OWNER_ONLY");
             };
-            if ("PUBLIC".equals(targetVisibility) && !"APPROVED".equals(asset.getAuditStatus())) {
-                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "审核通过后才能设为公开");
+            if ("PUBLIC".equals(targetVisibility) && "REJECTED".equals(asset.getAuditStatus())) {
+                throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "该相册资源已被平台限制，不能设为公开");
             }
         }
         LambdaUpdateWrapper<PetAlbumAsset> wrapper = new LambdaUpdateWrapper<PetAlbumAsset>()

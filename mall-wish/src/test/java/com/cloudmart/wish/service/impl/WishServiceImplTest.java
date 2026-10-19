@@ -77,6 +77,8 @@ class WishServiceImplTest {
     @Mock
     private com.cloudmart.wish.repository.WishCommentMapper wishCommentMapper;
 
+    private WishContentSanitizer contentSanitizer;
+
     @InjectMocks
     private WishServiceImpl wishService;
 
@@ -100,12 +102,17 @@ class WishServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        contentSanitizer = new WishContentSanitizer(List.of());
+        wishService = buildService(contentSanitizer);
+    }
+
+    private WishServiceImpl buildService(WishContentSanitizer sanitizer) {
         org.springframework.transaction.support.TransactionTemplate opTx =
                 org.mockito.Mockito.mock(org.springframework.transaction.support.TransactionTemplate.class);
         org.mockito.Mockito.lenient().when(opTx.execute(org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(inv -> ((org.springframework.transaction.support.TransactionCallback<Object>) inv.getArgument(0))
                         .doInTransaction(null));
-        wishService = new WishServiceImpl(
+        return new WishServiceImpl(
                 wishMapper, wishCategoryMapper, wishCheckinMapper, wishCommentMapper,
                 new ContentCipher(new WishCryptoProperties()), wishGrowthRecordMapper,
                 wishProgressMapper, userStatService, userFeignClient,
@@ -114,7 +121,7 @@ class WishServiceImplTest {
                         org.mockito.Mockito.mock(com.cloudmart.wish.repository.WishOperationMapper.class), opTx),
                 org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.WishOutboxService.class),
                 org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.ModerationService.class),
-                new WishContentSanitizer(java.util.List.of())
+                sanitizer
         );
     }
 
@@ -746,6 +753,38 @@ class WishServiceImplTest {
 
             assertThat(result.records()).isEmpty();
         }
+    }
+
+    @Test
+    @DisplayName("新增成长记录直接发布")
+    void addGrowthRecord_directlyPublished() {
+        when(wishMapper.selectById(WISH_ID)).thenReturn(buildWish());
+        when(wishGrowthRecordMapper.insert(any(WishGrowthRecord.class))).thenAnswer(invocation -> {
+            WishGrowthRecord record = invocation.getArgument(0);
+            record.setId(3001L);
+            return 1;
+        });
+
+        var result = wishService.addGrowthRecord(USER_ID, WISH_ID,
+                new WishService.AddGrowthRequest("TEXT", "今天进步了", List.of(), null));
+
+        assertThat(result.recordId()).isEqualTo(3001L);
+        verify(wishGrowthRecordMapper).insert(org.mockito.ArgumentMatchers.<WishGrowthRecord>argThat(record ->
+                record.getAuditStatus() == AuditStatus.APPROVED && Boolean.TRUE.equals(record.getIsVisible())));
+    }
+
+    @Test
+    @DisplayName("新增成长记录命中敏感词时保留 PENDING 标记")
+    void addGrowthRecord_sensitiveContent_keepsPendingMarker() {
+        contentSanitizer = new WishContentSanitizer(List.of("敏感词"));
+        wishService = buildService(contentSanitizer);
+        when(wishMapper.selectById(WISH_ID)).thenReturn(buildWish());
+
+        wishService.addGrowthRecord(USER_ID, WISH_ID,
+                new WishService.AddGrowthRequest("TEXT", "内容含敏感词", List.of(), null));
+
+        verify(wishGrowthRecordMapper).insert(org.mockito.ArgumentMatchers.<WishGrowthRecord>argThat(record ->
+                record.getAuditStatus() == AuditStatus.PENDING && Boolean.TRUE.equals(record.getIsVisible())));
     }
 
     // ========== Helper methods ==========

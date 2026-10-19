@@ -149,7 +149,7 @@ export function GovernancePanel() {
             <Popconfirm title="确认审核通过？通过后用户端可见。" disabled={assetId === null} onConfirm={() => void handleApprove()}>
               <Button type="primary" loading={approving} disabled={assetId === null}>审核通过</Button>
             </Popconfirm>
-            <Text type="secondary">用户上传的相册资源为 PENDING，仅审核链路可设 APPROVED</Text>
+            <Text type="secondary">新上传的相册默认已通过审核；此队列仅兼容处理历史 PENDING 资源。</Text>
           </Space>
         </Card>
         <Card type="inner" title="配置校验预览（B21）">

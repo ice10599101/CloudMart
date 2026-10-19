@@ -16,8 +16,8 @@ import java.time.LocalDateTime;
  * 温暖事件（Sprint 3.2，城市幸福地图 UGC：小店老板送咖啡等温暖瞬间）。
  *
  * <p>坐标仅存 geohash7（约 153m 网格），city_code 为 geohash4 城市代理；
- * DFA 命中敏感词 → AUTO_HIDDEN（is_visible=false），未命中 → PENDING
- * 先发后审。</p>
+ * DFA 命中敏感词 → AUTO_HIDDEN（is_visible=false），未命中 → APPROVED
+ * 直接发布。</p>
  */
 @Getter
 @Setter

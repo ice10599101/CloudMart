@@ -107,7 +107,7 @@ public class PetCompanionFeatureController {
 
     @PatchMapping("/pets/{petId}/album/{assetId}")
     @Operation(summary = "编辑相册资源（§7.2）", description = "caption/visibility 部分更新（缺省不改）；"
-            + "expectedVersion 必填 CAS 防多端覆盖；审核通过前 PUBLIC 被拒绝")
+            + "expectedVersion 必填 CAS 防多端覆盖；PUBLIC 由宠物主人显式选择")
     public ApiResponse<PetAlbumAsset> updateAlbum(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("petId") Long petId,

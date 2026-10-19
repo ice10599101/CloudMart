@@ -155,7 +155,7 @@ export default function CapsuleDetail() {
 
     const formatLocal = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '-')
 
-    // R17 公共墙：申请/撤回/撤下，成功后重新拉取详情（后端返回 void，状态以权威查询为准）
+    // R17 公共墙：直接发布/撤下，成功后重新拉取详情（后端返回 void，状态以权威查询为准）
     const [wallBusy, setWallBusy] = useState(false)
     const handleApplyWall = async () => {
         if (!capsuleId || wallBusy) return
@@ -163,7 +163,7 @@ export default function CapsuleDetail() {
         try {
             const res = await applyCapsuleToWall(capsuleId)
             if (res.data.success) {
-                message.success('已提交审核')
+                message.success('已匿名发布到公共墙')
                 setReloadKey((k) => k + 1)
             }
         } catch {
@@ -197,9 +197,9 @@ export default function CapsuleDetail() {
             <Card size="small" className={styles.wallSection} title="🌌 公共胶囊墙">
                 {wall === 0 && (
                     <div className={styles.wallLine}>
-                        <span className={styles.wallTip}>审核通过后将匿名在公共墙展出（不公开身份与附件）</span>
+                        <span className={styles.wallTip}>确认后立即匿名展示（不公开身份与附件）</span>
                         <Button type="primary" ghost size="small" loading={wallBusy} onClick={handleApplyWall}>
-                            申请上墙
+                            直接上墙
                         </Button>
                     </div>
                 )}

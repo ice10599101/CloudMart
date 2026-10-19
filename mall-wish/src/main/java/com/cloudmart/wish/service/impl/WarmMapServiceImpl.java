@@ -165,9 +165,9 @@ public class WarmMapServiceImpl implements WarmMapService {
         event.setContent(safeContent);
         event.setGeohash(geohash);
         event.setCityCode(geohash.substring(0, 4));
-        // DFA 敏感词命中 → AUTO_HIDDEN 不可见；未命中 → PENDING 先发后审
+        // DFA 敏感词命中 → AUTO_HIDDEN 不可见；未命中 → 直接发布，可后置处置
         boolean sensitive = contentSanitizer.containsSensitiveWord(safeTitle + safeContent);
-        event.setAuditStatus(sensitive ? AuditStatus.AUTO_HIDDEN : AuditStatus.PENDING);
+        event.setAuditStatus(sensitive ? AuditStatus.AUTO_HIDDEN : AuditStatus.APPROVED);
         event.setIsVisible(!sensitive);
         warmEventMapper.insert(event);
 
@@ -316,7 +316,7 @@ public class WarmMapServiceImpl implements WarmMapService {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "温暖事件不存在");
         }
         event.setAuditStatus(status);
-        // REJECTED/AUTO_HIDDEN 不可见；PENDING/APPROVED 可见（先发后审语义）
+        // 历史 PENDING 与 APPROVED 保持可见；REJECTED/AUTO_HIDDEN 不可见。
         event.setIsVisible(status == AuditStatus.PENDING || status == AuditStatus.APPROVED);
         warmEventMapper.updateById(event);
         log.info("温暖事件审核, eventId={}, status={}", eventId, status);

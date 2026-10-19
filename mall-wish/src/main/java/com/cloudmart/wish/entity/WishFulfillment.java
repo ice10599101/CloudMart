@@ -42,10 +42,10 @@ public class WishFulfillment {
     /** 感悟（≤1000 字，API 契约字段） */
     private String feeling;
 
-    /** 审核状态（先发后审：提交即生效，PENDING 仅供管理端待审筛选） */
+    /** 审核状态（普通新提交直接 APPROVED；命中敏感词保留 PENDING 标记） */
     private AuditStatus auditStatus;
 
-    /** 是否可见（与 audit_status 解耦，便于先发后审） */
+    /** 是否可见（与 audit_status 解耦） */
     private Boolean isVisible;
 
     /** 是否已传承推送（Sprint 2.7 愿望传承，当前恒 false） */

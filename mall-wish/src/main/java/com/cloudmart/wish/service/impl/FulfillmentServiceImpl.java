@@ -40,12 +40,11 @@ import java.util.Set;
  * <p>关键设计决策：</p>
  * <ul>
  *   <li>统一即时生效（产品决策 2026-08-20）：提交即 FULFILLED + BLOOM，
- *       先发后审；uk_fulfillment_wish + 状态条件 UPDATE 双保险防重复提交</li>
+ *       还愿故事直接发布；uk_fulfillment_wish + 状态条件 UPDATE 双保险防重复提交</li>
  *   <li>作者级防存在性探测：不可见心愿对非作者统一 404（与 updateWish 同模式）</li>
  *   <li>统计/星光/徽章与还愿落库同一事务，回滚时全部撤销</li>
  *   <li>故事为富文本 HTML（与心愿描述一致直接入库，前端 DOMPurify 消毒），感悟仍
- *       XSS 转义后存储；audit_status=PENDING 供管理端待审筛选
- *       （表⑨无 sensitive_hit 列，敏感词标记以 PENDING 状态承载）</li>
+ *       XSS 转义后存储；audit_status=APPROVED 表示发布即生效，管理端仍可后置处置</li>
  * </ul>
  */
 @Service
@@ -96,7 +95,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
     private WishFulfillmentSubmitVO doSubmitFulfillment(Long userId, Long wishId,
                                                         SubmitFulfillmentRequest request, Wish wish) {
         // 内容净化：路径穿越拦截（富文本故事与心愿描述一致直接入库，前端 DOMPurify 消毒；
-        // 感悟为纯文本 XSS 转义），先发后审 audit_status=PENDING 标记待审
+        // 感悟为纯文本 XSS 转义）。普通内容直接发布；命中项目敏感词时保留 PENDING 标记。
         String story = request.story().trim();
         if (!contentSanitizer.isFreeOfPathTraversal(story)) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "还愿故事包含非法字符");
@@ -112,6 +111,8 @@ public class FulfillmentServiceImpl implements FulfillmentService {
             }
         }
         String feeling = request.feeling() == null ? null : contentSanitizer.escapeHtml(request.feeling().trim());
+        boolean sensitiveHit = contentSanitizer.containsSensitiveWord(story)
+                || contentSanitizer.containsSensitiveWord(feeling);
 
         // B03：社区传播必须显式授权，且仅 PUBLIC 心愿允许；默认不传播
         final boolean shareToCommunity = request.isShareToCommunity();
@@ -141,7 +142,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         fulfillment.setStory(story);
         fulfillment.setMediaUrls(WishJsonUtils.stringifyList(request.mediaUrls()));
         fulfillment.setFeeling(feeling);
-        fulfillment.setAuditStatus(AuditStatus.PENDING);
+        fulfillment.setAuditStatus(sensitiveHit ? AuditStatus.PENDING : AuditStatus.APPROVED);
         fulfillment.setIsVisible(true);
         fulfillment.setIsInherited(false);
         fulfillment.setShareToCommunity(shareToCommunity);

@@ -10,7 +10,7 @@ const PAGE_SIZE = 10
 
 /**
  * R17 公共胶囊墙（用户站 Web 入口）。
- * 匿名精选墙：只展示已审核通过且当前仍在墙的胶囊，不暴露作者身份与媒体附件。
+ * 匿名公共墙：只展示作者主动发布且当前仍在墙的胶囊，不暴露作者身份与媒体附件。
  */
 export default function CapsuleWall() {
     const { message } = App.useApp()

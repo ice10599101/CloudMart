@@ -210,7 +210,7 @@ export default function WishMapPage() {
         lat: pos.lat,
         lng: pos.lng,
       })
-      Taro.showToast({ title: '感谢分享温暖瞬间（审核通过后展示）', icon: 'none' })
+      Taro.showToast({ title: '温暖瞬间已发布', icon: 'success' })
       setWarmOpen(false)
       setWarmTitle('')
       setWarmContent('')

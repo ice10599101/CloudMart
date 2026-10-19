@@ -10,7 +10,7 @@ import com.cloudmart.wish.vo.WishFulfillmentVO;
  *
  * <p>状态机（产品决策 2026-08-20，统一即时生效）：
  * ACTIVE/OVERDUE --提交还愿--> FULFILLED + 绽放果实 BLOOM；
- * 还愿故事走先发后审（audit_status=PENDING 仅标记，不阻断展示）。
+ * 还愿故事直接发布（audit_status=APPROVED）；平台仍可后置处置。
  * FULFILLING 状态保留给后续 STRICT 审核流（本 Sprint 不落此状态）。</p>
  *
  * <p>联动（同一事务）：totalFulfilled + 1（历史事实不回退）、

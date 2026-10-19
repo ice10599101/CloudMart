@@ -403,23 +403,24 @@ public class CapsuleServiceImpl implements CapsuleService {
         int wall = capsule.getWallStatus() == null ? WALL_NONE : capsule.getWallStatus();
         if (wall == WALL_PENDING || wall == WALL_APPROVED) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
-                    wall == WALL_PENDING ? "已提交审核，请耐心等待" : "该胶囊已在墙上");
+                    wall == WALL_PENDING ? "该胶囊正在处理中，请刷新后重试" : "该胶囊已在墙上");
         }
-        // R17：CAS 绑定旧状态（0/3/4 才可申请），消除"内存判断后并发重复申请"窗口
+        // R17：作者明确选择上墙即公开；CAS 绑定旧状态（0/3/4），消除并发重复发布窗口。
+        LocalDateTime now = LocalDateTime.now();
         int updated = timeCapsuleMapper.update(null,
                 new LambdaUpdateWrapper<TimeCapsule>()
                         .eq(TimeCapsule::getId, capsuleId)
                         .eq(TimeCapsule::getUserId, userId)
                         .in(TimeCapsule::getWallStatus, WALL_NONE, WALL_REJECTED, WALL_TAKEN_DOWN)
-                        .set(TimeCapsule::getWallStatus, WALL_PENDING)
-                        .set(TimeCapsule::getWallAppliedAt, LocalDateTime.now())
-                        .set(TimeCapsule::getWallDecidedAt, null)
+                        .set(TimeCapsule::getWallStatus, WALL_APPROVED)
+                        .set(TimeCapsule::getWallAppliedAt, now)
+                        .set(TimeCapsule::getWallDecidedAt, now)
                         .set(TimeCapsule::getWallReason, null)
                         .set(TimeCapsule::getWallActorId, userId));
         if (updated == 0) {
             throw new BusinessException(WishErrorCodes.WISH_STATUS_CONFLICT, "墙状态已变更，请刷新后重试");
         }
-        log.info("胶囊墙申请提交: capsuleId={}, userId={}", capsuleId, userId);
+        log.info("胶囊墙直接发布: capsuleId={}, userId={}", capsuleId, userId);
     }
 
     @Override

@@ -36,7 +36,7 @@ public interface WarmMapService {
 
     /**
      * 发布温暖事件（DFA 敏感词命中 → AUTO_HIDDEN 不可见；未命中 →
-     * PENDING 先发后审）。坐标服务端 geohash7 编码，原始坐标不留存。
+     * APPROVED 直接发布）。坐标服务端 geohash7 编码，原始坐标不留存。
      */
     WarmEventVO publishWarmEvent(Long userId, String title, String content, Double lat, Double lng);
 

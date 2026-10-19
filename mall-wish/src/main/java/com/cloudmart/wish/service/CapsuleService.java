@@ -90,8 +90,8 @@ public interface CapsuleService {
     }
 
     /**
-     * 公共胶囊墙（§6/R17）：作者申请将已开启（OPENED）胶囊送上匿名精选墙（进入待审核）。
-     * CAS 绑定旧状态 ∈ {0 未申请, 3 已拒绝, 4 已撤下}；1/2 状态拒绝重复申请。
+     * 公共胶囊墙（§6/R17）：作者将已开启（OPENED）胶囊直接发布到匿名公共墙。
+     * CAS 绑定旧状态 ∈ {0 未申请, 3 已拒绝, 4 已撤下}；1/2 状态拒绝重复发布。
      */
     void applyToWall(Long userId, Long capsuleId);
 

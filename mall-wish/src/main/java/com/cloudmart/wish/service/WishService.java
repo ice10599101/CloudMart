@@ -28,7 +28,7 @@ public interface WishService {
      * <ul>
      *   <li>根据 visibility 自动设置 enableAiReply / auditStrategy / triggerEnvEmo</li>
      *   <li>TREE_HOLE 类型启用 AI 回复 + STRICT 审核 + 情绪环境联动</li>
-     *   <li>初始状态：status=ACTIVE, fruitType=GLOW, auditStatus=PENDING</li>
+     *   <li>初始状态：status=ACTIVE, fruitType=GLOW, auditStatus=APPROVED</li>
      *   <li>同事务初始化 wish_progress 表 + wish_user_stat 计数</li>
      * </ul>
      *
@@ -201,8 +201,8 @@ public interface WishService {
                                 String intendedBusinessDate, String occurredAt);
 
     /**
-     * 添加成长记录（TEXT/IMAGE/VIDEO/DIARY），可选进度增量
-     * （乐观锁 version 防并发覆盖）。
+     * 添加成长记录（TEXT/IMAGE/VIDEO/DIARY），普通内容直接发布，敏感词命中沿用既有标记；
+     * 可选进度增量（乐观锁 version 防并发覆盖）。
      */
     GrowthRecordVO addGrowthRecord(Long userId, Long wishId, AddGrowthRequest request);
 

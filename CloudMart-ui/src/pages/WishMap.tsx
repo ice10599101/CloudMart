@@ -227,7 +227,7 @@ export default function WishMap() {
         lng: userPos?.lng ?? 0,
       })
       if (res.data.success) {
-        message.success('感谢分享温暖瞬间（审核通过后展示）')
+        message.success('温暖瞬间已发布')
         setWarmOpen(false)
         setWarmTitle('')
         setWarmContent('')

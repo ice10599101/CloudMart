@@ -1428,7 +1428,7 @@ export interface PetAlbumAsset {
   createdAt: string | null
 }
 
-/** 相册列表（本人含审核状态与驳回理由；访客仅见 APPROVED+BOUND） */
+/** 相册列表（本人含状态与驳回理由；访客仅见已绑定、主人公开且未被平台拒绝的资源） */
 export function listPetAlbum(petId: number | string) {
   return request.get<ApiResponse<PetAlbumAsset[]>>(`/pet/pets/${petId}/album`)
 }
@@ -1791,7 +1791,7 @@ export function updatePetDiaryVisibility(
     `/pet/pets/${petId}/diary/${entryId}`, data)
 }
 
-/** 相册条目编辑（§7.2：caption/visibility 部分更新 + expectedVersion CAS；审核通过前 PUBLIC 拒绝） */
+/** 相册条目编辑（§7.2：caption/visibility 部分更新 + expectedVersion CAS；主人可直接公开） */
 export function updatePetAlbumAsset(
   petId: number | string,
   assetId: number | string,

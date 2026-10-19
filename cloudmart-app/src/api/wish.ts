@@ -602,7 +602,7 @@ export const wishApi = {
     /** 围栏打卡（打卡坐标不存储；响应不含围栏坐标——隐私） */
     checkFence: (wishId: number | string, lat: number, lng: number) =>
         request<FenceCheckResult>({ url: '/wish/map/fence/check', method: 'POST', data: { wishId, lat, lng } }),
-    /** 发布温暖事件（DFA 命中 → 自动隐藏；未命中 → 先发后审） */
+    /** 发布温暖事件（DFA 命中 → 自动隐藏；未命中 → 直接发布） */
     publishWarmEvent: (data: { title: string; content: string; lat: number; lng: number }) =>
         request<{ eventId: number }>({ url: '/wish/map/warm-events', method: 'POST', data: data as unknown as Record<string, unknown> }),
     /** 温暖事件附近列表（空坐标 → 服务端默认城市兜底） */
@@ -763,7 +763,7 @@ export const wishApi = {
         request<{ records: CapsuleWallItem[]; total: number; current: number; size: number }>({
             url: `/wish/capsules/wall${buildQuery({ page, size })}`,
         }),
-    /** 申请上墙（作者，OPENED；墙状态 0/3/4 可申请） */
+    /** 直接发布到公共墙（作者，OPENED；墙状态 0/3/4 可发布） */
     applyCapsuleToWall: (capsuleId: number | string) =>
         request<null>({ url: `/wish/capsules/${capsuleId}/wall`, method: 'POST' }),
     /** 撤回待审核申请（1→0）或撤下已上墙内容（2→4），仅作者 */

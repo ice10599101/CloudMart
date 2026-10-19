@@ -55,7 +55,7 @@ export interface WishDetail extends WishListItem {
   checkinDays: number
   progress: WishProgress | null
   enableAiReply?: boolean
-  /** 审核状态（PENDING=审核中，审核通过后才在广场可见） */
+  /** 审核状态（新建心愿直接 APPROVED；PENDING 用于历史/后续处置状态） */
   auditStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'AUTO_HIDDEN'
   /** T22：可申诉的最新治理决定 ID（仅作者本人且 7 日申诉窗口内返回，其余恒 null） */
   moderationDecisionId?: number | string | null
@@ -1063,7 +1063,7 @@ export interface WarmEventItem {
   owned?: boolean
 }
 
-/** 发布温暖事件（DFA 命中 → 自动隐藏；未命中 → 先发后审） */
+/** 发布温暖事件（DFA 命中 → 自动隐藏；未命中 → 直接发布） */
 export function publishWarmEvent(data: { title: string; content: string; lat: number; lng: number }) {
   return request.post<ApiResponse<{ eventId: number }>>('/wish/map/warm-events', data)
 }

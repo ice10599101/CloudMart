@@ -134,17 +134,17 @@ export default function CapsuleListPage() {
 
     const handleApplyWall = (capsule: CapsuleItem) => {
         Taro.showModal({
-            title: '申请上墙',
-            content: '将这颗胶囊匿名放上公共胶囊墙，经审核后展示（不公开你的身份、媒体附件）？',
-            confirmText: '提交申请',
+            title: '直接上墙',
+            content: '确认后这颗胶囊会立即匿名展示在公共墙（不公开你的身份、媒体附件）。',
+            confirmText: '直接上墙',
             success: async (res) => {
                 if (!res.confirm) return
                 try {
                     await wishApi.applyCapsuleToWall(capsule.id)
-                    Taro.showToast({ title: '已提交审核', icon: 'success' })
-                    patchWallStatus(capsule.id, 1)
+                    Taro.showToast({ title: '已匿名发布到公共墙', icon: 'success' })
+                    patchWallStatus(capsule.id, 2)
                 } catch (err) {
-                    Taro.showToast({ title: errorMessage(err, '提交审核失败，请稍后再试'), icon: 'none' })
+                    Taro.showToast({ title: errorMessage(err, '发布失败，请稍后再试'), icon: 'none' })
                 }
             },
         })
@@ -253,7 +253,7 @@ export default function CapsuleListPage() {
                                         >
                                             {(item.wallStatus === undefined || item.wallStatus === 0) && (
                                                 <Text className={styles.wallApplyBtn} onClick={() => handleApplyWall(item)}>
-                                                    📝 申请上墙
+                                                    📝 直接上墙
                                                 </Text>
                                             )}
                                             {item.wallStatus === 1 && (

@@ -24,8 +24,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 城市幸福地图 + 地理围栏集成测试（Sprint 3.2，真实 MySQL+Redis）。
  *
  * <p>覆盖文档 3.2 验收：围栏内/边界含等号/围栏外/有效期/停用/多围栏
- * 触发/到达幂等/非本人 404；温暖事件发布 PENDING 可见 + DFA 命中
- * AUTO_HIDDEN 不可见 + 管理端审核；围栏坐标不回传（响应无坐标字段）。</p>
+ * 触发/到达幂等/非本人 404；温暖事件发布 APPROVED 即可见 + DFA 命中
+ * AUTO_HIDDEN 不可见 + 管理端后置处置；围栏坐标不回传（响应无坐标字段）。</p>
  */
 @DisplayName("城市幸福地图集成测试")
 class WarmMapIntegrationTest extends WishIntegrationTestBase {
@@ -147,11 +147,15 @@ class WarmMapIntegrationTest extends WishIntegrationTestBase {
     class WarmEvents {
 
         @Test
-        @DisplayName("发布：未命中敏感词 → PENDING 可见；命中 → AUTO_HIDDEN 不可见（DFA 复用）")
+        @DisplayName("发布：未命中敏感词 → APPROVED 可见；命中 → AUTO_HIDDEN 不可见（DFA 复用）")
         void publishAndDfa() {
             WarmEventVO ok = warmMapService.publishWarmEvent(USER, "小店老板送咖啡",
                     "下雨天给快递员免费续杯，城市瞬间温暖了", FENCE_LAT, FENCE_LNG);
             assertThat(ok.eventId()).isNotNull();
+            Integer approved = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM wish_warm_event WHERE id = ? AND audit_status = 'APPROVED' AND is_visible = 1",
+                    Integer.class, ok.eventId());
+            assertThat(approved).isEqualTo(1);
 
             warmMapService.publishWarmEvent(USER, "骗局预警帖",
                     "这个内容包含敏感词骗局，应被自动隐藏", FENCE_LAT, FENCE_LNG);

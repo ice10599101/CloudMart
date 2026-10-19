@@ -255,20 +255,20 @@ export default function CapsuleDetailScreen() {
 
     const handleApplyWall = () => {
         if (wallBusy || !capsule) return
-        Alert.alert('申请上墙', '将这颗胶囊匿名放上公共胶囊墙，经审核后展示（不公开你的身份、媒体附件）？', [
+        Alert.alert('直接上墙', '确认后这颗胶囊会立即匿名展示在公共墙（不公开你的身份、媒体附件）。', [
             { text: '取消', style: 'cancel' },
             {
-                text: '提交申请',
+                text: '直接上墙',
                 onPress: () => {
                     setWallBusy(true)
                     wishApi
                         .applyCapsuleToWall(capsule.id)
                         .then(() => {
-                            Alert.alert('已提交审核', '结果会通过站内通知告知你')
+                            Alert.alert('已匿名发布到公共墙')
                             refreshDetail()
                         })
                         .catch((error) => {
-                            Alert.alert('提交失败', errorMessage(error, '请稍后再试'))
+                            Alert.alert('发布失败', errorMessage(error, '请稍后再试'))
                         })
                         .finally(() => setWallBusy(false))
                 },
@@ -311,9 +311,9 @@ export default function CapsuleDetailScreen() {
         let actionLabel = ''
         let actionDanger = false
         if (wall === 0) {
-            tip = '审核通过后将匿名在公共墙展出（不公开身份与附件）'
+            tip = '确认后立即匿名展示在公共墙（不公开身份与附件）'
             action = handleApplyWall
-            actionLabel = '申请上墙'
+            actionLabel = '直接上墙'
         } else if (wall === 1) {
             tip = '⏳ 审核中，请耐心等待'
             action = handleWithdrawWall

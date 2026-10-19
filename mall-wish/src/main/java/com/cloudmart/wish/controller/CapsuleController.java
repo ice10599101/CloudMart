@@ -113,8 +113,8 @@ public class CapsuleController {
     }
 
     @PostMapping("/{id}/wall")
-    @Operation(summary = "申请上墙", description = "公共胶囊墙（§6/R17）：仅作者、仅 OPENED 胶囊；"
-            + "墙状态 0/3/4 可申请，进入待审核（1）；并发重复申请返回 409")
+    @Operation(summary = "发布到公共墙", description = "公共胶囊墙（§6/R17）：仅作者、仅 OPENED 胶囊；"
+            + "墙状态 0/3/4 可发布，发布后立即匿名公开；并发重复发布返回 409")
     public ApiResponse<Void> applyToWall(
             @Parameter(hidden = true) @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @Parameter(description = "胶囊 ID", required = true) @PathVariable("id") Long id) {
@@ -133,7 +133,7 @@ public class CapsuleController {
     }
 
     @GetMapping("/wall")
-    @Operation(summary = "公共胶囊墙", description = "匿名精选墙（已审核通过），不暴露作者身份；决定时间倒序")
+    @Operation(summary = "公共胶囊墙", description = "作者主动发布的匿名胶囊，不暴露作者身份；发布时间倒序")
     public ApiResponse<com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.cloudmart.wish.vo.CapsuleWallVO>> wall(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {

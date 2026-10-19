@@ -125,10 +125,9 @@ public class PostServiceImpl implements PostService {
             post.setContent(request.content());
             post.setReviewStatus(0);
         } else {
-            // P1-8：带图/视频发布强制人工审核（短期方案；reviewContentWithMedia 内文本三档照旧）
-            int mediaCount = request.mediaUrls() == null ? 0 : request.mediaUrls().size();
+            // 社区帖子发布即公开；保留文本敏感词审核，不因图片/视频转人工队列。
             ContentReviewService.ReviewResult reviewResult =
-                    contentReviewService.reviewContentWithMedia(request.content(), mediaCount);
+                    contentReviewService.reviewContent(request.content());
             if (!reviewResult.approved()) {
                 throw new BusinessException("CONTENT_REJECTED", reviewResult.reason());
             }
@@ -184,13 +183,9 @@ public class PostServiceImpl implements PostService {
             if (post.getStatus() == 0 && (request.status() == null || request.status() == 0)) {
                 post.setContent(request.content());
             } else {
-                // P1-8：编辑重审同样覆盖媒体（图片数以更新后的 mediaUrls 为准）
-                java.util.List<String> nextMedia = request.mediaUrls() != null
-                        ? request.mediaUrls()
-                        : deserializeJson(post.getMediaUrls());
-                int mediaCount = nextMedia == null ? 0 : nextMedia.size();
+                // 帖子更新直接发布；文本敏感词仍按既有策略处理，媒体不触发人工审核。
                 ContentReviewService.ReviewResult reviewResult =
-                        contentReviewService.reviewContentWithMedia(request.content(), mediaCount);
+                        contentReviewService.reviewContent(request.content());
                 if (!reviewResult.approved()) {
                     throw new BusinessException("CONTENT_REJECTED", reviewResult.reason());
                 }

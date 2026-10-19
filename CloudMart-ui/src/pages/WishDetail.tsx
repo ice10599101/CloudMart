@@ -729,7 +729,7 @@ export default function WishDetail() {
               </Tag>
               <Tag>{STATUS_LABELS[wish.status] || wish.status}</Tag>
               {wish.auditStatus === 'PENDING' && (
-                <Tag color="orange">审核中，审核通过后将展示在心愿广场</Tag>
+                <Tag color="orange">内容待后续审核</Tag>
               )}
               {(wish.auditStatus === 'REJECTED' || wish.auditStatus === 'AUTO_HIDDEN') && (
                 <Tag color="red">未通过审核{isAuthor ? '，可在下方发起申诉' : ''}</Tag>
