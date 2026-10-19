@@ -940,6 +940,9 @@ public class SoftwareSnapshotAssembler {
         clone.setAttributionType(source.getAttributionType());
         clone.setAttributionNote(source.getAttributionNote());
         clone.setSystemRequirements(source.getSystemRequirements());
+        // SF02：完整资料三件套之安装指南/已知问题（D37 复测发现克隆丢失，同步补齐）
+        clone.setInstallationGuide(source.getInstallationGuide());
+        clone.setKnownIssues(source.getKnownIssues());
         clone.setLanguages(source.getLanguages());
         clone.setAccessMode(source.getAccessMode());
         clone.setMinCommunityLevel(source.getMinCommunityLevel());
