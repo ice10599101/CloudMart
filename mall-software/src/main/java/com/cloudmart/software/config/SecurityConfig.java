@@ -97,6 +97,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/software/publishers/{userId}/items").permitAll()
                 // UX04-B：软件对比（公开；每次读取重校验可见性）
                 .requestMatchers(HttpMethod.GET, "/software/compare").permitAll()
+                // UX06：大家在找什么（公开；≤3 条真实内容）
+                .requestMatchers(HttpMethod.GET, "/software/requests/public").permitAll()
+                // UX06：我的需求/提交/关闭（登录）
+                .requestMatchers(HttpMethod.GET, "/software/requests/mine").authenticated()
+                .requestMatchers(HttpMethod.POST, "/software/requests",
+                        "/software/requests/{requestId}/close").authenticated()
+                .requestMatchers(HttpMethod.DELETE, "/software/requests/{requestId}").authenticated()
                 // UX04-A：教程公开读取（正文真源在社区）
                 .requestMatchers(HttpMethod.GET, "/software/guides", "/software/guides/{id}").permitAll()
                 // 公开浏览：详情、查看条件摘要、版本来源摘要（无 URL/提取码）

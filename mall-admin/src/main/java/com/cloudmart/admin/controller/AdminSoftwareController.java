@@ -379,6 +379,39 @@ public class AdminSoftwareController {
         return softwareFeignClient.saveRelations(softwareId, body);
     }
 
+    // ---------------- 软件需求（UX06；software:moderate 复用审核权限） ----------------
+
+    @GetMapping("/requests")
+    @RequiresPermission("software:moderate")
+    @Operation(summary = "软件需求分页", description = "auditStatus/status 筛选；含来源关键词")
+    public ApiResponse<Object> requests(
+            @RequestParam(value = "auditStatus", required = false) String auditStatus,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "12") int size) {
+        return softwareFeignClient.requests(auditStatus, status, page, size);
+    }
+
+    @OperLog(title = "软件需求审核", businessType = 2)
+    @PostMapping("/requests/{requestId}/audit")
+    @RequiresPermission("software:moderate")
+    @Operation(summary = "审核软件需求", description = "拒绝必须原因")
+    public ApiResponse<Object> auditRequest(
+            @PathVariable("requestId") Long requestId,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.auditRequest(requestId, body);
+    }
+
+    @OperLog(title = "软件需求标记已找到", businessType = 2)
+    @PostMapping("/requests/{requestId}/matched")
+    @RequiresPermission("software:moderate")
+    @Operation(summary = "标记已找到", description = "目标必须当前可见软件")
+    public ApiResponse<Object> markRequestMatched(
+            @PathVariable("requestId") Long requestId,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.markRequestMatched(requestId, body);
+    }
+
     // ---------------- 结构化声明（UX04-B；software:manage） ----------------
 
     @GetMapping("/items/{softwareId}/declared")

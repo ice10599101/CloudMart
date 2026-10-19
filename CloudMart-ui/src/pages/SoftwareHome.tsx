@@ -191,6 +191,15 @@ export default function SoftwareHome() {
               <CloudUploadOutlined className={styles.actionBtnIcon} />
               发布软件
             </button>
+            {/* UX06：小入口（不以大块信息流占据主页；无真实内容时需求页空态给提交入口） */}
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={() => history.push("/software/requests")}
+            >
+              <SearchOutlined className={styles.actionBtnIcon} />
+              没找到？提需求
+            </button>
             <button
               type="button"
               className={styles.actionBtn}

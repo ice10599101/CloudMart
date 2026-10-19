@@ -1129,3 +1129,49 @@ export function saveSoftwareDeclared(
   const url = `${BASE}/items/${softwareId}/declared`
   return request.put<ApiResponse<boolean>>(url, payload)
 }
+
+// ==================== 软件需求（UX06） ====================
+
+export interface AdminSoftwareRequest {
+  id: string
+  userId: string
+  title: string
+  usageDesc: string
+  mustHaveFeatures: string | null
+  platformScope: string | null
+  acceptableLicense: string | null
+  sourceKeyword: string | null
+  status: 'OPEN' | 'ANSWERED' | 'CLOSED'
+  auditStatus: 'PENDING' | 'APPROVED' | 'REJECTED'
+  auditReason: string | null
+  matchedSoftwareId?: string | null
+  matchedReason?: string | null
+  matchedVisible?: boolean
+  createdAt: string | null
+}
+
+export function listAdminRequests(
+  auditStatus: string | null,
+  status: string | null,
+  page = 1,
+  size = 12,
+) {
+  return request.get<ApiResponse<{ records: AdminSoftwareRequest[]; total: number }>>(
+    `${BASE}/requests`,
+    { params: { auditStatus: auditStatus ?? undefined, status: status ?? undefined, page, size } },
+  )
+}
+
+export function auditAdminRequest(requestId: string, approved: boolean, reason?: string) {
+  return request.post<ApiResponse<boolean>>(
+    `${BASE}/requests/${requestId}/audit`,
+    { approved, reason: reason || null },
+  )
+}
+
+export function markRequestMatched(requestId: string, softwareId: string, reason?: string) {
+  return request.post<ApiResponse<boolean>>(
+    `${BASE}/requests/${requestId}/matched`,
+    { softwareId, reason: reason || null },
+  )
+}

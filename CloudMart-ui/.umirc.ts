@@ -103,6 +103,8 @@ export default defineConfig({
         { path: '/software/guides/:id', component: '@/pages/SoftwareGuideDetail' },
         // UX04-B：对比（固定路径先于 /software/:id）
         { path: '/software/compare', component: '@/pages/SoftwareCompare' },
+        // UX06：找软件需求（固定路径先于 /software/:id）
+        { path: '/software/requests', component: '@/pages/SoftwareRequests' },
         { path: '/software/:id', component: '@/pages/SoftwareDetail' },
         { path: '/software/:id/edit', component: '@/pages/SoftwareEdit' },
         { path: '/software/:id/preview', component: '@/pages/SoftwarePreview' },
@@ -241,6 +243,8 @@ export default defineConfig({
         { path: '/admin/software/home-content', component: '@/pages/admin/software/HomeContent' },
         // UX04（V15__ux04_guides_menu.sql 5240~5242）
         { path: '/admin/software/guides', component: '@/pages/admin/software/Guides' },
+        // UX06（V16__ux06_requests_menu.sql 5243）
+        { path: '/admin/software/requests', component: '@/pages/admin/software/Requests' },
         { path: '/admin/monitor/operations', component: '@/pages/admin/monitor/Operations' },
         { path: '/admin/monitor/job', component: '@/pages/admin/monitor/Job' },
         { path: '/admin/monitor/server', component: '@/pages/admin/monitor/Server' },

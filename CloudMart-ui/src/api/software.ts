@@ -1126,3 +1126,47 @@ export function compareSoftware(ids: string[]) {
     params: { ids: ids.join(',') },
   });
 }
+
+// ==================== UX06：找软件需求 ====================
+
+export interface SoftwareRequestFeedItem {
+  id: string
+  title: string
+  status: 'OPEN' | 'ANSWERED' | 'CLOSED'
+  matchedSoftware?: { softwareId: string; visible: boolean; name?: string }
+}
+
+export interface SoftwareRequestMineItem {
+  id: string
+  title: string
+  usageDesc: string
+  status: 'OPEN' | 'ANSWERED' | 'CLOSED'
+  auditStatus: 'PENDING' | 'APPROVED' | 'REJECTED'
+  auditReason: string | null
+  createdAt: string | null
+  matchedSoftware?: { softwareId: string; visible: boolean; name?: string }
+  matchedReason?: string | null
+}
+
+export function getSoftwareRequestFeed() {
+  return request.get<ApiResponse<SoftwareRequestFeedItem[]>>(`${BASE}/requests/public`);
+}
+
+export function createSoftwareRequest(input: {
+  title: string
+  usageDesc: string
+  mustHaveFeatures?: string[]
+  platformScope?: string[]
+  acceptableLicense?: string[]
+  sourceKeyword?: string
+}) {
+  return request.post<ApiResponse<string>>(`${BASE}/requests`, input);
+}
+
+export function listMySoftwareRequests() {
+  return request.get<ApiResponse<SoftwareRequestMineItem[]>>(`${BASE}/requests/mine`);
+}
+
+export function closeMySoftwareRequest(id: string) {
+  return request.post<ApiResponse<boolean>>(`${BASE}/requests/${id}/close`);
+}

@@ -162,6 +162,21 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> requests(String auditStatus, String status, int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> auditRequest(Long requestId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> markRequestMatched(Long requestId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> declaredOf(Long softwareId) {
                 throw unavailable(cause);
             }

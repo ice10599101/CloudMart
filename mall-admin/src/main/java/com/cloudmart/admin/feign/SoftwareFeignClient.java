@@ -84,6 +84,21 @@ public interface SoftwareFeignClient {
     ApiResponse<Object> saveRelations(@PathVariable("softwareId") Long softwareId,
                                       @RequestBody Map<String, Object> body);
 
+    // ---------------- 软件需求（UX06） ----------------
+
+    @GetMapping("/requests")
+    ApiResponse<Object> requests(@RequestParam(value = "auditStatus", required = false) String auditStatus,
+                                 @RequestParam(value = "status", required = false) String status,
+                                 @RequestParam("page") int page, @RequestParam("size") int size);
+
+    @PostMapping("/requests/{requestId}/audit")
+    ApiResponse<Object> auditRequest(@PathVariable("requestId") Long requestId,
+                                     @RequestBody Map<String, Object> body);
+
+    @PostMapping("/requests/{requestId}/matched")
+    ApiResponse<Object> markRequestMatched(@PathVariable("requestId") Long requestId,
+                                           @RequestBody Map<String, Object> body);
+
     // ---------------- 结构化声明（UX04-B） ----------------
 
     @GetMapping("/items/{softwareId}/declared")

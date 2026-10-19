@@ -9,7 +9,7 @@ import {
   Spin,
   Tag,
 } from "antd";
-import { useSearchParams } from "umi";
+import { history, useSearchParams } from "umi";
 import {
   listSoftware,
   listSoftwareCategories,
@@ -253,9 +253,21 @@ export default function SoftwareExplore() {
       <Spin spinning={loading}>
         {!loading && cards.length === 0 ? (
           <Empty description="没有符合条件的软件">
-            <Button type="primary" onClick={clearFilters}>
-              清空条件
-            </Button>
+            <Space>
+              <Button type="primary" onClick={clearFilters}>
+                清空条件
+              </Button>
+              {/* UX06：搜索无结果 → 需求入口（回跳保留关键词） */}
+              <Button
+                onClick={() =>
+                  history.push(
+                    keyword ? `/software/requests?source=${encodeURIComponent(keyword)}` : '/software/requests',
+                  )
+                }
+              >
+                没找到需要的软件？提需求
+              </Button>
+            </Space>
           </Empty>
         ) : (
           <SoftwareCardGrid cards={cards} />
