@@ -20,4 +20,13 @@ public class SoftwareTopicItem {
     private Long softwareId;
 
     private Integer sortOrder;
+
+    /** UX02：分组稳定键（空=未分组；不靠数组位置关联） */
+    private String groupKey;
+
+    /** UX02：该软件在此场景中的用途说明（选择理由） */
+    private String roleNote;
+
+    /** UX02：可选替代项标记 */
+    private Boolean optional;
 }

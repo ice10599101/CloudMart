@@ -31,6 +31,15 @@ public class SoftwareTopic {
     /** SF05：专题介绍（运营长文案） */
     private String description;
 
+    /** UX02：适用人群（工具箱） */
+    private String audience;
+
+    /** UX02：要解决的问题 */
+    private String problem;
+
+    /** UX02：准备条件 */
+    private String prerequisites;
+
     /** SF05：定时上线时间（UTC；NULL=发布即生效） */
     private LocalDateTime scheduledStartAt;
 

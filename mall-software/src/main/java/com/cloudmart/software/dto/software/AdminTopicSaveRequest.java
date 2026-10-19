@@ -31,6 +31,15 @@ public class AdminTopicSaveRequest {
     /** 排序（可空=0） */
     private Integer sortOrder;
 
+    /** UX02：适用人群 */
+    private String audience;
+
+    /** UX02：要解决的问题 */
+    private String problem;
+
+    /** UX02：准备条件 */
+    private String prerequisites;
+
     /** SF05：专题介绍 */
     private String description;
 
@@ -51,5 +60,11 @@ public class AdminTopicSaveRequest {
         private Long softwareId;
 
         private Integer sortOrder;
+        /** UX02：分组稳定键（空=未分组） */
+        private String groupKey;
+        /** UX02：该软件在场景中的用途说明 */
+        private String roleNote;
+        /** UX02：可选替代项 */
+        private Boolean optional;
     }
 }

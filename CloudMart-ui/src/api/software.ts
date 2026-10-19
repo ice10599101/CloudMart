@@ -628,8 +628,24 @@ export interface SoftwareTopicDetail {
   slug: string;
   title: string;
   summary: string | null;
+  description: string | null;
   coverAssetId: string | null;
+  /** UX02：工具箱三要素 */
+  audience?: string | null;
+  problem?: string | null;
+  prerequisites?: string | null;
   items: SoftwareCard[];
+  /** UX02：分组结构（稳定 groupKey 关联；受限软件仅公开信息） */
+  groups?: Array<{
+    groupKey: string;
+    items: Array<{
+      softwareId: string;
+      groupKey: string;
+      roleNote: string | null;
+      optional: boolean;
+      sortOrder: number;
+    }>;
+  }>;
 }
 
 /** 专题列表（P1）：只返回 PUBLISHED */

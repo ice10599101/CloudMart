@@ -139,6 +139,20 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
                 && !scheduledEndAt.isAfter(scheduledStartAt)) {
             throw new BusinessException("SOFTWARE_TOPIC_INVALID", "下线时间必须晚于上线时间");
         }
+        // UX02：工具箱三要素与清单用途说明（限长校验）
+        String audience = request.getAudience() == null ? null : request.getAudience().trim();
+        String problem = request.getProblem() == null ? null : request.getProblem().trim();
+        String prerequisites = request.getPrerequisites() == null ? null
+                : request.getPrerequisites().trim();
+        if (audience != null && audience.length() > 500) {
+            throw new BusinessException("SOFTWARE_TOPIC_INVALID", "适用人群不能超过 500 字");
+        }
+        if (problem != null && problem.length() > 500) {
+            throw new BusinessException("SOFTWARE_TOPIC_INVALID", "要解决的问题不能超过 500 字");
+        }
+        if (prerequisites != null && prerequisites.length() > 500) {
+            throw new BusinessException("SOFTWARE_TOPIC_INVALID", "准备条件不能超过 500 字");
+        }
         List<AdminTopicSaveRequest.Item> cleanItems = new ArrayList<>();
         for (AdminTopicSaveRequest.Item item : items) {
             if (item == null || item.getSoftwareId() == null) {
@@ -159,7 +173,8 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
                 null,
                 () -> doSave(resolvedTopicId, slug, title, summary, request.getCoverAssetId(),
                         status, request.getSortOrder() == null ? 0 : request.getSortOrder(),
-                        description, scheduledStartAt, scheduledEndAt, cleanItems),
+                        description, scheduledStartAt, scheduledEndAt,
+                        audience, problem, prerequisites, cleanItems),
                 Long::valueOf);
     }
 
@@ -167,6 +182,7 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
                         Long coverAssetId, String status, int sortOrder,
                         String description, java.time.LocalDateTime scheduledStartAt,
                         java.time.LocalDateTime scheduledEndAt,
+                        String audience, String problem, String prerequisites,
                         List<AdminTopicSaveRequest.Item> items) {
         // slug 唯一（排除自身）
         SoftwareTopic conflict = topicMapper.selectOne(new LambdaQueryWrapper<SoftwareTopic>()
@@ -188,6 +204,10 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
             topic.setDescription(description);
             topic.setScheduledStartAt(scheduledStartAt);
             topic.setScheduledEndAt(scheduledEndAt);
+            // UX02：工具箱三要素
+            topic.setAudience(audience);
+            topic.setProblem(problem);
+            topic.setPrerequisites(prerequisites);
             topic.setCreatedAt(now);
             topic.setUpdatedAt(now);
             topicMapper.insert(topic);
@@ -206,6 +226,10 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
             topic.setDescription(description);
             topic.setScheduledStartAt(scheduledStartAt);
             topic.setScheduledEndAt(scheduledEndAt);
+            // UX02：工具箱三要素
+            topic.setAudience(audience);
+            topic.setProblem(problem);
+            topic.setPrerequisites(prerequisites);
             topic.setUpdatedAt(now);
             topicMapper.updateById(topic);
         }
@@ -218,6 +242,12 @@ public class AdminSoftwareTopicServiceImpl implements AdminSoftwareTopicService 
             entity.setTopicId(topic.getId());
             entity.setSoftwareId(item.getSoftwareId());
             entity.setSortOrder(item.getSortOrder() == null ? index : item.getSortOrder());
+            // UX02：分组稳定键/用途说明/可选替代（groupKey 规范化为小写连字符，不靠位置关联）
+            entity.setGroupKey(item.getGroupKey() == null ? ""
+                    : item.getGroupKey().trim().toLowerCase(java.util.Locale.ROOT));
+            entity.setRoleNote(item.getRoleNote() == null ? null
+                    : item.getRoleNote().trim());
+            entity.setOptional(Boolean.TRUE.equals(item.getOptional()));
             topicItemMapper.insert(entity);
             index++;
         }

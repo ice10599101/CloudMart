@@ -677,7 +677,17 @@ export interface AdminTopicPayload {
   description?: string
   scheduledStartAt?: string
   scheduledEndAt?: string
-  items: Array<{ softwareId: string; sortOrder?: number }>
+  /** UX02：工具箱三要素 */
+  audience?: string
+  problem?: string
+  prerequisites?: string
+  items: Array<{
+    softwareId: string
+    sortOrder?: number
+    groupKey?: string
+    roleNote?: string
+    optional?: boolean
+  }>
 }
 
 export function listAdminTopics(params?: { page?: number; size?: number }) {

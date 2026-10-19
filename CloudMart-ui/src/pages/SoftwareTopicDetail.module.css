@@ -57,3 +57,36 @@
     font-size: 22px;
   }
 }
+
+/* UX02：工具箱区块 */
+.toolboxSection {
+  margin: 24px 0;
+}
+
+.toolboxSection h2 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.toolboxSection p {
+  color: #475569;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.toolboxGroup {
+  margin: 24px 0;
+}
+
+.toolboxGroup h2 {
+  font-size: 17px;
+  margin-bottom: 12px;
+}
+
+.roleNotes {
+  margin-top: 8px;
+  padding-left: 20px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.8;
+}

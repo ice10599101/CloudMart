@@ -92,7 +92,35 @@ public class SoftwareTopicServiceImpl implements SoftwareTopicService {
         detail.put("description", topic.getDescription());
         detail.put("coverAssetId", topic.getCoverAssetId() == null ? null
                 : String.valueOf(topic.getCoverAssetId()));
+        // UX02：工具箱三要素
+        detail.put("audience", topic.getAudience());
+        detail.put("problem", topic.getProblem());
+        detail.put("prerequisites", topic.getPrerequisites());
         detail.put("items", visibleItems);
+        // UX02：分组结构（稳定 groupKey 关联；受限软件仅公开信息，不泄露未生效条目）
+        Map<String, List<Map<String, Object>>> groups = new LinkedHashMap<>();
+        for (SoftwareTopicItem item : items) {
+            SoftwareCardVO card = cards.get(item.getSoftwareId());
+            if (card == null) {
+                continue; // 不可见软件整项隐藏（保留分组键结构）
+            }
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("softwareId", String.valueOf(item.getSoftwareId()));
+            entry.put("groupKey", item.getGroupKey() == null ? "" : item.getGroupKey());
+            entry.put("roleNote", item.getRoleNote());
+            entry.put("optional", Boolean.TRUE.equals(item.getOptional()));
+            entry.put("sortOrder", item.getSortOrder());
+            groups.computeIfAbsent(item.getGroupKey() == null ? "" : item.getGroupKey(),
+                    k -> new java.util.ArrayList<>()).add(entry);
+        }
+        List<Map<String, Object>> groupList = new java.util.ArrayList<>();
+        for (Map.Entry<String, List<Map<String, Object>>> entry : groups.entrySet()) {
+            Map<String, Object> group = new LinkedHashMap<>();
+            group.put("groupKey", entry.getKey());
+            group.put("items", entry.getValue());
+            groupList.add(group);
+        }
+        detail.put("groups", groupList);
         return detail;
     }
 }

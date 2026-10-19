@@ -23,6 +23,10 @@ interface ItemRow {
   /** BASE-01：软件 ID 为雪花 ID，字符串传递防精度损失 */
   softwareId: string | null
   sortOrder: number | null
+  /** UX02：分组稳定键/用途说明/可选替代 */
+  groupKey?: string
+  roleNote?: string
+  optional?: boolean
 }
 
 /**
@@ -91,6 +95,9 @@ export default function SoftwareTopics() {
       .map((item) => ({
         softwareId: item.softwareId as string,
         sortOrder: item.sortOrder ?? undefined,
+        groupKey: item.groupKey?.trim() || undefined,
+        roleNote: item.roleNote?.trim() || undefined,
+        optional: item.optional ?? undefined,
       }))
     if (cleanItems.length === 0) {
       message.warning('请至少添加一个软件到专题清单')
@@ -244,6 +251,15 @@ export default function SoftwareTopics() {
           <Form.Item name="description" label="专题介绍（≤2000 字，随专题详情展示）">
             <Input.TextArea rows={3} maxLength={2000} showCount />
           </Form.Item>
+          <Form.Item name="problem" label="要解决的问题（≤500 字，工具箱：能帮你做什么）">
+            <Input.TextArea rows={2} maxLength={500} />
+          </Form.Item>
+          <Form.Item name="audience" label="适用人群（≤500 字）">
+            <Input.TextArea rows={2} maxLength={500} />
+          </Form.Item>
+          <Form.Item name="prerequisites" label="准备条件（≤500 字：账号/系统要求/前置工具）">
+            <Input.TextArea rows={2} maxLength={500} />
+          </Form.Item>
           <Form.Item name="scheduledRange" label="投放时间窗（UTC；留空=上线即生效/不自动下线）">
             <DatePicker.RangePicker showTime format="YYYY-MM-DD HH:mm" />
           </Form.Item>
@@ -282,7 +298,49 @@ export default function SoftwareTopics() {
                 >
                   移除
                 </Button>
-              </Space>
+                              <Input
+                  placeholder="分组（如：准备）"
+                  value={item.groupKey ?? ''}
+                  onChange={(e) =>
+                    setItems((prev) =>
+                      prev.map((row, rowIndex) =>
+                        rowIndex === index
+                          ? { ...row, groupKey: e.target.value }
+                          : row,
+                      ),
+                    )
+                  }
+                  style={{ width: 120 }}
+                />
+                <Input
+                  placeholder="用途说明（选择理由）"
+                  value={item.roleNote ?? ''}
+                  onChange={(e) =>
+                    setItems((prev) =>
+                      prev.map((row, rowIndex) =>
+                        rowIndex === index
+                          ? { ...row, roleNote: e.target.value }
+                          : row,
+                      ),
+                    )
+                  }
+                  style={{ width: 220 }}
+                />
+                <input
+                  type="checkbox"
+                  title="可选替代项"
+                  checked={item.optional ?? false}
+                  onChange={(e) =>
+                    setItems((prev) =>
+                      prev.map((row, rowIndex) =>
+                        rowIndex === index
+                          ? { ...row, optional: e.target.checked }
+                          : row,
+                      ),
+                    )
+                  }
+                />
+                </Space>
             ))}
             <Button
               type="dashed"
