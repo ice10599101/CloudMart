@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Col, Row, Spin, Statistic, Table, Tabs, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { getSoftwareStatistics, listFanoutTasks, retryFanoutTask } from '@/api/admin/software'
+import { getSoftwareStatistics, listFanoutTasks, retryFanoutTask ,
+  listStatTrends,
+  type StatTrendPoint,
+} from '@/api/admin/software'
 import type { AdminFanoutTask, AdminSoftwareStatistics } from '@/api/admin/software'
 import { useMessage } from '@/utils/useMessage'
 
@@ -33,6 +36,27 @@ export default function SoftwareStatistics() {
   const [tasks, setTasks] = useState<AdminFanoutTask[]>([])
   const [tasksLoading, setTasksLoading] = useState(false)
   const [retrying, setRetrying] = useState<string | null>(null)
+  /** SF06：运营趋势（日序列 + 效率指标） */
+  const [trends, setTrends] = useState<StatTrendPoint[]>([])
+  const [efficiency, setEfficiency] = useState<Record<string, number | null> | null>(null)
+  const [trendsLoading, setTrendsLoading] = useState(false)
+
+  const loadTrends = () => {
+    setTrendsLoading(true)
+    const to = new Date().toISOString().slice(0, 10)
+    const from = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10)
+    listStatTrends({ from, to, withEfficiency: true })
+      .then((res) => {
+        const payload = res.data.data as {
+          series?: StatTrendPoint[]
+          efficiency?: Record<string, number | null>
+        }
+        setTrends(payload.series ?? [])
+        setEfficiency(payload.efficiency ?? null)
+      })
+      .catch(() => undefined)
+      .finally(() => setTrendsLoading(false))
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -215,6 +239,53 @@ export default function SoftwareStatistics() {
         items={[
           { key: 'stats', label: '运营统计', children: statsTab },
           {
+            key: 'trends',
+            label: '趋势（SF06）',
+            children: (
+              <>
+                <Typography.Paragraph type="secondary">
+                  获取链接为站内去重获取次数/人数（非外部下载量）；收藏/订阅为新增与取消分别记录，
+                  净值 = 新增 − 取消。效率指标：审核时长为提交到人工决定（分钟），
+                  反馈修复未结项不计入分位。
+                </Typography.Paragraph>
+                {efficiency ? (
+                  <Row gutter={16} style={{ marginBottom: 16 }}>
+                    <Col span={6}>
+                      <Statistic title="审核 P50（分钟）" value={efficiency.reviewP50Minutes ?? '-'} />
+                    </Col>
+                    <Col span={6}>
+                      <Statistic title="审核 P95（分钟）" value={efficiency.reviewP95Minutes ?? '-'} />
+                    </Col>
+                    <Col span={6}>
+                      <Statistic title="反馈修复 P50（分钟）" value={efficiency.feedbackFixP50Minutes ?? '-'} />
+                    </Col>
+                    <Col span={6}>
+                      <Statistic title="反馈未结/被拒" value={`${efficiency.feedbackOpenCount ?? 0} / ${efficiency.feedbackRejectedCount ?? 0}`} />
+                    </Col>
+                  </Row>
+                ) : null}
+                <Table<StatTrendPoint>
+                  rowKey="date"
+                  size="small"
+                  loading={trendsLoading}
+                  dataSource={trends}
+                  pagination={{ defaultPageSize: 15, showSizeChanger: false }}
+                  columns={[
+                    { title: '日期', dataIndex: 'date', width: 110 },
+                    { title: '获取次数', dataIndex: 'resolveCount', width: 90 },
+                    { title: '获取人数', dataIndex: 'resolveUserCount', width: 90 },
+                    { title: '收藏+', dataIndex: 'favoriteAdd', width: 70 },
+                    { title: '收藏-', dataIndex: 'favoriteRemove', width: 70 },
+                    { title: '收藏净增', dataIndex: 'favoriteNet', width: 80 },
+                    { title: '订阅+', dataIndex: 'subscribeAdd', width: 70 },
+                    { title: '订阅-', dataIndex: 'subscribeRemove', width: 70 },
+                    { title: '订阅净增', dataIndex: 'subscribeNet', width: 80 },
+                  ]}
+                />
+              </>
+            ),
+          },
+          {
             key: 'fanout',
             label: '通知任务',
             children: (
@@ -242,6 +313,9 @@ export default function SoftwareStatistics() {
         onChange={(key) => {
           if (key === 'fanout' && tasks.length === 0 && !tasksLoading) {
             loadTasks()
+          }
+          if (key === 'trends' && trends.length === 0 && !trendsLoading) {
+            loadTrends()
           }
         }}
       />

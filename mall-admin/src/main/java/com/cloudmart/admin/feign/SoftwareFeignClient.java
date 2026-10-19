@@ -193,6 +193,16 @@ public interface SoftwareFeignClient {
     @GetMapping("/statistics")
     ApiResponse<Object> statistics();
 
+    /** SF06：运营趋势 */
+    @org.springframework.web.bind.annotation.GetMapping("/statistics/trends")
+    ApiResponse<Object> statTrends(@org.springframework.web.bind.annotation.RequestParam("from") String from,
+                                   @org.springframework.web.bind.annotation.RequestParam("to") String to,
+                                   @org.springframework.web.bind.annotation.RequestParam(value = "softwareId", required = false) Long softwareId,
+                                   @org.springframework.web.bind.annotation.RequestParam(value = "categoryId", required = false) Long categoryId,
+                                   @org.springframework.web.bind.annotation.RequestParam(value = "publisherId", required = false) Long publisherId,
+                                   @org.springframework.web.bind.annotation.RequestParam(value = "platform", required = false) String platform,
+                                   @org.springframework.web.bind.annotation.RequestParam(value = "withEfficiency", defaultValue = "false") boolean withEfficiency);
+
     /** SF07：来源手动重检 */
     @PostMapping("/sources/{sourceId}/patrol")
     ApiResponse<Object> patrolSource(@org.springframework.web.bind.annotation.PathVariable("sourceId") Long sourceId);

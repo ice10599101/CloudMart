@@ -500,6 +500,21 @@ public class AdminSoftwareController {
 
     // ---------------- 统计（P1：software:stats） ----------------
 
+    @GetMapping("/statistics/trends")
+    @RequiresPermission("software:stats")
+    @Operation(summary = "运营趋势", description = "日序列（获取/收藏/订阅）+ 可选效率指标；最长 90 天")
+    public ApiResponse<Object> statTrends(
+            @RequestParam(value = "from", required = false) String from,
+            @RequestParam(value = "to", required = false) String to,
+            @RequestParam(value = "softwareId", required = false) Long softwareId,
+            @RequestParam(value = "categoryId", required = false) Long categoryId,
+            @RequestParam(value = "publisherId", required = false) Long publisherId,
+            @RequestParam(value = "platform", required = false) String platform,
+            @RequestParam(value = "withEfficiency", defaultValue = "false") boolean withEfficiency) {
+        return softwareFeignClient.statTrends(from, to, softwareId, categoryId,
+                publisherId, platform, withEfficiency);
+    }
+
     @GetMapping("/statistics")
     @RequiresPermission("software:stats")
     @Operation(summary = "运营统计总览",

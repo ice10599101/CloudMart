@@ -57,7 +57,8 @@ class SoftwareSubscriptionServiceImplTest {
         when(softwareProperties.isSubscriptionEnabled()).thenReturn(true);
         service = new SoftwareSubscriptionServiceImpl(accessPolicy, softwareProperties,
                 subscriptionMapper, preferenceMapper,
-                Clock.fixed(Instant.parse("2026-10-16T02:00:00Z"), ZoneId.systemDefault()));
+                Clock.fixed(Instant.parse("2026-10-16T02:00:00Z"), ZoneId.systemDefault()),
+                org.mockito.Mockito.mock(com.cloudmart.software.service.SoftwareDailyStatService.class));
     }
 
     @Test

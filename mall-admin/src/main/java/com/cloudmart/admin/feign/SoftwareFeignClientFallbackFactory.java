@@ -248,6 +248,13 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> statTrends(String from, String to, Long softwareId,
+                                                  Long categoryId, Long publisherId,
+                                                  String platform, boolean withEfficiency) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> patrolSource(Long sourceId) {
                 throw unavailable(cause);
             }

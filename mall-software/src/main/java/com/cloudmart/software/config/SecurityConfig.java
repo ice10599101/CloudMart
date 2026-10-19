@@ -72,7 +72,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/software/mine", "/software/publisher-status",
                         "/software/preferences", "/software/access-contacts",
                         "/software/level-options",
-                        "/software/publisher-applications/mine").authenticated()
+                        "/software/publisher-applications/mine",
+                        "/software/mine/statistics/trends").authenticated()
                 // SF03：发布者申请（登录必达；固定路径先于动态 {id}）
                 .requestMatchers(HttpMethod.POST, "/software/publisher-applications",
                         "/software/publisher-applications/{applicationId}/cancel")

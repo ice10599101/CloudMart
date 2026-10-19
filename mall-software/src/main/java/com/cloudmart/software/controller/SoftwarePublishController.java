@@ -40,6 +40,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class SoftwarePublishController {
 
     private final SoftwarePublishService softwarePublishService;
+    private final com.cloudmart.software.repository.SoftwareMapper softwareMapper;
+    private final com.cloudmart.software.service.SoftwareDailyStatService dailyStatService;
     private final SoftwarePublisherPolicy publisherPolicy;
 
     @GetMapping("/publisher-status")
@@ -62,6 +64,31 @@ public class SoftwarePublishController {
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
         return ApiResponse.ok(softwarePublishService.create(userId, idempotencyKey));
+    }
+
+    /** SF06：作者趋势（owner scope——只查本人软件聚合） */
+    @org.springframework.web.bind.annotation.GetMapping("/mine/statistics/trends")
+    @Operation(summary = "我的软件趋势",
+            description = "只返回本人软件的日序列；口径与后台一致（无外部下载量表述）")
+    public ApiResponse<java.util.Map<String, Object>> myTrends(
+            @org.springframework.web.bind.annotation.RequestParam(
+                    SecurityConstants.USER_ID_HEADER) Long userId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "from",
+                    required = false) String from,
+            @org.springframework.web.bind.annotation.RequestParam(value = "to",
+                    required = false) String to) {
+        List<Long> mySoftwareIds = softwareMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.cloudmart.software.entity.Software>()
+                        .select(com.cloudmart.software.entity.Software::getId)
+                        .eq(com.cloudmart.software.entity.Software::getOwnerId, userId))
+                .stream().map(com.cloudmart.software.entity.Software::getId).toList();
+        return ApiResponse.ok(dailyStatService.trends(
+                parseDate(from), parseDate(to), mySoftwareIds.isEmpty() ? List.of(-1L) : mySoftwareIds,
+                null));
+    }
+
+    private java.time.LocalDate parseDate(String value) {
+        return value == null || value.isBlank() ? null : java.time.LocalDate.parse(value);
     }
 
     /** SF08：恢复历史内容（owner 本人；复制为新的 DRAFT 走审核） */

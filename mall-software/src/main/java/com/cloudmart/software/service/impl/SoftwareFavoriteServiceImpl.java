@@ -6,6 +6,7 @@ import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareFavorite;
 import com.cloudmart.software.enums.SoftwareLifecycle;
 import com.cloudmart.software.policy.SoftwareAccessPolicy;
+import com.cloudmart.software.service.SoftwareDailyStatService;
 import com.cloudmart.software.repository.SoftwareFavoriteMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
 import com.cloudmart.software.service.SoftwareFavoriteService;
@@ -27,6 +28,7 @@ public class SoftwareFavoriteServiceImpl implements SoftwareFavoriteService {
     private final SoftwareAccessPolicy accessPolicy;
     private final SoftwareMapper softwareMapper;
     private final SoftwareFavoriteMapper favoriteMapper;
+    private final SoftwareDailyStatService statEventService;
 
     @Override
     @Transactional
@@ -41,6 +43,7 @@ public class SoftwareFavoriteServiceImpl implements SoftwareFavoriteService {
         try {
             favoriteMapper.insert(favorite);
             softwareMapper.incrementFavoriteCount(softwareId, 1);
+            statEventService.recordEvent(softwareId, userId, "FAVORITE_ADD");
         } catch (DuplicateKeyException e) {
             // 幂等：重复收藏无副作用
         }
@@ -58,6 +61,7 @@ public class SoftwareFavoriteServiceImpl implements SoftwareFavoriteService {
             return;
         }
         favoriteMapper.deleteById(favorite.getId());
+        statEventService.recordEvent(softwareId, userId, "FAVORITE_REMOVE");
         // 软件可能已不可见：计数仅对可见软件回减（不可见软件计数已随处置重建）
         Software software = softwareMapper.selectById(softwareId);
         if (software != null && software.getLifecycle() != SoftwareLifecycle.DELETED) {

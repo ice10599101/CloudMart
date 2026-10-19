@@ -6,6 +6,7 @@ import com.cloudmart.software.config.SoftwareProperties;
 import com.cloudmart.software.entity.SoftwareSubscription;
 import com.cloudmart.software.entity.SoftwareUserPreference;
 import com.cloudmart.software.policy.SoftwareAccessPolicy;
+import com.cloudmart.software.service.SoftwareDailyStatService;
 import com.cloudmart.software.repository.SoftwareSubscriptionMapper;
 import com.cloudmart.software.repository.SoftwareUserPreferenceMapper;
 import com.cloudmart.software.service.SoftwareSubscriptionService;
@@ -36,6 +37,7 @@ public class SoftwareSubscriptionServiceImpl implements SoftwareSubscriptionServ
     private final SoftwareSubscriptionMapper subscriptionMapper;
     private final SoftwareUserPreferenceMapper preferenceMapper;
     private final Clock clock;
+    private final SoftwareDailyStatService statEventService;
 
     @Override
     @Transactional
@@ -56,6 +58,7 @@ public class SoftwareSubscriptionServiceImpl implements SoftwareSubscriptionServ
         subscription.setCreatedAt(LocalDateTime.now(clock));
         try {
             subscriptionMapper.insert(subscription);
+            statEventService.recordEvent(softwareId, userId, "SUBSCRIBE_ADD");
         } catch (DuplicateKeyException e) {
             // 并发重复订阅：唯一键兜底，视为成功
             log.debug("并发重复订阅已收敛 userId={} softwareId={}", userId, softwareId);
@@ -65,9 +68,13 @@ public class SoftwareSubscriptionServiceImpl implements SoftwareSubscriptionServ
     @Override
     public void unsubscribe(Long userId, Long softwareId) {
         // 幂等且不泄露状态：直接按归属删除，软件不存在/不可见同样成功
-        subscriptionMapper.delete(new LambdaQueryWrapper<SoftwareSubscription>()
+        int removed = subscriptionMapper.delete(new LambdaQueryWrapper<SoftwareSubscription>()
                 .eq(SoftwareSubscription::getUserId, userId)
                 .eq(SoftwareSubscription::getSoftwareId, softwareId));
+        // SF06：实际移除关系才记取消事件（重复取消不刷统计）
+        if (removed > 0) {
+            statEventService.recordEvent(softwareId, userId, "SUBSCRIBE_REMOVE");
+        }
     }
 
     @Override

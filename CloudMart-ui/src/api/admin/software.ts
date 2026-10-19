@@ -902,3 +902,28 @@ export function patrolSource(sourceId: string, idempotencyKey?: string) {
     softwareWriteConfig('POST', url, {}, idempotencyKey),
   )
 }
+
+// ==================== SF06：运营趋势 ====================
+
+export interface StatTrendPoint {
+  date: string
+  resolveCount: number
+  resolveUserCount: number
+  favoriteAdd: number
+  favoriteRemove: number
+  subscribeAdd: number
+  subscribeRemove: number
+  favoriteNet: number
+  subscribeNet: number
+}
+
+export function listStatTrends(params?: {
+  from?: string
+  to?: string
+  softwareId?: string
+  withEfficiency?: boolean
+}) {
+  return request.get<ApiResponse<Record<string, unknown>>>(`${BASE}/statistics/trends`, {
+    params,
+  })
+}
