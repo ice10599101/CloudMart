@@ -23,7 +23,7 @@ import java.util.Map;
  * 不提供直接编辑累计邀请数/发放标记的入口（防绕额度）。
  */
 @RestController
-@RequestMapping("/admin/business/invites")
+@RequestMapping("/business/invites")
 @RequiredArgsConstructor
 @Tag(name = "邀请台账", description = "T15 邀请关系/资格状态/限制原因台账 + HOLD 复核释放")
 public class AdminInviteController {
@@ -41,7 +41,7 @@ public class AdminInviteController {
         return inviteFeignClient.relations(rewardStatus, page, size);
     }
 
-    @PostMapping("/{relationId}/release-hold")
+    @PostMapping("/relations/{relationId}/release-hold")
     @RequiresPermission("business:member:edit")
     @Operation(summary = "HOLD 复核释放",
             description = "账号状态恢复后放行；重新核验资格（额度原子预占/发奖幂等不变）；原因必填留痕，不直接改发放标记")

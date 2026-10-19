@@ -27,7 +27,7 @@ export function listInviteRelations(
 /** HOLD 复核释放（重新核验资格；原因必填留痕；不直接改发放标记） */
 export function releaseInviteHold(relationId: string, reason: string) {
   return request.post<ApiResponse<{ result: string }>>(
-    `${BASE}/${relationId}/release-hold`,
+    `${BASE}/relations/${relationId}/release-hold`,
     { reason },
   )
 }
