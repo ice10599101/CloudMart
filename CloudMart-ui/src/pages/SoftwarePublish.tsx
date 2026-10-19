@@ -365,18 +365,6 @@ export default function SoftwarePublish() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildPayload, doSaveFresh, message, name, revisionId, softwareId]);
 
-  /** 提交审核二次确认：提交即进入待审队列，内容冻结不可再编辑 */
-  const confirmSubmit = useCallback(() => {
-    Modal.confirm({
-      title: '提交审核',
-      content: '提交后内容冻结进入待审队列，审核期间不可再编辑（可撤回）。确认提交？',
-      okText: '确认提交',
-      cancelText: '再改改',
-      onOk: () => doSubmit(),
-    })
-  }, [])
-
-
   const doSubmit = useCallback(async () => {
     if (!name.trim()) {
       message.warning("请先填写软件名称");
@@ -398,13 +386,10 @@ export default function SoftwarePublish() {
         targetRevisionId = created.data.data.workingRevisionId;
         setSoftwareId(targetSoftwareId);
         setRevisionId(targetRevisionId);
-        const saved = await saveSoftwareDraft(
-          targetSoftwareId,
-          targetRevisionId,
-          buildPayload(),
-        );
-        if (!saved.data.success) return;
       }
+      // 每次提交前保存当前内容，包括已保存过后继续编辑的情况。
+      const saved = await saveSoftwareDraft(targetSoftwareId, targetRevisionId, buildPayload());
+      if (!saved.data.success) return;
       const res = await submitSoftwareForReview(targetSoftwareId, targetRevisionId);
       if (!res.data.success) return;
       clearPageDraft(DRAFT_KEY);
@@ -432,6 +417,17 @@ export default function SoftwarePublish() {
     revisionId,
     softwareId,
   ]);
+
+  /** 确认回调随当前表单更新，避免引用首次渲染时的空草稿。 */
+  const confirmSubmit = useCallback(() => {
+    Modal.confirm({
+      title: '提交审核',
+      content: '提交后内容冻结进入待审队列，审核期间不可再编辑（可撤回）。确认提交？',
+      okText: '确认提交',
+      cancelText: '再改改',
+      onOk: doSubmit,
+    });
+  }, [doSubmit]);
 
   if (!isAuthenticated) {
     return (

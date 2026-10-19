@@ -271,11 +271,12 @@ class SoftwarePublishServiceImplTest {
     }
 
     @Test
-    @DisplayName("提交成功：冻结 PENDING + 短事务锁协议（资格行→软件→快照）")
+    @DisplayName("选填审核文本全部留空仍审核软件名并冻结 PENDING，保持短事务锁协议")
     void submit_freezesPendingUnderLocks() {
         when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
                 software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
         SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 1);
+        draft.setSummary("");
         when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
         when(releaseMapper.selectList(any())).thenReturn(java.util.List.of());
         when(revisionMediaMapper.selectCount(any())).thenReturn(0L);
@@ -295,6 +296,8 @@ class SoftwarePublishServiceImplTest {
         assertThat(submitted.revisionId()).isEqualTo(REVISION_ID);
         assertThat(submitted.reviewStatus()).isEqualTo("PENDING");
         assertThat(draft.getReviewStatus()).isEqualTo(SoftwareReviewStatus.PENDING);
+        verify(communitySupportFeignClient).review(org.mockito.ArgumentMatchers.argThat(
+                request -> request.texts().equals(java.util.List.of("示例工具"))));
         // 锁顺序：资格行 → 软件主行 → 快照行（4.0/9.7）
         var inOrder = org.mockito.Mockito.inOrder(lockMapper);
         inOrder.verify(lockMapper).lockPublisherByUser(USER_ID);
@@ -302,6 +305,46 @@ class SoftwarePublishServiceImplTest {
         inOrder.verify(lockMapper).lockRevision(REVISION_ID);
         verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(USER_ID),
                 eq("USER"), eq("SUBMIT"), eq("DRAFT"), eq("PENDING"), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("50000 字介绍分段送审且不丢内容，遵守社区单条 20000 字上限")
+    void submit_longDescriptionRespectsReviewContract() {
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+        SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 1);
+        String description = "a".repeat(19_999) + "😀" + "b".repeat(29_999);
+        draft.setDescriptionText(description);
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
+        when(communitySupportFeignClient.review(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
+                new SoftwareReviewOutcomeVO("hash", false, false, java.util.List.of(), "拒绝", NOW)));
+
+        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-long-text"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "CONTENT_REJECTED");
+        var captor = org.mockito.ArgumentCaptor.forClass(
+                com.cloudmart.software.dto.software.SoftwareReviewRequest.class);
+        verify(communitySupportFeignClient).review(captor.capture());
+        assertThat(captor.getValue().texts()).hasSize(3).allSatisfy(text -> {
+            assertThat(text).isNotBlank().hasSizeLessThanOrEqualTo(20_000);
+            assertThat(Character.isHighSurrogate(text.charAt(text.length() - 1))).isFalse();
+        });
+        assertThat(String.join("", captor.getValue().texts())).isEqualTo(description);
+    }
+
+    @Test
+    @DisplayName("空草稿返回明确的提交不完整错误，不发送空审核批次")
+    void submit_emptyDraftDoesNotCallReview() {
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+        SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 1);
+        draft.setName("");
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
+
+        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-empty-text"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_SUBMIT_INCOMPLETE");
+        verify(communitySupportFeignClient, never()).review(any());
     }
 
     @Test

@@ -686,28 +686,51 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 lockedRevision.getReviewStatus().name());
     }
 
-    /** 审核文本：介绍纯文本 + 更新日志 + 链接说明（9.6：介绍/评论/链接说明一起纳入审核） */
+    /** 介绍/更新日志/链接说明；均留空时审核软件名，避免发送空审核批次。 */
     private List<String> collectReviewTexts(SoftwareRevision snapshot) {
         List<String> texts = new ArrayList<>();
-        if (snapshot.getDescriptionText() != null && !snapshot.getDescriptionText().isBlank()) {
-            texts.add(snapshot.getDescriptionText());
-        }
+        addReviewText(texts, snapshot.getDescriptionText());
         // UX03：短亮点属审核内容，纳入摘要（改动亮点后旧审核结论失效）
         if (snapshot.getHighlights() != null && !snapshot.getHighlights().isBlank()) {
             texts.add(snapshot.getHighlights());
         }
         for (SoftwareRelease release : releaseMapper.selectList(new LambdaQueryWrapper<SoftwareRelease>()
                 .eq(SoftwareRelease::getRevisionId, snapshot.getId()))) {
-            if (release.getChangelog() != null && !release.getChangelog().isBlank()) {
-                texts.add(release.getChangelog());
-            }
+            addReviewText(texts, release.getChangelog());
         }
         for (SoftwareSource source : sourcesOfRevision(snapshot.getId())) {
-            if (source.getNote() != null && !source.getNote().isBlank()) {
-                texts.add(source.getNote());
-            }
+            addReviewText(texts, source.getNote());
+        }
+        // 保持既有非空批次的顺序及摘要不变，兼容已冻结的待审快照。
+        if (texts.isEmpty()) {
+            addReviewText(texts, snapshot.getName());
+        }
+        if (texts.isEmpty()) {
+            throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "请先填写软件名称并保存草稿");
+        }
+        if (texts.size() > 100) {
+            throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "审核文本过多，请减少版本或来源说明");
         }
         return texts;
+    }
+
+    private void addReviewText(List<String> texts, String text) {
+        if (text == null || text.isBlank()) {
+            return;
+        }
+        // 软件介绍允许 50000 字，社区单条仅允许 20000 字；分段保留全部内容。
+        for (int start = 0; start < text.length();) {
+            int end = Math.min(start + 20_000, text.length());
+            if (end < text.length() && Character.isHighSurrogate(text.charAt(end - 1))
+                    && Character.isLowSurrogate(text.charAt(end))) {
+                end--;
+            }
+            String part = text.substring(start, end);
+            if (!part.isBlank()) {
+                texts.add(part);
+            }
+            start = end;
+        }
     }
 
     private List<SoftwareSource> sourcesOfRevision(Long revisionId) {
