@@ -49,6 +49,37 @@ export default function SoftwareTopicPage() {
       {!loading && topic ? (
         <View>
           {topic.summary ? <Text className={styles.summary}>{topic.summary}</Text> : null}
+          {/* UX02：工具箱三要素（能帮你做什么/适合谁/准备条件） */}
+          {(topic.problem || topic.audience || topic.prerequisites) ? (
+            <View className={styles.card}>
+              {topic.problem ? <Text className={styles.cardSummary}>能帮你做什么：{topic.problem}</Text> : null}
+              {topic.audience ? <Text className={styles.cardSummary}>适合谁：{topic.audience}</Text> : null}
+              {topic.prerequisites ? <Text className={styles.cardSummary}>准备条件：{topic.prerequisites}</Text> : null}
+            </View>
+          ) : null}
+          {/* UX02：按分组展示（用途说明/可选替代；稳定 groupKey） */}
+          {(topic.groups ?? []).length > 0
+            ? (topic.groups ?? []).map((group) => (
+                <View key={group.groupKey} className={styles.card}>
+                  <Text className={styles.cardTitle}>{group.groupKey}</Text>
+                  {group.items.map((item) => (
+                    <View
+                      key={`${group.groupKey}-${item.softwareId}`}
+                      style={{ marginTop: 8 }}
+                      onClick={() =>
+                        Taro.navigateTo({ url: `/pages/softwareDetail/index?id=${item.softwareId}` })
+                      }
+                    >
+                      <Text className={styles.cardSummary}>
+                        {item.name}
+                        {item.optional ? '（可选替代）' : ''}
+                        {item.roleNote ? `——${item.roleNote}` : ''}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ))
+            : null}
           {topic.items.length === 0 ? (
             <Text className={styles.emptyText}>该专题暂无上架软件</Text>
           ) : (

@@ -1,0 +1,220 @@
+.scroll {
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 16rpx 24rpx 60rpx;
+  background: #f6f7fb;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 4rpx 20rpx;
+}
+
+.title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #1c2333;
+}
+
+.newBtn {
+  padding: 12rpx 24rpx;
+  border-radius: 32rpx;
+  background: #3d5afe;
+}
+
+.newBtnText {
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.hint {
+  display: block;
+  padding: 48rpx 8rpx;
+  text-align: center;
+  color: #8a93a6;
+  font-size: 26rpx;
+}
+
+.card {
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(28, 35, 51, 0.06);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.cardName {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1c2333;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  flex-shrink: 0;
+  padding: 4rpx 16rpx;
+  border-radius: 16rpx;
+  font-size: 22rpx;
+}
+
+.badgePublished { background: #e3f7e8; color: #1d9a51; }
+.badgeUnlisted  { background: #fff4e0; color: #c07b12; }
+.badgeBanned    { background: #fde3e3; color: #d3392f; }
+.badgeDraft     { background: #eceef4; color: #5b6478; }
+.badgePending   { background: #e3f0ff; color: #2f6fd3; }
+.badgeRejected  { background: #fde3e3; color: #d3392f; }
+
+.cardSummary {
+  display: block;
+  margin-top: 12rpx;
+  color: #5b6478;
+  font-size: 26rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardFoot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.meta {
+  color: #8a93a6;
+  font-size: 22rpx;
+}
+
+.rejectTip {
+  display: block;
+  margin-top: 10rpx;
+  color: #d3392f;
+  font-size: 22rpx;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+  margin-top: 18rpx;
+  padding-top: 18rpx;
+  border-top: 1rpx solid #eef0f5;
+}
+
+.actionBtn {
+  padding: 10rpx 24rpx;
+  border-radius: 24rpx;
+  background: #eef2ff;
+}
+
+.actionDanger {
+  background: #fdecec;
+}
+
+.actionText {
+  font-size: 24rpx;
+  color: #3d5afe;
+}
+
+.actionDanger .actionText {
+  color: #d3392f;
+}
+
+.btnDisabled {
+  opacity: 0.55;
+}
+
+/* SW11：页签与加载更多 */
+.tabBar {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.tabRow {
+  display: flex;
+  flex-direction: row;
+  gap: 12rpx;
+  padding: 8rpx 24rpx 12rpx;
+}
+
+.tabItem {
+  padding: 8rpx 24rpx;
+  border-radius: 999rpx;
+  background: #f1f5f9;
+}
+
+.tabText {
+  font-size: 24rpx;
+  color: #475569;
+}
+
+.tabActive {
+  background: #3d5afe;
+}
+
+.tabActiveText {
+  font-size: 24rpx;
+  color: #ffffff;
+}
+
+.loadMoreBtn {
+  margin: 16rpx 24rpx 0;
+  padding: 16rpx 0;
+  border-radius: 999rpx;
+  background: #eef2ff;
+  text-align: center;
+}
+
+.loadMoreText {
+  font-size: 26rpx;
+  color: #3d5afe;
+}
+
+/* SW11：更新提醒开关 */
+.notifyRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8rpx 24rpx;
+}
+
+.notifyLabel {
+  font-size: 26rpx;
+  color: #0b1220;
+}
+
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 16rpx 24rpx 60rpx;
+  background: #f6f7fb;
+}
+
+.desc {
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  color: #555;
+  line-height: 1.5;
+}
+
+.emptyText {
+  display: block;
+  margin-top: 120rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #999;
+}

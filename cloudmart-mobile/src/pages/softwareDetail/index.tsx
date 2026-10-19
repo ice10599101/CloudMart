@@ -380,6 +380,42 @@ export default function SoftwareDetailPage() {
         </View>
       )}
 
+      {/* UX03：短亮点/同类选择/发布者资料卡（无数据省略） */}
+      {(detail.highlights ?? []).length > 0 && (
+        <View className={styles.card}>
+          <Text className={styles.cardTitle}>亮点</Text>
+          {(detail.highlights ?? []).map((h, i) => (
+            <Text key={i} className={styles.guideText}>• {h}</Text>
+          ))}
+        </View>
+      )}
+      {(detail.relatedItems ?? []).length > 0 && (
+        <View className={styles.card}>
+          <Text className={styles.cardTitle}>同类选择</Text>
+          {(detail.relatedItems ?? []).map((rel) => (
+            <View key={`${rel.softwareId}-${rel.relationType}`} style={{ marginTop: 8 }}>
+              <Text className={styles.guideText}>
+                [{rel.relationType === 'SIMILAR_USE' ? '同类用途' : '同平台替代'}] {rel.name}
+                {rel.reason ? `——${rel.reason}` : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {detail.publisherSummary && (
+        <View className={styles.card}>
+          <Text className={styles.cardTitle}>本站分享者</Text>
+          <Text className={styles.guideText}>
+            {detail.publisherSummary.nickname || `用户 ${detail.publisherSummary.userId}`}
+            {' · '}公开投稿 {detail.publisherSummary.publishedCount} 款
+            {detail.publisherSummary.lastPublishedAt
+              ? ` · 最近发布 ${detail.publisherSummary.lastPublishedAt.slice(0, 10)}`
+              : ''}
+          </Text>
+          <Text className={styles.guideText}>与软件开发者不同；仅展示公开投稿信息</Text>
+        </View>
+      )}
+
       <View className={styles.card}>
         <Text className={styles.cardTitle}>下载来源</Text>
         {releases.length > 1 ? (

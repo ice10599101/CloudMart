@@ -220,7 +220,25 @@ export default function SoftwareMinePage() {
 
         {/* SW11：页签——投稿/收藏/订阅 + 翻页加载更多 */}
         <ScrollView scrollX className={styles.tabBar} enhanced showScrollbar={false}>
-          <View className={styles.tabRow}>
+                {/* UX05/UX06：更新流与需求入口 */}
+      <View style={{ display: 'flex', flexDirection: 'row', gap: 8, padding: '0 24rpx 8rpx' }}>
+        <View
+          className={styles.card}
+          style={{ flex: 1, padding: '12rpx 0', textAlign: 'center' }}
+          onClick={() => Taro.navigateTo({ url: '/pages/softwareUpdates/index' })}
+        >
+          <Text className={styles.cardName}>订阅更新</Text>
+        </View>
+        <View
+          className={styles.card}
+          style={{ flex: 1, padding: '12rpx 0', textAlign: 'center' }}
+          onClick={() => Taro.navigateTo({ url: '/pages/softwareRequests/index' })}
+        >
+          <Text className={styles.cardName}>找软件需求</Text>
+        </View>
+      </View>
+
+<View className={styles.tabRow}>
             {MINE_TABS.map((entry) => (
               <View
                 key={entry.key}

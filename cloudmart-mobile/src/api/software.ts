@@ -73,6 +73,23 @@ export interface SoftwareDetail {
   installationGuide: string | null
   /** SF02：已知问题（随快照审核） */
   knownIssues: string | null
+  /** UX03：短亮点（≤3 条） */
+  highlights?: string[]
+  /** UX03：同类选择（不可见目标已过滤） */
+  relatedItems?: Array<{
+    softwareId: string
+    name: string
+    summary: string | null
+    relationType: 'SIMILAR_USE' | 'ALTERNATIVE_PLATFORM'
+    reason: string | null
+  }>
+  /** UX03：发布者资料卡 */
+  publisherSummary?: {
+    userId: string
+    nickname: string | null
+    publishedCount: number
+    lastPublishedAt: string | null
+  } | null
   languages: string[]
   publishedAt: string | null
   lastReleaseAt: string | null
@@ -155,6 +172,20 @@ export interface SoftwareTopicDetail {
   summary: string | null
   coverAssetId: string | null
   items: SoftwareCard[]
+  /** UX02：工具箱三要素（无数据省略） */
+  audience?: string | null
+  problem?: string | null
+  prerequisites?: string | null
+  groups?: Array<{
+    groupKey: string
+    items: Array<{
+      softwareId: string
+      name: string
+      roleNote: string | null
+      optional: boolean
+      sortOrder: number
+    }>
+  }>
 }
 
 export interface SoftwareComment {
@@ -543,4 +574,62 @@ export const softwarePublishApi = {
       request({ url, method: 'DELETE', header }),
     )
   },
+}
+
+
+// ==================== UX05/UX06 小程序端 API ====================
+
+export interface SoftwareUpdateItem {
+  eventId: string
+  softwareId: string
+  read: boolean
+  publishedAt: string | null
+  businessChange?: boolean
+  softwareName?: string
+  versionName?: string
+  changelog?: string
+  softwareVisible: boolean
+}
+
+export function listMyUpdates(cursor: string | null, size = 20) {
+  return request<{
+    items: SoftwareUpdateItem[]
+    hasMore: boolean
+    nextCursor: string | null
+  }>({
+    url: `${BASE}/updates/mine`,
+    method: 'GET',
+    data: { cursor: cursor ?? 0, size },
+  })
+}
+
+export function markUpdatesRead(eventIds: string[]) {
+  return request<number>({
+    url: `${BASE}/updates/read`,
+    method: 'POST',
+    data: { eventIds: eventIds.map((v) => Number(v)) },
+  })
+}
+
+export function createSoftwareRequest(input: {
+  title: string
+  usageDesc: string
+  mustHaveFeatures?: string[]
+  platformScope?: string[]
+  acceptableLicense?: string[]
+  sourceKeyword?: string
+}) {
+  return request<string>({ url: `${BASE}/requests`, method: 'POST', data: input })
+}
+
+export function listMySoftwareRequests() {
+  return request<Array<{
+    id: string
+    title: string
+    usageDesc: string
+    status: string
+    auditStatus: string
+    auditReason: string | null
+    createdAt: string | null
+  }>>({ url: `${BASE}/requests/mine`, method: 'GET' })
 }

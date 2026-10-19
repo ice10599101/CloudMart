@@ -281,6 +281,38 @@ export default function SoftwareMineScreen() {
         <Switch value={updateNotify} onValueChange={(v) => void handleToggleNotify(v)} />
       </View>
 
+      {/* UX05/UX06：更新流与需求入口（独立页面，不挤占页签） */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, gap: Spacing.sm }}>
+        <TouchableOpacity
+          onPress={() => router.push('/software-updates')}
+          style={{
+            flex: 1,
+            padding: Spacing.sm,
+            borderRadius: BorderRadius.md,
+            backgroundColor: theme.bgContainer,
+            borderWidth: 1,
+            borderColor: theme.border ?? '#e2e8f0',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ fontSize: FontSize.sm, color: theme.text }}>订阅更新</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.push('/software-requests')}
+          style={{
+            flex: 1,
+            padding: Spacing.sm,
+            borderRadius: BorderRadius.md,
+            backgroundColor: theme.bgContainer,
+            borderWidth: 1,
+            borderColor: theme.border ?? '#e2e8f0',
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ fontSize: FontSize.sm, color: theme.text }}>找软件需求</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* SW11：页签——投稿/收藏/订阅 + 翻页加载更多 */}
       <View style={{ flexDirection: 'row', paddingHorizontal: Spacing.md, paddingBottom: Spacing.xs, gap: Spacing.xs }}>
         {MINE_TABS.map((entry) => {

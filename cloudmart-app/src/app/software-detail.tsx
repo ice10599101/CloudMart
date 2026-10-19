@@ -444,6 +444,68 @@ export default function SoftwareDetailScreen() {
           </View>
         ) : null}
 
+        {/* UX03：短亮点（≤3 条；无数据省略） */}
+        {(detail.highlights ?? []).length > 0 ? (
+          <View style={{ borderRadius: BorderRadius.md, padding: Spacing.md, backgroundColor: theme.bgContainer }}>
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>亮点</Text>
+            {(detail.highlights ?? []).map((h, i) => (
+              <Text key={i} style={{ fontSize: FontSize.sm, color: theme.text, marginTop: 4 }}>
+                • {h}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
+        {/* UX03：同类选择（人工关系；不宣称优劣） */}
+        {(detail.relatedItems ?? []).length > 0 ? (
+          <View style={{ borderRadius: BorderRadius.md, padding: Spacing.md, backgroundColor: theme.bgContainer }}>
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>同类选择</Text>
+            {(detail.relatedItems ?? []).map((rel) => (
+              <TouchableOpacity
+                key={`${rel.softwareId}-${rel.relationType}`}
+                onPress={() => router.push(`/software-detail?id=${rel.softwareId}`)}
+                style={{ marginTop: Spacing.sm }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                  <View
+                    style={{
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                      backgroundColor: rel.relationType === 'SIMILAR_USE' ? '#E6F4FF' : '#F6FFED',
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, color: rel.relationType === 'SIMILAR_USE' ? '#1677FF' : '#52C41A' }}>
+                      {rel.relationType === 'SIMILAR_USE' ? '同类用途' : '同平台替代'}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: theme.text }}>{rel.name}</Text>
+                </View>
+                {rel.reason ? (
+                  <Text style={{ fontSize: FontSize.xs, color: theme.textSecondary, marginTop: 2 }}>{rel.reason}</Text>
+                ) : null}
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : null}
+
+        {/* UX03：发布者资料卡（本站分享者≠开发者） */}
+        {detail.publisherSummary ? (
+          <View style={{ borderRadius: BorderRadius.md, padding: Spacing.md, backgroundColor: theme.bgContainer }}>
+            <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>本站分享者</Text>
+            <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary, marginTop: 4 }}>
+              {detail.publisherSummary.nickname || `用户 ${detail.publisherSummary.userId}`}
+              {' · '}公开投稿 {detail.publisherSummary.publishedCount} 款
+              {detail.publisherSummary.lastPublishedAt
+                ? ` · 最近发布 ${detail.publisherSummary.lastPublishedAt.slice(0, 10)}`
+                : ''}
+            </Text>
+            <Text style={{ fontSize: FontSize.xs, color: theme.textSecondary, marginTop: 2 }}>
+              与软件开发者不同；仅展示公开投稿信息
+            </Text>
+          </View>
+        ) : null}
+
         {/* 下载来源与获取链接 */}
         <View style={{ borderRadius: BorderRadius.md, padding: Spacing.md, backgroundColor: theme.bgContainer }}>
           <Text style={{ fontSize: FontSize.md, fontWeight: '700', color: theme.text }}>下载来源</Text>

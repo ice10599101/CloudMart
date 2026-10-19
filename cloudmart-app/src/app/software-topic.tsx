@@ -97,6 +97,63 @@ export default function SoftwareTopicScreen() {
               {topic.summary}
             </Text>
           )}
+          {/* UX02：工具箱三要素（能帮你做什么/适合谁/准备条件） */}
+          {(topic.problem || topic.audience || topic.prerequisites) ? (
+            <View
+              style={{
+                marginHorizontal: Spacing.md,
+                marginTop: Spacing.sm,
+                padding: Spacing.md,
+                borderRadius: BorderRadius.md,
+                backgroundColor: theme.bgContainer,
+              }}
+            >
+              {topic.problem ? (
+                <Text style={{ fontSize: FontSize.sm, color: theme.text }}>
+                  能帮你做什么：{topic.problem}
+                </Text>
+              ) : null}
+              {topic.audience ? (
+                <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary, marginTop: 4 }}>
+                  适合谁：{topic.audience}
+                </Text>
+              ) : null}
+              {topic.prerequisites ? (
+                <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary, marginTop: 4 }}>
+                  准备条件：{topic.prerequisites}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+          {/* UX02：按分组展示（用途说明/可选替代；稳定 groupKey） */}
+          {(topic.groups ?? []).length > 0
+            ? (topic.groups ?? []).map((group) => (
+                <View key={group.groupKey} style={{ paddingHorizontal: Spacing.md, marginTop: Spacing.md }}>
+                  <Text style={{ fontSize: FontSize.sm, fontWeight: '700', color: theme.text }}>
+                    {group.groupKey}
+                  </Text>
+                  {group.items.map((item) => (
+                    <TouchableOpacity
+                      key={`${group.groupKey}-${item.softwareId}`}
+                      onPress={() => router.push(`/software-detail?id=${item.softwareId}`)}
+                      style={{ marginTop: Spacing.sm }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                        <Text style={{ fontSize: FontSize.sm, fontWeight: '600', color: theme.text, flex: 1 }}>
+                          {item.name}
+                          {item.optional ? '（可选替代）' : ''}
+                        </Text>
+                      </View>
+                      {item.roleNote ? (
+                        <Text style={{ fontSize: FontSize.xs, color: theme.textSecondary, marginTop: 2 }}>
+                          {item.roleNote}
+                        </Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))
+            : null}
           <FlatList
             data={topic.items}
             keyExtractor={(item) => item.id}

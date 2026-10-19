@@ -62,6 +62,23 @@ export interface SoftwareDetail {
   installationGuide: string | null
   /** SF02：已知问题（随快照审核） */
   knownIssues: string | null
+  /** UX03：短亮点（≤3 条） */
+  highlights?: string[]
+  /** UX03：同类选择（不可见目标已过滤） */
+  relatedItems?: Array<{
+    softwareId: string
+    name: string
+    summary: string | null
+    relationType: 'SIMILAR_USE' | 'ALTERNATIVE_PLATFORM'
+    reason: string | null
+  }>
+  /** UX03：发布者资料卡 */
+  publisherSummary?: {
+    userId: string
+    nickname: string | null
+    publishedCount: number
+    lastPublishedAt: string | null
+  } | null
   licenseType: string | null
   publishedAt: string | null
   lastReleaseAt: string | null
@@ -143,6 +160,21 @@ export interface SoftwareTopicDetail {
   summary: string | null
   coverAssetId: string | null
   items: SoftwareCard[]
+  /** UX02：工具箱三要素（无数据省略） */
+  audience?: string | null
+  problem?: string | null
+  prerequisites?: string | null
+  /** UX02：稳定分组（groupKey 聚合；无分组=平铺） */
+  groups?: Array<{
+    groupKey: string
+    items: Array<{
+      softwareId: string
+      name: string
+      roleNote: string | null
+      optional: boolean
+      sortOrder: number
+    }>
+  }>
 }
 
 export interface SoftwareComment {
@@ -528,4 +560,95 @@ export const softwarePublishApi = {
       request({ url, method: 'DELETE', header }),
     )
   },
+}
+
+
+// ==================== UX01/UX05/UX06 移动端 API ====================
+
+export interface SoftwareHomeSectionItem {
+  itemId: string
+  targetType: 'SOFTWARE' | 'TOPIC' | 'GUIDE' | 'FILTER'
+  headline?: string
+  editorNote?: string
+  software?: SoftwareCard
+  topic?: { id: string; slug: string; title: string; summary?: string }
+  guide?: { id: string; title: string; summary?: string; guideType?: string }
+}
+
+export interface SoftwareHomeSection {
+  id: string
+  slotKey: string
+  kind: 'SPOTLIGHT' | 'SCENARIOS' | 'SOFTWARE_GRID' | 'RANKING_LIST' | 'UPDATE_FEED' | 'GUIDE_LIST'
+  title: string
+  subtitle?: string
+  state?: 'OK' | 'ERROR' | 'EMPTY'
+  items: SoftwareHomeSectionItem[]
+  hasMore: boolean
+}
+
+export function getSoftwareHome(platform: 'APP' = 'APP') {
+  return request<SoftwareHomeSection[]>({
+    url: `${BASE}/home`,
+    method: 'GET',
+    data: { platform },
+  })
+}
+
+export interface SoftwareUpdateItem {
+  eventId: string
+  softwareId: string
+  read: boolean
+  publishedAt: string | null
+  businessChange?: boolean
+  softwareName?: string
+  versionName?: string
+  changelog?: string
+  softwareVisible: boolean
+}
+
+export function listMyUpdates(cursor: string | null, size = 20) {
+  return request<{
+    items: SoftwareUpdateItem[]
+    hasMore: boolean
+    nextCursor: string | null
+  }>({
+    url: `${BASE}/updates/mine`,
+    method: 'GET',
+    data: { cursor: cursor ?? 0, size },
+  })
+}
+
+export function markUpdatesRead(eventIds: string[]) {
+  return request<number>({
+    url: `${BASE}/updates/read`,
+    method: 'POST',
+    data: { eventIds: eventIds.map((v) => Number(v)) },
+  })
+}
+
+export function getUpdatesUnreadCount() {
+  return request<number>({ url: `${BASE}/updates/unread-count`, method: 'GET' })
+}
+
+export function createSoftwareRequest(input: {
+  title: string
+  usageDesc: string
+  mustHaveFeatures?: string[]
+  platformScope?: string[]
+  acceptableLicense?: string[]
+  sourceKeyword?: string
+}) {
+  return request<string>({ url: `${BASE}/requests`, method: 'POST', data: input })
+}
+
+export function listMySoftwareRequests() {
+  return request<Array<{
+    id: string
+    title: string
+    usageDesc: string
+    status: string
+    auditStatus: string
+    auditReason: string | null
+    createdAt: string | null
+  }>>({ url: `${BASE}/requests/mine`, method: 'GET' })
 }
