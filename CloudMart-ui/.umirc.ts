@@ -184,6 +184,8 @@ export default defineConfig({
         { path: '/admin/business/after-sale-cases', component: '@/pages/admin/business/AfterSaleCases' },
         // PRODUCT-01：商品问答管理（商城→商品问答；business:product:question）
         { path: '/admin/business/product-questions', component: '@/pages/admin/business/ProductQuestions' },
+        // T15：邀请台账（V17 菜单 2066）
+        { path: '/admin/business/invites', component: '@/pages/admin/business/Invites' },
         { path: '/admin/business/notifications', component: '@/pages/admin/business/Notifications' },
         { path: '/admin/business/group-activity', component: '@/pages/admin/business/GroupActivity' },
         { path: '/admin/business/tiered-promotion', component: '@/pages/admin/business/TieredPromotion' },

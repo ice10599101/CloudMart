@@ -260,4 +260,39 @@ public class InviteServiceImpl implements InviteService {
         return Map.of("items", records, "total", result.getTotal(),
                 "page", Math.max(page, 1), "size", size);
     }
+
+    /**
+     * T15：HOLD 复核释放。要求 reason 必填；复核 = 账号状态重验 + 资格检查链重放
+     * （ eligibilityCheck 内部幂等：非 PENDING_ELIGIBILITY/ELIGIBLE 直接 skipped），
+     * 复核放行后关系回到 ELIGIBLE → 额度原子预占 → 发奖（uk 幂等兜底）。
+     * 审计：操作者/原因写 rewardReason 追加，不直接改发放标记。
+     */
+    @Override
+    @Transactional
+    public Map<String, Object> releaseHold(Long relationId, String operator, String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    "INVITE_AUDIT_REQUIRED", "复核释放必须填写原因");
+        }
+        final UserInviteRelation relation = inviteRelationMapper.selectById(relationId);
+        if (relation == null) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    "INVITE_NOT_FOUND", "邀请关系不存在");
+        }
+        final String status = relation.getRewardStatus() == null ? "" : relation.getRewardStatus();
+        if (!"HOLD".equals(status)) {
+            throw new com.cloudmart.common.exception.BusinessException(
+                    "INVITE_HOLD_CONFLICT", "当前状态为 " + status + "，仅 HOLD 可复核释放");
+        }
+        relation.setRewardStatus("PENDING_ELIGIBILITY");
+        relation.setRewardReason("HOLD 复核释放（" + operator + "：" + reason.trim() + "），重新核验中");
+        inviteRelationMapper.updateById(relation);
+        log.info("[T15] HOLD 复核释放: relationId={}, operator={}, reason={}",
+                relationId, operator, reason.trim());
+        // 重放资格检查（当天签到事实由 mall-wish 侧传入；复核重放按规则重验签到天数不足则回 PENDING）
+        var outcome = eligibilityCheck(relation.getInviteeId(), inviteProperties.getRequiredDistinctSigninDays());
+        return Map.of("result", String.valueOf(outcome.get("result")),
+                "relationId", relationId,
+                "reason", String.valueOf(outcome.getOrDefault("reason", "")));
+    }
 }

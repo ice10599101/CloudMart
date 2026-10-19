@@ -25,4 +25,12 @@ public interface InviteService {
 
     /** WISH-04：邀请关系台账分页（后台查询：资格事实/奖励状态/限制原因） */
     Map<String, Object> pageRelationsForOps(String rewardStatus, int page, int size);
+
+    /**
+     * T15：HOLD 复核释放——重新核验资格（账号状态恢复后放行），走完整资格检查链
+     * （额度原子预占/发奖幂等不变）；不直接改累计人数或发放标记。要求操作者与原因入审计。
+     *
+     * @return 本次复核结果（granted/rejected/pending/hold）
+     */
+    Map<String, Object> releaseHold(Long relationId, String operator, String reason);
 }

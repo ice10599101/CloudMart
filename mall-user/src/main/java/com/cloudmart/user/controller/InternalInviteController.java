@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -46,6 +47,19 @@ public class InternalInviteController {
     public ApiResponse<Map<String, Object>> eligibilityCheck(
             @Valid @RequestBody EligibilityCheckRequest request) {
         return ApiResponse.ok(inviteService.eligibilityCheck(request.userId(), request.distinctSigninDays()));
+    }
+
+    /** T15：HOLD 复核释放（重新核验资格；要求原因；审计留痕） */
+    @PostMapping("/relations/{relationId}/release-hold")
+    @PreAuthorize("hasRole('INTERNAL')")
+    @Operation(summary = "HOLD 复核释放",
+            description = "账号状态恢复后放行；走完整资格检查链（额度原子预占/发奖幂等不变）；不直接改发放标记")
+    public ApiResponse<Map<String, Object>> releaseHold(
+            @PathVariable("relationId") Long relationId,
+            @RequestBody Map<String, String> body) {
+        final String operator = String.valueOf(body.getOrDefault("operator", "unknown"));
+        final String reason = body.getOrDefault("reason", "");
+        return ApiResponse.ok(inviteService.releaseHold(relationId, operator, reason));
     }
 
     @GetMapping("/relations")
