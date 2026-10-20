@@ -8,9 +8,11 @@ import {
   ProFormList,
 } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Tag, Popconfirm, Modal, InputNumber, Alert } from 'antd'
+import { Alert, Button, InputNumber, Modal, Popconfirm, Segmented, Select, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import {
+  getProducts,
+  getProduct,
   getTieredPromotions,
   createTieredPromotion,
   updateTieredPromotion,
@@ -20,6 +22,7 @@ import {
   previewTieredPromotion,
   type TieredPreviewResult,
 } from '@/api/admin/business'
+import type { ApiResponse } from '@/types/api'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 import { useModalConfirm } from '@/utils/useModalConfirm'
@@ -57,16 +60,80 @@ export default function TieredPromotion() {
   const [previewAmount, setPreviewAmount] = useState<number | null>(100)
   const [previewResult, setPreviewResult] = useState<TieredPreviewResult | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  // T10：SKU 明细试算（商品搜索 → SKU 多选 → 数量），与报价侧同口径
+  const [previewMode, setPreviewMode] = useState<'AMOUNT' | 'SKU'>('AMOUNT')
+  const [previewProductId, setPreviewProductId] = useState<string | undefined>()
+  const [previewProductOptions, setPreviewProductOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([])
+  const [previewSkuOptions, setPreviewSkuOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([])
+  const [previewItems, setPreviewItems] = useState<Array<{ skuId: string; quantity: number }>>([])
   const { confirmSubmit, createHandleOpenChange } = useModalConfirm()
 
-  const runPreview = async (id: number, amount: number | null) => {
-    if (!amount || amount <= 0) {
-      message.warning('请输入有效的购物篮金额')
-      return
+  const searchPreviewProducts = async (keyword?: string) => {
+    const { data: res } = await getProducts({ keyword, page: 1, pageSize: 20 })
+    const response = res as ApiResponse<Array<Record<string, any>>>
+    setPreviewProductOptions(
+      (response.data ?? []).map((product) => ({
+        value: String(product.id),
+        label: String(product.name ?? product.id),
+      })),
+    )
+  }
+
+  const selectPreviewProduct = async (productId: string) => {
+    setPreviewProductId(productId)
+    setPreviewItems([])
+    setPreviewSkuOptions([])
+    const { data: res } = await getProduct(productId)
+    const response = res as ApiResponse<{ skus: Array<Record<string, any>> }>
+    setPreviewSkuOptions(
+      (response.data?.skus ?? []).map((sku) => ({
+        value: String(sku.id),
+        label: `${sku.attributes || sku.skuCode || sku.id}${
+          sku.price != null ? `（¥${sku.price}）` : ''
+        }`,
+      })),
+    )
+  }
+
+  const openPreview = (record: TieredPromotionRecord) => {
+    setPreviewRecord(record)
+    setPreviewAmount(100)
+    setPreviewResult(null)
+    setPreviewMode('AMOUNT')
+    setPreviewProductId(undefined)
+    setPreviewSkuOptions([])
+    setPreviewItems([])
+    void searchPreviewProducts()
+  }
+
+  const runPreview = async (id: number) => {
+    let payload: {
+      orderAmount?: number
+      items?: Array<{ skuId: string; quantity: number }>
+    }
+    if (previewMode === 'SKU') {
+      const items = previewItems.filter(
+        (item) => item.skuId && Number.isFinite(item.quantity) && item.quantity > 0,
+      )
+      if (items.length === 0) {
+        message.warning('请选择至少一个 SKU 并填写数量')
+        return
+      }
+      payload = { items }
+    } else {
+      if (!previewAmount || previewAmount <= 0) {
+        message.warning('请输入有效的购物篮金额')
+        return
+      }
+      payload = { orderAmount: previewAmount }
     }
     setPreviewLoading(true)
     try {
-      const res = await previewTieredPromotion(id, { orderAmount: amount })
+      const res = await previewTieredPromotion(id, payload)
       setPreviewResult(res.data.data)
     } catch {
       setPreviewResult(null)
@@ -151,11 +218,7 @@ export default function TieredPromotion() {
           key="preview"
           type="link"
           size="small"
-          onClick={() => {
-            setPreviewRecord(record)
-            setPreviewAmount(100)
-            setPreviewResult(null)
-          }}
+          onClick={() => openPreview(record)}
         >
           预览试算
         </Button>,
@@ -306,21 +369,106 @@ export default function TieredPromotion() {
         title={`发布前预览：${previewRecord?.name ?? ''}`}
         open={!!previewRecord}
         onCancel={() => setPreviewRecord(null)}
-        onOk={() => previewRecord && runPreview(previewRecord.id, previewAmount)}
+        onOk={() => previewRecord && runPreview(previewRecord.id)}
         confirmLoading={previewLoading}
         okText="试算"
+        width={560}
       >
         <div style={{ marginBottom: 12, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
-          试算不受启用状态与活动时间窗限制，仅供发布前确认规则配置。
+          试算不受启用状态与活动时间窗限制，仅供发布前确认规则配置；商品明细模式取权威 SKU
+          价格，与用户结算报价同口径。
         </div>
-        <InputNumber
-          style={{ width: '100%' }}
-          min={0.01}
-          precision={2}
-          addonBefore="购物篮金额 ¥"
-          value={previewAmount}
-          onChange={(v) => setPreviewAmount(v)}
+        <Segmented
+          value={previewMode}
+          onChange={(value) => {
+            setPreviewMode(value as 'AMOUNT' | 'SKU')
+            setPreviewResult(null)
+          }}
+          options={[
+            { value: 'AMOUNT', label: '按购物篮金额' },
+            { value: 'SKU', label: '按商品明细' },
+          ]}
         />
+        {previewMode === 'AMOUNT' ? (
+          <InputNumber
+            style={{ width: '100%', marginTop: 12 }}
+            min={0.01}
+            precision={2}
+            addonBefore="购物篮金额 ¥"
+            value={previewAmount}
+            onChange={(v) => setPreviewAmount(v)}
+          />
+        ) : (
+          <div style={{ marginTop: 12 }}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="搜索并选择商品"
+              showSearch
+              filterOption={false}
+              onSearch={(keyword) => void searchPreviewProducts(keyword)}
+              value={previewProductId}
+              onChange={(value) => void selectPreviewProduct(value)}
+              options={previewProductOptions}
+            />
+            <Select
+              mode="multiple"
+              style={{ width: '100%', marginTop: 8 }}
+              placeholder={previewProductId ? '选择 SKU（可多选）' : '请先选择商品'}
+              disabled={!previewProductId}
+              value={previewItems.map((item) => item.skuId)}
+              onChange={(values: string[]) =>
+                setPreviewItems((current) =>
+                  values.map((skuId) => ({
+                    skuId,
+                    quantity: current.find((item) => item.skuId === skuId)?.quantity ?? 1,
+                  })),
+                )
+              }
+              options={previewSkuOptions}
+            />
+            {previewItems.map((item) => (
+              <div
+                key={item.skuId}
+                style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}
+              >
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {previewSkuOptions.find((option) => option.value === item.skuId)?.label ??
+                    item.skuId}
+                </span>
+                <InputNumber
+                  min={1}
+                  max={999}
+                  precision={0}
+                  addonBefore="数量"
+                  style={{ width: 160 }}
+                  value={item.quantity}
+                  onChange={(value) =>
+                    setPreviewItems((current) =>
+                      current.map((row) =>
+                        row.skuId === item.skuId
+                          ? { ...row, quantity: Number(value ?? 1) }
+                          : row,
+                      ),
+                    )
+                  }
+                />
+              </div>
+            ))}
+            {previewProductId && previewSkuOptions.length === 0 ? (
+              <div style={{ marginTop: 8, color: 'var(--color-text-tertiary)', fontSize: 12 }}>
+                该商品暂无可选 SKU
+              </div>
+            ) : null}
+          </div>
+        )}
         {previewResult && (
           <Alert
             style={{ marginTop: 12 }}
