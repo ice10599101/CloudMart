@@ -3,12 +3,11 @@ package com.cloudmart.software.service.impl;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import com.cloudmart.common.async.outbox.OutboxService;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.software.config.SoftwareProperties;
-import com.cloudmart.software.dto.software.SoftwareReviewOutcomeVO;
 import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwarePublisherPermission;
+import com.cloudmart.software.entity.SoftwareReviewCheckTask;
 import com.cloudmart.software.entity.SoftwareRevision;
 import com.cloudmart.software.enums.SoftwareLifecycle;
 import com.cloudmart.software.enums.SoftwareReviewStatus;
@@ -17,13 +16,16 @@ import com.cloudmart.software.repository.SoftwareFavoriteMapper;
 import com.cloudmart.software.repository.SoftwareLockMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
 import com.cloudmart.software.repository.SoftwareReleaseMapper;
+import com.cloudmart.software.repository.SoftwareReviewCheckTaskMapper;
 import com.cloudmart.software.repository.SoftwareRevisionMapper;
 import com.cloudmart.software.repository.SoftwareRevisionMediaMapper;
 import com.cloudmart.software.repository.SoftwareRevisionTagMapper;
 import com.cloudmart.software.repository.SoftwareSourceMapper;
+import com.cloudmart.software.service.SoftwareApprovalService;
 import com.cloudmart.software.service.SoftwareAuditService;
 import com.cloudmart.software.service.SoftwareOperationService;
 import com.cloudmart.software.service.SoftwareRateLimiter;
+import com.cloudmart.software.service.SoftwareReviewTextDigest;
 import com.cloudmart.software.service.SoftwareSnapshotAssembler;
 import com.cloudmart.software.vo.software.SoftwareCreatedVO;
 import com.cloudmart.software.vo.software.SoftwareReviewDecisionVO;
@@ -108,11 +110,9 @@ class SoftwarePublishServiceImplTest {
     @Mock
     private SoftwareAuditService auditService;
     @Mock
-    private OutboxService outboxService;
+    private SoftwareReviewCheckTaskMapper checkTaskMapper;
     @Mock
-    private com.cloudmart.software.feign.CommunitySupportFeignClient communitySupportFeignClient;
-    @Mock
-    private com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
+    private SoftwareApprovalService approvalService;
     @Mock
     private SoftwareProperties softwareProperties;
     @Mock
@@ -166,11 +166,8 @@ class SoftwarePublishServiceImplTest {
                 org.mockito.Mockito.mock(
                         com.cloudmart.software.service.SoftwareReviewWorkflowService.class),
                 assetBindingService,
-                outboxService,
-                communitySupportFeignClient, userSupportFeignClient, softwareProperties,
+                checkTaskMapper, approvalService, softwareProperties,
                 rateLimiter,
-                org.mockito.Mockito.mock(
-                        com.cloudmart.software.service.SoftwareReleaseFanoutService.class),
                 org.mockito.Mockito.mock(
                         com.cloudmart.software.repository.SoftwareSubscriptionMapper.class),
                 new ObjectMapper(), Clock.fixed(NOW, ZoneId.systemDefault()),
@@ -241,23 +238,15 @@ class SoftwarePublishServiceImplTest {
                 eq("USER"), eq("CREATE"), any(), eq("DRAFT"), anyString(), any());
     }
 
-    @Test
-    @DisplayName("提交被审核词拒绝：失败不得发布（9.6），不进入 PENDING")
-    void submit_rejectedBySensitiveWords() {
+    private void stubSubmitLocks(SoftwareRevision draft) {
         when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
                 software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
-        when(revisionMapper.selectById(REVISION_ID)).thenReturn(
-                revision(SoftwareReviewStatus.DRAFT, 0, 1));
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
         when(releaseMapper.selectList(any())).thenReturn(java.util.List.of());
-        when(revisionMediaMapper.selectCount(any())).thenReturn(0L);
-        when(communitySupportFeignClient.review(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
-                new SoftwareReviewOutcomeVO("hash", false, false,
-                        java.util.List.of(), "内容包含违规词汇，发布被拒绝", NOW)));
-
-        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-key-1"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "CONTENT_REJECTED");
-        verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
+        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission(true));
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(draft);
     }
 
     @Test
@@ -271,134 +260,107 @@ class SoftwarePublishServiceImplTest {
     }
 
     @Test
-    @DisplayName("选填审核文本全部留空仍审核软件名并冻结 PENDING，保持短事务锁协议")
-    void submit_freezesPendingUnderLocks() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
-                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+    @DisplayName("SW04：提交在锁内冻结为 CHECKING 并持久化检查任务，提交不等待远程审核")
+    void submit_freezesCheckingAndEnqueuesTaskUnderLocks() {
         SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 1);
         draft.setSummary("");
-        when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
-        when(releaseMapper.selectList(any())).thenReturn(java.util.List.of());
-        when(revisionMediaMapper.selectCount(any())).thenReturn(0L);
-        when(communitySupportFeignClient.review(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
-                new SoftwareReviewOutcomeVO("hash", true, false, java.util.List.of(), null, NOW)));
-        when(userSupportFeignClient.profiles(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
-                java.util.List.of(new com.cloudmart.software.dto.software.SoftwareProfileVO(
-                        USER_ID, "昵称", null, true))));
-
-        Software lockedSoftware = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
-        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission(true));
-        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(lockedSoftware);
-        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(draft);
+        stubSubmitLocks(draft);
 
         SoftwareSubmittedVO submitted = service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-key-3");
 
         assertThat(submitted.revisionId()).isEqualTo(REVISION_ID);
-        assertThat(submitted.reviewStatus()).isEqualTo("PENDING");
-        assertThat(draft.getReviewStatus()).isEqualTo(SoftwareReviewStatus.PENDING);
-        verify(communitySupportFeignClient).review(org.mockito.ArgumentMatchers.argThat(
-                request -> request.texts().equals(java.util.List.of("示例工具"))));
+        assertThat(submitted.reviewStatus()).isEqualTo("CHECKING");
+        assertThat(submitted.operationId()).isEqualTo("submit-key-3");
+        assertThat(draft.getReviewStatus()).isEqualTo(SoftwareReviewStatus.CHECKING);
+        assertThat(draft.getContentDigest()).isEqualTo(
+                SoftwareReviewTextDigest.digest(java.util.List.of("示例工具")));
         // 锁顺序：资格行 → 软件主行 → 快照行（4.0/9.7）
         var inOrder = org.mockito.Mockito.inOrder(lockMapper);
         inOrder.verify(lockMapper).lockPublisherByUser(USER_ID);
         inOrder.verify(lockMapper).lockSoftware(SOFTWARE_ID);
         inOrder.verify(lockMapper).lockRevision(REVISION_ID);
+        org.mockito.ArgumentCaptor<SoftwareReviewCheckTask> task =
+                org.mockito.ArgumentCaptor.forClass(SoftwareReviewCheckTask.class);
+        verify(checkTaskMapper).insert(task.capture());
+        assertThat(task.getValue().getRevisionId()).isEqualTo(REVISION_ID);
+        assertThat(task.getValue().getOperationKey()).isEqualTo("submit-key-3");
+        assertThat(task.getValue().getContentDigest()).isEqualTo(draft.getContentDigest());
+        assertThat(task.getValue().getAutoPublish()).isFalse();
+        assertThat(task.getValue().getStatus()).isEqualTo("PENDING");
         verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(USER_ID),
-                eq("USER"), eq("SUBMIT"), eq("DRAFT"), eq("PENDING"), anyString(), any());
+                eq("USER"), eq("SUBMIT"), eq("DRAFT"), eq("CHECKING"), anyString(), any());
     }
 
     @Test
-    @DisplayName("直接发布权限在锁内裁决，立即上线并登记事件，不冒用管理员审核身份")
-    void submit_directPublishesAtomically() {
-        Software locked = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
-        locked.setPublicationSeq(0);
+    @DisplayName("SW04：直接发布权限冻结为 CHECKING 并标记 autoPublish，检查通过后才上线")
+    void submit_directPermissionEnqueuesAutoPublishTask() {
         SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 1);
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(locked);
-        when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
-        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(locked);
-        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(draft);
-        SoftwarePublisherPermission permission = permission(true);
-        permission.setReviewRequired(false);
-        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission);
-        when(communitySupportFeignClient.review(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
-                new SoftwareReviewOutcomeVO("hash", true, true, java.util.List.of(), null, NOW)));
-        when(userSupportFeignClient.profiles(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
-                java.util.List.of(new com.cloudmart.software.dto.software.SoftwareProfileVO(USER_ID, "昵称", null, true))));
+        SoftwarePublisherPermission direct = permission(true);
+        direct.setReviewRequired(false);
+        stubSubmitLocks(draft);
+        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(direct);
 
         SoftwareSubmittedVO submitted = service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "direct-key");
 
-        assertThat(submitted.reviewStatus()).isEqualTo("APPROVED");
-        assertThat(draft.getReviewStatus()).isEqualTo(SoftwareReviewStatus.APPROVED);
-        assertThat(draft.getReviewerId()).isNull();
-        assertThat(locked.getPublishedRevisionId()).isEqualTo(REVISION_ID);
-        assertThat(locked.getWorkingRevisionId()).isNull();
-        assertThat(locked.getPublicationSeq()).isEqualTo(1);
-        verify(softwareMapper).update(org.mockito.ArgumentMatchers.isNull(), any(Wrapper.class));
-        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(USER_ID), eq("USER"),
-                eq("DIRECT_PUBLISH"), eq("DRAFT"), eq("APPROVED"), anyString(), any());
-        verify(outboxService).record(any());
+        assertThat(submitted.reviewStatus()).isEqualTo("CHECKING");
+        assertThat(draft.getReviewStatus()).isEqualTo(SoftwareReviewStatus.CHECKING);
+        org.mockito.ArgumentCaptor<SoftwareReviewCheckTask> task =
+                org.mockito.ArgumentCaptor.forClass(SoftwareReviewCheckTask.class);
+        verify(checkTaskMapper).insert(task.capture());
+        assertThat(task.getValue().getAutoPublish()).isTrue();
+        verify(approvalService, never()).publishApproved(
+                any(), any(), any(), anyString(), anyString(), anyString(), any(), any());
     }
 
     @Test
-    @DisplayName("远程检查期间管理员禁止发布，锁内复核必须拒绝")
+    @DisplayName("提交时发布资格已关闭：锁内复核拒绝，不冻结不建任务")
     void submit_permissionRevokedBeforeCommit() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
         when(revisionMapper.selectById(REVISION_ID)).thenReturn(revision(SoftwareReviewStatus.DRAFT, 0, 1));
         when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission(false));
-        when(communitySupportFeignClient.review(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
-                new SoftwareReviewOutcomeVO("hash", true, false, java.util.List.of(), null, NOW)));
-        when(userSupportFeignClient.profiles(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
-                java.util.List.of(new com.cloudmart.software.dto.software.SoftwareProfileVO(USER_ID, "昵称", null, true))));
 
         assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "revoked-key"))
-                .isInstanceOf(BusinessException.class).hasFieldOrPropertyWithValue("code", "SOFTWARE_PUBLISH_NOT_ENABLED");
-        verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
-        verify(outboxService, never()).record(any());
-    }
-
-    @Test
-    @DisplayName("50000 字介绍分段送审且不丢内容，遵守社区单条 20000 字上限")
-    void submit_longDescriptionRespectsReviewContract() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
-                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
-        SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 1);
-        String description = "a".repeat(19_999) + "😀" + "b".repeat(29_999);
-        draft.setDescriptionText(description);
-        when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
-        when(communitySupportFeignClient.review(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
-                new SoftwareReviewOutcomeVO("hash", false, false, java.util.List.of(), "拒绝", NOW)));
-
-        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-long-text"))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "CONTENT_REJECTED");
-        var captor = org.mockito.ArgumentCaptor.forClass(
-                com.cloudmart.software.dto.software.SoftwareReviewRequest.class);
-        verify(communitySupportFeignClient).review(captor.capture());
-        assertThat(captor.getValue().texts()).hasSize(3).allSatisfy(text -> {
-            assertThat(text).isNotBlank().hasSizeLessThanOrEqualTo(20_000);
-            assertThat(Character.isHighSurrogate(text.charAt(text.length() - 1))).isFalse();
-        });
-        assertThat(String.join("", captor.getValue().texts())).isEqualTo(description);
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_PUBLISH_NOT_ENABLED");
+        verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
+        verify(checkTaskMapper, never()).insert(any(SoftwareReviewCheckTask.class));
     }
 
     @Test
-    @DisplayName("空草稿返回明确的提交不完整错误，不发送空审核批次")
-    void submit_emptyDraftDoesNotCallReview() {
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
-                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+    @DisplayName("空草稿返回明确的提交不完整错误，不创建检查任务")
+    void submit_emptyDraftDoesNotEnqueue() {
         SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 1);
         draft.setName("");
-        when(revisionMapper.selectById(REVISION_ID)).thenReturn(draft);
+        stubSubmitLocks(draft);
 
         assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-empty-text"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("code", "SOFTWARE_SUBMIT_INCOMPLETE");
-        verify(communitySupportFeignClient, never()).review(any());
+        verify(checkTaskMapper, never()).insert(any(SoftwareReviewCheckTask.class));
     }
 
     @Test
-    @DisplayName("审核通过：切换 published 指针 + 清空 working + publicationSeq+1 + Outbox 事件")
-    void reviewApprove_switchesPublishedPointer() {
+    @DisplayName("SW04：换键但同一工作副本已提交，状态机拒绝第二份检查任务")
+    void submit_secondKeyAfterCheckingRejected() {
+        SoftwareRevision submittedRevision = revision(SoftwareReviewStatus.CHECKING, 0, 1);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(submittedRevision);
+        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission(true));
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(
+                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
+        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(submittedRevision);
+
+        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "another-key"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", "SOFTWARE_STATE_CONFLICT");
+        verify(checkTaskMapper, never()).insert(any(SoftwareReviewCheckTask.class));
+    }
+
+    @Test
+    @DisplayName("SW04：人工通过委托统一审批服务（指针切换/审计/Outbox 只在该服务内实现）")
+    void reviewApprove_delegatesToApprovalService() {
         SoftwareRevision pending = revision(SoftwareReviewStatus.PENDING, 2, 2);
         when(revisionMapper.selectById(REVISION_ID)).thenReturn(pending);
         when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(
@@ -407,17 +369,91 @@ class SoftwarePublishServiceImplTest {
         Software locked = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
         when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(locked);
         when(lockMapper.lockRevision(REVISION_ID)).thenReturn(pending);
+        when(approvalService.publishApproved(locked, pending, ADMIN_ID, "ADMIN", "APPROVE",
+                "PENDING", "内容合格", "req-1"))
+                .thenReturn(new SoftwareReviewDecisionVO(SOFTWARE_ID, REVISION_ID, "APPROVED"));
 
         SoftwareReviewDecisionVO decision = service.reviewDecision(ADMIN_ID, "review-key-1",
                 SOFTWARE_ID, REVISION_ID, true, "内容合格", "req-1");
 
         assertThat(decision.decision()).isEqualTo("APPROVED");
-        assertThat(locked.getPublishedRevisionId()).isEqualTo(REVISION_ID);
-        assertThat(locked.getWorkingRevisionId()).isNull();
-        // 更新发布（seq 1→2）：REVIEW_APPROVED + RELEASE_PUBLISHED（P1 订阅广播）共两条
-        verify(outboxService, org.mockito.Mockito.times(2)).record(any());
-        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(ADMIN_ID),
-                eq("ADMIN"), eq("APPROVE"), eq("PENDING"), eq("APPROVED"), eq("内容合格"), eq("req-1"));
+        verify(approvalService).publishApproved(locked, pending, ADMIN_ID, "ADMIN", "APPROVE",
+                "PENDING", "内容合格", "req-1");
+        assertThat(pending.getReviewerId()).isEqualTo(ADMIN_ID);
+        assertThat(pending.getReviewReason()).isEqualTo("内容合格");
+    }
+
+    @Test
+    @DisplayName("SW04：人工拒绝不切 published 指针，委托统一审批服务生成可编辑副本")
+    void reviewReject_delegatesToApprovalService() {
+        SoftwareRevision pending = revision(SoftwareReviewStatus.PENDING, 2, 2);
+        pending.setContentDigest(SoftwareReviewTextDigest.digest(List.of("示例工具")));
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(pending);
+        Software locked = software(SoftwareLifecycle.ACTIVE, REVISION_ID, null);
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(locked);
+        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(pending);
+
+        SoftwareReviewDecisionVO decision = service.reviewDecision(ADMIN_ID, "review-key-reject",
+                SOFTWARE_ID, REVISION_ID, false, "内容不合规", "req-reject");
+
+        assertThat(decision.decision()).isEqualTo("REJECTED");
+        verify(approvalService).rejectAndClone(locked, pending, ADMIN_ID, "ADMIN", "REJECT",
+                "PENDING", "内容不合规", "req-reject");
+        verify(approvalService, never()).publishApproved(
+                any(), any(), any(), anyString(), anyString(), anyString(), any(), any());
+    }
+
+    @Test
+    @DisplayName("SW04：撤回检查中的提交取消检查任务，保留 WITHDRAWN 并克隆新 DRAFT")
+    void withdraw_checkingCancelsTaskAndClonesDraft() {
+        Software software = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(software);
+        SoftwareRevision checking = revision(SoftwareReviewStatus.CHECKING, 0, 1);
+        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(checking);
+        SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 0);
+        draft.setId(777L);
+        when(assembler.cloneInto(checking, SOFTWARE_ID, USER_ID)).thenReturn(draft);
+        when(revisionMapper.selectById(777L)).thenReturn(draft);
+
+        var editor = service.withdraw(USER_ID, SOFTWARE_ID, REVISION_ID);
+
+        assertThat(editor.revisionId()).isEqualTo(777L);
+        assertThat(checking.getReviewStatus()).isEqualTo(SoftwareReviewStatus.WITHDRAWN);
+        assertThat(draft.getCopiedFromRevisionId()).isEqualTo(REVISION_ID);
+        assertThat(software.getWorkingRevisionId()).isEqualTo(777L);
+        verify(checkTaskMapper).cancelByRevision(eq(REVISION_ID), any());
+        verify(auditService).record(eq(SOFTWARE_ID), eq(REVISION_ID), eq(USER_ID),
+                eq("USER"), eq("WITHDRAW"), eq("CHECKING"), eq("WITHDRAWN"), anyString(), any());
+    }
+
+    @Test
+    @DisplayName("SW04：Mine 待审页签展示 CHECKING，拒绝副本保留 rejected 上下文")
+    void mine_showsCheckingAndRejectedCopies() {
+        Software checkingSoftware = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
+        when(softwareMapper.selectList(any())).thenReturn(List.of(checkingSoftware));
+        when(revisionMapper.selectById(REVISION_ID))
+                .thenReturn(revision(SoftwareReviewStatus.CHECKING, 0, 1));
+
+        var pending = service.mine(USER_ID, "pending", 1, 10);
+
+        assertThat(pending.getRecords()).hasSize(1);
+        assertThat(pending.getRecords().get(0).status()).isEqualTo("CHECKING");
+
+        Software rejectedSoftware = software(SoftwareLifecycle.ACTIVE, null, 900L);
+        when(softwareMapper.selectList(any())).thenReturn(List.of(rejectedSoftware));
+        SoftwareRevision draft = revision(SoftwareReviewStatus.DRAFT, 0, 0);
+        draft.setId(900L);
+        draft.setCopiedFromRevisionId(REVISION_ID);
+        when(revisionMapper.selectById(900L)).thenReturn(draft);
+        SoftwareRevision rejected = revision(SoftwareReviewStatus.REJECTED, 0, 0);
+        when(revisionMapper.selectById(REVISION_ID)).thenReturn(rejected);
+
+        var rejectedTab = service.mine(USER_ID, "rejected", 1, 10);
+
+        assertThat(rejectedTab.getRecords()).hasSize(1);
+        assertThat(rejectedTab.getRecords().get(0).status()).isEqualTo("REJECTED");
+        assertThat(rejectedTab.getRecords().get(0).revisionId()).isEqualTo(900L);
     }
 
     @Test
@@ -487,49 +523,23 @@ class SoftwarePublishServiceImplTest {
     }
 
     @Test
-    @DisplayName("SW04：同键超时重试直接返回历史结果，不重复限频/远程审核")
+    @DisplayName("SW04：同键超时重试直接返回历史结果，不重复限频/冻结/入队检查")
     void submit_replayReturnsStoredResultBeforeSideEffects() {
         Software software = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
         when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
         when(revisionMapper.selectById(REVISION_ID)).thenReturn(
-                revision(SoftwareReviewStatus.PENDING, 0, 0));
+                revision(SoftwareReviewStatus.CHECKING, 0, 0));
         when(operationService.replay(anyString(), any(), anyString(), anyString(), any(), any()))
                 .thenReturn(java.util.Optional.of(new SoftwareSubmittedVO(
-                        SOFTWARE_ID, REVISION_ID, "PENDING")));
+                        SOFTWARE_ID, REVISION_ID, "CHECKING", "submit-key-replay")));
 
         SoftwareSubmittedVO result = service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-key-replay");
 
-        assertThat(result.reviewStatus()).isEqualTo("PENDING");
-        verify(communitySupportFeignClient, never()).review(any());
+        assertThat(result.reviewStatus()).isEqualTo("CHECKING");
+        assertThat(result.operationId()).isEqualTo("submit-key-replay");
         verify(rateLimiter, never()).allowSubmit(any());
-    }
-
-    @Test
-    @DisplayName("SW04：远程审核后内容被改，冻结前摘要不一致拒绝提交")
-    void submit_contentChangedBeforeFreezeRejected() {
-        Software software = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);
-        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
-        SoftwareRevision snapshot = revision(SoftwareReviewStatus.DRAFT, 0, 1);
-        snapshot.setDescriptionText("审核时内容 A");
-        when(revisionMapper.selectById(REVISION_ID)).thenReturn(snapshot);
-        when(releaseMapper.selectList(any())).thenReturn(java.util.List.of());
-        when(revisionMediaMapper.selectCount(any())).thenReturn(0L);
-        when(communitySupportFeignClient.review(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
-                new SoftwareReviewOutcomeVO("hash", true, false, java.util.List.of(), null, NOW)));
-        when(userSupportFeignClient.profiles(any())).thenReturn(com.cloudmart.common.api.ApiResponse.ok(
-                java.util.List.of(new com.cloudmart.software.dto.software.SoftwareProfileVO(
-                        USER_ID, "昵称", null, true))));
-        when(lockMapper.lockPublisherByUser(USER_ID)).thenReturn(permission(true));
-        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(
-                software(SoftwareLifecycle.ACTIVE, null, REVISION_ID));
-        SoftwareRevision locked = revision(SoftwareReviewStatus.DRAFT, 0, 1);
-        locked.setDescriptionText("冻结时内容 B");
-        when(lockMapper.lockRevision(REVISION_ID)).thenReturn(locked);
-
-        assertThatThrownBy(() -> service.submit(USER_ID, SOFTWARE_ID, REVISION_ID, "submit-key-race"))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("code", "SOFTWARE_SUBMIT_STALE");
-        verify(revisionMapper, never()).updateById(any(SoftwareRevision.class));
+        verify(assetBindingService, never()).bindRevisionAssets(any(), any(), any());
+        verify(checkTaskMapper, never()).insert(any(SoftwareReviewCheckTask.class));
     }
 
     @Test

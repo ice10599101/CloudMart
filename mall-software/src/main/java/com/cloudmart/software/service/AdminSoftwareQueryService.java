@@ -11,8 +11,11 @@ import java.util.Map;
  */
 public interface AdminSoftwareQueryService {
 
-    /** 待审列表（PENDING 快照 + 软件信息） */
-    Page<Map<String, Object>> pendingPage(int page, int size);
+    /**
+     * 待审列表（PENDING 快照 + 软件信息）。status 可选 PENDING/CHECKING，
+     * 缺省 PENDING；CHECKING 行附带检查任务状态与最后错误，供后台运维只读查看。
+     */
+    Page<Map<String, Object>> pendingPage(String status, int page, int size);
 
     /**
      * 审核快照对比（方案 10.2）：目标快照完整内容 + 当前线上快照（可为 null=首次发布），

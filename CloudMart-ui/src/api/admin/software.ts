@@ -296,7 +296,12 @@ export function featureAdminSoftware(
 
 // ==================== 审核（software:review） ====================
 
-export function listPendingReviews(params?: { page?: number; size?: number }) {
+export function listPendingReviews(params?: {
+  /** PENDING（默认，人工审核）或 CHECKING（自动检查中） */
+  status?: 'PENDING' | 'CHECKING'
+  page?: number
+  size?: number
+}) {
   return request.get<ApiResponse<PageResult<Record<string, unknown>>>>(
     `${BASE}/revisions/pending`,
     { params },
@@ -809,6 +814,41 @@ export function listFanoutTasks(page = 1, size = 20) {
 
 export function retryFanoutTask(taskId: string, idempotencyKey?: string) {
   const url = `${BASE}/fanout/tasks/${taskId}/retry`
+  return request.post<ApiResponse<boolean>>(
+    url,
+    {},
+    softwareWriteConfig('POST', url, {}, idempotencyKey),
+  )
+}
+
+/** SW04：自动检查任务运维（租约/尝试次数/死信重试） */
+export interface AdminReviewCheckTask {
+  taskId: string
+  softwareId: string
+  revisionId: string
+  operationKey: string
+  status: string
+  attempts: string
+  autoPublish: boolean
+  nextRetryAt: string | null
+  leaseUntil: string | null
+  lastError: string | null
+  createdAt: string | null
+  finishedAt: string | null
+  reviewStatus: string | null
+  name: string | null
+}
+
+export function listReviewCheckTasks(
+  params?: { status?: string; page?: number; size?: number },
+) {
+  return request.get<
+    ApiResponse<{ current: number; size: number; total: number; records: AdminReviewCheckTask[] }>
+  >(`${BASE}/fanout/check-tasks`, { params })
+}
+
+export function retryReviewCheckTask(taskId: string, idempotencyKey?: string) {
+  const url = `${BASE}/fanout/check-tasks/${taskId}/retry`
   return request.post<ApiResponse<boolean>>(
     url,
     {},

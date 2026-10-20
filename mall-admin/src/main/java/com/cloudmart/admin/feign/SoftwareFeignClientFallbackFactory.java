@@ -37,7 +37,7 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
-            public ApiResponse<Object> pending(int page, int size) {
+            public ApiResponse<Object> pending(int page, int size, String status) {
                 throw unavailable(cause);
             }
 
@@ -388,6 +388,16 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
 
             @Override
             public ApiResponse<Object> retryFanoutTask(Long taskId) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> checkTasks(String status, int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> retryCheckTask(Long taskId) {
                 throw unavailable(cause);
             }
 

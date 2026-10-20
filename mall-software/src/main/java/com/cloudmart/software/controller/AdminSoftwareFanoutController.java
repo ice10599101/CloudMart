@@ -3,7 +3,12 @@ package com.cloudmart.software.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.software.entity.SoftwareFanoutTask;
+import com.cloudmart.software.entity.SoftwareReviewCheckTask;
+import com.cloudmart.software.entity.SoftwareRevision;
+import com.cloudmart.software.enums.SoftwareReviewStatus;
 import com.cloudmart.software.repository.SoftwareFanoutTaskMapper;
+import com.cloudmart.software.repository.SoftwareReviewCheckTaskMapper;
+import com.cloudmart.software.repository.SoftwareRevisionMapper;
 import com.cloudmart.software.repository.SoftwareSubscriptionDeliveryMapper;
 import com.cloudmart.software.service.SoftwareAuditService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,6 +45,8 @@ public class AdminSoftwareFanoutController {
 
     private final SoftwareFanoutTaskMapper fanoutTaskMapper;
     private final SoftwareSubscriptionDeliveryMapper deliveryMapper;
+    private final SoftwareReviewCheckTaskMapper checkTaskMapper;
+    private final SoftwareRevisionMapper revisionMapper;
     private final SoftwareAuditService auditService;
     private final Clock clock;
 
@@ -90,6 +97,78 @@ public class AdminSoftwareFanoutController {
         auditService.record(task.getSoftwareId(), task.getRevisionId(), adminId(), "ADMIN",
                 "FANOUT_RETRY", task.getStatus(), "PENDING",
                 "人工重试通知任务 seq=" + task.getPublicationSeq(), null);
+        return ApiResponse.ok(true);
+    }
+
+    @GetMapping("/check-tasks")
+    @Operation(summary = "自动检查任务列表",
+            description = "SW04：租约/尝试次数/下次重试/最后错误；撤回后任务为 CANCELLED")
+    public ApiResponse<Map<String, Object>> checkTasks(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SoftwareReviewCheckTask>
+                query = new com.baomidou.mybatisplus.core.conditions.query
+                .LambdaQueryWrapper<SoftwareReviewCheckTask>()
+                .orderByDesc(SoftwareReviewCheckTask::getId);
+        if (status != null && !status.isBlank()) {
+            query.eq(SoftwareReviewCheckTask::getStatus, status);
+        }
+        Page<SoftwareReviewCheckTask> result = checkTaskMapper.selectPage(
+                Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 100)), query);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (SoftwareReviewCheckTask task : result.getRecords()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("taskId", String.valueOf(task.getId()));
+            row.put("softwareId", String.valueOf(task.getSoftwareId()));
+            row.put("revisionId", String.valueOf(task.getRevisionId()));
+            row.put("operationKey", task.getOperationKey());
+            row.put("status", task.getStatus());
+            row.put("attempts", String.valueOf(task.getAttempts() == null ? 0 : task.getAttempts()));
+            row.put("autoPublish", Boolean.TRUE.equals(task.getAutoPublish()));
+            row.put("nextRetryAt", task.getNextRetryAt() == null ? null
+                    : String.valueOf(task.getNextRetryAt()));
+            row.put("leaseUntil", task.getLeaseUntil() == null ? null
+                    : String.valueOf(task.getLeaseUntil()));
+            row.put("lastError", task.getLastError());
+            row.put("createdAt", task.getCreatedAt() == null ? null
+                    : String.valueOf(task.getCreatedAt()));
+            row.put("finishedAt", task.getFinishedAt() == null ? null
+                    : String.valueOf(task.getFinishedAt()));
+            SoftwareRevision revision = revisionMapper.selectById(task.getRevisionId());
+            row.put("reviewStatus", revision == null ? null
+                    : revision.getReviewStatus().name());
+            row.put("name", revision == null ? null : revision.getName());
+            rows.add(row);
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("current", result.getCurrent());
+        data.put("size", result.getSize());
+        data.put("total", result.getTotal());
+        data.put("records", rows);
+        return ApiResponse.ok(data);
+    }
+
+    @PostMapping("/check-tasks/{taskId}/retry")
+    @Operation(summary = "人工重试自动检查",
+            description = "仅 PENDING/RUNNING/DEAD_LETTER 且无有效租约；重新入队沿用原幂等身份")
+    public ApiResponse<Boolean> retryCheck(@PathVariable("taskId") Long taskId) {
+        SoftwareReviewCheckTask task = checkTaskMapper.selectById(taskId);
+        if (task == null) {
+            return ApiResponse.fail("SOFTWARE_NOT_FOUND", "检查任务不存在");
+        }
+        SoftwareRevision revision = revisionMapper.selectById(task.getRevisionId());
+        if (revision == null || revision.getReviewStatus() != SoftwareReviewStatus.CHECKING) {
+            return ApiResponse.fail("SOFTWARE_STATE_CONFLICT", "提交已不在检查中，无法重试");
+        }
+        int updated = checkTaskMapper.manualRetry(taskId, LocalDateTime.now(clock));
+        if (updated == 0) {
+            return ApiResponse.fail("SOFTWARE_STATE_CONFLICT",
+                    "任务当前状态不可重试（已完成或租约仍有效）");
+        }
+        auditService.record(task.getSoftwareId(), task.getRevisionId(), adminId(), "ADMIN",
+                "REVIEW_CHECK_RETRY", task.getStatus(), "PENDING",
+                "人工重试自动检查 attempts=" + task.getAttempts(), null);
         return ApiResponse.ok(true);
     }
 

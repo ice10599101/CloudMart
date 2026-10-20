@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { toPageResult } from '@/api/paging'
 import { View, Text, ScrollView, Switch } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { softwareApi, softwarePublishApi, type SoftwareMineItem , type SoftwarePublisherApplication } from '@/api/software'
@@ -12,6 +13,7 @@ const STATUS_LABEL: Record<string, string> = {
   UNLISTED: '已下架',
   BANNED: '已封禁',
   DRAFT: '草稿',
+  CHECKING: '审核检查中',
   PENDING: '审核中',
   WITHDRAWN: '已撤回',
   REJECTED: '已退回',
@@ -22,6 +24,7 @@ const STATUS_CLASS: Record<string, string> = {
   UNLISTED: styles.badgeUnlisted,
   BANNED: styles.badgeBanned,
   DRAFT: styles.badgeDraft,
+  CHECKING: styles.badgePending,
   PENDING: styles.badgePending,
   REJECTED: styles.badgeRejected,
 }
@@ -64,7 +67,10 @@ export default function SoftwareMinePage() {
     else setLoadingMore(true)
     try {
       const res = await softwarePublishApi.mine(nextPage, PAGE_SIZE, nextTab)
-      const records = res.data.data?.records ?? []
+      const records = toPageResult<SoftwareMineItem>(res.data, {
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+      }).items
       const total = res.data.data?.total ?? 0
       setItems((prev) => nextPage === 1 ? records : [...prev, ...records.filter(
         (row) => !prev.some((p) => p.softwareId === row.softwareId),

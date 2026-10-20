@@ -150,8 +150,9 @@ public class SoftwarePublishController {
     }
 
     @PostMapping("/{id}/revisions/{revisionId}/submit")
-    @Operation(summary = "提交审核",
-            description = "资格+开关+完整性+社区审核绑定结果；冻结该不可变快照为 PENDING 并返回 revisionId")
+    @Operation(summary = "提交审核（异步检查）",
+            description = "资格+开关+完整性校验后冻结该不可变快照为 CHECKING 并落持久化检查任务；"
+                    + "响应返回 revisionId/operationId，自动检查完成后转 PENDING 或 REJECTED")
     public ApiResponse<SoftwareSubmittedVO> submit(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("id") Long id,
@@ -162,7 +163,8 @@ public class SoftwarePublishController {
     }
 
     @PostMapping("/{id}/revisions/{revisionId}/withdraw")
-    @Operation(summary = "撤回待审", description = "PENDING→DRAFT（不要求资格，保留整理既有内容能力）")
+    @Operation(summary = "撤回检查/待审",
+            description = "CHECKING/PENDING→WITHDRAWN 并克隆新 DRAFT（不要求资格，保留整理既有内容能力）")
     public ApiResponse<SoftwareEditorVO> withdraw(
             @RequestHeader(SecurityConstants.USER_ID_HEADER) Long userId,
             @PathVariable("id") Long id,

@@ -1,21 +1,16 @@
 package com.cloudmart.software.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.cloudmart.common.async.EventEnvelope;
-import com.cloudmart.common.async.outbox.OutboxService;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.software.config.SoftwareProperties;
-import com.cloudmart.software.dto.software.InteractionContextRequest;
-import com.cloudmart.software.dto.software.SoftwareReviewRequest;
-import com.cloudmart.software.dto.software.SoftwareReviewOutcomeVO;
 import com.cloudmart.software.dto.software.SoftwareSnapshotInput;
 import com.cloudmart.software.entity.SoftwareAccessContact;
 import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareFavorite;
 import com.cloudmart.software.entity.SoftwarePublisherPermission;
 import com.cloudmart.software.entity.SoftwareRelease;
+import com.cloudmart.software.entity.SoftwareReviewCheckTask;
 import com.cloudmart.software.entity.SoftwareRevision;
 import com.cloudmart.software.entity.SoftwareRevisionMedia;
 import com.cloudmart.software.entity.SoftwareRevisionTag;
@@ -23,22 +18,23 @@ import com.cloudmart.software.entity.SoftwareSource;
 import com.cloudmart.software.enums.SoftwareCommentStatus;
 import com.cloudmart.software.enums.SoftwareLifecycle;
 import com.cloudmart.software.enums.SoftwareReviewStatus;
-import com.cloudmart.software.mq.SoftwareEvents;
 import com.cloudmart.software.policy.SoftwarePublisherPolicy;
 import com.cloudmart.software.repository.SoftwareAccessContactMapper;
 import com.cloudmart.software.repository.SoftwareFavoriteMapper;
 import com.cloudmart.software.repository.SoftwareLockMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
 import com.cloudmart.software.repository.SoftwareReleaseMapper;
+import com.cloudmart.software.repository.SoftwareReviewCheckTaskMapper;
 import com.cloudmart.software.repository.SoftwareRevisionMapper;
 import com.cloudmart.software.repository.SoftwareRevisionMediaMapper;
 import com.cloudmart.software.repository.SoftwareRevisionTagMapper;
 import com.cloudmart.software.repository.SoftwareSourceMapper;
+import com.cloudmart.software.service.SoftwareApprovalService;
 import com.cloudmart.software.service.SoftwareAuditService;
 import com.cloudmart.software.service.SoftwareOperationService;
 import com.cloudmart.software.service.SoftwareRateLimiter;
-import com.cloudmart.software.service.SoftwareReleaseFanoutService;
 import com.cloudmart.software.service.SoftwarePublishService;
+import com.cloudmart.software.service.SoftwareReviewTextDigest;
 import com.cloudmart.software.service.SoftwareSnapshotAssembler;
 import com.cloudmart.software.vo.software.SoftwareCreatedVO;
 import com.cloudmart.software.vo.software.SoftwareEditorVO;
@@ -52,19 +48,14 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * 发布与快照流程实现（方案 4.1/4.3/7.3/7.5/9.7）。
@@ -75,8 +66,10 @@ import java.util.stream.Collectors;
  *   <li>审核请求只定位不可变提交记录 revisionId，不接收批次/版本号；</li>
  *   <li>审核通过同事务切换 published 指针、清空 working、publication_seq+1、
  *       写 Outbox 事件（SOFTWARE_REVIEW_APPROVED）；</li>
- *   <li>submit 先远程审核绑定 contentHash/checkedAt，再短事务锁资格行→软件→快照
- *       复核（9.7），条件变更即 409 重新审核；三级违规词拒绝提交（失败不得发布）；</li>
+ *   <li>SW04：submit 在短事务内锁资格行→软件→快照，复核后冻结内容并转 CHECKING，
+ *       同事务落持久化检查任务；远程检查在事务外由调度器执行，提交不等待远程结果；</li>
+ *   <li>撤回/拒绝保留旧提交记录并克隆新 DRAFT；自动检查与人工审核结果只能作用于
+ *       提交时冻结的 revisionId（摘要一致才允许推进状态）；</li>
  *   <li>幂等重试返回旧结果前同样先检查当前是否仍允许执行受限操作（4.0）。</li>
  * </ul>
  */
@@ -85,9 +78,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SoftwarePublishServiceImpl implements SoftwarePublishService {
 
-    private static final int SCHEMA_VERSION = 1;
     private static final Set<String> MINE_TABS =
-            java.util.Set.of("published", "draft", "pending", "rejected", "favorites",
+            java.util.Set.of("published", "draft", "checking", "pending", "rejected", "favorites",
                     "subscriptions");
 
     private final SoftwareMapper softwareMapper;
@@ -105,12 +97,10 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     private final SoftwareAuditService auditService;
     private final com.cloudmart.software.service.SoftwareReviewWorkflowService reviewWorkflowService;
     private final com.cloudmart.software.service.SoftwareAssetBindingService assetBindingService;
-    private final OutboxService outboxService;
-    private final com.cloudmart.software.feign.CommunitySupportFeignClient communitySupportFeignClient;
-    private final com.cloudmart.software.feign.UserSupportFeignClient userSupportFeignClient;
+    private final SoftwareReviewCheckTaskMapper checkTaskMapper;
+    private final SoftwareApprovalService approvalService;
     private final SoftwareProperties softwareProperties;
     private final SoftwareRateLimiter rateLimiter;
-    private final SoftwareReleaseFanoutService fanoutService;
     private final com.cloudmart.software.repository.SoftwareSubscriptionMapper subscriptionMapper;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -608,7 +598,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         // SW04：稳定意图只含操作类型/软件/工作副本；不含 contentHash、checkedAt、时间/随机值
         Map<String, Object> intent = Map.of(
                 "softwareId", softwareId, "revisionId", revisionId, "intent", "SUBMIT");
-        // 重放必须发生在限频、素材绑定与远程检查之前，超时重试不再重复扣次数/重复审核
+        // 重放必须发生在限频、素材绑定与冻结之前，超时重试不再重复扣次数/重复入队检查
         java.util.Optional<SoftwareSubmittedVO> replay = operationService.replay(
                 "USER", userId, SoftwareOperationService.OP_SUBMIT, idempotencyKey, intent,
                 json -> objectMapper.readValue(json, SoftwareSubmittedVO.class));
@@ -623,33 +613,18 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         // 8.2.3：所有引用绑定成功才允许 submit——幂等自愈重绑（覆盖补偿缺口）
         assetBindingService.bindRevisionAssets(revisionId, userId, collectSnapshotAssets(snapshot));
 
-        // 远程阶段（事务外，9.7）：文本审核绑定 contentHash + 账号可用性
-        List<String> texts = collectReviewTexts(snapshot);
-        String contentHash = sha256(String.join("\u0001", texts));
-        long mediaCount = revisionMediaMapper.selectCount(
-                new LambdaQueryWrapper<SoftwareRevisionMedia>()
-                        .eq(SoftwareRevisionMedia::getRevisionId, revisionId));
-        SoftwareReviewOutcomeVO outcome = communitySupportFeignClient.review(
-                new SoftwareReviewRequest(idempotencyKey, contentHash, texts,
-                        Math.toIntExact(mediaCount))).data();
-        if (outcome == null || !outcome.approved()) {
-            throw new BusinessException("CONTENT_REJECTED",
-                    outcome == null ? "内容审核不可用" : outcome.reason());
-        }
-        requireAccountAvailable(userId);
-
-        // 短本地事务（9.7）：冻结前复核被审内容与当前内容一致；operation 结果同事务提交
+        // 短本地事务（13.2.3）：锁资格行→软件→工作副本，复核后冻结内容并落检查任务；
+        // 远程检查不在此处发生，提交只返回"审核检查中"。
         return transactionTemplate.execute(status -> operationService.execute("USER", userId,
                 SoftwareOperationService.OP_SUBMIT, idempotencyKey, intent, softwareId,
-                () -> doSubmitLocked(userId, softwareId, revisionId, contentHash, outcome),
+                () -> doSubmitLocked(userId, softwareId, revisionId, idempotencyKey),
                 json -> objectMapper.readValue(json, SoftwareSubmittedVO.class)));
     }
 
     /** 提交锁定阶段：仅在 TransactionTemplate 事务内执行（不加 @Transactional 避免自调用失效） */
     private SoftwareSubmittedVO doSubmitLocked(Long userId, Long softwareId, Long revisionId,
-                                               String contentHash,
-                                               SoftwareReviewOutcomeVO outcome) {
-        // 短本地事务（9.7）：锁资格行→软件主行→快照行，复核归属/状态/版本
+                                               String idempotencyKey) {
+        // 短本地事务：锁资格行→软件主行→快照行，复核归属/状态
         SoftwarePublisherPermission permission = lockMapper.lockPublisherByUser(userId);
         if (permission == null || !Boolean.TRUE.equals(permission.getCanPublish())) {
             throw new BusinessException("SOFTWARE_PUBLISH_NOT_ENABLED", "发布资格已变更，提交被拒绝");
@@ -663,108 +638,55 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         }
         SoftwareRevision lockedRevision = lockMapper.lockRevision(revisionId);
         requireEditableStatus(lockedRevision);
-
         // 冻结前完整校验（快照必须可发布）
         assembler.validateForSubmit(lockedRevision);
-        // SW04：远程检查针对的内容必须与即将冻结的内容一致（防止检查旧内容、冻结新内容）
-        String frozenHash = sha256(String.join("\u0001", collectReviewTexts(lockedRevision)));
-        if (!contentHash.equals(frozenHash)) {
-            throw new BusinessException("SOFTWARE_SUBMIT_STALE",
-                    "内容在审核期间发生变化，请重新提交");
-        }
 
-        if ("DIRECT".equals(permission.getPublishMode())) {
-            String fromStatus = lockedRevision.getReviewStatus().name();
-            lockedRevision.setContentDigest(contentHash);
-            lockedRevision.setSubmittedAt(LocalDateTime.now(clock));
-            lockedRevision.setReviewedAt(LocalDateTime.now(clock));
-            lockedRevision.setReviewerId(null);
-            lockedRevision.setReviewReason("发布者具有直接发布权限");
-            publishApproved(locked, lockedRevision, userId, "USER", "DIRECT_PUBLISH", fromStatus,
-                    "发布者具有直接发布权限", null);
-            return new SoftwareSubmittedVO(softwareId, revisionId, "APPROVED");
-        }
-
-        lockedRevision.setReviewStatus(SoftwareReviewStatus.PENDING);
-        lockedRevision.setContentDigest(contentHash);
-        lockedRevision.setSubmittedAt(LocalDateTime.now(clock));
-        revisionMapper.updateById(lockedRevision);
-        auditService.record(softwareId, revisionId, userId, "USER",
-                "SUBMIT", "DRAFT", "PENDING",
-                "contentHash=" + contentHash + ";approved=true;needsManualReview="
-                        + outcome.needsManualReview(),
-                null);
-        return new SoftwareSubmittedVO(softwareId, revisionId,
-                lockedRevision.getReviewStatus().name());
-    }
-
-    /** 介绍/更新日志/链接说明；均留空时审核软件名，避免发送空审核批次。 */
-    private List<String> collectReviewTexts(SoftwareRevision snapshot) {
-        List<String> texts = new ArrayList<>();
-        addReviewText(texts, snapshot.getDescriptionText());
-        // UX03：短亮点属审核内容，纳入摘要（改动亮点后旧审核结论失效）
-        if (snapshot.getHighlights() != null && !snapshot.getHighlights().isBlank()) {
-            texts.add(snapshot.getHighlights());
-        }
-        for (SoftwareRelease release : releaseMapper.selectList(new LambdaQueryWrapper<SoftwareRelease>()
-                .eq(SoftwareRelease::getRevisionId, snapshot.getId()))) {
-            addReviewText(texts, release.getChangelog());
-        }
-        for (SoftwareSource source : sourcesOfRevision(snapshot.getId())) {
-            addReviewText(texts, source.getNote());
-        }
-        // 保持既有非空批次的顺序及摘要不变，兼容已冻结的待审快照。
-        if (texts.isEmpty()) {
-            addReviewText(texts, snapshot.getName());
-        }
+        // 在锁内收集并冻结：异步检查读取同一份不可变记录重算摘要
+        List<String> texts = reviewTexts(lockedRevision);
         if (texts.isEmpty()) {
             throw new BusinessException("SOFTWARE_SUBMIT_INCOMPLETE", "请先填写软件名称并保存草稿");
         }
-        if (texts.size() > 100) {
+        if (SoftwareReviewTextDigest.exceedsBatchLimit(texts)) {
             throw new BusinessException("SOFTWARE_SNAPSHOT_INVALID", "审核文本过多，请减少版本或来源说明");
         }
-        return texts;
+        String contentHash = SoftwareReviewTextDigest.digest(texts);
+        String fromStatus = lockedRevision.getReviewStatus().name();
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        lockedRevision.setReviewStatus(SoftwareReviewStatus.CHECKING);
+        lockedRevision.setContentDigest(contentHash);
+        lockedRevision.setSubmittedAt(now);
+        revisionMapper.updateById(lockedRevision);
+
+        SoftwareReviewCheckTask task = new SoftwareReviewCheckTask();
+        task.setSoftwareId(softwareId);
+        task.setRevisionId(revisionId);
+        task.setOperationKey(idempotencyKey);
+        task.setContentDigest(contentHash);
+        task.setAutoPublish("DIRECT".equals(permission.getPublishMode()));
+        task.setStatus("PENDING");
+        task.setAttempts(0);
+        task.setLeaseVersion(0);
+        task.setCreatedAt(now);
+        task.setUpdatedAt(now);
+        checkTaskMapper.insert(task);
+
+        auditService.record(softwareId, revisionId, userId, "USER",
+                "SUBMIT", fromStatus, "CHECKING",
+                "contentHash=" + contentHash + ";autoPublish=" + task.getAutoPublish(), null);
+        return new SoftwareSubmittedVO(softwareId, revisionId, "CHECKING", idempotencyKey);
     }
 
-    private void addReviewText(List<String> texts, String text) {
-        if (text == null || text.isBlank()) {
-            return;
-        }
-        // 软件介绍允许 50000 字，社区单条仅允许 20000 字；分段保留全部内容。
-        for (int start = 0; start < text.length();) {
-            int end = Math.min(start + 20_000, text.length());
-            if (end < text.length() && Character.isHighSurrogate(text.charAt(end - 1))
-                    && Character.isLowSurrogate(text.charAt(end))) {
-                end--;
-            }
-            String part = text.substring(start, end);
-            if (!part.isBlank()) {
-                texts.add(part);
-            }
-            start = end;
-        }
-    }
-
-    private List<SoftwareSource> sourcesOfRevision(Long revisionId) {
-        List<Long> releaseIds = releaseMapper.selectList(new LambdaQueryWrapper<SoftwareRelease>()
-                        .eq(SoftwareRelease::getRevisionId, revisionId))
-                .stream().map(SoftwareRelease::getId).toList();
-        if (releaseIds.isEmpty()) {
-            return List.of();
-        }
-        return sourceMapper.selectList(new LambdaQueryWrapper<SoftwareSource>()
-                .in(SoftwareSource::getReleaseId, releaseIds));
-    }
-
-    /** 会员状态核对（9.6）：账号资格验证失败拒绝受限操作，不因资料服务不可用而放行 */
-    private void requireAccountAvailable(Long userId) {
-        var profiles = userSupportFeignClient.profiles(Map.of("userIds", List.of(userId))).data();
-        if (profiles == null || profiles.isEmpty()) {
-            throw new BusinessException("USER_SERVICE_UNAVAILABLE", "账号状态不可用，请稍后重试");
-        }
-        if (!profiles.get(0).accountAvailable()) {
-            throw new BusinessException("ACCOUNT_UNAVAILABLE", "账号状态异常，无法执行该操作");
-        }
+    /** 审核文本：介绍/亮点/版本日志/来源说明，均留空时审核软件名（避免空审核批次）。 */
+    private List<String> reviewTexts(SoftwareRevision snapshot) {
+        List<SoftwareRelease> releases = releaseMapper.selectList(
+                new LambdaQueryWrapper<SoftwareRelease>()
+                        .eq(SoftwareRelease::getRevisionId, snapshot.getId()));
+        List<SoftwareSource> sources = releases.isEmpty() ? List.of()
+                : sourceMapper.selectList(new LambdaQueryWrapper<SoftwareSource>()
+                        .in(SoftwareSource::getReleaseId,
+                                releases.stream().map(SoftwareRelease::getId).toList()));
+        return SoftwareReviewTextDigest.collect(snapshot, releases, sources);
     }
 
     // ------------------------------------------------------------------
@@ -785,20 +707,25 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             Long working = locked.getWorkingRevisionId();
             return buildEditor(locked, working != null ? working : revisionId);
         }
-        if (revision.getReviewStatus() != SoftwareReviewStatus.PENDING) {
-            throw new BusinessException("SOFTWARE_STATE_CONFLICT", "仅待审快照可撤回");
+        SoftwareReviewStatus fromStatus = revision.getReviewStatus();
+        if (fromStatus != SoftwareReviewStatus.PENDING
+                && fromStatus != SoftwareReviewStatus.CHECKING) {
+            throw new BusinessException("SOFTWARE_STATE_CONFLICT", "仅检查中/待审快照可撤回");
         }
+        // 取消尚未完成的自动检查：已领取的检查结果因租约/状态复核无法再写回
+        checkTaskMapper.cancelByRevision(revisionId, LocalDateTime.now(clock));
         // 旧提交记录内容保持不变，只记录终态；编辑在新 DRAFT 上进行（旧审核页无法再作用于新稿）
         revision.setReviewStatus(SoftwareReviewStatus.WITHDRAWN);
         revisionMapper.updateById(revision);
 
         SoftwareRevision draft = assembler.cloneInto(revision, softwareId, userId);
+        draft.setCopiedFromRevisionId(revisionId);
         revisionMapper.insert(draft);
         assembler.cloneChildren(revisionId, draft.getId());
         locked.setWorkingRevisionId(draft.getId());
         softwareMapper.updateById(locked);
         auditService.record(softwareId, revisionId, userId, "USER",
-                "WITHDRAW", "PENDING", "WITHDRAWN", "撤回待审并生成新草稿", null);
+                "WITHDRAW", fromStatus.name(), "WITHDRAWN", "撤回并生成新草稿", null);
         return buildEditor(locked, draft.getId());
     }
 
@@ -936,7 +863,7 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         }
         // SW04：审核结论必须对应提交时冻结的内容摘要
         if (revision.getContentDigest() != null) {
-            String actualDigest = sha256(String.join("\u0001", collectReviewTexts(revision)));
+            String actualDigest = SoftwareReviewTextDigest.digest(reviewTexts(revision));
             if (!revision.getContentDigest().equals(actualDigest)) {
                 throw new BusinessException("SOFTWARE_STATE_CONFLICT",
                         "提交内容与审核时内容不一致，请退回后重新提交");
@@ -948,71 +875,15 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         revision.setReviewReason(reason);
 
         if (approve) {
-            return publishApproved(locked, revision, adminId, "ADMIN", "APPROVE", "PENDING", reason, requestId);
+            return approvalService.publishApproved(locked, revision, adminId, "ADMIN",
+                    "APPROVE", "PENDING", reason, requestId);
         }
 
-        revision.setReviewStatus(SoftwareReviewStatus.REJECTED);
-        revisionMapper.updateById(revision);
-        auditService.record(softwareId, revisionId, adminId, "ADMIN",
-                "REJECT", "PENDING", "REJECTED", reason, requestId);
+        // 拒绝同样生成新 DRAFT（13.2.3 第 5 条）：旧提交保留审核记录，
+        // Mine 的 rejected 页签通过 copiedFromRevisionId 定位当前可编辑副本
+        approvalService.rejectAndClone(locked, revision, adminId, "ADMIN", "REJECT",
+                "PENDING", reason, requestId);
         return new SoftwareReviewDecisionVO(softwareId, revisionId, "REJECTED");
-    }
-
-    /** 人工审核通过与直接发布共用同一事务内上线流程。 */
-    private SoftwareReviewDecisionVO publishApproved(Software locked, SoftwareRevision revision,
-            Long actorId, String actorType, String action, String fromStatus,
-            String reason, String requestId) {
-        Long softwareId = locked.getId();
-        Long revisionId = revision.getId();
-        revision.setReviewStatus(SoftwareReviewStatus.APPROVED);
-        revisionMapper.updateById(revision);
-        // 事务内切换指针（4.1.3）：published→本快照、working 清空、上线序号+1
-        int previousSeq = locked.getPublicationSeq() == null ? 0 : locked.getPublicationSeq();
-        // SF05：业务变化判定需要与"上一线上快照"比较——指针切换前捕获
-        Long previousRevisionId = locked.getPublishedRevisionId();
-        locked.setPublishedRevisionId(revisionId);
-        locked.setWorkingRevisionId(null);
-        locked.setPublicationSeq(previousSeq + 1);
-        if (locked.getPublishedAt() == null) {
-            locked.setPublishedAt(LocalDateTime.now(clock));
-        }
-        locked.setLastReleaseAt(LocalDateTime.now(clock));
-        // ⚠️ 必须用显式 UpdateWrapper 写 null：updateById 默认 NOT_NULL 策略会跳过
-        // working_revision_id=null，导致指针滞留在已审快照上——已发布内容从此无法
-        // 克隆编辑（A06/A07 回归，真实环境复现）
-        softwareMapper.update(null, new LambdaUpdateWrapper<Software>()
-                .eq(Software::getId, softwareId)
-                .set(Software::getPublishedRevisionId, revisionId)
-                .set(Software::getWorkingRevisionId, null)
-                .set(Software::getPublicationSeq, locked.getPublicationSeq())
-                .set(Software::getPublishedAt, locked.getPublishedAt())
-                .set(Software::getLastReleaseAt, locked.getLastReleaseAt()));
-        auditService.record(softwareId, revisionId, actorId, actorType,
-                action, fromStatus, "APPROVED", reason, requestId);
-        // Outbox 与指针切换同事务（9.4）：软件事件载荷不含链接/提取码/正文
-        outboxService.record(EventEnvelope.of(
-                SoftwareEvents.TAG_REVIEW_APPROVED, SCHEMA_VERSION,
-                String.valueOf(softwareId), locked.getPublicationSeq(), requestId,
-                objectMapper.writeValueAsString(Map.of(
-                        "softwareId", String.valueOf(softwareId),
-                        "revisionId", String.valueOf(revisionId),
-                        "authorId", String.valueOf(locked.getOwnerId()),
-                        "publicationSeq", String.valueOf(locked.getPublicationSeq()),
-                        "directPublish", "DIRECT_PUBLISH".equals(action)))));
-        // P1 更新订阅（9.4）：非首次上线才广播；事件与 fanout 任务同事务登记
-        if (previousSeq > 0) {
-            outboxService.record(EventEnvelope.of(
-                    SoftwareEvents.TAG_RELEASE_PUBLISHED, SCHEMA_VERSION,
-                    String.valueOf(softwareId), locked.getPublicationSeq(), requestId,
-                    objectMapper.writeValueAsString(Map.of(
-                            "softwareId", String.valueOf(softwareId),
-                            "revisionId", String.valueOf(revisionId),
-                            "publicationSeq", String.valueOf(locked.getPublicationSeq()),
-                            "authorId", String.valueOf(locked.getOwnerId())))));
-            fanoutService.registerTask(softwareId, revisionId, locked.getPublicationSeq(),
-                    locked.getLastReleaseAt(), previousRevisionId);
-        }
-        return new SoftwareReviewDecisionVO(softwareId, revisionId, "APPROVED");
     }
 
     // ------------------------------------------------------------------
@@ -1059,8 +930,11 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         SoftwareRevision revision = revisionId == null ? null : revisionMapper.selectById(revisionId);
         String status = resolveMineStatus(software, revision);
         // tab 入参为小写（MINE_TABS），status 为枚举名大写——忽略大小写比较，
-        // 否则所有 tab 的 records 永远为空（total 与 records 不一致，线上实测踩坑）
-        if (!tab.equalsIgnoreCase(status)) {
+        // 否则所有 tab 的 records 永远为空（total 与 records 不一致，线上实测踩坑）。
+        // 检查中归入待审页签展示（状态仍返回 CHECKING，客户端据此显示"审核检查中"）
+        boolean matched = tab.equalsIgnoreCase(status)
+                || ("pending".equals(tab) && "CHECKING".equals(status));
+        if (!matched) {
             return null;
         }
         return new SoftwareMineItemVO(software.getId(),
@@ -1111,11 +985,23 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         if (revision == null) {
             return "DRAFT";
         }
+        if (revision.getReviewStatus() == SoftwareReviewStatus.CHECKING) {
+            return "CHECKING";
+        }
         if (revision.getReviewStatus() == SoftwareReviewStatus.PENDING) {
             return "PENDING";
         }
         if (revision.getReviewStatus() == SoftwareReviewStatus.REJECTED) {
             return "REJECTED";
+        }
+        // 拒绝后自动克隆的可编辑副本仍归入 rejected 页签：保留可见的拒绝上下文，
+        // 不因 working 指针切换而让作者"找不到为什么被退回"
+        if (revision.getReviewStatus() == SoftwareReviewStatus.DRAFT
+                && revision.getCopiedFromRevisionId() != null) {
+            SoftwareRevision parent = revisionMapper.selectById(revision.getCopiedFromRevisionId());
+            if (parent != null && parent.getReviewStatus() == SoftwareReviewStatus.REJECTED) {
+                return "REJECTED";
+            }
         }
         if (software.getPublishedRevisionId() != null && revision.getId().equals(
                 software.getPublishedRevisionId())) {
@@ -1197,12 +1083,4 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
         }
     }
 
-    private String sha256(String text) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(text.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 不可用", e);
-        }
-    }
 }

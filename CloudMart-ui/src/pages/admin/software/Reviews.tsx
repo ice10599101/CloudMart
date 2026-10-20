@@ -1,16 +1,22 @@
 import { useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Button, Drawer, Input, Radio, Select, Space, Table, Tag, Typography } from 'antd'
+import { Button, Drawer, Input, Radio, Select, Space, Table, Tabs, Tag, Typography } from 'antd'
 import DOMPurify from 'dompurify'
 import {
   claimReview,
   decideReview,
   getReviewDetail,
   listPendingReviews,
+  listReviewCheckTasks,
   releaseReview,
+  retryReviewCheckTask,
 } from '@/api/admin/software'
-import type { AdminReviewDetail, AdminRevisionSnapshot } from '@/api/admin/software'
+import type {
+  AdminReviewCheckTask,
+  AdminReviewDetail,
+  AdminRevisionSnapshot,
+} from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 
@@ -23,6 +29,22 @@ interface PendingRow {
   editorNickname?: string
   submittedAt: string
   lifecycle: string
+  /** SW04：CHECKING 自动检查中 / PENDING 待人工审核 */
+  reviewStatus?: string
+  waitingSeconds?: number
+  checkTaskStatus?: string | null
+  checkAttempts?: number | null
+  checkNextRetryAt?: string | null
+  checkLastError?: string | null
+}
+
+const CHECK_TASK_STATUS_LABEL: Record<string, string> = {
+  PENDING: '待执行',
+  RUNNING: '执行中',
+  DONE: '已完成',
+  REJECTED: '已拒绝',
+  CANCELLED: '已取消',
+  DEAD_LETTER: '死信待处理',
 }
 
 /** 需并列对比的标量字段（10.2：正文/截图/来源单独呈现） */
@@ -89,10 +111,29 @@ function same(value1: unknown, value2: unknown): boolean {
 export default function SoftwareReviews() {
   const message = useMessage()
   const actionRef = useRef<ActionType>(null)
+  const checkActionRef = useRef<ActionType>(null)
   const [detail, setDetail] = useState<AdminReviewDetail | null>(null)
   const [approve, setApprove] = useState(true)
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  /** SW04：默认人工待审队列；切到 CHECKING 可查看自动检查中的提交 */
+  const [reviewStatus, setReviewStatus] = useState<'PENDING' | 'CHECKING'>('PENDING')
+  /** 检查任务运维筛选（空=全部） */
+  const [checkStatus, setCheckStatus] = useState<string | undefined>(undefined)
+
+  const isChecking = (record: PendingRow) =>
+    record.reviewStatus === 'CHECKING'
+
+  const retryCheck = async (taskId: string) => {
+    try {
+      await retryReviewCheckTask(taskId)
+      message.success('已重新入队')
+      checkActionRef.current?.reload()
+      actionRef.current?.reload()
+    } catch {
+      // 状态变化已由全局提示
+    }
+  }
 
   const openReview = async (revisionId: string) => {
     try {
@@ -171,15 +212,61 @@ export default function SoftwareReviews() {
     },
     {
       title: '当前状态',
-      dataIndex: 'lifecycle',
-      width: 100,
+      dataIndex: 'reviewStatus',
+      width: 110,
       search: false,
       render: (_, record) =>
         record.lifecycle === 'BANNED' ? (
           <Tag color="error">已封禁</Tag>
+        ) : isChecking(record) ? (
+          <Tag color="blue">自动检查中</Tag>
         ) : (
           <Tag color="processing">待审</Tag>
         ),
+    },
+    {
+      title: '检查任务',
+      dataIndex: 'checkTaskStatus',
+      width: 180,
+      search: false,
+      render: (_, record) => {
+        if (!isChecking(record)) return '-'
+        if (!record.checkTaskStatus) return <Tag>任务缺失</Tag>
+        const color = record.checkTaskStatus === 'DEAD_LETTER'
+          ? 'error'
+          : record.checkTaskStatus === 'RUNNING' ? 'blue' : 'default'
+        return (
+          <Space direction="vertical" size={0}>
+            <Tag color={color}>
+              {CHECK_TASK_STATUS_LABEL[record.checkTaskStatus] ?? record.checkTaskStatus}
+              {record.checkAttempts != null ? ` · 第 ${record.checkAttempts + 1} 次` : ''}
+            </Tag>
+            {record.checkNextRetryAt ? (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                下次重试 {record.checkNextRetryAt}
+              </Typography.Text>
+            ) : null}
+            {record.checkLastError ? (
+              <Typography.Text type="danger" style={{ fontSize: 12 }} ellipsis>
+                {record.checkLastError}
+              </Typography.Text>
+            ) : null}
+          </Space>
+        )
+      },
+    },
+    {
+      title: '等待时长',
+      dataIndex: 'waitingSeconds',
+      width: 110,
+      search: false,
+      render: (_, record) => {
+        const seconds = record.waitingSeconds
+        if (seconds === null || seconds === undefined) return '-'
+        if (seconds < 60) return `${seconds} 秒`
+        if (seconds < 3600) return `${Math.floor(seconds / 60)} 分钟`
+        return `${Math.floor(seconds / 3600)} 小时`
+      },
     },
     { title: '提交时间', dataIndex: 'submittedAt', valueType: 'dateTime', width: 160, search: false },
     {
@@ -194,7 +281,11 @@ export default function SoftwareReviews() {
         >
           详情
         </Button>,
-        claimedIds.has(record.revisionId) ? (
+        isChecking(record) ? (
+          <Typography.Text key="waiting" type="secondary">
+            等待自动检查
+          </Typography.Text>
+        ) : claimedIds.has(record.revisionId) ? (
           <Button key="release" type="link" onClick={() => handleRelease(record)}>
             释放
           </Button>
@@ -203,14 +294,16 @@ export default function SoftwareReviews() {
             领取
           </Button>
         ),
-        <Button
-          key="review"
-          type="link"
-          onClick={() => void openReview(record.revisionId)}
-        >
-          审核
-        </Button>,
-      ],
+        isChecking(record) ? null : (
+          <Button
+            key="review"
+            type="link"
+            onClick={() => void openReview(record.revisionId)}
+          >
+            审核
+          </Button>
+        ),
+      ].filter(Boolean),
     },
   ]
 
@@ -228,19 +321,156 @@ export default function SoftwareReviews() {
 
   return (
     <>
-      <ProTable<PendingRow>
-        headerTitle="发布审核"
-        rowKey="revisionId"
-        actionRef={actionRef}
-        columns={columns}
-        options={{ density: false }}
-        search={false}
-        request={(params) =>
-          safeProTableRequest(() =>
-            listPendingReviews({ page: params.current, size: params.pageSize }),
-          )
-        }
-        pagination={{ defaultPageSize: 20 }}
+      <Tabs
+        items={[
+          {
+            key: 'pending',
+            label: reviewStatus === 'CHECKING' ? '自动检查中' : '待审队列',
+            children: (
+              <ProTable<PendingRow>
+                headerTitle="发布审核"
+                rowKey="revisionId"
+                actionRef={actionRef}
+                columns={columns}
+                params={{ status: reviewStatus }}
+                options={{ density: false }}
+                search={false}
+                toolbar={{
+                  actions: [
+                    <Radio.Group
+                      key="status"
+                      value={reviewStatus}
+                      onChange={(e) => setReviewStatus(e.target.value)}
+                      optionType="button"
+                    >
+                      <Radio.Button value="PENDING">待人工审核</Radio.Button>
+                      <Radio.Button value="CHECKING">自动检查中</Radio.Button>
+                    </Radio.Group>,
+                  ],
+                }}
+                request={(params) =>
+                  safeProTableRequest(() =>
+                    listPendingReviews({
+                      status: params.status as 'PENDING' | 'CHECKING',
+                      page: params.current,
+                      size: params.pageSize,
+                    }),
+                  )
+                }
+                pagination={{ defaultPageSize: 20 }}
+              />
+            ),
+          },
+          {
+            key: 'checks',
+            label: '自动检查任务',
+            children: (
+              <ProTable<AdminReviewCheckTask>
+                headerTitle="自动检查任务"
+                rowKey="taskId"
+                actionRef={checkActionRef}
+                options={{ density: false }}
+                search={false}
+                params={{ status: checkStatus }}
+                columns={[
+                  { title: '任务ID', dataIndex: 'taskId', width: 90 },
+                  { title: '软件ID', dataIndex: 'softwareId', width: 90 },
+                  {
+                    title: '名称',
+                    dataIndex: 'name',
+                    ellipsis: true,
+                    render: (_, record) => record.name || '-',
+                  },
+                  {
+                    title: '任务状态',
+                    dataIndex: 'status',
+                    width: 120,
+                    render: (_, record) => (
+                      <Tag color={record.status === 'DEAD_LETTER' ? 'error'
+                        : record.status === 'RUNNING' ? 'blue'
+                          : record.status === 'DONE' ? 'success' : 'default'}>
+                        {CHECK_TASK_STATUS_LABEL[record.status] ?? record.status}
+                      </Tag>
+                    ),
+                  },
+                  {
+                    title: '提交状态',
+                    dataIndex: 'reviewStatus',
+                    width: 110,
+                    render: (_, record) => record.reviewStatus ?? '-',
+                  },
+                  { title: '尝试', dataIndex: 'attempts', width: 70 },
+                  {
+                    title: '直接发布',
+                    dataIndex: 'autoPublish',
+                    width: 90,
+                    render: (_, record) => (record.autoPublish ? <Tag color="gold">是</Tag> : '否'),
+                  },
+                  {
+                    title: '下次重试',
+                    dataIndex: 'nextRetryAt',
+                    width: 170,
+                    render: (_, record) => record.nextRetryAt ?? '-',
+                  },
+                  {
+                    title: '最后错误',
+                    dataIndex: 'lastError',
+                    ellipsis: true,
+                    render: (_, record) => record.lastError ?? '-',
+                  },
+                  {
+                    title: '操作',
+                    valueType: 'option',
+                    width: 100,
+                    render: (_, record) => [
+                      ['PENDING', 'RUNNING', 'DEAD_LETTER'].includes(record.status) ? (
+                        <Button
+                          key="retry"
+                          type="link"
+                          onClick={() => void retryCheck(record.taskId)}
+                        >
+                          重试
+                        </Button>
+                      ) : (
+                        <Typography.Text key="done" type="secondary">已结束</Typography.Text>
+                      ),
+                    ],
+                  },
+                ]}
+                toolbar={{
+                  actions: [
+                    <Select
+                      key="status"
+                      allowClear
+                      placeholder="全部状态"
+                      style={{ width: 150 }}
+                      value={checkStatus}
+                      onChange={setCheckStatus}
+                      options={[
+                        { value: 'PENDING', label: '待执行' },
+                        { value: 'RUNNING', label: '执行中' },
+                        { value: 'DEAD_LETTER', label: '死信待处理' },
+                        { value: 'DONE', label: '已完成' },
+                        { value: 'REJECTED', label: '已拒绝' },
+                        { value: 'CANCELLED', label: '已取消' },
+                      ]}
+                    />,
+                  ],
+                }}
+                request={(params) =>
+                  safeProTableRequest(() =>
+                    listReviewCheckTasks({
+                      status: params.status as string | undefined,
+                      page: params.current,
+                      size: params.pageSize,
+                    }),
+                  )
+                }
+                pagination={{ defaultPageSize: 20 }}
+              />
+            ),
+          },
+        ]}
       />
 
       <Drawer

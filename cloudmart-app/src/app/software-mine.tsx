@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { toPageResult } from '@/api/paging'
 import {
   ActivityIndicator,
   FlatList,
@@ -23,6 +24,7 @@ const STATUS_LABEL: Record<string, string> = {
   UNLISTED: '已下架',
   BANNED: '已封禁',
   DRAFT: '草稿',
+  CHECKING: '审核检查中',
   PENDING: '审核中',
   WITHDRAWN: '已撤回',
   REJECTED: '已退回',
@@ -33,6 +35,7 @@ const STATUS_COLOR: Record<string, string> = {
   UNLISTED: '#c07b12',
   BANNED: '#d3392f',
   DRAFT: '#5b6478',
+  CHECKING: '#2f6fd3',
   PENDING: '#2f6fd3',
   REJECTED: '#d3392f',
 }
@@ -97,7 +100,10 @@ export default function SoftwareMineScreen() {
     else setLoadingMore(true)
     try {
       const res = await softwarePublishApi.mine(nextPage, PAGE_SIZE, nextTab)
-      const records = res.data.data?.records ?? []
+      const records = toPageResult<SoftwareMineItem>(res.data, {
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+      }).items
       const total = res.data.data?.total ?? 0
       setItems((prev) =>
         nextPage === 1 ? records : [...prev, ...records.filter(

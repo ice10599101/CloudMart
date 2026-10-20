@@ -34,11 +34,13 @@ public class AdminSoftwareQueryController {
     private final AdminSoftwareQueryService adminSoftwareQueryService;
 
     @GetMapping("/revisions/pending")
-    @Operation(summary = "待审列表", description = "PENDING 快照按提交时间升序")
+    @Operation(summary = "待审/检查列表",
+            description = "status=PENDING（默认）或 CHECKING；按提交时间升序，含等待时长与检查任务状态")
     public ApiResponse<Page<Map<String, Object>>> pending(
+            @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
-        return ApiResponse.ok(adminSoftwareQueryService.pendingPage(page, size));
+        return ApiResponse.ok(adminSoftwareQueryService.pendingPage(status, page, size));
     }
 
     @GetMapping("/revisions/{revisionId}")

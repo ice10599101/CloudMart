@@ -75,11 +75,13 @@ public class AdminSoftwareController {
 
     @GetMapping("/revisions/pending")
     @RequiresPermission("software:review")
-    @Operation(summary = "待审列表", description = "PENDING 快照按提交时间升序")
+    @Operation(summary = "待审/检查列表",
+            description = "status=PENDING（默认）或 CHECKING；按提交时间升序，含等待时长")
     public ApiResponse<Object> pending(
+            @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
-        return softwareFeignClient.pending(page, size);
+        return softwareFeignClient.pending(page, size, status);
     }
 
     @GetMapping("/{softwareId}/admin-detail")
@@ -830,5 +832,25 @@ public class AdminSoftwareController {
             description = "重新入队；沿用原发布事件身份（seq/revisionId 不变）")
     public ApiResponse<Object> retryFanoutTask(@PathVariable("taskId") Long taskId) {
         return softwareFeignClient.retryFanoutTask(taskId);
+    }
+
+    @GetMapping("/fanout/check-tasks")
+    @RequiresPermission("software:fanout")
+    @Operation(summary = "自动检查任务列表",
+            description = "SW04：CHECKING 检查任务状态/尝试次数/下次重试/最后错误")
+    public ApiResponse<Object> checkTasks(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return softwareFeignClient.checkTasks(status, page, size);
+    }
+
+    @OperLog(title = "自动检查重试", businessType = 2)
+    @PostMapping("/fanout/check-tasks/{taskId}/retry")
+    @RequiresPermission("software:fanout")
+    @Operation(summary = "人工重试自动检查",
+            description = "仅提交仍处于 CHECKING 且无有效租约；重新入队沿用原幂等身份")
+    public ApiResponse<Object> retryCheckTask(@PathVariable("taskId") Long taskId) {
+        return softwareFeignClient.retryCheckTask(taskId);
     }
 }

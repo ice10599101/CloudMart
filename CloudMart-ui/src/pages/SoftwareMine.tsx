@@ -65,6 +65,7 @@ const MINE_LIST_TABS: readonly TabKey[] = [
 const STATUS_LABEL: Record<string, string> = {
   PUBLISHED: "已发布",
   DRAFT: "草稿",
+  CHECKING: "审核检查中",
   PENDING: "待审核",
   WITHDRAWN: "已撤回",
   REJECTED: "已退回",
@@ -228,7 +229,9 @@ export default function SoftwareMine() {
     listMySoftware({ page: 1, size: 50 })
       .then((res) => {
         const records = res.data.data?.records ?? [];
-        setPendingCount(records.filter((it) => it.status === "PENDING").length);
+        setPendingCount(records.filter(
+          (it) => it.status === "PENDING" || it.status === "CHECKING",
+        ).length);
         setRejectedCount(records.filter((it) => it.status === "REJECTED").length);
       })
       .catch(() => undefined);
@@ -666,7 +669,13 @@ export default function SoftwareMine() {
                   <Button
                     key="edit"
                     type="link"
-                    disabled={tab === "favorites"}
+                    disabled={tab === "favorites"
+                      || item.status === "CHECKING" || item.status === "PENDING"}
+                    title={
+                      item.status === "CHECKING" || item.status === "PENDING"
+                        ? "提交检查/审核中的快照不可编辑，撤回后可继续修改"
+                        : undefined
+                    }
                     onClick={() =>
                       history.push(`/software/${item.softwareId}/edit`)
                     }

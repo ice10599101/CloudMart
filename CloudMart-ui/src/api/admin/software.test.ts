@@ -27,9 +27,11 @@ import {
   listPendingReviews,
   listPermissionAudits,
   listPublisherPermissions,
+  listReviewCheckTasks,
   listSoftwareReports,
   markLinkFeedback,
   moderateAdminSoftwareComment,
+  retryReviewCheckTask,
   saveAccessContact,
   setSourceState,
   togglePublisherPermission,
@@ -111,6 +113,27 @@ describe('admin software API', () => {
       '/admin/software/revisions/501/decision',
       { softwareId: '100', approve: true, reason: '通过' },
       { headers: { 'Idempotency-Key': 'key-4' } }
+    )
+  })
+
+  it('SW04：CHECKING 筛选与自动检查任务运维路径', async () => {
+    vi.mocked(request.get).mockResolvedValue(ok)
+    vi.mocked(request.post).mockResolvedValue(ok)
+
+    await listPendingReviews({ status: 'CHECKING', page: 1, size: 20 })
+    await listReviewCheckTasks({ status: 'DEAD_LETTER', page: 1, size: 20 })
+    await retryReviewCheckTask('9', 'key-check')
+
+    expect(request.get).toHaveBeenNthCalledWith(1, '/admin/software/revisions/pending', {
+      params: { status: 'CHECKING', page: 1, size: 20 },
+    })
+    expect(request.get).toHaveBeenNthCalledWith(2, '/admin/software/fanout/check-tasks', {
+      params: { status: 'DEAD_LETTER', page: 1, size: 20 },
+    })
+    expect(request.post).toHaveBeenCalledWith(
+      '/admin/software/fanout/check-tasks/9/retry',
+      {},
+      { headers: { 'Idempotency-Key': 'key-check' } },
     )
   })
 

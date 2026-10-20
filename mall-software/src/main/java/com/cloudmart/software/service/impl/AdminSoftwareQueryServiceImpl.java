@@ -60,18 +60,22 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
     private final com.cloudmart.software.service.SoftwareCommentStatusService commentStatusService;
     private final SoftwarePublishService softwarePublishService;
     private final OutboxService outboxService;
+    private final com.cloudmart.software.repository.SoftwareReviewCheckTaskMapper checkTaskMapper;
     private final ObjectMapper objectMapper;
     private final Clock clock;
 
     @Override
-    public Page<Map<String, Object>> pendingPage(int page, int size) {
+    public Page<Map<String, Object>> pendingPage(String status, int page, int size) {
+        SoftwareReviewStatus filter = "CHECKING".equalsIgnoreCase(status)
+                ? SoftwareReviewStatus.CHECKING : SoftwareReviewStatus.PENDING;
         Page<SoftwareRevision> revisionPage = revisionMapper.selectPage(
                 Page.of(Math.max(page, 1), Math.min(Math.max(size, 1), 100)),
                 new LambdaQueryWrapper<SoftwareRevision>()
-                        .eq(SoftwareRevision::getReviewStatus, SoftwareReviewStatus.PENDING)
+                        .eq(SoftwareRevision::getReviewStatus, filter)
                         .orderByAsc(SoftwareRevision::getSubmittedAt));
         Page<Map<String, Object>> result = new Page<>(revisionPage.getCurrent(),
                 revisionPage.getSize(), revisionPage.getTotal());
+        LocalDateTime now = LocalDateTime.now(clock);
         List<Map<String, Object>> rows = revisionPage.getRecords().stream()
                 .map(revision -> {
                     Map<String, Object> row = new HashMap<>();
@@ -81,8 +85,21 @@ public class AdminSoftwareQueryServiceImpl implements AdminSoftwareQueryService 
                     row.put("summary", revision.getSummary());
                     row.put("editorId", String.valueOf(revision.getEditorId()));
                     row.put("submittedAt", revision.getSubmittedAt());
+                    row.put("reviewStatus", revision.getReviewStatus().name());
+                    // 待审/检查时长由服务端计算，前端不再用 updatedAt-createdAt 猜测
+                    row.put("waitingSeconds", revision.getSubmittedAt() == null ? null
+                            : java.time.Duration.between(revision.getSubmittedAt(), now)
+                                    .toSeconds());
                     Software software = softwareMapper.selectById(revision.getSoftwareId());
                     row.put("lifecycle", software == null ? null : software.getLifecycle().name());
+                    if (revision.getReviewStatus() == SoftwareReviewStatus.CHECKING) {
+                        var task = checkTaskMapper.findByRevision(revision.getId());
+                        row.put("checkTaskStatus", task == null ? null : task.getStatus());
+                        row.put("checkAttempts", task == null ? null : task.getAttempts());
+                        row.put("checkNextRetryAt", task == null || task.getNextRetryAt() == null
+                                ? null : String.valueOf(task.getNextRetryAt()));
+                        row.put("checkLastError", task == null ? null : task.getLastError());
+                    }
                     return row;
                 })
                 .toList();

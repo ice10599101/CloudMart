@@ -41,7 +41,8 @@ public interface SoftwareFeignClient {
     ApiResponse<Object> sources(@PathVariable("softwareId") Long softwareId);
 
     @GetMapping("/revisions/pending")
-    ApiResponse<Object> pending(@RequestParam("page") int page, @RequestParam("size") int size);
+    ApiResponse<Object> pending(@RequestParam("page") int page, @RequestParam("size") int size,
+                                @RequestParam(value = "status", required = false) String status);
 
     /** 审核快照对比（目标快照 + 当前线上快照） */
     @GetMapping("/revisions/{revisionId}")
@@ -336,6 +337,16 @@ public interface SoftwareFeignClient {
     /** SW10：人工重试通知任务（沿用原发布事件身份） */
     @PostMapping("/fanout/tasks/{taskId}/retry")
     ApiResponse<Object> retryFanoutTask(@PathVariable("taskId") Long taskId);
+
+    /** SW04：提交自动检查任务运维 */
+    @GetMapping("/fanout/check-tasks")
+    ApiResponse<Object> checkTasks(@RequestParam(value = "status", required = false) String status,
+                                   @RequestParam("page") int page,
+                                   @RequestParam("size") int size);
+
+    /** SW04：人工重试卡住/死信的自动检查任务 */
+    @PostMapping("/fanout/check-tasks/{taskId}/retry")
+    ApiResponse<Object> retryCheckTask(@PathVariable("taskId") Long taskId);
 
     @GetMapping("/permission-audits")
     ApiResponse<Object> permissionAudits(

@@ -403,7 +403,8 @@ export interface SoftwareMineItem {
   softwareId: string
   name: string
   summary: string
-  status: 'PUBLISHED' | 'UNLISTED' | 'BANNED' | 'DRAFT' | 'PENDING' | 'REJECTED'
+  status: 'PUBLISHED' | 'UNLISTED' | 'BANNED' | 'DRAFT' | 'CHECKING' | 'PENDING'
+    | 'WITHDRAWN' | 'REJECTED'
   revisionId: string
   favoriteCount: number
   updatedAt: string

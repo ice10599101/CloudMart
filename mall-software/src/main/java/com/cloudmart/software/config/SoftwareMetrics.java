@@ -9,6 +9,7 @@ import com.cloudmart.software.enums.LinkFeedbackStatus;
 import com.cloudmart.software.enums.SoftwareReviewStatus;
 import com.cloudmart.software.repository.SoftwareFanoutTaskMapper;
 import com.cloudmart.software.repository.SoftwareLinkFeedbackMapper;
+import com.cloudmart.software.repository.SoftwareReviewCheckTaskMapper;
 import com.cloudmart.software.repository.SoftwareRevisionMapper;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
@@ -36,9 +37,14 @@ public class SoftwareMetrics {
     private final SoftwareRevisionMapper revisionMapper;
     private final SoftwareLinkFeedbackMapper feedbackMapper;
     private final SoftwareFanoutTaskMapper fanoutTaskMapper;
+    private final SoftwareReviewCheckTaskMapper checkTaskMapper;
     private final OutboxEventMapper outboxEventMapper;
 
     private final AtomicLong reviewPending = new AtomicLong();
+    private final AtomicLong reviewChecking = new AtomicLong();
+    private final AtomicLong reviewCheckQueued = new AtomicLong();
+    private final AtomicLong reviewCheckDeadLetter = new AtomicLong();
+    private final AtomicLong reviewCheckingOldestSeconds = new AtomicLong();
     private final AtomicLong feedbackPending = new AtomicLong();
     private final AtomicLong outboxDeadLetter = new AtomicLong();
     private final AtomicLong fanoutQueued = new AtomicLong();
@@ -48,14 +54,26 @@ public class SoftwareMetrics {
                            SoftwareRevisionMapper revisionMapper,
                            SoftwareLinkFeedbackMapper feedbackMapper,
                            SoftwareFanoutTaskMapper fanoutTaskMapper,
+                           SoftwareReviewCheckTaskMapper checkTaskMapper,
                            OutboxEventMapper outboxEventMapper) {
         this.registry = registry;
         this.revisionMapper = revisionMapper;
         this.feedbackMapper = feedbackMapper;
         this.fanoutTaskMapper = fanoutTaskMapper;
+        this.checkTaskMapper = checkTaskMapper;
         this.outboxEventMapper = outboxEventMapper;
         Gauge.builder("software.review.pending", reviewPending, AtomicLong::doubleValue)
                 .description("待审快照数（30s 采样）").register(registry);
+        Gauge.builder("software.review.checking", reviewChecking, AtomicLong::doubleValue)
+                .description("自动检查中的提交数（30s 采样）").register(registry);
+        Gauge.builder("software.review.check.queued", reviewCheckQueued, AtomicLong::doubleValue)
+                .description("自动检查排队/执行中任务数（30s 采样）").register(registry);
+        Gauge.builder("software.review.check.dead.letter", reviewCheckDeadLetter,
+                        AtomicLong::doubleValue)
+                .description("自动检查死信任务数（30s 采样）").register(registry);
+        Gauge.builder("software.review.checking.oldest.seconds", reviewCheckingOldestSeconds,
+                        AtomicLong::doubleValue)
+                .description("最早进入 CHECKING 的提交等待秒数（30s 采样）").register(registry);
         Gauge.builder("software.feedback.pending", feedbackPending, AtomicLong::doubleValue)
                 .description("待处理失效反馈数（OPEN/VERIFYING，30s 采样）").register(registry);
         Gauge.builder("software.outbox.dead.letter", outboxDeadLetter, AtomicLong::doubleValue)
@@ -72,6 +90,12 @@ public class SoftwareMetrics {
         try {
             reviewPending.set(revisionMapper.selectCount(new LambdaQueryWrapper<SoftwareRevision>()
                     .eq(SoftwareRevision::getReviewStatus, SoftwareReviewStatus.PENDING)));
+            reviewChecking.set(revisionMapper.selectCount(new LambdaQueryWrapper<SoftwareRevision>()
+                    .eq(SoftwareRevision::getReviewStatus, SoftwareReviewStatus.CHECKING)));
+            reviewCheckQueued.set(checkTaskMapper.countQueued());
+            reviewCheckDeadLetter.set(checkTaskMapper.countDeadLetter());
+            reviewCheckingOldestSeconds.set(checkTaskMapper.oldestCheckingSeconds(
+                    java.time.LocalDateTime.now()));
             feedbackPending.set(feedbackMapper.selectCount(
                     new LambdaQueryWrapper<SoftwareLinkFeedback>()
                             .in(SoftwareLinkFeedback::getStatus,

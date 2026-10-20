@@ -114,6 +114,8 @@ class AdminSoftwareServicesTest {
     @Mock
     private OutboxService outboxService;
     @Mock
+    private com.cloudmart.software.repository.SoftwareReviewCheckTaskMapper checkTaskMapper;
+    @Mock
     private TransactionTemplate transactionTemplate;
 
     private AdminSoftwarePermissionServiceImpl permissionService;
@@ -143,7 +145,7 @@ class AdminSoftwareServicesTest {
                 outboxService, new ObjectMapper(), fixedClock());
         queryService = new AdminSoftwareQueryServiceImpl(softwareMapper, userSupportFeignClient,
                 revisionMapper, commentMapper, auditLogMapper, releaseMapper, sourceMapper,
-                operationService, commentStatusService, null, outboxService,
+                operationService, commentStatusService, null, outboxService, checkTaskMapper,
                 new ObjectMapper(), fixedClock());
     }
 
