@@ -72,6 +72,11 @@
   color: var(--color-text-tertiary);
 }
 
+.pendingTag {
+  font-size: 22rpx;
+  color: #ff9f0a;
+}
+
 .claimBtn {
   padding: 12rpx 32rpx;
   background: linear-gradient(135deg, #ffd700, #ff9f0a);

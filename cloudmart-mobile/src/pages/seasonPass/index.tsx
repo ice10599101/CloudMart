@@ -135,7 +135,8 @@ export default function SeasonPassPage() {
               </View>
             ) : null}
             {pass.tiers.map(t => {
-              const canClaim = t.reached && !t.claimed
+              const pending = t.claimStatus === 'CLAIM_PENDING'
+              const canClaim = t.reached && !t.claimed && !pending
               return (
                 <View key={t.tier} className={`${styles.tierCard} ${t.claimed ? styles.tierClaimed : ''}`}>
                   <View className={styles.tierInfo}>
@@ -145,6 +146,8 @@ export default function SeasonPassPage() {
                   </View>
                   {t.claimed ? (
                     <Text className={styles.claimedTag}>已领取</Text>
+                  ) : pending ? (
+                    <Text className={styles.pendingTag}>发放中…</Text>
                   ) : (
                     <View
                       className={`${styles.claimBtn} ${canClaim ? '' : styles.claimBtnDisabled}`}

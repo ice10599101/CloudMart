@@ -222,7 +222,7 @@ export interface SeasonPassVO {
   seasonName: string | null
   passExp: number
   claimedTiers: number[]
-  tiers: Array<{ tier: number; requiredExp: number; reached: boolean; claimed: boolean; rewardDesc: string }>
+  tiers: Array<{ tier: number; requiredExp: number; reached: boolean; claimed: boolean; rewardDesc: string; claimStatus: 'CLAIM_PENDING' | 'SETTLED' | null }>
 }
 
 /** T19：赛季（赛季选择器数据源） */
