@@ -690,6 +690,51 @@ export function markLinkFeedback(
   )
 }
 
+// ==================== 来源申诉（SF08 补批：software:link） ====================
+
+export interface AdminSourceAppeal {
+  appealId: string
+  softwareId: string
+  softwareName: string | null
+  sourceKey: string
+  dispositionId: string | null
+  dispositionAvailability: string
+  dispositionReason: string | null
+  dispositionAt: string | null
+  appellantId: string
+  reason: string
+  evidence: string | null
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED'
+  handlerId: string | null
+  handleNote: string | null
+  handledAt: string | null
+  createdAt: string
+}
+
+export function listSourceAppeals(params?: {
+  status?: string
+  page?: number
+  size?: number
+}) {
+  return request.get<ApiResponse<PageResult<AdminSourceAppeal>>>(`${BASE}/source-appeals`, {
+    params,
+  })
+}
+
+/** ACCEPTED 仅把来源恢复为 UNKNOWN 待重检（不直接判可用）；REJECTED 保留原处置 */
+export function handleSourceAppeal(
+  appealId: string,
+  payload: { decision: 'ACCEPTED' | 'REJECTED'; note: string },
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/source-appeals/${appealId}/handle`
+  return request.post<ApiResponse<boolean>>(
+    url,
+    payload,
+    softwareWriteConfig('POST', url, payload, idempotencyKey),
+  )
+}
+
 // ==================== 专题（P1：software:topic） ====================
 
 export interface AdminSoftwareTopic {

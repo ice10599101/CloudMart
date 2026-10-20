@@ -251,6 +251,16 @@ public interface SoftwareFeignClient {
     ApiResponse<Object> markFeedback(@PathVariable("feedbackId") Long feedbackId,
                                      @RequestBody Map<String, Object> body);
 
+    /** SF08 补批：作者来源申诉列表/处理 */
+    @GetMapping("/source-appeals")
+    ApiResponse<Object> sourceAppeals(@RequestParam(value = "status", required = false) String status,
+                                      @RequestParam("page") int page,
+                                      @RequestParam("size") int size);
+
+    @PostMapping("/source-appeals/{appealId}/handle")
+    ApiResponse<Object> handleSourceAppeal(@PathVariable("appealId") Long appealId,
+                                           @RequestBody Map<String, Object> body);
+
     // ---------------- 授权查询与审计（software:access:list / permission:audit） ----------------
 
     @GetMapping("/access-grants")

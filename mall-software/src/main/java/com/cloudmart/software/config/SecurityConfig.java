@@ -73,6 +73,7 @@ public class SecurityConfig {
                         "/software/preferences", "/software/access-contacts",
                         "/software/level-options",
                         "/software/publisher-applications/mine",
+                        "/software/mine/source-appeals",
                         "/software/mine/statistics/trends").authenticated()
                 // SF03：发布者申请（登录必达；固定路径先于动态 {id}）
                 .requestMatchers(HttpMethod.POST, "/software/publisher-applications",
@@ -84,6 +85,9 @@ public class SecurityConfig {
                         "/software/access-requests/{requestId}/cancel").authenticated()
                 // SF08：恢复历史（owner 本人；复制为 DRAFT 走审核）
                 .requestMatchers(HttpMethod.POST, "/software/{id}/draft-from-history")
+                .authenticated()
+                // SF08 补批：作者来源申诉（owner 本人；同一来源仅一条待处理）
+                .requestMatchers(HttpMethod.POST, "/software/{id}/source-appeals")
                 .authenticated()
                 .requestMatchers(HttpMethod.GET, "/software/{id}/access-state",
                         "/software/{id}/editor", "/software/{id}/subscription")

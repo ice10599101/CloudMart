@@ -8,6 +8,7 @@ import {
   getUpdatesUnreadCount,
   listMySoftware,
   listMySourceIssues,
+  submitSourceAppeal,
   type SoftwareSourceIssue,
   listMySubscriptions,
   listMyUpdates,
@@ -71,6 +72,12 @@ const STATUS_LABEL: Record<string, string> = {
   REJECTED: "已退回",
 };
 
+const APPEAL_STATUS: Record<string, { label: string; color: string }> = {
+  PENDING: { label: "申诉待核实", color: "processing" },
+  ACCEPTED: { label: "申诉已通过", color: "success" },
+  REJECTED: { label: "申诉被驳回", color: "default" },
+};
+
 export default function SoftwareMine() {
   const { message } = App.useApp();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -122,6 +129,10 @@ export default function SoftwareMine() {
   const [rejectedCount, setRejectedCount] = useState(0);
   // SF07：待修复来源聚合（巡检 INVALID）
   const [sourceIssues, setSourceIssues] = useState<SoftwareSourceIssue[]>([]);
+  // SF08：来源申诉（同一来源仅一条待处理；证据只收纯文本说明）
+  const [appealTarget, setAppealTarget] = useState<SoftwareSourceIssue | null>(null);
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
+  const [appealForm] = Form.useForm();
   const [prefForm] = Form.useForm();
   // UX05：最近浏览（本地 30 条 → 服务端批量查询过滤不可见）
   const [recentCards, setRecentCards] = useState<SoftwareCard[]>([]);
@@ -220,6 +231,39 @@ export default function SoftwareMine() {
     if (res.data.success) {
       message.success("已取消订阅");
       await loadSubscriptionRows();
+    }
+  };
+
+  const reloadSourceIssues = useCallback(() => {
+    listMySourceIssues()
+      .then((res) => setSourceIssues(res.data.data ?? []))
+      .catch(() => undefined);
+  }, []);
+
+  const openAppeal = (issue: SoftwareSourceIssue) => {
+    appealForm.resetFields();
+    setAppealTarget(issue);
+  };
+
+  const submitAppeal = async () => {
+    if (!appealTarget) return;
+    const values = await appealForm.validateFields();
+    setAppealSubmitting(true);
+    try {
+      const res = await submitSourceAppeal(appealTarget.softwareId, {
+        sourceKey: appealTarget.sourceKey,
+        reason: values.reason,
+        evidence: values.evidence?.trim() || undefined,
+      });
+      if (res.data.success) {
+        message.success("申诉已提交，管理员核实后会更新处置");
+        setAppealTarget(null);
+        reloadSourceIssues();
+      }
+    } catch {
+      // 业务错误已由请求层提示
+    } finally {
+      setAppealSubmitting(false);
     }
   };
 
@@ -420,7 +464,7 @@ export default function SoftwareMine() {
           {sourceIssues.length > 0 ? (
             <div style={{ marginTop: 4 }}>
               {sourceIssues.slice(0, 5).map((issue) => (
-                <div key={`${issue.softwareId}-${issue.sourceKey}`}>
+                <Space key={`${issue.softwareId}-${issue.sourceKey}`} size={4} wrap>
                   <Button
                     type="link"
                     size="small"
@@ -429,7 +473,17 @@ export default function SoftwareMine() {
                     {issue.softwareName || `软件 ${issue.softwareId}`} · {issue.sourceKey}
                     {issue.reason ? `（${issue.reason.slice(0, 40)}）` : ""} →
                   </Button>
-                </div>
+                  {issue.appealStatus ? (
+                    <Tag color={APPEAL_STATUS[issue.appealStatus]?.color}>
+                      {APPEAL_STATUS[issue.appealStatus]?.label ?? issue.appealStatus}
+                    </Tag>
+                  ) : null}
+                  {issue.appealStatus !== "PENDING" && issue.appealStatus !== "ACCEPTED" ? (
+                    <Button size="small" onClick={() => openAppeal(issue)}>
+                      {issue.appealStatus === "REJECTED" ? "再次申诉" : "申诉"}
+                    </Button>
+                  ) : null}
+                </Space>
               ))}
             </div>
           ) : null}
@@ -821,6 +875,42 @@ export default function SoftwareMine() {
           </Form.Item>
           <Form.Item name="channels" label="渠道（逗号分隔，空=全部）" extra="如：STABLE">
             <Input />
+          </Form.Item>
+        </Form>
+      </Modal>
+      {/* SF08：作者来源申诉——管理员通过后来源恢复待重检，不直接判可用 */}
+      <Modal
+        title={`来源申诉（${appealTarget?.softwareName || appealTarget?.softwareId || ""}）`}
+        open={!!appealTarget}
+        onCancel={() => setAppealTarget(null)}
+        onOk={() => void submitAppeal()}
+        confirmLoading={appealSubmitting}
+        okText="提交申诉"
+        destroyOnHidden
+      >
+        <Typography.Paragraph type="secondary">
+          来源键 {appealTarget?.sourceKey}
+          {appealTarget?.reason ? `：当前处置为「${appealTarget.reason}」` : ""}。
+          请说明复测结果与依据；证据只填写纯文本说明，不要提交提取码、密码或受限链接。
+        </Typography.Paragraph>
+        <Form form={appealForm} layout="vertical">
+          <Form.Item
+            name="reason"
+            label="申诉理由"
+            rules={[
+              { required: true, message: "请填写申诉理由" },
+              { min: 10, message: "至少 10 个字" },
+              { max: 1000, message: "最多 1000 个字" },
+            ]}
+          >
+            <Input.TextArea rows={3} maxLength={1000} />
+          </Form.Item>
+          <Form.Item
+            name="evidence"
+            label="证据说明（可空）"
+            rules={[{ max: 2000, message: "最多 2000 个字" }]}
+          >
+            <Input.TextArea rows={2} maxLength={2000} />
           </Form.Item>
         </Form>
       </Modal>

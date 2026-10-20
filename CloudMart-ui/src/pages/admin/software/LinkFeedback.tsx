@@ -1,9 +1,15 @@
 import { useRef, useState } from 'react'
 import { ProTable } from '@ant-design/pro-components'
 import type { ActionType, ProColumns } from '@ant-design/pro-components'
-import { Input, Modal, Radio, Select, Tag, Typography } from 'antd'
-import { getAdminSoftwareDetail, listLinkFeedbacks, markLinkFeedback } from '@/api/admin/software'
-import type { AdminLinkFeedback } from '@/api/admin/software'
+import { Input, Modal, Radio, Select, Tabs, Tag, Typography } from 'antd'
+import {
+  getAdminSoftwareDetail,
+  handleSourceAppeal,
+  listLinkFeedbacks,
+  listSourceAppeals,
+  markLinkFeedback,
+} from '@/api/admin/software'
+import type { AdminLinkFeedback, AdminSourceAppeal } from '@/api/admin/software'
 import { safeProTableRequest } from '@/utils/proTable'
 import { useMessage } from '@/utils/useMessage'
 import SourceStateModal from '@/components/admin/SourceStateModal'
@@ -12,6 +18,12 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   OPEN: { label: '待核实', color: 'orange' },
   VERIFYING: { label: '核实中', color: 'processing' },
   RESOLVED: { label: '已修复', color: 'success' },
+  REJECTED: { label: '已驳回', color: 'default' },
+}
+
+const APPEAL_STATUS_MAP: Record<string, { label: string; color: string }> = {
+  PENDING: { label: '待核实', color: 'processing' },
+  ACCEPTED: { label: '申诉通过', color: 'success' },
   REJECTED: { label: '已驳回', color: 'default' },
 }
 
@@ -29,6 +41,7 @@ const REASON_CODE_MAP: Record<string, string> = {
  * 链接反馈（方案 10.4/5.3）：按来源指纹合并查看反馈人数，标记待核实/已修复/驳回；
  * 附带来源状态处置（核实/禁用/解除，software:link）。
  * "一键定位对应软件的当前来源"以 sourceKey 回填处置弹窗实现；不自动打开外链。
+ * SF08 补批：来源申诉页签——原处置快照并列查看，ACCEPTED 仅恢复 UNKNOWN 待重检。
  */
 export default function SoftwareLinkFeedback() {
   const message = useMessage()
@@ -43,6 +56,13 @@ export default function SoftwareLinkFeedback() {
   const [sourceTarget, setSourceTarget] = useState<AdminLinkFeedback | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
+
+  // SF08 补批：作者来源申诉处理（ACCEPTED 仅恢复 UNKNOWN 待重检）
+  const appealActionRef = useRef<ActionType>(null)
+  const [appealTarget, setAppealTarget] = useState<AdminSourceAppeal | null>(null)
+  const [appealDecision, setAppealDecision] = useState<'ACCEPTED' | 'REJECTED'>('ACCEPTED')
+  const [appealNote, setAppealNote] = useState('')
+  const [appealSubmitting, setAppealSubmitting] = useState(false)
 
   const openMark = (record: AdminLinkFeedback) => {
     setMarkTarget(record)
@@ -81,6 +101,32 @@ export default function SoftwareLinkFeedback() {
       // 业务错误已提示
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const openAppeal = (record: AdminSourceAppeal) => {
+    setAppealTarget(record)
+    setAppealDecision('ACCEPTED')
+    setAppealNote('')
+  }
+
+  const submitAppeal = async () => {
+    if (!appealTarget) return
+    const note = appealNote.trim()
+    if (!note) {
+      message.warning('处理说明必填（1~500 字）')
+      return
+    }
+    setAppealSubmitting(true)
+    try {
+      await handleSourceAppeal(appealTarget.appealId, { decision: appealDecision, note })
+      message.success('已处理')
+      setAppealTarget(null)
+      appealActionRef.current?.reload()
+    } catch {
+      // 业务错误已提示
+    } finally {
+      setAppealSubmitting(false)
     }
   }
 
@@ -150,26 +196,118 @@ export default function SoftwareLinkFeedback() {
     },
   ]
 
+  const appealColumns: ProColumns<AdminSourceAppeal>[] = [
+    { title: '申诉ID', dataIndex: 'appealId', width: 90, search: false },
+    {
+      title: '软件',
+      dataIndex: 'softwareName',
+      width: 150,
+      ellipsis: true,
+      search: false,
+      render: (_, record) => record.softwareName || `软件 ${record.softwareId}`,
+    },
+    { title: '来源键', dataIndex: 'sourceKey', width: 190, ellipsis: true, search: false },
+    {
+      title: '原处置',
+      dataIndex: 'dispositionAvailability',
+      width: 190,
+      search: false,
+      render: (_, record) => (
+        <span>
+          <Tag color="error">{record.dispositionAvailability}</Tag>
+          {record.dispositionReason ? (
+            <Typography.Text type="secondary" ellipsis style={{ fontSize: 12 }}>
+              {record.dispositionReason}
+            </Typography.Text>
+          ) : null}
+        </span>
+      ),
+    },
+    { title: '申诉人', dataIndex: 'appellantId', width: 90, search: false },
+    { title: '申诉理由', dataIndex: 'reason', ellipsis: true, search: false },
+    { title: '证据说明', dataIndex: 'evidence', ellipsis: true, search: false },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      width: 100,
+      valueType: 'select',
+      valueEnum: Object.fromEntries(
+        Object.entries(APPEAL_STATUS_MAP).map(([value, info]) => [value, { text: info.label }]),
+      ),
+      render: (_, record) => {
+        const info = APPEAL_STATUS_MAP[record.status] ?? {
+          label: record.status,
+          color: 'default',
+        }
+        return <Tag color={info.color}>{info.label}</Tag>
+      },
+    },
+    { title: '处理说明', dataIndex: 'handleNote', ellipsis: true, search: false },
+    { title: '时间', dataIndex: 'createdAt', valueType: 'dateTime', width: 160, search: false },
+    {
+      title: '操作',
+      valueType: 'option',
+      width: 90,
+      render: (_, record) =>
+        record.status === 'PENDING' ? [<a key="handle" onClick={() => openAppeal(record)}>处理</a>] : [],
+    },
+  ]
+
   return (
     <>
-      <ProTable<AdminLinkFeedback>
-        headerTitle="链接反馈"
-        rowKey="feedbackId"
-        actionRef={actionRef}
-        columns={columns}
-        options={{ density: false }}
-        scroll={{ x: 1300 }}
-        request={(params) =>
-          safeProTableRequest(() =>
-            listLinkFeedbacks({
-              status: (params as Record<string, unknown>).status as string | undefined,
-              reasonCode: (params as Record<string, unknown>).reasonCode as string | undefined,
-              page: params.current,
-              size: params.pageSize,
-            }),
-          )
-        }
-        pagination={{ defaultPageSize: 20 }}
+      <Tabs
+        defaultActiveKey="feedback"
+        items={[
+          {
+            key: 'feedback',
+            label: '链接反馈',
+            children: (
+              <ProTable<AdminLinkFeedback>
+                headerTitle="链接反馈"
+                rowKey="feedbackId"
+                actionRef={actionRef}
+                columns={columns}
+                options={{ density: false }}
+                scroll={{ x: 1300 }}
+                request={(params) =>
+                  safeProTableRequest(() =>
+                    listLinkFeedbacks({
+                      status: (params as Record<string, unknown>).status as string | undefined,
+                      reasonCode: (params as Record<string, unknown>).reasonCode as string | undefined,
+                      page: params.current,
+                      size: params.pageSize,
+                    }),
+                  )
+                }
+                pagination={{ defaultPageSize: 20 }}
+              />
+            ),
+          },
+          {
+            key: 'appeals',
+            label: '来源申诉',
+            children: (
+              <ProTable<AdminSourceAppeal>
+                headerTitle="来源申诉"
+                rowKey="appealId"
+                actionRef={appealActionRef}
+                columns={appealColumns}
+                options={{ density: false }}
+                scroll={{ x: 1400 }}
+                request={(params) =>
+                  safeProTableRequest(() =>
+                    listSourceAppeals({
+                      status: (params as Record<string, unknown>).status as string | undefined,
+                      page: params.current,
+                      size: params.pageSize,
+                    }),
+                  )
+                }
+                pagination={{ defaultPageSize: 20 }}
+              />
+            ),
+          },
+        ]}
       />
 
       <Modal
@@ -227,6 +365,39 @@ export default function SoftwareLinkFeedback() {
         onClose={() => setSourceTarget(null)}
         onSuccess={() => actionRef.current?.reload()}
       />
+
+      <Modal
+        title="处理来源申诉"
+        open={!!appealTarget}
+        onCancel={() => setAppealTarget(null)}
+        onOk={submitAppeal}
+        confirmLoading={appealSubmitting}
+        okText="确认处理"
+        destroyOnHidden
+      >
+        <Typography.Paragraph type="secondary">
+          申诉 {appealTarget?.appealId}（软件 {appealTarget?.softwareId}，来源键{' '}
+          {appealTarget?.sourceKey}）。原处置：{appealTarget?.dispositionAvailability}
+          {appealTarget?.dispositionReason ? `（${appealTarget.dispositionReason}）` : ''}。
+          通过后仅把来源恢复为 UNKNOWN 待重检，不直接判可用；驳回保留原处置。
+        </Typography.Paragraph>
+        <Radio.Group
+          value={appealDecision}
+          onChange={(e) => setAppealDecision(e.target.value)}
+          style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}
+        >
+          <Radio value="ACCEPTED">通过申诉（来源恢复待重检）</Radio>
+          <Radio value="REJECTED">驳回申诉（保留原处置）</Radio>
+        </Radio.Group>
+        <Input.TextArea
+          rows={3}
+          maxLength={500}
+          showCount
+          placeholder="处理说明（必填，1~500 字，写入审计）"
+          value={appealNote}
+          onChange={(e) => setAppealNote(e.target.value)}
+        />
+      </Modal>
     </>
   )
 }

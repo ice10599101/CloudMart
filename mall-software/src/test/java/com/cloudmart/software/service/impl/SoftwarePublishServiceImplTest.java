@@ -599,6 +599,49 @@ class SoftwarePublishServiceImplTest {
     }
 
     @Test
+    @DisplayName("SF08：从未发布软件恢复历史——先建空 DRAFT 工作副本，published 指针不动")
+    void draftFromHistory_neverPublishedCreatesRecoveryDraft() {
+        Software software = software(SoftwareLifecycle.ACTIVE, null, null);
+        when(softwareMapper.selectById(SOFTWARE_ID)).thenReturn(software);
+        SoftwareRevision history = revision(SoftwareReviewStatus.REJECTED, 0, 0);
+        history.setId(300L);
+        history.setSubmittedAt(java.time.LocalDateTime.of(2026, 9, 1, 10, 0));
+        when(revisionMapper.selectById(300L)).thenReturn(history);
+
+        Software locked = software(SoftwareLifecycle.ACTIVE, null, null);
+        when(lockMapper.lockSoftware(SOFTWARE_ID)).thenReturn(locked);
+        SoftwareRevision editTarget = revision(SoftwareReviewStatus.DRAFT, 0, 0);
+        editTarget.setId(800L);
+        when(lockMapper.lockRevision(800L)).thenReturn(editTarget);
+        when(revisionMapper.insert(any(SoftwareRevision.class))).thenAnswer(inv -> {
+            SoftwareRevision draft = inv.getArgument(0);
+            draft.setId(800L);
+            when(revisionMapper.selectById(800L)).thenReturn(draft);
+            return 1;
+        });
+
+        var editor = service.draftFromHistory(USER_ID, SOFTWARE_ID, 300L, "history-key");
+
+        assertThat(editor.revisionId()).isEqualTo(800L);
+        assertThat(locked.getWorkingRevisionId()).isEqualTo(800L);
+        assertThat(software.getPublishedRevisionId()).isNull();
+        org.mockito.ArgumentCaptor<SoftwareRevision> inserted =
+                org.mockito.ArgumentCaptor.forClass(SoftwareRevision.class);
+        verify(revisionMapper).insert(inserted.capture());
+        assertThat(inserted.getValue().getReviewStatus()).isEqualTo(SoftwareReviewStatus.DRAFT);
+        assertThat(inserted.getValue().getEditorId()).isEqualTo(USER_ID);
+        verify(revisionMapper).updateById(
+                org.mockito.ArgumentMatchers.<SoftwareRevision>argThat(row -> Long.valueOf(300L)
+                        .equals(row.getCopiedFromRevisionId())));
+        verify(operationService).execute(eq("USER"), eq(USER_ID),
+                eq(SoftwareOperationService.OP_RECOVERY_DRAFT), eq("history-key"), any(),
+                eq(SOFTWARE_ID), any(Supplier.class), any());
+        verify(auditService).record(eq(SOFTWARE_ID), eq(800L), eq(USER_ID), eq("USER"),
+                eq("RECOVERY_DRAFT"), org.mockito.ArgumentMatchers.isNull(), eq("DRAFT"),
+                anyString(), any());
+    }
+
+    @Test
     @DisplayName("SW08：本地保存失败只对本次新增资产排回滚解绑，原有图标/截图不被误拆")
     void save_rollbackUnbindsOnlyAddedAssets() {
         Software software = software(SoftwareLifecycle.ACTIVE, null, REVISION_ID);

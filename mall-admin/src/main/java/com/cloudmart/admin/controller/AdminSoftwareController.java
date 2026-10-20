@@ -294,6 +294,31 @@ public class AdminSoftwareController {
         return softwareFeignClient.markFeedback(feedbackId, body);
     }
 
+    // ---------------- 来源申诉（SF08 补批，software:link） ----------------
+
+    @GetMapping("/source-appeals")
+    @RequiresPermission("software:link")
+    @Operation(summary = "作者来源申诉列表",
+            description = "status=PENDING/ACCEPTED/REJECTED；含原处置快照（并列查看）")
+    public ApiResponse<Object> sourceAppeals(
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return softwareFeignClient.sourceAppeals(status, page, size);
+    }
+
+    @OperLog(title = "来源申诉处理", businessType = 2)
+    @PostMapping("/source-appeals/{appealId}/handle")
+    @RequiresPermission("software:link")
+    @Operation(summary = "处理来源申诉",
+            description = "ACCEPTED 仅恢复为 UNKNOWN 待重检（不直接判可用）；REJECTED 保留原处置；"
+                    + "只处理一次，重复同结论幂等")
+    public ApiResponse<Object> handleSourceAppeal(
+            @PathVariable("appealId") Long appealId,
+            @RequestBody Map<String, Object> body) {
+        return softwareFeignClient.handleSourceAppeal(appealId, body);
+    }
+
     // ---------------- 目录（software:list） ----------------
 
     @GetMapping("/items")

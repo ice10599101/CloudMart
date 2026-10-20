@@ -260,10 +260,13 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
     /**
      * SF08：恢复历史内容——历史快照复制为新的 DRAFT 工作副本（走同样检查/人工审核）。
      * 不直接篡改 publishedRevisionId；幂等见接口注释。
+     * 从未发布软件（无线上快照、无工作副本）先创建空 DRAFT 作为恢复目标。
      */
     @Override
+    @Transactional
     public SoftwareEditorVO draftFromHistory(Long userId, Long softwareId,
                                              Long sourceRevisionId, String idempotencyKey) {
+        publisherPolicy.requireForRestrictedWrite(userId);
         Software software = ownedSoftware(userId, softwareId);
         SoftwareRevision source = revisionMapper.selectById(sourceRevisionId);
         if (source == null || !source.getSoftwareId().equals(softwareId)
@@ -279,8 +282,10 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
             throw new BusinessException("SOFTWARE_DRAFT_EXISTS",
                     "已有未完成的工作副本，请先保存提交或删除后再恢复历史");
         }
-        // 创建/获取工作副本（克隆线上；从未发布软件的历史恢复列入后续小批）
-        SoftwareEditorVO working = workingRevision(userId, softwareId, idempotencyKey);
+        // 有线上内容→克隆线上；从未发布→创建空 DRAFT 作为恢复目标（仍走保存/检查/审核）
+        SoftwareEditorVO working = software.getPublishedRevisionId() != null
+                ? workingRevision(userId, softwareId, idempotencyKey)
+                : recoveryWorkingRevision(userId, softwareId, idempotencyKey);
         // 历史快照 → 全量保存输入（稳定 releaseKey/sourceKey 随快照携带，装配器沿用）
         SoftwareSnapshotInput input = snapshotInputFromEditor(softwareId, sourceRevisionId);
         SoftwareEditorVO saved = saveDraft(userId, softwareId, working.revisionId(), input);
@@ -292,6 +297,34 @@ public class SoftwarePublishServiceImpl implements SoftwarePublishService {
                 "DRAFT_FROM_HISTORY", "DRAFT", "DRAFT",
                 "恢复历史内容 sourceRevisionId=" + sourceRevisionId, null);
         return saved;
+    }
+
+    /** 从未发布且无工作副本：创建空 DRAFT（幂等；后续保存覆盖为历史快照）。 */
+    private SoftwareEditorVO recoveryWorkingRevision(Long userId, Long softwareId,
+                                                     String idempotencyKey) {
+        CloneResult result = operationService.execute("USER", userId,
+                SoftwareOperationService.OP_RECOVERY_DRAFT, idempotencyKey,
+                Map.of("softwareId", softwareId), softwareId,
+                () -> {
+                    Software locked = lockMapper.lockSoftware(softwareId);
+                    if (locked.getWorkingRevisionId() != null) {
+                        return new CloneResult(softwareId, locked.getWorkingRevisionId());
+                    }
+                    SoftwareRevision draft = new SoftwareRevision();
+                    draft.setSoftwareId(softwareId);
+                    draft.setEditorId(userId);
+                    draft.setReviewStatus(SoftwareReviewStatus.DRAFT);
+                    draft.setAccessMode(com.cloudmart.software.enums.SoftwareAccessMode.REGISTERED);
+                    revisionMapper.insert(draft);
+                    locked.setWorkingRevisionId(draft.getId());
+                    softwareMapper.updateById(locked);
+                    auditService.record(softwareId, draft.getId(), userId, "USER",
+                            "RECOVERY_DRAFT", null, "DRAFT",
+                            "从未发布软件恢复历史：创建空工作副本", null);
+                    return new CloneResult(softwareId, draft.getId());
+                },
+                json -> objectMapper.readValue(json, CloneResult.class));
+        return buildEditor(softwareMapper.selectById(softwareId), result.revisionId());
     }
 
     /** SF08：历史快照（编辑器视图）→ 全量保存输入（含稳定键） */

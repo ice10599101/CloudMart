@@ -34,6 +34,8 @@ public class SoftwareOperationService {
     /** 操作类型常量：必须区分业务，避免同 key 意外撞用（7.3） */
     public static final String OP_CREATE_SOFTWARE = "CREATE_SOFTWARE";
     public static final String OP_CLONE_WORKING = "CLONE_WORKING";
+    /** SF08 补批：从未发布软件恢复历史时创建空工作副本 */
+    public static final String OP_RECOVERY_DRAFT = "RECOVERY_DRAFT";
     public static final String OP_SUBMIT = "SUBMIT_REVISION";
     public static final String OP_REVIEW_DECISION = "REVIEW_DECISION";
     public static final String OP_CREATE_COMMENT = "CREATE_COMMENT";
@@ -63,6 +65,8 @@ public class SoftwareOperationService {
     /** SF08：审核领取/释放（协作标记审计） */
     public static final String OP_REVIEW_CLAIM = "REVIEW_CLAIM";
     public static final String OP_REVIEW_RELEASE = "REVIEW_RELEASE";
+    /** SF08 补批：作者来源申诉提交 */
+    public static final String OP_SOURCE_APPEAL = "SOURCE_APPEAL_SUBMIT";
 
     private final SoftwareOperationMapper operationMapper;
     private final ObjectMapper objectMapper;

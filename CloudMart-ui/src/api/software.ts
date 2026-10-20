@@ -1228,6 +1228,9 @@ export interface SoftwareSourceIssue {
   sourceKey: string
   reason: string | null
   checkedAt: string | null
+  /** SF08：该来源最近一条申诉（无申诉为 null） */
+  appealId: string | null
+  appealStatus: "PENDING" | "ACCEPTED" | "REJECTED" | null
 }
 
 export function listMySourceIssues() {
@@ -1236,4 +1239,18 @@ export function listMySourceIssues() {
     `${BASE}/mine/source-issues`,
     { silentError: true },
   );
+}
+
+/** SF08：作者来源申诉（同一来源仅一条待处理；证据只收纯文本说明） */
+export function submitSourceAppeal(
+  softwareId: string,
+  payload: { sourceKey: string; reason: string; evidence?: string },
+  idempotencyKey?: string,
+) {
+  const url = `${BASE}/${softwareId}/source-appeals`
+  return request.post<ApiResponse<{ appealId: string; status: string }>>(
+    url,
+    payload,
+    softwareWriteConfig("POST", url, payload, idempotencyKey),
+  )
 }

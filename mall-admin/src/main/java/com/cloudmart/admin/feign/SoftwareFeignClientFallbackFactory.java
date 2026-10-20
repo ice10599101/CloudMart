@@ -120,6 +120,16 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
+            public ApiResponse<Object> sourceAppeals(String status, int page, int size) {
+                throw unavailable(cause);
+            }
+
+            @Override
+            public ApiResponse<Object> handleSourceAppeal(Long appealId, Map<String, Object> body) {
+                throw unavailable(cause);
+            }
+
+            @Override
             public ApiResponse<Object> reviewDetail(Long revisionId) {
                 throw unavailable(cause);
             }
