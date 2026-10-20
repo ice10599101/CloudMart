@@ -1,6 +1,7 @@
 package com.cloudmart.wish.service.impl;
 
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.wish.config.WishInviteCallbackMetrics;
 import com.cloudmart.wish.entity.WishInviteCallbackOutbox;
 import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.repository.WishInviteCallbackOutboxMapper;
@@ -14,7 +15,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,6 +45,9 @@ class WishInviteCallbackOutboxServiceTest {
     @Mock
     private UserFeignClient userFeignClient;
 
+    @Mock
+    private WishInviteCallbackMetrics metrics;
+
     private WishInviteCallbackOutboxService service;
 
     @BeforeEach
@@ -52,7 +58,9 @@ class WishInviteCallbackOutboxServiceTest {
         com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(
                 new org.apache.ibatis.builder.MapperBuilderAssistant(configuration, ""),
                 WishInviteCallbackOutbox.class);
-        service = new WishInviteCallbackOutboxService(outboxMapper, userFeignClient);
+        service = new WishInviteCallbackOutboxService(outboxMapper, userFeignClient, metrics,
+                Clock.fixed(LocalDateTime.of(2026, 10, 20, 12, 0)
+                        .toInstant(ZoneOffset.UTC), ZoneOffset.UTC));
         // insert 模拟回填 ID（afterCommit 即送路径在无事务上下文直接执行）
         lenient().when(outboxMapper.insert(any(WishInviteCallbackOutbox.class))).thenAnswer(inv -> {
             WishInviteCallbackOutbox row = inv.getArgument(0);
@@ -106,6 +114,7 @@ class WishInviteCallbackOutboxServiceTest {
         verify(userFeignClient).inviteEligibilityCheck(anyMap());
         // settle 的条件更新被调用（sweep 路径内 1 次）
         verify(outboxMapper, times(1)).update(any(), any());
+        verify(metrics).recordSettled();
     }
 
     @Test
@@ -122,6 +131,7 @@ class WishInviteCallbackOutboxServiceTest {
         // 失败路径只调用一次 update（recordFailure；未 settle）
         verify(outboxMapper, times(1)).update(any(), any());
         verify(outboxMapper, never()).selectById(eq(9999L));
+        verify(metrics).recordRetry();
     }
 
     @Test
@@ -131,9 +141,13 @@ class WishInviteCallbackOutboxServiceTest {
                 .thenThrow(new RuntimeException("user down"));
         org.mockito.Mockito.doReturn(java.util.List.of(row(9001L, WishInviteCallbackOutbox.MAX_ATTEMPTS)))
                 .when(outboxMapper).selectList(any());
+        // deliverQuietly 会按 id 重新读取行：返回已到上限的 attempts
+        when(outboxMapper.selectById(9001L))
+                .thenReturn(row(9001L, WishInviteCallbackOutbox.MAX_ATTEMPTS));
 
         service.sweepPending();
         // attempts 已到 MAX → recordFailure 走 FAILED 分支（update 只此一次）
         verify(outboxMapper, times(1)).update(any(), any());
+        verify(metrics).recordTerminal();
     }
 }

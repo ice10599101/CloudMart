@@ -3,6 +3,7 @@ package com.cloudmart.wish.service.impl;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.wish.config.WishInviteCallbackMetrics;
 import com.cloudmart.wish.entity.WishInviteCallbackOutbox;
 import com.cloudmart.wish.feign.UserFeignClient;
 import com.cloudmart.wish.repository.WishInviteCallbackOutboxMapper;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +44,8 @@ public class WishInviteCallbackOutboxService {
 
     private final WishInviteCallbackOutboxMapper outboxMapper;
     private final UserFeignClient userFeignClient;
+    private final WishInviteCallbackMetrics metrics;
+    private final Clock clock;
 
     /**
      * 签到事务内调用：同用户旧 PENDING 置 SUPERSEDED 后插入新快照行；
@@ -81,7 +85,8 @@ public class WishInviteCallbackOutboxService {
                 new LambdaQueryWrapper<WishInviteCallbackOutbox>()
                         .eq(WishInviteCallbackOutbox::getStatus, WishInviteCallbackOutbox.STATUS_PENDING)
                         .and(w -> w.isNull(WishInviteCallbackOutbox::getNextRetryAt)
-                                .or().le(WishInviteCallbackOutbox::getNextRetryAt, LocalDateTime.now()))
+                                .or().le(WishInviteCallbackOutbox::getNextRetryAt,
+                                        LocalDateTime.now(clock)))
                         .orderByAsc(WishInviteCallbackOutbox::getId)
                         .last("LIMIT 50"));
         int settled = 0;
@@ -105,6 +110,7 @@ public class WishInviteCallbackOutboxService {
                     Map.of("userId", row.getUserId(), "distinctSigninDays", row.getDistinctSigninDays()));
             if (res != null && res.success()) {
                 settle(row.getId());
+                metrics.recordSettled();
                 log.info("[T15] 邀请资格回调交付完成: userId={}, distinctDays={}",
                         row.getUserId(), row.getDistinctSigninDays());
                 return true;
@@ -122,7 +128,7 @@ public class WishInviteCallbackOutboxService {
                 .eq(WishInviteCallbackOutbox::getId, id)
                 .eq(WishInviteCallbackOutbox::getStatus, WishInviteCallbackOutbox.STATUS_PENDING)
                 .set(WishInviteCallbackOutbox::getStatus, WishInviteCallbackOutbox.STATUS_SETTLED)
-                .set(WishInviteCallbackOutbox::getSettledAt, LocalDateTime.now()));
+                .set(WishInviteCallbackOutbox::getSettledAt, LocalDateTime.now(clock)));
     }
 
     private void recordFailure(WishInviteCallbackOutbox row, String error) {
@@ -134,6 +140,7 @@ public class WishInviteCallbackOutboxService {
                     .set(WishInviteCallbackOutbox::getStatus, WishInviteCallbackOutbox.STATUS_FAILED)
                     .set(WishInviteCallbackOutbox::getAttempts, attempts)
                     .set(WishInviteCallbackOutbox::getLastError, truncate(error)));
+            metrics.recordTerminal();
             log.error("[T15] 邀请资格回调补发到顶置 FAILED（需人工介入）: userId={}, attempts={}, err={}",
                     row.getUserId(), attempts, error);
             return;
@@ -144,7 +151,9 @@ public class WishInviteCallbackOutboxService {
                 .eq(WishInviteCallbackOutbox::getStatus, WishInviteCallbackOutbox.STATUS_PENDING)
                 .set(WishInviteCallbackOutbox::getAttempts, attempts)
                 .set(WishInviteCallbackOutbox::getLastError, truncate(error))
-                .set(WishInviteCallbackOutbox::getNextRetryAt, LocalDateTime.now().plusSeconds(backoff)));
+                .set(WishInviteCallbackOutbox::getNextRetryAt,
+                        LocalDateTime.now(clock).plusSeconds(backoff)));
+        metrics.recordRetry();
         log.warn("[T15] 邀请资格回调交付失败（退避 {}s）: userId={}, attempts={}, err={}",
                 backoff, row.getUserId(), attempts, error);
     }
