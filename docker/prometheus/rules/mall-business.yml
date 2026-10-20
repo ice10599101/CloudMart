@@ -1,0 +1,78 @@
+# T18 邀请资格回调 outbox 与 T18/T19 通行证补发链路的告警规则。
+# 指标为本地快照 Gauge（60s 刷新，库短暂不可用保留上次值），积压类告警阈值据此放宽。
+groups:
+  - name: mall-wish-invite-callback
+    rules:
+      - alert: WishInviteCallbackFailedNeedsAttention
+        expr: wish_invite_callback_failed > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "邀请资格回调出现需人工处置的失败"
+          description: "mall-wish 有 {{ $value }} 条邀请资格回调达到重试上限（NEEDS_ATTENTION），超过 15 分钟未清零，需人工复核释放。"
+
+      - alert: WishInviteCallbackBacklogHigh
+        expr: wish_invite_callback_due > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "邀请资格回调到期积压过高"
+          description: "mall-wish 到期可执行的邀请资格回调积压 {{ $value }} 条，持续 10 分钟，交付链路可能受阻。"
+
+      - alert: WishInviteCallbackOldestPendingTooOld
+        expr: wish_invite_callback_oldest_pending_seconds > 1800
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "邀请资格回调最老待交付等待过久"
+          description: "mall-wish 最老的待交付邀请资格回调已等待 {{ $value }} 秒（>30 分钟），用户侧资格状态可能长期不更新。"
+
+      - alert: WishInviteCallbackRetryRatioHigh
+        expr: wish_invite_callback_retry_ratio > 0.5 and wish_invite_callback_attempt_total > 20
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "邀请资格回调交付失败率过高"
+          description: "累计交付尝试中失败（含终止）占比 {{ $value | humanizePercentage }}（>50%，样本>20），需检查 mall-user 回调端点健康度。"
+
+  - name: mall-pet-season-pass-claim
+    rules:
+      - alert: PetPassClaimNeedsAttention
+        expr: pet_season_pass_claim_needs_attention > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "通行证补发出现需人工处置的失败"
+          description: "mall-pet 有 {{ $value }} 条通行证奖励补发达到重试上限（NEEDS_ATTENTION），超过 15 分钟未清零，需后台台账人工重试。"
+
+      - alert: PetPassClaimBacklogHigh
+        expr: pet_season_pass_claim_due > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "通行证补发到期积压过高"
+          description: "mall-pet 到期可执行的奖励补发积压 {{ $value }} 条，持续 10 分钟，补发链路可能受阻。"
+
+      - alert: PetPassClaimOldestPendingTooOld
+        expr: pet_season_pass_claim_oldest_pending_seconds > 1800
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "通行证补发最老待交付等待过久"
+          description: "mall-pet 最老的待补发通行证奖励已等待 {{ $value }} 秒（>30 分钟），用户奖励可能长期未到账。"
+
+      - alert: PetPassClaimRetryRatioHigh
+        expr: pet_season_pass_claim_retry_ratio > 0.5 and pet_season_pass_claim_attempt_total > 20
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "通行证补发失败率过高"
+          description: "累计补发尝试中失败（含终止）占比 {{ $value | humanizePercentage }}（>50%，样本>20），需检查补发依赖（积分/皮肤发放）健康度。"
