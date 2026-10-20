@@ -49,6 +49,10 @@ export default function SoftwareTopicDetailPage() {
               {topic.summary ? (
                 <p className={styles.summary}>{topic.summary}</p>
               ) : null}
+              {/* SF05：专题介绍（后台维护的运营文案） */}
+              {topic.description ? (
+                <p className={styles.description}>{topic.description}</p>
+              ) : null}
             </div>
             {/* UX02：工具箱三要素（有内容才显示） */}
             {topic.problem ? (

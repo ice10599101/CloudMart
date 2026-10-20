@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toPageResult } from '@/api/paging'
-import { View, Text, ScrollView, Switch } from '@tarojs/components'
+import { View, Text, ScrollView, Switch, Input } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { softwareApi, softwarePublishApi, type SoftwareMineItem , type SoftwarePublisherApplication } from '@/api/software'
 import { errorMessage } from '@/utils/request'
@@ -57,6 +57,14 @@ export default function SoftwareMinePage() {
   const [application, setApplication] = useState<SoftwarePublisherApplication | null>(null)
   /** SW11：更新提醒总开关（与订阅关系相互独立；退订≠关闭提醒） */
   const [updateNotify, setUpdateNotify] = useState(true)
+  /** SF05：订阅偏好编辑（平台/渠道，空=全部） */
+  const [prefTarget, setPrefTarget] = useState<{
+    softwareId: string
+    name: string
+    platforms: string
+    channels: string
+  } | null>(null)
+  const [prefBusy, setPrefBusy] = useState(false)
 
   const isOwnTab = tab === 'published' || tab === 'draft' || tab === 'pending'
     || tab === 'rejected'
@@ -137,6 +145,39 @@ export default function SoftwareMinePage() {
     Taro.navigateTo({ url: `/pages/softwareEdit/index?id=${softwareId}&refreshed=1` })
   }
 
+  /** SF05：打开偏好编辑器前读取服务端当前值（NULL=全部） */
+  const openPreference = async (item: SoftwareMineItem) => {
+    try {
+      const res = await softwareApi.subscriptionPreference(item.softwareId)
+      const pref = res.data?.data
+      setPrefTarget({
+        softwareId: item.softwareId,
+        name: item.name,
+        platforms: pref?.platforms ?? '',
+        channels: pref?.channels ?? '',
+      })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '加载订阅偏好失败'), icon: 'none' })
+    }
+  }
+
+  const savePreference = async () => {
+    if (!prefTarget) return
+    setPrefBusy(true)
+    try {
+      await softwareApi.subscribe(prefTarget.softwareId, {
+        platforms: prefTarget.platforms.trim() || undefined,
+        channels: prefTarget.channels.trim() || undefined,
+      })
+      setPrefTarget(null)
+      Taro.showToast({ title: '订阅偏好已保存', icon: 'success' })
+    } catch (err) {
+      Taro.showToast({ title: errorMessage(err, '保存失败'), icon: 'none' })
+    } finally {
+      setPrefBusy(false)
+    }
+  }
+
   const createNew = async () => {
     try {
       const created = await softwarePublishApi.create()
@@ -159,6 +200,12 @@ export default function SoftwareMinePage() {
         label: '取消收藏',
         run: () => gate(() => softwareApi.unfavorite(id), '已取消收藏'),
         danger: true,
+      })
+    }
+    if (tab === 'subscriptions' && !it.unavailable) {
+      act.push({
+        label: '调整偏好',
+        run: () => void openPreference(it),
       })
     }
     if (tab === 'subscriptions') {
@@ -407,6 +454,86 @@ export default function SoftwareMinePage() {
         )}
         <View style={{ height: '60rpx' }} />
       </ScrollView>
+
+      {/* SF05：订阅偏好（平台/渠道；留空表示全部，保持旧"全部更新"语义） */}
+      {prefTarget ? (
+        <View
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.45)',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '32rpx',
+          }}
+          onClick={() => {
+            if (!prefBusy) setPrefTarget(null)
+          }}
+        >
+          <View
+            style={{ background: '#fff', borderRadius: '16rpx', padding: '24rpx', width: '100%' }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Text style={{ fontSize: '32rpx', fontWeight: 600 }}>调整订阅偏好</Text>
+            <Text style={{ display: 'block', marginTop: '8rpx', fontSize: '24rpx', color: '#5b6478' }}>
+              {prefTarget.name} · 留空表示全部平台/渠道
+            </Text>
+            <Text style={{ display: 'block', marginTop: '20rpx', fontSize: '26rpx' }}>
+              平台（逗号分隔）
+            </Text>
+            <Input
+              value={prefTarget.platforms}
+              onInput={(e) => setPrefTarget((prev) => (prev ? { ...prev, platforms: e.detail.value } : prev))}
+              placeholder="如 WINDOWS,MACOS；留空=全部"
+              style={{
+                marginTop: '8rpx',
+                border: '1rpx solid #e2e8f0',
+                borderRadius: '12rpx',
+                padding: '12rpx 16rpx',
+                fontSize: '26rpx',
+              }}
+            />
+            <Text style={{ display: 'block', marginTop: '20rpx', fontSize: '26rpx' }}>
+              渠道（逗号分隔）
+            </Text>
+            <Input
+              value={prefTarget.channels}
+              onInput={(e) => setPrefTarget((prev) => (prev ? { ...prev, channels: e.detail.value } : prev))}
+              placeholder="如 STABLE,BETA；留空=全部"
+              style={{
+                marginTop: '8rpx',
+                border: '1rpx solid #e2e8f0',
+                borderRadius: '12rpx',
+                padding: '12rpx 16rpx',
+                fontSize: '26rpx',
+              }}
+            />
+            <View style={{ display: 'flex', justifyContent: 'flex-end', gap: '32rpx', marginTop: '24rpx' }}>
+              <Text
+                style={{ fontSize: '26rpx', color: '#5b6478' }}
+                onClick={() => {
+                  if (!prefBusy) setPrefTarget(null)
+                }}
+              >
+                取消
+              </Text>
+              <Text
+                style={{ fontSize: '26rpx', color: '#3d5afe', fontWeight: 600 }}
+                onClick={() => {
+                  if (!prefBusy) void savePreference()
+                }}
+              >
+                {prefBusy ? '保存中…' : '保存'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
     </View>
   )
 }

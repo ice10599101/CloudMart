@@ -3,8 +3,10 @@ import { toPageResult } from '@/api/paging'
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   Alert,
@@ -73,6 +75,14 @@ export default function SoftwareMineScreen() {
   const [application, setApplication] = useState<SoftwarePublisherApplication | null>(null)
   /** SW11：更新提醒总开关（与订阅关系相互独立；退订≠关闭提醒） */
   const [updateNotify, setUpdateNotify] = useState(true)
+  /** SF05：订阅偏好编辑（平台/渠道，空=全部） */
+  const [prefTarget, setPrefTarget] = useState<{
+    softwareId: string
+    name: string
+    platforms: string
+    channels: string
+  } | null>(null)
+  const [prefBusy, setPrefBusy] = useState(false)
 
   useEffect(() => {
     softwareApi.preferences()
@@ -88,6 +98,39 @@ export default function SoftwareMineScreen() {
       Alert.alert('提示', enabled ? '已开启软件更新提醒' : '已关闭软件更新提醒')
     } catch {
       setUpdateNotify(prev)
+    }
+  }
+
+  /** SF05：打开偏好编辑器前读取服务端当前值（NULL=全部） */
+  const openPreference = async (item: SoftwareMineItem) => {
+    try {
+      const res = await softwareApi.subscriptionPreference(item.softwareId)
+      const pref = res.data?.data
+      setPrefTarget({
+        softwareId: item.softwareId,
+        name: item.name,
+        platforms: pref?.platforms ?? '',
+        channels: pref?.channels ?? '',
+      })
+    } catch {
+      Alert.alert('提示', '加载订阅偏好失败，请稍后再试')
+    }
+  }
+
+  const savePreference = async () => {
+    if (!prefTarget) return
+    setPrefBusy(true)
+    try {
+      await softwareApi.subscribe(prefTarget.softwareId, {
+        platforms: prefTarget.platforms.trim() || undefined,
+        channels: prefTarget.channels.trim() || undefined,
+      })
+      setPrefTarget(null)
+      Alert.alert('提示', '订阅偏好已保存')
+    } catch {
+      Alert.alert('提示', '保存失败，请检查平台/渠道取值')
+    } finally {
+      setPrefBusy(false)
     }
   }
 
@@ -204,6 +247,15 @@ export default function SoftwareMineScreen() {
             style={{ paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: '#fdecec' }}
           >
             <Text style={{ fontSize: FontSize.xs, color: '#d3392f' }}>取消收藏</Text>
+          </TouchableOpacity>
+        )}
+        {!isOwnTab && tab === 'subscriptions' && !item.unavailable && (
+          <TouchableOpacity
+            disabled={busy}
+            onPress={() => void openPreference(item)}
+            style={{ paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: BorderRadius.full, backgroundColor: '#eef2ff' }}
+          >
+            <Text style={{ fontSize: FontSize.xs, color: '#3d5afe' }}>调整偏好</Text>
           </TouchableOpacity>
         )}
         {!isOwnTab && tab === 'subscriptions' && (
@@ -474,6 +526,70 @@ export default function SoftwareMineScreen() {
           }
         />
       )}
+
+      {/* SF05：订阅偏好（平台/渠道；留空表示全部，保持旧"全部更新"语义） */}
+      {prefTarget ? (
+        <Modal transparent animationType="fade" visible onRequestClose={() => setPrefTarget(null)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: Spacing.lg }}>
+            <View style={{ backgroundColor: theme.bgElevated ?? '#fff', borderRadius: BorderRadius.lg, padding: Spacing.md }}>
+              <Text style={{ fontSize: FontSize.md, fontWeight: '600', color: theme.text }}>
+                调整订阅偏好
+              </Text>
+              <Text style={{ marginTop: 4, fontSize: FontSize.xs, color: theme.textSecondary }}>
+                {prefTarget.name} · 留空表示全部平台/渠道
+              </Text>
+              <Text style={{ marginTop: Spacing.sm, fontSize: FontSize.sm, color: theme.text }}>
+                平台（逗号分隔）
+              </Text>
+              <TextInput
+                value={prefTarget.platforms}
+                onChangeText={(value) => setPrefTarget((prev) => (prev ? { ...prev, platforms: value } : prev))}
+                placeholder="如 WINDOWS,MACOS；留空=全部"
+                placeholderTextColor={theme.textSecondary}
+                autoCapitalize="characters"
+                style={{
+                  marginTop: 4,
+                  borderWidth: 1,
+                  borderColor: theme.border ?? '#e2e8f0',
+                  borderRadius: BorderRadius.md,
+                  paddingHorizontal: Spacing.sm,
+                  paddingVertical: 8,
+                  color: theme.text,
+                }}
+              />
+              <Text style={{ marginTop: Spacing.sm, fontSize: FontSize.sm, color: theme.text }}>
+                渠道（逗号分隔）
+              </Text>
+              <TextInput
+                value={prefTarget.channels}
+                onChangeText={(value) => setPrefTarget((prev) => (prev ? { ...prev, channels: value } : prev))}
+                placeholder="如 STABLE,BETA；留空=全部"
+                placeholderTextColor={theme.textSecondary}
+                autoCapitalize="characters"
+                style={{
+                  marginTop: 4,
+                  borderWidth: 1,
+                  borderColor: theme.border ?? '#e2e8f0',
+                  borderRadius: BorderRadius.md,
+                  paddingHorizontal: Spacing.sm,
+                  paddingVertical: 8,
+                  color: theme.text,
+                }}
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.md, marginTop: Spacing.md }}>
+                <TouchableOpacity disabled={prefBusy} onPress={() => setPrefTarget(null)}>
+                  <Text style={{ fontSize: FontSize.sm, color: theme.textSecondary }}>取消</Text>
+                </TouchableOpacity>
+                <TouchableOpacity disabled={prefBusy} onPress={() => void savePreference()}>
+                  <Text style={{ fontSize: FontSize.sm, color: '#3d5afe', fontWeight: '600' }}>
+                    {prefBusy ? '保存中…' : '保存'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
     </View>
   )
 }

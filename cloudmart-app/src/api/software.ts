@@ -164,6 +164,8 @@ export interface SoftwareTopicDetail {
   slug: string
   title: string
   summary: string | null
+  /** SF05：专题介绍（后台维护，随专题详情返回） */
+  description?: string | null
   coverAssetId: string | null
   items: SoftwareCard[]
   /** UX02：工具箱三要素（无数据省略） */

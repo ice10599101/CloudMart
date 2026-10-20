@@ -29,6 +29,24 @@ const DELIVERY_LABEL: Record<string, string> = {
   FAILED: '失败',
 }
 
+/** SF06：效率指标（审核与 CHECKING 分列；口径随响应返回） */
+interface StatEfficiency {
+  reviewCount?: number | null
+  reviewP50Minutes?: number | null
+  reviewP95Minutes?: number | null
+  reviewAvgMinutes?: number | null
+  checkCount?: number | null
+  checkP50Minutes?: number | null
+  checkP95Minutes?: number | null
+  checkAvgMinutes?: number | null
+  feedbackResolvedCount?: number | null
+  feedbackFixP50Minutes?: number | null
+  feedbackFixP95Minutes?: number | null
+  feedbackRejectedCount?: number | null
+  feedbackOpenCount?: number | null
+  metricDefinition?: string
+}
+
 export default function SoftwareStatistics() {
   const message = useMessage()
   const [data, setData] = useState<AdminSoftwareStatistics | null>(null)
@@ -38,7 +56,7 @@ export default function SoftwareStatistics() {
   const [retrying, setRetrying] = useState<string | null>(null)
   /** SF06：运营趋势（日序列 + 效率指标） */
   const [trends, setTrends] = useState<StatTrendPoint[]>([])
-  const [efficiency, setEfficiency] = useState<Record<string, number | null> | null>(null)
+  const [efficiency, setEfficiency] = useState<StatEfficiency | null>(null)
   const [trendsLoading, setTrendsLoading] = useState(false)
 
   const loadTrends = () => {
@@ -49,7 +67,7 @@ export default function SoftwareStatistics() {
       .then((res) => {
         const payload = res.data.data as {
           series?: StatTrendPoint[]
-          efficiency?: Record<string, number | null>
+          efficiency?: StatEfficiency
         }
         setTrends(payload.series ?? [])
         setEfficiency(payload.efficiency ?? null)
@@ -245,24 +263,45 @@ export default function SoftwareStatistics() {
               <>
                 <Typography.Paragraph type="secondary">
                   获取链接为站内去重获取次数/人数（非外部下载量）；收藏/订阅为新增与取消分别记录，
-                  净值 = 新增 − 取消。效率指标：审核时长为提交到人工决定（分钟），
-                  反馈修复未结项不计入分位。
+                  净值 = 新增 − 取消。效率指标：审核时长 = PENDING（自动检查完成后）到人工决定，
+                  自动检查（CHECKING）时长单列；反馈修复未结项不计入分位。
                 </Typography.Paragraph>
                 {efficiency ? (
-                  <Row gutter={16} style={{ marginBottom: 16 }}>
-                    <Col span={6}>
-                      <Statistic title="审核 P50（分钟）" value={efficiency.reviewP50Minutes ?? '-'} />
-                    </Col>
-                    <Col span={6}>
-                      <Statistic title="审核 P95（分钟）" value={efficiency.reviewP95Minutes ?? '-'} />
-                    </Col>
-                    <Col span={6}>
-                      <Statistic title="反馈修复 P50（分钟）" value={efficiency.feedbackFixP50Minutes ?? '-'} />
-                    </Col>
-                    <Col span={6}>
-                      <Statistic title="反馈未结/被拒" value={`${efficiency.feedbackOpenCount ?? 0} / ${efficiency.feedbackRejectedCount ?? 0}`} />
-                    </Col>
-                  </Row>
+                  <>
+                    <Row gutter={16} style={{ marginBottom: 8 }}>
+                      <Col span={6}>
+                        <Statistic title="审核 P50（分钟）" value={efficiency.reviewP50Minutes ?? '-'} />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic title="审核 P95（分钟）" value={efficiency.reviewP95Minutes ?? '-'} />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic title="自动检查 P50（分钟）" value={efficiency.checkP50Minutes ?? '-'} />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic title="自动检查 P95（分钟）" value={efficiency.checkP95Minutes ?? '-'} />
+                      </Col>
+                    </Row>
+                    <Row gutter={16} style={{ marginBottom: 16 }}>
+                      <Col span={6}>
+                        <Statistic title="反馈修复 P50（分钟）" value={efficiency.feedbackFixP50Minutes ?? '-'} />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic title="反馈修复 P95（分钟）" value={efficiency.feedbackFixP95Minutes ?? '-'} />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic title="反馈未结/被拒" value={`${efficiency.feedbackOpenCount ?? 0} / ${efficiency.feedbackRejectedCount ?? 0}`} />
+                      </Col>
+                      <Col span={6}>
+                        <Statistic title="样本（审核/检查）" value={`${efficiency.reviewCount ?? 0} / ${efficiency.checkCount ?? 0}`} />
+                      </Col>
+                    </Row>
+                    {efficiency.metricDefinition ? (
+                      <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+                        {efficiency.metricDefinition}
+                      </Typography.Text>
+                    ) : null}
+                  </>
                 ) : null}
                 <Table<StatTrendPoint>
                   rowKey="date"

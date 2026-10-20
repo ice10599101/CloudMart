@@ -49,6 +49,8 @@ export default function SoftwareTopicPage() {
       {!loading && topic ? (
         <View>
           {topic.summary ? <Text className={styles.summary}>{topic.summary}</Text> : null}
+          {/* SF05：专题介绍（后台维护的运营文案） */}
+          {topic.description ? <Text className={styles.description}>{topic.description}</Text> : null}
           {/* UX02：工具箱三要素（能帮你做什么/适合谁/准备条件） */}
           {(topic.problem || topic.audience || topic.prerequisites) ? (
             <View className={styles.card}>

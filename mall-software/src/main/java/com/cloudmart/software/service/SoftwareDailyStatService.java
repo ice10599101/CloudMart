@@ -49,6 +49,7 @@ public class SoftwareDailyStatService {
     private final SoftwareDailyStatMapper dailyStatMapper;
     private final com.cloudmart.software.repository.SoftwareRevisionMapper revisionMapper;
     private final com.cloudmart.software.repository.SoftwareLinkFeedbackMapper feedbackMapper;
+    private final com.cloudmart.software.repository.SoftwareReviewCheckTaskMapper checkTaskMapper;
     private final Clock clock;
 
     /** 记录收藏/订阅事件（Asia/Shanghai 切日；写入失败不阻断主流程——统计可重建） */
@@ -167,8 +168,10 @@ public class SoftwareDailyStatService {
 
     /**
      * 审核/修复效率（SF06）：直接从事实表计算，不进入日聚合表（低频）。
-     * 审核时长=PENDING 到最终人工决定（分钟）；反馈修复时长=首次反馈到修复上线（分钟），
-     * 未结项不计入分位（不填 0 混入均值），拒绝项另列。
+     * 审核时长=PENDING 到最终人工决定（分钟），CHECKING 时长由检查任务 finished_at
+     * 单列（提交→检查完成）；无检查任务的存量提交按提交即进入 PENDING 处理。
+     * 反馈修复时长=首次反馈到修复上线（分钟），未结项不计入分位（不填 0 混入均值），
+     * 拒绝项另列。
      */
     public Map<String, Object> efficiency() {
         LocalDateTime now = LocalDateTime.now(clock);
@@ -182,12 +185,41 @@ public class SoftwareDailyStatService {
                         .isNotNull(com.cloudmart.software.entity.SoftwareRevision::getReviewedAt)
                         .ge(com.cloudmart.software.entity.SoftwareRevision::getReviewedAt,
                                 now.minusDays(30)));
+        // CHECKING 结束事实：检查任务 finished_at（同一提交唯一任务）
+        Map<Long, LocalDateTime> checkFinishedAt = new HashMap<>();
+        List<Long> revisionIds = reviewed.stream()
+                .map(com.cloudmart.software.entity.SoftwareRevision::getId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (!revisionIds.isEmpty()) {
+            for (com.cloudmart.software.entity.SoftwareReviewCheckTask task : checkTaskMapper.selectList(
+                    new LambdaQueryWrapper<com.cloudmart.software.entity.SoftwareReviewCheckTask>()
+                            .in(com.cloudmart.software.entity.SoftwareReviewCheckTask::getRevisionId,
+                                    revisionIds)
+                            .isNotNull(com.cloudmart.software.entity.SoftwareReviewCheckTask::getFinishedAt))) {
+                if (task.getRevisionId() != null && task.getFinishedAt() != null) {
+                    checkFinishedAt.merge(task.getRevisionId(), task.getFinishedAt(),
+                            (left, right) -> left.isAfter(right) ? left : right);
+                }
+            }
+        }
+        List<Long> checkMinutes = new ArrayList<>();
         List<Long> reviewMinutes = new ArrayList<>();
         for (var revision : reviewed) {
-            if (revision.getSubmittedAt() != null
-                    && revision.getReviewedAt().isAfter(revision.getSubmittedAt())) {
-                reviewMinutes.add(java.time.Duration.between(
-                        revision.getSubmittedAt(), revision.getReviewedAt()).toMinutes());
+            LocalDateTime submitted = revision.getSubmittedAt();
+            LocalDateTime reviewedAt = revision.getReviewedAt();
+            if (submitted == null || reviewedAt == null || reviewedAt.isBefore(submitted)) {
+                continue;
+            }
+            LocalDateTime checkEnd = checkFinishedAt.get(revision.getId());
+            if (checkEnd != null && !checkEnd.isBefore(submitted)) {
+                // CHECKING 单列；PENDING 从检查完成起算（自动发布为 0 分钟）
+                checkMinutes.add(java.time.Duration.between(submitted, checkEnd).toMinutes());
+                if (!reviewedAt.isBefore(checkEnd)) {
+                    reviewMinutes.add(java.time.Duration.between(checkEnd, reviewedAt).toMinutes());
+                }
+            } else {
+                reviewMinutes.add(java.time.Duration.between(submitted, reviewedAt).toMinutes());
             }
         }
         view.put("reviewCount", reviewMinutes.size());
@@ -195,6 +227,13 @@ public class SoftwareDailyStatService {
         view.put("reviewP95Minutes", percentile(reviewMinutes, 95));
         view.put("reviewAvgMinutes", reviewMinutes.isEmpty() ? null :
                 reviewMinutes.stream().mapToLong(Long::longValue).average().orElse(0));
+        view.put("checkCount", checkMinutes.size());
+        view.put("checkP50Minutes", percentile(checkMinutes, 50));
+        view.put("checkP95Minutes", percentile(checkMinutes, 95));
+        view.put("checkAvgMinutes", checkMinutes.isEmpty() ? null :
+                checkMinutes.stream().mapToLong(Long::longValue).average().orElse(0));
+        view.put("metricDefinition", "审核时长=PENDING（检查完成后）到最终人工决定；"
+                + "CHECKING 时长=提交到自动检查完成，单列统计；无检查任务的存量提交按提交即进入 PENDING");
 
         // 反馈修复时长（近 30 天 RESOLVED 反馈；拒绝项另列）
         List<com.cloudmart.software.entity.SoftwareLinkFeedback> feedbacks =

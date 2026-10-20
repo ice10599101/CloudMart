@@ -2,8 +2,12 @@ package com.cloudmart.software.service;
 
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.software.entity.SoftwareDailyStat;
+import com.cloudmart.software.entity.SoftwareReviewCheckTask;
+import com.cloudmart.software.entity.SoftwareRevision;
 import com.cloudmart.software.entity.SoftwareStatEvent;
+import com.cloudmart.software.enums.SoftwareReviewStatus;
 import com.cloudmart.software.repository.SoftwareDailyStatMapper;
+import com.cloudmart.software.repository.SoftwareReviewCheckTaskMapper;
 import com.cloudmart.software.repository.SoftwareRevisionMapper;
 import com.cloudmart.software.repository.SoftwareLinkFeedbackMapper;
 import com.cloudmart.software.repository.SoftwareStatEventMapper;
@@ -51,13 +55,15 @@ class SoftwareDailyStatServiceTest {
     private SoftwareRevisionMapper revisionMapper;
     @Mock
     private SoftwareLinkFeedbackMapper feedbackMapper;
+    @Mock
+    private SoftwareReviewCheckTaskMapper checkTaskMapper;
 
     private SoftwareDailyStatService service;
 
     @BeforeEach
     void setUp() {
         service = new SoftwareDailyStatService(eventMapper, dailyStatMapper, revisionMapper,
-                feedbackMapper,
+                feedbackMapper, checkTaskMapper,
                 Clock.fixed(NOW.atZone(ZoneId.systemDefault()).toInstant(),
                         ZoneId.systemDefault()));
     }
@@ -164,5 +170,75 @@ class SoftwareDailyStatServiceTest {
                 (List<java.util.Map<String, Object>>) result.get("series");
         assertThat(series.get(1).get("resolveCount")).isEqualTo(7L);
         assertThat(series.get(1).get("resolveUserCount")).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("efficiency：CHECKING 与 PENDING 分列（检查 10 分钟；人工复核从检查完成起算 50 分钟）")
+    void efficiency_separatesCheckingFromPending() {
+        LocalDateTime submitted = NOW.minusHours(2);
+        SoftwareRevision revision = approvedRevision(1L, submitted, submitted.plusMinutes(60));
+        SoftwareReviewCheckTask task = finishedTask(1L, submitted.plusMinutes(10));
+        when(revisionMapper.selectList(any())).thenReturn(List.of(revision));
+        when(checkTaskMapper.selectList(any())).thenReturn(List.of(task));
+
+        var view = service.efficiency();
+
+        assertThat(view.get("checkCount")).isEqualTo(1);
+        assertThat(view.get("checkP50Minutes")).isEqualTo(10.0);
+        assertThat(view.get("checkP95Minutes")).isEqualTo(10.0);
+        assertThat(view.get("reviewCount")).isEqualTo(1);
+        assertThat(view.get("reviewP50Minutes")).isEqualTo(50.0);
+        assertThat(String.valueOf(view.get("metricDefinition"))).contains("CHECKING");
+    }
+
+    @Test
+    @DisplayName("efficiency：直接发布权限自动上线，PENDING 时长为 0 且 CHECKING 仍单列")
+    void efficiency_autoPublishZeroPending() {
+        LocalDateTime submitted = NOW.minusHours(1);
+        LocalDateTime checkEnd = submitted.plusMinutes(5);
+        SoftwareRevision revision = approvedRevision(2L, submitted, checkEnd);
+        when(revisionMapper.selectList(any())).thenReturn(List.of(revision));
+        when(checkTaskMapper.selectList(any()))
+                .thenReturn(List.of(finishedTask(2L, checkEnd)));
+
+        var view = service.efficiency();
+
+        assertThat(view.get("checkP50Minutes")).isEqualTo(5.0);
+        assertThat(view.get("reviewP50Minutes")).isEqualTo(0.0);
+        assertThat(view.get("reviewAvgMinutes")).isEqualTo(0.0);
+    }
+
+    @Test
+    @DisplayName("efficiency：无检查任务的存量提交按提交即进入 PENDING（不计入 CHECKING 样本）")
+    void efficiency_legacyWithoutCheckTask() {
+        LocalDateTime submitted = NOW.minusHours(1);
+        SoftwareRevision revision = approvedRevision(3L, submitted, submitted.plusMinutes(30));
+        when(revisionMapper.selectList(any())).thenReturn(List.of(revision));
+        when(checkTaskMapper.selectList(any())).thenReturn(List.of());
+
+        var view = service.efficiency();
+
+        assertThat(view.get("checkCount")).isEqualTo(0);
+        assertThat(view.get("checkP50Minutes")).isNull();
+        assertThat(view.get("reviewP50Minutes")).isEqualTo(30.0);
+    }
+
+    private static SoftwareRevision approvedRevision(long id, LocalDateTime submittedAt,
+                                                     LocalDateTime reviewedAt) {
+        SoftwareRevision revision = new SoftwareRevision();
+        revision.setId(id);
+        revision.setReviewStatus(SoftwareReviewStatus.APPROVED);
+        revision.setSubmittedAt(submittedAt);
+        revision.setReviewedAt(reviewedAt);
+        return revision;
+    }
+
+    private static SoftwareReviewCheckTask finishedTask(long revisionId,
+                                                        LocalDateTime finishedAt) {
+        SoftwareReviewCheckTask task = new SoftwareReviewCheckTask();
+        task.setRevisionId(revisionId);
+        task.setStatus("DONE");
+        task.setFinishedAt(finishedAt);
+        return task;
     }
 }

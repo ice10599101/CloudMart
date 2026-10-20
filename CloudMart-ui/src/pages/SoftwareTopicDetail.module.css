@@ -45,6 +45,15 @@
   max-width: 720px;
 }
 
+.description {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--color-text);
+  max-width: 720px;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 768px) {
   .page {
     padding: 16px 12px 40px;
