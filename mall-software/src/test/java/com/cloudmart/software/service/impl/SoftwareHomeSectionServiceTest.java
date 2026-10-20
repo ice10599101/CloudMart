@@ -2,7 +2,10 @@ package com.cloudmart.software.service.impl;
 
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.software.dto.software.AdminHomeSectionSaveRequest;
+import com.cloudmart.software.entity.SoftwareGuide;
 import com.cloudmart.software.entity.SoftwareHomeSection;
+import com.cloudmart.software.feign.CommunitySupportFeignClient;
+import com.cloudmart.software.repository.SoftwareGuideMapper;
 import com.cloudmart.software.repository.SoftwareHomeSectionItemMapper;
 import com.cloudmart.software.repository.SoftwareHomeSectionMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
@@ -23,10 +26,12 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.lenient;
 
 /**
@@ -46,6 +51,10 @@ class SoftwareHomeSectionServiceTest {
     @Mock
     private SoftwareTopicMapper topicMapper;
     @Mock
+    private SoftwareGuideMapper guideMapper;
+    @Mock
+    private CommunitySupportFeignClient communitySupportFeignClient;
+    @Mock
     private SoftwareQueryService softwareQueryService;
 
     private SoftwareHomeSectionServiceImpl service;
@@ -64,8 +73,7 @@ class SoftwareHomeSectionServiceTest {
     @BeforeEach
     void setUp() {
         service = new SoftwareHomeSectionServiceImpl(sectionMapper, itemMapper,
-                softwareMapper, topicMapper,
-                org.mockito.Mockito.mock(com.cloudmart.software.repository.SoftwareGuideMapper.class),
+                softwareMapper, topicMapper, guideMapper, communitySupportFeignClient,
                 softwareQueryService,
                 Clock.fixed(NOW.toInstant(ZoneOffset.UTC), ZoneOffset.UTC));
         lenient().when(sectionMapper.selectOne(any())).thenReturn(null);
@@ -229,5 +237,59 @@ class SoftwareHomeSectionServiceTest {
         assertThat(blocks).hasSize(2);
         assertThat(blocks.get(0).get("state")).isEqualTo("ERROR");
         assertThat(blocks.get(1).get("state")).isEqualTo("OK");
+    }
+
+    @Test
+    void publicHome_guideList_hidesWithdrawnArticle() {
+        SoftwareHomeSection section = guideSection(0);
+        lenient().when(sectionMapper.selectList(any())).thenReturn(List.of(section));
+        lenient().when(guideMapper.selectList(any()))
+                .thenReturn(List.of(guide(1L, 201L), guide(2L, 202L)));
+        lenient().when(communitySupportFeignClient.postPublicStatus(anyList()))
+                .thenReturn(com.cloudmart.common.api.ApiResponse.ok(List.of(
+                        Map.of("postId", "201", "public", true),
+                        Map.of("postId", "202", "public", false))));
+
+        List<Map<String, Object>> blocks = service.publicHome("WEB");
+        assertThat(blocks).hasSize(1);
+        List<?> items = (List<?>) blocks.get(0).get("items");
+        assertThat(items).hasSize(1);
+        assertThat(((Map<?, ?>) items.get(0)).get("targetType")).isEqualTo("GUIDE");
+    }
+
+    @Test
+    void publicHome_guideList_articleStatusFailure_hidesBlock() {
+        SoftwareHomeSection section = guideSection(1);
+        lenient().when(sectionMapper.selectList(any())).thenReturn(List.of(section));
+        lenient().when(guideMapper.selectList(any()))
+                .thenReturn(List.of(guide(1L, 201L)));
+        lenient().when(communitySupportFeignClient.postPublicStatus(anyList()))
+                .thenThrow(new RuntimeException("community down"));
+
+        assertThat(service.publicHome("WEB")).isEmpty(); // 宁缺勿假
+    }
+
+    private SoftwareHomeSection guideSection(int minItems) {
+        SoftwareHomeSection section = new SoftwareHomeSection();
+        section.setId(1L);
+        section.setSlotKey("guide-rail");
+        section.setTitle("教程");
+        section.setKind("GUIDE_LIST");
+        section.setDataSource("GUIDE");
+        section.setEnabled(true);
+        section.setLimitCount(8);
+        section.setMinItems(minItems);
+        section.setFallbackPolicy("HIDE");
+        return section;
+    }
+
+    private SoftwareGuide guide(Long id, Long articleId) {
+        SoftwareGuide guide = new SoftwareGuide();
+        guide.setId(id);
+        guide.setArticleId(articleId);
+        guide.setGuideType("INSTALL_GUIDE");
+        guide.setTitle("教程" + id);
+        guide.setEnabled(true);
+        return guide;
     }
 }

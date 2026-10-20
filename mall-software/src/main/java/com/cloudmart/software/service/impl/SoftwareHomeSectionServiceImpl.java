@@ -7,6 +7,7 @@ import com.cloudmart.software.entity.Software;
 import com.cloudmart.software.entity.SoftwareHomeSection;
 import com.cloudmart.software.entity.SoftwareHomeSectionItem;
 import com.cloudmart.software.entity.SoftwareTopic;
+import com.cloudmart.software.feign.CommunitySupportFeignClient;
 import com.cloudmart.software.repository.SoftwareHomeSectionItemMapper;
 import com.cloudmart.software.repository.SoftwareHomeSectionMapper;
 import com.cloudmart.software.repository.SoftwareMapper;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -54,6 +56,7 @@ public class SoftwareHomeSectionServiceImpl implements SoftwareHomeSectionServic
     private final SoftwareMapper softwareMapper;
     private final SoftwareTopicMapper topicMapper;
     private final com.cloudmart.software.repository.SoftwareGuideMapper guideMapper;
+    private final CommunitySupportFeignClient communitySupportFeignClient;
     private final SoftwareQueryService softwareQueryService;
     private final Clock clock;
 
@@ -141,6 +144,17 @@ public class SoftwareHomeSectionServiceImpl implements SoftwareHomeSectionServic
                         .eq(SoftwareHomeSectionItem::getSectionId, section.getId())
                         .orderByAsc(SoftwareHomeSectionItem::getDisplayOrder)
                         .orderByAsc(SoftwareHomeSectionItem::getId));
+        // 教程条目批量预载 + 文章公开状态（文章撤回立即从首页入口隐藏）
+        List<Long> guideIds = rows.stream()
+                .filter(row -> "GUIDE".equals(row.getTargetType()) && row.getTargetId() != null)
+                .map(SoftwareHomeSectionItem::getTargetId).distinct().toList();
+        Map<Long, com.cloudmart.software.entity.SoftwareGuide> guideById = guideIds.isEmpty()
+                ? Map.of()
+                : guideMapper.selectBatchIds(guideIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(
+                            com.cloudmart.software.entity.SoftwareGuide::getId, g -> g));
+        Map<Long, Boolean> articlePublic = articlePublic(guideById.values().stream()
+                .map(com.cloudmart.software.entity.SoftwareGuide::getArticleId).toList());
         List<Map<String, Object>> items = new ArrayList<>();
         for (SoftwareHomeSectionItem row : rows) {
             if (items.size() >= limit) {
@@ -178,14 +192,15 @@ public class SoftwareHomeSectionServiceImpl implements SoftwareHomeSectionServic
                             "title", topic.getTitle() == null ? "" : topic.getTitle()));
                 }
                 case "GUIDE" -> {
-                    // UX04 教程条目：enabled+文章公开的教程元数据（正文实时校验由 guide 服务负责）
+                    // UX04 教程条目：enabled+文章公开（文章撤回立即从首页入口隐藏）
                     if (row.getTargetId() == null) {
                         continue;
                     }
                     com.cloudmart.software.entity.SoftwareGuide guide =
-                            guideMapper.selectById(row.getTargetId());
+                            guideById.get(row.getTargetId());
                     if (guide == null || guide.getDeletedAt() != null
-                            || !Boolean.TRUE.equals(guide.getEnabled())) {
+                            || !Boolean.TRUE.equals(guide.getEnabled())
+                            || !Boolean.TRUE.equals(articlePublic.get(guide.getArticleId()))) {
                         continue;
                     }
                     item.put("guide", java.util.Map.of(
@@ -252,16 +267,25 @@ public class SoftwareHomeSectionServiceImpl implements SoftwareHomeSectionServic
         return item;
     }
 
-    /** UX04：教程数据源——enabled+未删除（文章公开状态在教程详情实时校验） */
+    /** UX04：教程数据源——enabled+未删除+文章公开（撤回立即隐藏） */
     private List<Map<String, Object>> guideItems(int limit) {
+        // 多取候选以抵消文章撤回造成的过滤损耗；教程由运营维护，总量有限。
         List<com.cloudmart.software.entity.SoftwareGuide> guides = guideMapper.selectList(
                 new LambdaQueryWrapper<com.cloudmart.software.entity.SoftwareGuide>()
                         .eq(com.cloudmart.software.entity.SoftwareGuide::getEnabled, true)
                         .isNull(com.cloudmart.software.entity.SoftwareGuide::getDeletedAt)
                         .orderByAsc(com.cloudmart.software.entity.SoftwareGuide::getDisplayOrder)
-                        .last("LIMIT " + limit));
+                        .last("LIMIT " + MAX_LIMIT));
+        Map<Long, Boolean> articlePublic = articlePublic(guides.stream()
+                .map(com.cloudmart.software.entity.SoftwareGuide::getArticleId).toList());
         List<Map<String, Object>> items = new ArrayList<>();
         for (var guide : guides) {
+            if (items.size() >= limit) {
+                break;
+            }
+            if (!Boolean.TRUE.equals(articlePublic.get(guide.getArticleId()))) {
+                continue;
+            }
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("targetType", "GUIDE");
             item.put("guide", java.util.Map.of(
@@ -272,6 +296,26 @@ public class SoftwareHomeSectionServiceImpl implements SoftwareHomeSectionServic
             items.add(item);
         }
         return items;
+    }
+
+    /** 社区文章公开状态（批量；失败按全部非公开处理——教程宁缺勿假） */
+    private Map<Long, Boolean> articlePublic(List<Long> articleIds) {
+        if (articleIds == null || articleIds.isEmpty()) {
+            return Map.of();
+        }
+        try {
+            List<Map<String, Object>> rows =
+                    communitySupportFeignClient.postPublicStatus(articleIds).data();
+            Map<Long, Boolean> byId = new HashMap<>();
+            for (Map<String, Object> row : rows == null ? List.<Map<String, Object>>of() : rows) {
+                byId.put(Long.parseLong(String.valueOf(row.get("postId"))),
+                        Boolean.TRUE.equals(row.get("public")));
+            }
+            return byId;
+        } catch (Exception e) {
+            log.warn("首页教程文章状态查询失败（按全部非公开处理）: {}", e.getMessage());
+            return Map.of();
+        }
     }
 
     private String moreTarget(SoftwareHomeSection section) {
