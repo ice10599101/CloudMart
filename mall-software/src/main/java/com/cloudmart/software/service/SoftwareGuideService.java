@@ -18,8 +18,11 @@ public interface SoftwareGuideService {
     /** 公开详情（含社区文章摘要/封面；文章非公开统一 404 语义） */
     Map<String, Object> publicGuideDetail(Long guideId);
 
-    /** 管理分页（含未启用/文章非公开状态标注） */
-    Map<String, Object> adminGuides(String guideType, int page, int size);
+    /**
+     * 管理分页（含未启用/文章非公开/关联软件失效标注）。
+     * maintenanceOnly=true 时仅返回关联软件已失效的教程（后台维护队列）。
+     */
+    Map<String, Object> adminGuides(String guideType, boolean maintenanceOnly, int page, int size);
 
     /** 新增/更新（guideId 空=新增）；元数据校验+articleId 公开状态预检；返回 ID */
     Long saveGuide(Long guideId, AdminGuideSaveRequest request, String idempotencyKey);

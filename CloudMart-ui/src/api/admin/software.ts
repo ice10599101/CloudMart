@@ -1152,12 +1152,27 @@ export interface AdminSoftwareGuide {
   checkNote: string | null
   enabled: boolean
   displayOrder: number
+  /** 关联软件已删除/未发布/非 ACTIVE：进入后台维护队列 */
+  maintenanceRequired?: boolean
+  maintenanceIssues?: { softwareId: string; reason: string }[]
 }
 
-export function listAdminGuides(guideType: string | null, page = 1, size = 12) {
+export function listAdminGuides(
+  guideType: string | null,
+  page = 1,
+  size = 12,
+  maintenanceOnly = false,
+) {
   return request.get<ApiResponse<{ records: AdminSoftwareGuide[]; total: number }>>(
     `${BASE}/guides`,
-    { params: { guideType: guideType ?? undefined, page, size } },
+    {
+      params: {
+        guideType: guideType ?? undefined,
+        maintenanceOnly: maintenanceOnly || undefined,
+        page,
+        size,
+      },
+    },
   )
 }
 

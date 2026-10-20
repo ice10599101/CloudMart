@@ -464,12 +464,14 @@ public class AdminSoftwareController {
 
     @GetMapping("/guides")
     @RequiresPermission("software:guide:list")
-    @Operation(summary = "教程管理分页", description = "含未启用与文章非公开标注")
+    @Operation(summary = "教程管理分页",
+            description = "含未启用/文章非公开/关联软件失效标注；maintenanceOnly=维护队列")
     public ApiResponse<Object> guides(
             @RequestParam(value = "guideType", required = false) String guideType,
+            @RequestParam(value = "maintenanceOnly", defaultValue = "false") boolean maintenanceOnly,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "12") int size) {
-        return softwareFeignClient.guides(guideType, page, size);
+        return softwareFeignClient.guides(guideType, maintenanceOnly, page, size);
     }
 
     @OperLog(title = "教程维护", businessType = 2)

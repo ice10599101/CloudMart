@@ -192,4 +192,96 @@ class SoftwareGuideServiceTest {
         Map<String, Object> result = service.publicGuides(null, 1, 12);
         assertThat((List<?>) result.get("records")).isEmpty(); // 宁缺勿假
     }
+
+    @Test
+    void adminList_flagsMaintenanceForInvalidRelatedSoftware() {
+        SoftwareGuide guide = new SoftwareGuide();
+        guide.setId(1L);
+        guide.setGuideType("INSTALL_GUIDE");
+        guide.setTitle("t");
+        guide.setArticleId(101L);
+        guide.setRelatedSoftwareIds("[7,8,9]");
+        Page<SoftwareGuide> p = new Page<>(1, 12, 1);
+        p.setRecords(List.of(guide));
+        lenient().when(guideMapper.selectPage(any(), any())).thenReturn(p);
+        mockArticlePublic(true);
+
+        Software healthy = new Software();
+        healthy.setId(7L);
+        healthy.setPublishedRevisionId(70L);
+        healthy.setLifecycle(SoftwareLifecycle.ACTIVE);
+        Software banned = new Software();
+        banned.setId(8L);
+        banned.setPublishedRevisionId(80L);
+        banned.setLifecycle(SoftwareLifecycle.BANNED);
+        lenient().when(softwareMapper.selectBatchIds(any()))
+                .thenReturn(List.of(healthy, banned));
+
+        Map<String, Object> result = service.adminGuides(null, false, 1, 12);
+        Map<?, ?> row = (Map<?, ?>) ((List<?>) result.get("records")).get(0);
+        assertThat(row.get("maintenanceRequired")).isEqualTo(true);
+        assertThat((List<?>) row.get("maintenanceIssues"))
+                .extracting(issue -> ((Map<?, ?>) issue).get("softwareId") + ":"
+                        + ((Map<?, ?>) issue).get("reason"))
+                .containsExactly("8:NOT_ACTIVE", "9:NOT_FOUND");
+    }
+
+    @Test
+    void adminList_healthyRelatedSoftware_noMaintenance() {
+        SoftwareGuide guide = new SoftwareGuide();
+        guide.setId(1L);
+        guide.setGuideType("INSTALL_GUIDE");
+        guide.setTitle("t");
+        guide.setArticleId(101L);
+        guide.setRelatedSoftwareIds("[7]");
+        Page<SoftwareGuide> p = new Page<>(1, 12, 1);
+        p.setRecords(List.of(guide));
+        lenient().when(guideMapper.selectPage(any(), any())).thenReturn(p);
+        mockArticlePublic(true);
+        Software healthy = new Software();
+        healthy.setId(7L);
+        healthy.setPublishedRevisionId(70L);
+        healthy.setLifecycle(SoftwareLifecycle.ACTIVE);
+        lenient().when(softwareMapper.selectBatchIds(any())).thenReturn(List.of(healthy));
+
+        Map<String, Object> result = service.adminGuides(null, false, 1, 12);
+        Map<?, ?> row = (Map<?, ?>) ((List<?>) result.get("records")).get(0);
+        assertThat(row.get("maintenanceRequired")).isEqualTo(false);
+        assertThat((List<?>) row.get("maintenanceIssues")).isEmpty();
+    }
+
+    @Test
+    void adminList_maintenanceOnly_returnsOnlyBrokenGuides() {
+        SoftwareGuide healthyGuide = new SoftwareGuide();
+        healthyGuide.setId(1L);
+        healthyGuide.setGuideType("INSTALL_GUIDE");
+        healthyGuide.setTitle("healthy");
+        healthyGuide.setArticleId(101L);
+        healthyGuide.setRelatedSoftwareIds("[7]");
+        SoftwareGuide brokenGuide = new SoftwareGuide();
+        brokenGuide.setId(2L);
+        brokenGuide.setGuideType("WORKFLOW");
+        brokenGuide.setTitle("broken");
+        brokenGuide.setArticleId(101L);
+        brokenGuide.setRelatedSoftwareIds("[8]");
+        lenient().when(guideMapper.selectList(any()))
+                .thenReturn(List.of(healthyGuide, brokenGuide));
+        mockArticlePublic(true);
+        Software healthy = new Software();
+        healthy.setId(7L);
+        healthy.setPublishedRevisionId(70L);
+        healthy.setLifecycle(SoftwareLifecycle.ACTIVE);
+        Software unlisted = new Software();
+        unlisted.setId(8L);
+        unlisted.setPublishedRevisionId(80L);
+        unlisted.setLifecycle(SoftwareLifecycle.UNLISTED);
+        lenient().when(softwareMapper.selectBatchIds(any()))
+                .thenReturn(List.of(healthy, unlisted));
+
+        Map<String, Object> result = service.adminGuides(null, true, 1, 12);
+        assertThat(result.get("total")).isEqualTo(1L);
+        List<?> records = (List<?>) result.get("records");
+        assertThat(records).hasSize(1);
+        assertThat(((Map<?, ?>) records.get(0)).get("id")).isEqualTo("2");
+    }
 }

@@ -197,7 +197,8 @@ public class SoftwareFeignClientFallbackFactory implements FallbackFactory<Softw
             }
 
             @Override
-            public ApiResponse<Object> guides(String guideType, int page, int size) {
+            public ApiResponse<Object> guides(String guideType, Boolean maintenanceOnly,
+                                              int page, int size) {
                 throw unavailable(cause);
             }
 

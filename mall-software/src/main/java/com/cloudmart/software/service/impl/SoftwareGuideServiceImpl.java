@@ -39,6 +39,7 @@ public class SoftwareGuideServiceImpl implements SoftwareGuideService {
             "INSTALL_GUIDE", "WORKFLOW", "COMPARISON", "TROUBLESHOOTING");
     private static final Set<String> PLATFORMS = Set.of("WINDOWS", "MACOS", "LINUX", "WEB");
     private static final int MAX_RELATED = 3;
+    private static final int MAX_MAINTENANCE_SCAN = 500;
 
     private final SoftwareGuideMapper guideMapper;
     private final SoftwareMapper softwareMapper;
@@ -117,7 +118,8 @@ public class SoftwareGuideServiceImpl implements SoftwareGuideService {
     }
 
     @Override
-    public Map<String, Object> adminGuides(String guideType, int page, int size) {
+    public Map<String, Object> adminGuides(String guideType, boolean maintenanceOnly,
+                                           int page, int size) {
         int safePage = Math.max(1, page);
         int safeSize = Math.min(Math.max(1, size), 50);
         LambdaQueryWrapper<SoftwareGuide> wrapper = new LambdaQueryWrapper<SoftwareGuide>()
@@ -127,24 +129,70 @@ public class SoftwareGuideServiceImpl implements SoftwareGuideService {
         if (guideType != null && !guideType.isBlank()) {
             wrapper.eq(SoftwareGuide::getGuideType, guideType.trim());
         }
-        Page<SoftwareGuide> p = guideMapper.selectPage(Page.of(safePage, safeSize), wrapper);
-        List<Long> articleIds = p.getRecords().stream()
+        List<Map<String, Object>> rows;
+        long total;
+        if (maintenanceOnly) {
+            // 维护队列需跨页筛选；教程由运营人工维护、规模很小，扫描上限防止误用。
+            List<SoftwareGuide> all = guideMapper.selectList(
+                    wrapper.last("LIMIT " + (MAX_MAINTENANCE_SCAN + 1)));
+            if (all.size() > MAX_MAINTENANCE_SCAN) {
+                log.warn("教程维护队列扫描超过上限 {}，结果可能不完整", MAX_MAINTENANCE_SCAN);
+                all = all.subList(0, MAX_MAINTENANCE_SCAN);
+            }
+            rows = adminRows(all).stream()
+                    .filter(row -> Boolean.TRUE.equals(row.get("maintenanceRequired")))
+                    .toList();
+            total = rows.size();
+            int from = Math.min((safePage - 1) * safeSize, rows.size());
+            int to = Math.min(from + safeSize, rows.size());
+            rows = rows.subList(from, to);
+        } else {
+            Page<SoftwareGuide> p = guideMapper.selectPage(Page.of(safePage, safeSize), wrapper);
+            rows = adminRows(p.getRecords());
+            total = p.getTotal();
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("records", rows);
+        result.put("total", total);
+        result.put("page", safePage);
+        result.put("size", safeSize);
+        return result;
+    }
+
+    private List<Map<String, Object>> adminRows(List<SoftwareGuide> guides) {
+        List<Long> articleIds = guides.stream()
                 .map(SoftwareGuide::getArticleId).distinct().toList();
         Map<Long, Map<String, Object>> articleById = articleStatus(articleIds);
+        List<Long> relatedIds = guides.stream()
+                .flatMap(g -> parseSoftwareIds(g.getRelatedSoftwareIds()).stream())
+                .distinct().toList();
+        Map<Long, Software> softwareById = relatedIds.isEmpty() ? Map.of()
+                : softwareMapper.selectBatchIds(relatedIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(Software::getId, s -> s));
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (SoftwareGuide guide : p.getRecords()) {
+        for (SoftwareGuide guide : guides) {
             Map<String, Object> row = adminView(guide);
             Map<String, Object> article = articleById.get(guide.getArticleId());
             row.put("articlePublic", article != null && Boolean.TRUE.equals(article.get("public")));
             row.put("articleTitle", article == null ? null : article.get("title"));
+            // UX04：关联软件被封禁/下架/删除后进入后台维护队列；公开页已隐藏该软件，
+            // 运营需要看到“哪篇教程的哪个关联项已失效”，而不是等用户反馈。
+            List<Map<String, Object>> issues = new ArrayList<>();
+            for (Long softwareId : parseSoftwareIds(guide.getRelatedSoftwareIds())) {
+                Software software = softwareById.get(softwareId);
+                String reason = maintenanceReason(software);
+                if (reason != null) {
+                    Map<String, Object> issue = new LinkedHashMap<>();
+                    issue.put("softwareId", String.valueOf(softwareId));
+                    issue.put("reason", reason);
+                    issues.add(issue);
+                }
+            }
+            row.put("maintenanceRequired", !issues.isEmpty());
+            row.put("maintenanceIssues", issues);
             rows.add(row);
         }
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("records", rows);
-        result.put("total", p.getTotal());
-        result.put("page", safePage);
-        result.put("size", safeSize);
-        return result;
+        return rows;
     }
 
     @Override
@@ -290,6 +338,20 @@ public class SoftwareGuideServiceImpl implements SoftwareGuideService {
             log.warn("教程文章状态查询失败（按全部非公开处理）: {}", e.getMessage());
             return Map.of();
         }
+    }
+
+    /** 维护队列判定：关联软件被删除/未发布/非 ACTIVE 时返回原因，健康返回 null。 */
+    private static String maintenanceReason(Software software) {
+        if (software == null) {
+            return "NOT_FOUND";
+        }
+        if (software.getPublishedRevisionId() == null) {
+            return "NOT_PUBLISHED";
+        }
+        if (software.getLifecycle() != com.cloudmart.software.enums.SoftwareLifecycle.ACTIVE) {
+            return "NOT_ACTIVE";
+        }
+        return null;
     }
 
     private Map<String, Object> publicView(SoftwareGuide guide, Map<String, Object> article) {

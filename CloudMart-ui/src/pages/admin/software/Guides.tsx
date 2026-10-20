@@ -7,10 +7,12 @@ import {
   InputNumber,
   Modal,
   Popconfirm,
+  Segmented,
   Select,
   Space,
   Table,
   Tag,
+  Tooltip,
 } from 'antd'
 import {
   deleteAdminGuide,
@@ -28,6 +30,12 @@ const TYPE_LABEL: Record<string, string> = {
   TROUBLESHOOTING: '常见问题',
 }
 
+const MAINTENANCE_REASON_LABEL: Record<string, string> = {
+  NOT_FOUND: '软件已删除',
+  NOT_PUBLISHED: '软件未发布',
+  NOT_ACTIVE: '软件已下架/封禁',
+}
+
 const dayjs = (v?: string | null) => (v ? v.slice(0, 10) : '')
 
 /**
@@ -40,23 +48,27 @@ export default function SoftwareGuidesAdmin() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [queueOnly, setQueueOnly] = useState(false)
   const [editing, setEditing] = useState<{ guideId?: string } | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()
 
-  const load = useCallback(async (p: number) => {
-    setLoading(true)
-    try {
-      const res = await listAdminGuides(null, p, 12)
-      if (res.data.success) {
-        setRows(res.data.data?.records ?? [])
-        setTotal(res.data.data?.total ?? 0)
-        setPage(p)
+  const load = useCallback(
+    async (p: number) => {
+      setLoading(true)
+      try {
+        const res = await listAdminGuides(null, p, 12, queueOnly)
+        if (res.data.success) {
+          setRows(res.data.data?.records ?? [])
+          setTotal(res.data.data?.total ?? 0)
+          setPage(p)
+        }
+      } finally {
+        setLoading(false)
       }
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    },
+    [queueOnly],
+  )
 
   useEffect(() => {
     void load(1)
@@ -112,6 +124,14 @@ export default function SoftwareGuidesAdmin() {
         <Button type="primary" onClick={() => openEdit()}>
           新增教程
         </Button>
+        <Segmented
+          value={queueOnly ? 'queue' : 'all'}
+          onChange={(v) => setQueueOnly(v === 'queue')}
+          options={[
+            { value: 'all', label: '全部教程' },
+            { value: 'queue', label: '维护队列' },
+          ]}
+        />
         <Button onClick={() => load(page)}>刷新</Button>
       </Space>
       <Table
@@ -119,6 +139,7 @@ export default function SoftwareGuidesAdmin() {
         size="small"
         loading={loading}
         dataSource={rows}
+        locale={{ emptyText: queueOnly ? '维护队列为空' : '暂无教程' }}
         pagination={{ current: page, total, pageSize: 12, onChange: (p) => load(p) }}
         columns={[
           { title: '类型', dataIndex: 'guideType', width: 100, render: (v: string) => TYPE_LABEL[v] ?? v },
@@ -135,6 +156,29 @@ export default function SoftwareGuidesAdmin() {
             dataIndex: 'relatedSoftwareIds',
             width: 160,
             render: (ids: string[]) => ids.join(', ') || '-',
+          },
+          {
+            title: '维护',
+            dataIndex: 'maintenanceRequired',
+            width: 130,
+            render: (required: boolean, row: AdminSoftwareGuide) => {
+              if (!required) return <Tag color="success">正常</Tag>
+              const issues = row.maintenanceIssues ?? []
+              return (
+                <Tooltip
+                  title={issues
+                    .map(
+                      (issue) =>
+                        `${issue.softwareId}: ${
+                          MAINTENANCE_REASON_LABEL[issue.reason] ?? issue.reason
+                        }`,
+                    )
+                    .join('；')}
+                >
+                  <Tag color="warning">{issues.length} 项失效</Tag>
+                </Tooltip>
+              )
+            },
           },
           { title: '检查日期', dataIndex: 'checkedAt', width: 110 },
           {

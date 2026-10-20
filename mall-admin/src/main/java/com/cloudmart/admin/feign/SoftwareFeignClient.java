@@ -113,6 +113,8 @@ public interface SoftwareFeignClient {
 
     @GetMapping("/guides")
     ApiResponse<Object> guides(@RequestParam(value = "guideType", required = false) String guideType,
+                               @RequestParam(value = "maintenanceOnly", required = false)
+                               Boolean maintenanceOnly,
                                @RequestParam("page") int page, @RequestParam("size") int size);
 
     @PostMapping("/guides")
