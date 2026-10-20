@@ -97,6 +97,24 @@ class SoftwareEventConsumerTest {
     }
 
     @Test
+    @DisplayName("SF03：发布资格申请结果 → 申请人收通知；拒绝带公开原因")
+    void publisherApplicationResultMaps() {
+        consumer.onMessage(message("evt-app-1", "SOFTWARE_PUBLISHER_APPLICATION", Map.of(
+                "userId", "42", "status", "APPROVED", "reason", "资料完整")));
+        verify(notificationService).sendSoftwareEventNotification(42L, "evt-app-1",
+                "SOFTWARE_PUBLISHER_APPLICATION", "发布资格申请已通过",
+                "你的软件发布资格申请已通过，现在可以创建软件并提交审核",
+                null, "SOFTWARE_PUBLISHER", null);
+
+        consumer.onMessage(message("evt-app-2", "SOFTWARE_PUBLISHER_APPLICATION", Map.of(
+                "userId", 42L, "status", "REJECTED", "reason", "来源说明不足")));
+        verify(notificationService).sendSoftwareEventNotification(42L, "evt-app-2",
+                "SOFTWARE_PUBLISHER_APPLICATION", "发布资格申请未通过",
+                "你的发布资格申请未通过，理由：来源说明不足；修改后可重新申请",
+                null, "SOFTWARE_PUBLISHER", null);
+    }
+
+    @Test
     @DisplayName("畸形事件防御：缺 eventId/payload/recipient 拒绝且不抛出；未知类型跳过")
     void malformedEventsIgnored() {
         Map<String, Object> noEventId = new HashMap<>();

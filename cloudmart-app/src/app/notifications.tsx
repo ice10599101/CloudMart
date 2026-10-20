@@ -321,6 +321,11 @@ export default function NotificationsScreen() {
 
       // R19：星光转赠 / 邀请奖励通知按 bizType 深链
       // 小答软件域（S10/S12）：更新订阅直达详情；评论/来源进详情；审核/封禁进广场
+      if (item.type === 'SOFTWARE_PUBLISHER_APPLICATION') {
+        // SF03 申请结果：去「我的软件」查看资格/申请状态
+        router.push('/software-mine')
+        return
+      }
       if (item.type === 'SOFTWARE_RELEASE_PUBLISHED' && item.bizId) {
         router.push(`/software-detail?id=${item.bizId}`)
         return

@@ -71,6 +71,11 @@ export default function NotificationsPage() {
     }
     // R19：星光转赠 / 邀请奖励通知深链
     // 小答软件域（S10/S12）：更新订阅直达详情；审核结果/封禁/评论/来源进广场或详情
+    if (n.type === 'SOFTWARE_PUBLISHER_APPLICATION') {
+      // SF03 申请结果：去「我的软件」查看资格/申请状态
+      Taro.navigateTo({ url: '/pages/softwareMine/index' })
+      return
+    }
     if (n.type === 'SOFTWARE_RELEASE_PUBLISHED' && n.bizId) {
       Taro.navigateTo({ url: `/pages/softwareDetail/index?id=${n.bizId}` })
       return

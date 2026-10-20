@@ -53,6 +53,7 @@ public class SoftwareEventConsumer implements RocketMQListener<Map<String, Objec
             case "SOFTWARE_COMMENT_VISIBLE" -> notifyComment(eventId, payload, false);
             case "SOFTWARE_REPLY_VISIBLE" -> notifyComment(eventId, payload, true);
             case "SOFTWARE_SOURCE_REPORTED" -> notifySourceReported(eventId, payload);
+            case "SOFTWARE_PUBLISHER_APPLICATION" -> notifyPublisherApplication(eventId, payload);
             default -> log.warn("[软件事件] 未知的软件事件类型，跳过 eventId={} type={}",
                     eventId, eventType);
         }
@@ -137,6 +138,25 @@ public class SoftwareEventConsumer implements RocketMQListener<Map<String, Objec
                 "你分享的软件有 " + reporters + " 位用户反馈下载来源可能失效，"
                         + "请检查并更新来源；核实结论以管理员人工确认为准",
                 softwareId, "SOFTWARE_SOURCE", null);
+    }
+
+    /** SF03 发布资格申请结果：载荷 {userId,status,reason}，收件人为申请人 */
+    private void notifyPublisherApplication(String eventId, Map<String, Object> payload) {
+        Long userId = requireRecipient(payload, "userId", eventId);
+        if (userId == null) {
+            return;
+        }
+        boolean approved = "APPROVED".equals(String.valueOf(payload.get("status")));
+        Object reasonObj = payload.get("reason");
+        String reason = reasonObj == null ? "" : String.valueOf(reasonObj);
+        notificationService.sendSoftwareEventNotification(userId, eventId,
+                "SOFTWARE_PUBLISHER_APPLICATION",
+                approved ? "发布资格申请已通过" : "发布资格申请未通过",
+                approved ? "你的软件发布资格申请已通过，现在可以创建软件并提交审核"
+                        : "你的发布资格申请未通过"
+                        + (reason.isBlank() ? "" : "，理由：" + reason)
+                        + "；修改后可重新申请",
+                null, "SOFTWARE_PUBLISHER", null);
     }
 
     /** recipientId 必须存在（无收件人不产生通知） */
