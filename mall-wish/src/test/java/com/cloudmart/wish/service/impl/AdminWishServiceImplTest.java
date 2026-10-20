@@ -70,7 +70,8 @@ class AdminWishServiceImplTest {
         adminWishService = new AdminWishServiceImpl(wishMapper, wishCategoryMapper,
                 wishCheckinMapper, wishInteractionMapper,
                 org.mockito.Mockito.mock(com.cloudmart.wish.service.UserStatService.class),
-                org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.WishOutboxService.class));
+                org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.WishOutboxService.class),
+                java.time.Clock.systemUTC());
     }
 
     @Nested
@@ -437,7 +438,8 @@ class AdminWishServiceImplTest {
                     org.mockito.Mockito.mock(org.apache.rocketmq.spring.core.RocketMQTemplate.class), "t01-it");
             var service = new AdminWishServiceImpl(wishMapper, wishCategoryMapper,
                     wishCheckinMapper, wishInteractionMapper,
-                    org.mockito.Mockito.mock(com.cloudmart.wish.service.UserStatService.class), realOutbox);
+                    org.mockito.Mockito.mock(com.cloudmart.wish.service.UserStatService.class), realOutbox,
+                    java.time.Clock.systemUTC());
 
             Wish wish = buildWish();
             wish.setAuditStatus(AuditStatus.PENDING);

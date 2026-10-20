@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -75,6 +76,8 @@ public class AiAssistantServiceImpl implements AiAssistantService {
     private final AiPromptService aiPromptService;
     private final WishAiProperties aiProperties;
     private final TransactionTemplate transactionTemplate;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     @Override
     public AiBreakdownVO breakdownGoal(Long userId, AiAssistantRequest request) {
@@ -116,7 +119,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         if (request.sessionId() != null && !request.sessionId().startsWith(SESSION_PREFIX + userId + "-")) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "会话不存在");
         }
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         return transactionTemplate.execute(status -> {
             List<AiGoalVO> created = request.goals().stream().map(item -> {
                 WishAiGoal goal = new WishAiGoal();
@@ -149,7 +152,7 @@ public class AiAssistantServiceImpl implements AiAssistantService {
         validateTransition(current, target);
 
         // CAS 条件更新：status 仍为读取值时才流转（防并发双写）
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         WishAiGoal update = new WishAiGoal();
         update.setId(goalId);
         update.setStatus(target);

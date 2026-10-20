@@ -55,7 +55,8 @@ class AdminGrowthServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        adminGrowthService = new AdminGrowthServiceImpl(levelConfigMapper, dailyCheckInMapper);
+        adminGrowthService = new AdminGrowthServiceImpl(levelConfigMapper, dailyCheckInMapper,
+                java.time.Clock.systemUTC());
     }
 
     private LevelConfig buildLevelConfig(Long id, int level, String title, int minExp) {

@@ -25,8 +25,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.cloudmart.common.time.UserBusinessCalendar;
+
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -44,12 +48,15 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AdminWishServiceImpl implements AdminWishService {
 
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of(UserBusinessCalendar.DEFAULT_ZONE_ID);
+
     private final WishMapper wishMapper;
     private final WishCategoryMapper wishCategoryMapper;
     private final WishCheckinMapper wishCheckinMapper;
     private final WishInteractionMapper wishInteractionMapper;
     private final com.cloudmart.wish.service.UserStatService userStatService;
     private final WishOutboxService outboxService;
+    private final Clock clock;
 
     @Override
     public Page<AdminWishVO> listWishes(AdminWishListQuery query) {
@@ -248,8 +255,9 @@ public class AdminWishServiceImpl implements AdminWishService {
 
     @Override
     public AdminWishStatsVO stats() {
-        LocalDate today = LocalDate.now();
-        LocalDateTime todayStart = today.atStartOfDay();
+        // 后台统计日界按平台业务区零点换算为 UTC 时刻，与库内 UTC created_at 比较
+        LocalDate today = LocalDate.now(clock.withZone(BUSINESS_ZONE));
+        LocalDateTime todayStart = UserBusinessCalendar.businessDayStartUtcDateTime(today, BUSINESS_ZONE);
 
         Long totalWishCount = wishMapper.selectCount(null);
         Long todayWishCount = wishMapper.selectCount(

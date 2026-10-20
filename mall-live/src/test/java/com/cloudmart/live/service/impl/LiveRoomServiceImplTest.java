@@ -38,7 +38,7 @@ class LiveRoomServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        liveRoomService = new LiveRoomServiceImpl(roomMapper, converter);
+        liveRoomService = new LiveRoomServiceImpl(roomMapper, converter, java.time.Clock.systemUTC());
     }
 
     private static final Long ROOM_ID = 1L;

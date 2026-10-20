@@ -8,11 +8,14 @@ import com.cloudmart.community.repository.PostCommentMapper;
 import com.cloudmart.community.repository.PostMapper;
 import com.cloudmart.community.repository.ReportMapper;
 import com.cloudmart.community.service.CommunityStatsService;
+import com.cloudmart.common.time.UserBusinessCalendar;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,13 +25,18 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class CommunityStatsServiceImpl implements CommunityStatsService {
 
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of(UserBusinessCalendar.DEFAULT_ZONE_ID);
+
     private final PostMapper postMapper;
     private final PostCommentMapper postCommentMapper;
     private final ReportMapper reportMapper;
+    private final Clock clock;
 
     @Override
     public Map<String, Object> getOverviewStats() {
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        // 统计日界按平台业务区（Asia/Shanghai）零点换算为 UTC 时刻，与库内 UTC created_at 比较
+        LocalDateTime todayStart = UserBusinessCalendar.businessDayStartUtcDateTime(
+                LocalDate.now(clock.withZone(BUSINESS_ZONE)), BUSINESS_ZONE);
 
         Long totalPostCount = postMapper.selectCount(
                 new LambdaQueryWrapper<Post>().eq(Post::getStatus, 1));
@@ -73,11 +81,12 @@ public class CommunityStatsServiceImpl implements CommunityStatsService {
     public List<Map<String, Object>> getTrendStats(int days) {
         int safeDays = Math.min(Math.max(days, 1), 90);
         List<Map<String, Object>> trend = new ArrayList<>();
+        LocalDate today = LocalDate.now(clock.withZone(BUSINESS_ZONE));
 
         for (int i = safeDays - 1; i >= 0; i--) {
-            LocalDate date = LocalDate.now().minusDays(i);
-            LocalDateTime dayStart = date.atStartOfDay();
-            LocalDateTime dayEnd = date.plusDays(1).atStartOfDay();
+            LocalDate date = today.minusDays(i);
+            LocalDateTime dayStart = UserBusinessCalendar.businessDayStartUtcDateTime(date, BUSINESS_ZONE);
+            LocalDateTime dayEnd = UserBusinessCalendar.businessDayStartUtcDateTime(date.plusDays(1), BUSINESS_ZONE);
 
             Long postCount = postMapper.selectCount(
                     new LambdaQueryWrapper<Post>()

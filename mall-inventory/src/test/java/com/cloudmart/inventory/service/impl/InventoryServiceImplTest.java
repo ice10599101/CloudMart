@@ -79,7 +79,8 @@ class InventoryServiceImplTest {
                 reservationMapper,
                 adjustmentMapper,
                 inventoryConverter,
-                redisTemplate, deductInventoryScript, redissonClient, transactionTemplate
+                redisTemplate, deductInventoryScript, redissonClient, transactionTemplate,
+                java.time.Clock.systemDefaultZone()
         );
     }
 

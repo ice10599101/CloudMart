@@ -62,7 +62,7 @@ class ConsentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        consentService = new ConsentServiceImpl(wishConsentMapper);
+        consentService = new ConsentServiceImpl(wishConsentMapper, java.time.Clock.systemDefaultZone());
         when(wishConsentMapper.insert(any(WishConsent.class))).thenAnswer(invocation -> {
             WishConsent consent = invocation.getArgument(0);
             consent.setId(9001L);

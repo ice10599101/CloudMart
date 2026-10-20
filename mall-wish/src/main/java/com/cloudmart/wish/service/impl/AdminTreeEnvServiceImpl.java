@@ -22,6 +22,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -43,6 +44,8 @@ public class AdminTreeEnvServiceImpl implements AdminTreeEnvService {
     private final WishSpecialEventMapper specialEventMapper;
     private final WishEnvConfigMapper envConfigMapper;
     private final ObjectMapper objectMapper;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -61,7 +64,7 @@ public class AdminTreeEnvServiceImpl implements AdminTreeEnvService {
                 .eq(WishSpecialEvent::getStatus, SpecialEventStatus.ACTIVE)
                 .set(WishSpecialEvent::getStatus, SpecialEventStatus.ENDED));
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         WishSpecialEvent event = new WishSpecialEvent();
         event.setEventCode(request.getEventCode());
         event.setTitle(request.getTitle() != null && !request.getTitle().isBlank()

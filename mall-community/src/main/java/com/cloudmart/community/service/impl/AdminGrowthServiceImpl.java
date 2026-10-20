@@ -11,22 +11,30 @@ import com.cloudmart.community.repository.LevelConfigMapper;
 import com.cloudmart.community.service.AdminGrowthService;
 import com.cloudmart.community.vo.LevelConfigVO;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.time.UserBusinessCalendar;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 @Service
 public class AdminGrowthServiceImpl implements AdminGrowthService {
 
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of(UserBusinessCalendar.DEFAULT_ZONE_ID);
+
     private final LevelConfigMapper levelConfigMapper;
     private final DailyCheckInMapper dailyCheckInMapper;
+    private final Clock clock;
 
     public AdminGrowthServiceImpl(LevelConfigMapper levelConfigMapper,
-                                  DailyCheckInMapper dailyCheckInMapper) {
+                                  DailyCheckInMapper dailyCheckInMapper,
+                                  Clock clock) {
         this.levelConfigMapper = levelConfigMapper;
         this.dailyCheckInMapper = dailyCheckInMapper;
+        this.clock = clock;
     }
 
     @Override
@@ -114,7 +122,7 @@ public class AdminGrowthServiceImpl implements AdminGrowthService {
     public long getTodayCheckIns() {
         return dailyCheckInMapper.selectCount(
                 new LambdaQueryWrapper<DailyCheckIn>()
-                        .eq(DailyCheckIn::getCheckInDate, LocalDate.now())
+                        .eq(DailyCheckIn::getCheckInDate, LocalDate.now(clock.withZone(BUSINESS_ZONE)))
         );
     }
 

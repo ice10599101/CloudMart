@@ -106,7 +106,7 @@ class PostServiceTest {
                 tagMapper, userFollowMapper, objectMapper, communityEventProducer,
                 growthService, userEnrichmentService, contentReviewService,
                 userBlockService, communityCacheService, tagSubscriptionService,
-                likeService
+                likeService, java.time.Clock.systemUTC()
         );
     }
 

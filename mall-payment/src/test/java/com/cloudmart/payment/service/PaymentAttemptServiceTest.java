@@ -95,7 +95,7 @@ class PaymentAttemptServiceTest {
                 orderFeignClient, registry,
                 new PaymentChannelQueryService(registry,
                         new com.cloudmart.payment.channel.PaymentChannelCatalog(), ""),
-                SECRET, returnUrlPrefixesCsv);
+                SECRET, returnUrlPrefixesCsv, java.time.Clock.systemDefaultZone());
     }
 
     private ChannelRegistry mockOnlyRegistry() {

@@ -72,7 +72,8 @@ class AdminAuthServiceImplTest {
                 .thenReturn(new AuthSessionService.IssuedSession("session-1", 0L));
         adminAuthService = new AdminAuthServiceImpl(
                 adminUserFeignClient, loginLogFeignClient, jwtProvider,
-                refreshTokenService, authSessionService, redisTemplate, objectMapper, ACCESS_TOKEN_EXPIRATION
+                refreshTokenService, authSessionService, redisTemplate, objectMapper, ACCESS_TOKEN_EXPIRATION,
+                java.time.Clock.systemUTC()
         );
 
         valueOperations = mock(ValueOperations.class);

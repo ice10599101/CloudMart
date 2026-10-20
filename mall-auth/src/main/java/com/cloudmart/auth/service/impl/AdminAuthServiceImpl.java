@@ -30,7 +30,9 @@ import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.ZoneId;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -52,6 +54,9 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final long accessTokenExpiration;
+    private final Clock clock;
+    private static final ZoneId BUSINESS_ZONE =
+            ZoneId.of(com.cloudmart.common.time.UserBusinessCalendar.DEFAULT_ZONE_ID);
     private static final int MAX_LOGIN_FAIL_COUNT = 5;
     private static final Duration LOCK_DURATION = Duration.ofMinutes(30);
 
@@ -62,7 +67,8 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             AuthSessionService authSessionService,
                                 StringRedisTemplate redisTemplate,
                                 ObjectMapper objectMapper,
-                                @Value("${auth.jwt.access-token-expiration:900}") long accessTokenExpiration) {
+                                @Value("${auth.jwt.access-token-expiration:900}") long accessTokenExpiration,
+                                Clock clock) {
         this.adminUserFeignClient = adminUserFeignClient;
         this.loginLogFeignClient = loginLogFeignClient;
         this.jwtProvider = jwtProvider;
@@ -71,6 +77,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.accessTokenExpiration = accessTokenExpiration;
+        this.clock = clock;
     }
 
     @Override
@@ -177,7 +184,7 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             Map<String, String> onlineInfo = Map.of(
                     "userId", userId.toString(),
                     "username", username,
-                    "loginTime", LocalDateTime.now().toString(),
+                    "loginTime", LocalDateTime.now(clock.withZone(BUSINESS_ZONE)).toString(),
                     "ipaddr", ip != null ? ip : "未知",
                     "loginLocation", parseLocation(ip),
                     "browser", browser != null ? browser : "未知",

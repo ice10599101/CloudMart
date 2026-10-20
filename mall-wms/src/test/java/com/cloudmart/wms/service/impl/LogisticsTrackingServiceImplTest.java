@@ -17,7 +17,7 @@ class LogisticsTrackingServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        logisticsTrackingService = new LogisticsTrackingServiceImpl();
+        logisticsTrackingService = new LogisticsTrackingServiceImpl(java.time.Clock.systemUTC());
     }
 
     @Nested

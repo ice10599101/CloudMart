@@ -150,7 +150,7 @@ class PaymentAttemptConcurrencyIntegrationTest {
                                                     PaymentChannelQueryService channelQueryService) {
             return new PaymentAttemptService(attemptMapper, notifyLogMapper, outboxService,
                     orderFeignClient, channelRegistry, channelQueryService,
-                    "it-mock-secret", "https://it.example.com/return/");
+                    "it-mock-secret", "https://it.example.com/return/", java.time.Clock.systemUTC());
         }
 
         @Bean

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
+import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.entity.PetInventory;
 import com.cloudmart.pet.entity.PetSeason;
@@ -27,7 +28,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -68,6 +68,8 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
     private final PetRewardApplicationService rewardApplicationService;
     private final PetService petService;
     private final PetProperties properties;
+    /** T20：统一 UTC 时钟（赛季起止/领奖窗口/交付时间不再依赖 JVM 默认时区） */
+    private final PetClock clock;
     /** T17：经验原子累计器（独立 Bean，REQUIRES_NEW 保证事实与累计同事务） */
     private final PetSeasonPassExpAccumulator expAccumulator;
     /** T18：补发积压/重试率/终止数指标（Prometheus 告警口径） */
@@ -180,7 +182,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
         }
 
         claim.setStatus(PetSeasonPassClaim.STATUS_SETTLED);
-        claim.setSettledAt(LocalDateTime.now());
+        claim.setSettledAt(clock.nowUtc());
         claimMapper.updateById(claim);
         syncClaimedProjection(season.getId(), userId);
         log.info("赛季通行证奖励已交付: season={}, user={}, tier={}, key={}",
@@ -258,7 +260,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
     @Scheduled(fixedDelayString = "${pet.season-pass.reward-sweep-delay-ms:15000}")
     public int settlePendingClaims() {
         PetProperties.SeasonPass cfg = properties.getSeasonPass();
-        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime now = clock.nowUtc();
         // T18 公平扫描：只取「已到期且可执行」，失败行退避后不再占头部
         List<PetSeasonPassClaim> due = claimMapper.selectDuePending(now, cfg.getSweepBatchSize());
         int settled = 0;
@@ -289,7 +291,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
     private void markSettled(PetSeasonPassClaim claim) {
         int updated = claimMapper.update(null, new LambdaUpdateWrapper<PetSeasonPassClaim>()
                 .set(PetSeasonPassClaim::getStatus, PetSeasonPassClaim.STATUS_SETTLED)
-                .set(PetSeasonPassClaim::getSettledAt, LocalDateTime.now(ZoneOffset.UTC))
+                .set(PetSeasonPassClaim::getSettledAt, clock.nowUtc())
                 .set(PetSeasonPassClaim::getLeaseOwner, null)
                 .set(PetSeasonPassClaim::getLeaseUntil, null)
                 .eq(PetSeasonPassClaim::getId, claim.getId())
@@ -390,7 +392,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
         item.setItemCode(skinCode);
         item.setQuantity(1);
         item.setEquipped(false);
-        item.setAcquiredAt(LocalDateTime.now());
+        item.setAcquiredAt(clock.nowUtc());
         inventoryMapper.insert(item);
         log.info("赛季通行证皮肤已发放: petId={}, skin={}", pet.getId(), skinCode);
     }
@@ -465,7 +467,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
 
     /** 进行中赛季：ACTIVE 且在起止窗口内（R05：不再只看 status） */
     private PetSeason activeSeason() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = clock.nowUtc();
         return seasonMapper.selectOne(new LambdaQueryWrapper<PetSeason>()
                 .eq(PetSeason::getStatus, "ACTIVE")
                 .and(w -> w.isNull(PetSeason::getStartsAt).or().le(PetSeason::getStartsAt, now))
@@ -476,7 +478,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
     /** 领奖窗口：claim_until（缺省随赛季结束）之前可领取/补领 */
     private void checkClaimWindow(PetSeason season) {
         LocalDateTime deadline = season.getClaimUntil() != null ? season.getClaimUntil() : season.getEndsAt();
-        if (deadline != null && LocalDateTime.now().isAfter(deadline)) {
+        if (deadline != null && clock.nowUtc().isAfter(deadline)) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "本赛季领奖已截止");
         }
     }

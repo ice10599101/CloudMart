@@ -50,6 +50,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -97,6 +98,8 @@ public class WishServiceImpl implements WishService {
     private final WishOutboxService outboxService;
     private final ModerationService moderationService;
     private final WishContentSanitizer contentSanitizer;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -319,7 +322,7 @@ public class WishServiceImpl implements WishService {
         outboxService.publish("WISH", wishId, 0L, "WishDeleted",
                 java.util.Map.of("wishId", wishId, "userId", userId));
         log.info("心愿软删成功, wishId={}, userId={}, activeSet={}", wishId, userId, isActiveSet);
-        return new WishDeleteResultVO(wishId, LocalDateTime.now());
+        return new WishDeleteResultVO(wishId, LocalDateTime.now(clock));
     }
 
     @Override
@@ -357,7 +360,7 @@ public class WishServiceImpl implements WishService {
         }
 
         log.info("心愿设为星火永久收藏, wishId={}, userId={}", wishId, userId);
-        return new WishSparkVO(wishId, FruitType.SPARK, LocalDateTime.now());
+        return new WishSparkVO(wishId, FruitType.SPARK, LocalDateTime.now(clock));
     }
 
     @Override
@@ -771,7 +774,7 @@ public class WishServiceImpl implements WishService {
                            String expectedTimezone, Long version) {
         Wish wish = getViewableWishOrThrow(wishId, userId);
         accessPolicy.requireOwner(wish, userId);
-        if (newExpectedAt == null || !newExpectedAt.isAfter(LocalDateTime.now())) {
+        if (newExpectedAt == null || !newExpectedAt.isAfter(LocalDateTime.now(clock))) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR, "新日期必须晚于当前时间");
         }
         if (!WishStatus.ACTIVE.equals(wish.getStatus()) && !WishStatus.OVERDUE.equals(wish.getStatus())) {
@@ -1110,7 +1113,7 @@ public class WishServiceImpl implements WishService {
 
     @Override
     public OverdueScanResult scanOverdueWishesDetailed() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         int totalTransferred = 0;
         List<OverdueWishInfo> transferredWishes = new ArrayList<>();
         // 分批流转（500 条/批）：批间独立提交，单批失败不影响其余批次

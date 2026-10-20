@@ -16,6 +16,7 @@ import com.cloudmart.risk.vo.RiskCheckVO;
 import com.cloudmart.risk.vo.RiskRecordVO;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,17 +31,20 @@ public class RiskCheckServiceImpl implements RiskCheckService {
     private final RiskRecordService riskRecordService;
     private final RiskConverter riskConverter;
     private final BlacklistService blacklistService;
+    private final Clock clock;
 
     public RiskCheckServiceImpl(RiskRuleMapper riskRuleMapper,
                                 RiskRecordMapper riskRecordMapper,
                                 RiskRecordService riskRecordService,
                                 RiskConverter riskConverter,
-                                BlacklistService blacklistService) {
+                                BlacklistService blacklistService,
+                                Clock clock) {
         this.riskRuleMapper = riskRuleMapper;
         this.riskRecordMapper = riskRecordMapper;
         this.riskRecordService = riskRecordService;
         this.riskConverter = riskConverter;
         this.blacklistService = blacklistService;
+        this.clock = clock;
     }
 
     @Override
@@ -84,7 +88,7 @@ public class RiskCheckServiceImpl implements RiskCheckService {
         RiskRecordVO pendingRecord = riskRecordService.createRecord(pendingRecordDTO);
 
         for (RiskRule rule : rules) {
-            LocalDateTime windowStart = LocalDateTime.now().minusMinutes(rule.getTimeWindowMinutes());
+            LocalDateTime windowStart = LocalDateTime.now(clock).minusMinutes(rule.getTimeWindowMinutes());
             Long count = riskRecordMapper.selectCount(
                     new LambdaQueryWrapper<RiskRecord>()
                             .eq(RiskRecord::getUserId, userId)

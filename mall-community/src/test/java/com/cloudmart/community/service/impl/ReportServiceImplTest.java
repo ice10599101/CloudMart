@@ -73,7 +73,7 @@ class ReportServiceImplTest {
     @BeforeEach
     void setUp() {
         reportService = new ReportServiceImpl(
-                reportMapper, postMapper, postCommentMapper, objectMapper);
+                reportMapper, postMapper, postCommentMapper, objectMapper, java.time.Clock.systemUTC());
     }
 
     private Report buildReport() {

@@ -42,6 +42,9 @@ class SoftwareErasureServiceImplTest {
     @Mock
     private PlatformTransactionManager transactionManager;
 
+    @org.mockito.Spy
+    private java.time.Clock clock = java.time.Clock.systemUTC();
+
     @InjectMocks
     private SoftwareErasureServiceImpl service;
 

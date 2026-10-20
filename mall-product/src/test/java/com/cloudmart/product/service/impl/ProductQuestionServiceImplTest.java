@@ -95,7 +95,7 @@ class ProductQuestionServiceImplTest {
         lenient().when(outboxProvider.getIfAvailable()).thenReturn(outboxService);
         service = new ProductQuestionServiceImpl(
                 questionMapper, answerMapper, productMapper, orderPurchaseFeignClient,
-                userFeignClient, outboxProvider);
+                userFeignClient, outboxProvider, java.time.Clock.systemUTC());
         lenient().when(productMapper.selectById(PRODUCT_ID)).thenReturn(new com.cloudmart.product.entity.Product());
         lenient().when(userFeignClient.batchGetUsers(anyList()))
                 .thenReturn(ApiResponse.ok(List.of(

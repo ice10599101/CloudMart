@@ -25,14 +25,18 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 
 @Service
 public class AuthServiceImpl implements AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
+    private static final ZoneId BUSINESS_ZONE =
+            ZoneId.of(com.cloudmart.common.time.UserBusinessCalendar.DEFAULT_ZONE_ID);
 
     private final UserFeignClient userFeignClient;
     private final JwtProvider jwtProvider;
@@ -41,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final long accessTokenExpiration;
+    private final Clock clock;
 
     @Autowired
     public AuthServiceImpl(UserFeignClient userFeignClient,
@@ -49,7 +54,8 @@ public class AuthServiceImpl implements AuthService {
                            AuthSessionService authSessionService,
                            StringRedisTemplate redisTemplate,
                            ObjectMapper objectMapper,
-                           @Value("${auth.jwt.access-token-expiration:900}") long accessTokenExpiration) {
+                           @Value("${auth.jwt.access-token-expiration:900}") long accessTokenExpiration,
+                           Clock clock) {
         this.userFeignClient = userFeignClient;
         this.jwtProvider = jwtProvider;
         this.refreshTokenService = refreshTokenService;
@@ -57,6 +63,7 @@ public class AuthServiceImpl implements AuthService {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.accessTokenExpiration = accessTokenExpiration;
+        this.clock = clock;
     }
 
     /** Compatibility constructor for isolated service tests which do not exercise online tracking. */
@@ -64,7 +71,7 @@ public class AuthServiceImpl implements AuthService {
                            RefreshTokenService refreshTokenService, AuthSessionService authSessionService,
                            long accessTokenExpiration) {
         this(userFeignClient, jwtProvider, refreshTokenService, authSessionService, null, null,
-                accessTokenExpiration);
+                accessTokenExpiration, Clock.systemUTC());
     }
 
     @Override
@@ -158,7 +165,7 @@ public class AuthServiceImpl implements AuthService {
                     "loginLocation", isPrivateIp(ip) ? "内网IP" : "未知",
                     "browser", parseBrowser(userAgent),
                     "os", parseOs(userAgent),
-                    "loginTime", LocalDateTime.now().toString());
+                    "loginTime", LocalDateTime.now(clock.withZone(BUSINESS_ZONE)).toString());
             redisTemplate.opsForValue().set(
                     SecurityConstants.USER_ONLINE_PREFIX + sid,
                     objectMapper.writeValueAsString(info),

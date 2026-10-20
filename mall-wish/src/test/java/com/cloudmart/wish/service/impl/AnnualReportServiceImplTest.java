@@ -72,7 +72,8 @@ class AnnualReportServiceImplTest {
     @BeforeEach
     void setUp() {
         reportService = new AnnualReportServiceImpl(
-                wishMapper, new ContentCipher(new WishCryptoProperties()), checkinMapper, growthRecordMapper, categoryMapper, reportGenerator);
+                wishMapper, new ContentCipher(new WishCryptoProperties()), checkinMapper, growthRecordMapper,
+                categoryMapper, reportGenerator, java.time.Clock.systemUTC());
     }
 
     private AnnualReportVO cachedReport() {

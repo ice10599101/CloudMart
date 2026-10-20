@@ -15,6 +15,7 @@ import com.cloudmart.wms.service.PickOrderService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -23,10 +24,13 @@ public class PickOrderServiceImpl implements PickOrderService {
 
     private final PickOrderMapper pickOrderMapper;
     private final PickOrderItemMapper pickOrderItemMapper;
+    private final Clock clock;
 
-    public PickOrderServiceImpl(PickOrderMapper pickOrderMapper, PickOrderItemMapper pickOrderItemMapper) {
+    public PickOrderServiceImpl(PickOrderMapper pickOrderMapper, PickOrderItemMapper pickOrderItemMapper,
+                                Clock clock) {
         this.pickOrderMapper = pickOrderMapper;
         this.pickOrderItemMapper = pickOrderItemMapper;
+        this.clock = clock;
     }
 
     @Override
@@ -66,7 +70,7 @@ public class PickOrderServiceImpl implements PickOrderService {
         }
         pickOrder.setStatus("PICKING");
         pickOrder.setAssignedUserId(assignedUserId);
-        pickOrder.setPickTime(LocalDateTime.now());
+        pickOrder.setPickTime(LocalDateTime.now(clock));
         pickOrderMapper.updateById(pickOrder);
         return toDTO(pickOrder);
     }
@@ -97,7 +101,7 @@ public class PickOrderServiceImpl implements PickOrderService {
             throw new BusinessException("INVALID_STATUS", "只有已拣货状态才能确认打包完成");
         }
         pickOrder.setStatus("PACKED");
-        pickOrder.setPackedTime(LocalDateTime.now());
+        pickOrder.setPackedTime(LocalDateTime.now(clock));
         pickOrderMapper.updateById(pickOrder);
         return toDTO(pickOrder);
     }

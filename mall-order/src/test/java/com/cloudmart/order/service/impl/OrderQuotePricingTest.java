@@ -119,7 +119,8 @@ class OrderQuotePricingTest {
                 redisTemplate, orderEventProducer, outboxService, compensationTaskService,
                 new ObjectMapper(), orderQuoteMapper, orderQuoteItemMapper,
                 new QuoteDiscountCalculator(marketingFeignClient,
-                        new OrderCouponPolicy(couponFeignClient), new ObjectMapper()));
+                        new OrderCouponPolicy(couponFeignClient), new ObjectMapper()),
+                java.time.Clock.systemDefaultZone());
     }
 
     @Test

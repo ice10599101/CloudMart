@@ -68,7 +68,7 @@ class ExpectedActionRecordTest {
         aiAssistantService = new AiAssistantServiceImpl(goalMapper, conversationMapper,
                 expectedAtActionMapper, new ContentCipher(new WishCryptoProperties()), wishMapper, consentService, userStatService,
                 aiRateLimiter, new AiPrivacySanitizer(), assistantAiClient,
-                aiPromptService, new WishAiProperties(), transactionTemplate);
+                aiPromptService, new WishAiProperties(), transactionTemplate, java.time.Clock.systemUTC());
     }
 
     private Wish buildWish(Long userId) {

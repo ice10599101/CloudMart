@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
+import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.entity.Pet;
 import com.cloudmart.pet.entity.PetPveParticipant;
@@ -83,6 +84,8 @@ public class PetPveServiceImpl implements PetPveService {
     private final PetQuotaService quotaService;
     private final PetRewardApplicationService rewardApplicationService;
     private final PetProperties properties;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区导致副本截止时间漂移 */
+    private final PetClock clock;
     private final SecureRandom seedRandom = new SecureRandom();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -114,7 +117,7 @@ public class PetPveServiceImpl implements PetPveService {
         Page<PetPveRun> result = runMapper.selectPage(new Page<>(page, Math.min(size, 50)),
                 new LambdaQueryWrapper<PetPveRun>()
                         .eq(PetPveRun::getStatus, PetPveRun.STATUS_OPEN)
-                        .gt(PetPveRun::getCreatedAt, LocalDateTime.now().minusHours(OPEN_EXPIRE_HOURS))
+                        .gt(PetPveRun::getCreatedAt, clock.nowUtc().minusHours(OPEN_EXPIRE_HOURS))
                         .orderByDesc(PetPveRun::getId));
         return toVoPage(result);
     }
@@ -179,7 +182,7 @@ public class PetPveServiceImpl implements PetPveService {
         run.setRuleVersion(RULE_VERSION);
         run.setSeed(seedRandom.nextLong());
         run.setRewardStatus(PetPveRun.REWARD_NONE);
-        run.setRunExpiresAt(LocalDateTime.now().plusHours(OPEN_EXPIRE_HOURS));
+        run.setRunExpiresAt(clock.nowUtc().plusHours(OPEN_EXPIRE_HOURS));
         try {
             runMapper.insert(run);
         } catch (Exception e) {
@@ -225,8 +228,8 @@ public class PetPveServiceImpl implements PetPveService {
                 .set(PetPveRun::getStatus, PetPveRun.STATUS_FIGHTING)
                 .set(PetPveRun::getTurnNo, 0)
                 .set(PetPveRun::getNextActorUserId, run.getInitiatorUserId())
-                .set(PetPveRun::getTurnDeadlineAt, LocalDateTime.now().plusMinutes(TURN_DEADLINE_MINUTES))
-                .set(PetPveRun::getRunExpiresAt, LocalDateTime.now().plusMinutes(runTimeLimitMinutes))
+                .set(PetPveRun::getTurnDeadlineAt, clock.nowUtc().plusMinutes(TURN_DEADLINE_MINUTES))
+                .set(PetPveRun::getRunExpiresAt, clock.nowUtc().plusMinutes(runTimeLimitMinutes))
                 .set(PetPveRun::getVersion, 1));
         if (updated == 0) {
             participantMapper.deleteById(occupation.getId());
@@ -247,7 +250,7 @@ public class PetPveServiceImpl implements PetPveService {
                 .eq(PetPveRun::getId, runId)
                 .eq(PetPveRun::getStatus, PetPveRun.STATUS_OPEN)
                 .set(PetPveRun::getStatus, PetPveRun.STATUS_CANCELLED)
-                .set(PetPveRun::getFinishedAt, LocalDateTime.now()));
+                .set(PetPveRun::getFinishedAt, clock.nowUtc()));
         if (updated == 0) {
             throw new BusinessException(PetErrorCodes.PET_VALIDATION_ERROR, "副本已开始或已结束，不能取消");
         }
@@ -317,10 +320,10 @@ public class PetPveServiceImpl implements PetPveService {
         LocalDateTime finishedAt = null;
         if (bossHp <= 0) {
             nextStatus = PetPveRun.STATUS_WON;
-            finishedAt = LocalDateTime.now();
+            finishedAt = clock.nowUtc();
         } else if (!initiatorAlive && !partnerAlive) {
             nextStatus = PetPveRun.STATUS_FAILED;
-            finishedAt = LocalDateTime.now();
+            finishedAt = clock.nowUtc();
         }
         // 存活者继续：对方存活则轮对方；对方倒下由存活者连续行动
         Long nextActor = PetPveRun.STATUS_FIGHTING.equals(nextStatus)
@@ -348,7 +351,7 @@ public class PetPveServiceImpl implements PetPveService {
             uw.set(PetPveRun::getStatus, nextStatus);
             uw.set(PetPveRun::getFinishedAt, finishedAt);
         } else {
-            uw.set(PetPveRun::getTurnDeadlineAt, LocalDateTime.now().plusMinutes(TURN_DEADLINE_MINUTES));
+            uw.set(PetPveRun::getTurnDeadlineAt, clock.nowUtc().plusMinutes(TURN_DEADLINE_MINUTES));
         }
         int updated = runMapper.update(null, uw);
         if (updated == 0) {
@@ -378,14 +381,14 @@ public class PetPveServiceImpl implements PetPveService {
         List<PetPveRun> fighting = runMapper.selectList(new LambdaQueryWrapper<PetPveRun>()
                 .eq(PetPveRun::getStatus, PetPveRun.STATUS_FIGHTING)
                 .isNotNull(PetPveRun::getRunExpiresAt)
-                .lt(PetPveRun::getRunExpiresAt, LocalDateTime.now())
+                .lt(PetPveRun::getRunExpiresAt, clock.nowUtc())
                 .last("LIMIT 50"));
         for (PetPveRun run : fighting) {
             int updated = runMapper.update(null, new LambdaUpdateWrapper<PetPveRun>()
                     .eq(PetPveRun::getId, run.getId())
                     .eq(PetPveRun::getStatus, PetPveRun.STATUS_FIGHTING)
                     .set(PetPveRun::getStatus, PetPveRun.STATUS_FAILED)
-                    .set(PetPveRun::getFinishedAt, LocalDateTime.now()));
+                    .set(PetPveRun::getFinishedAt, clock.nowUtc()));
             if (updated == 1) {
                 releaseParticipants(run.getId());
                 closed++;
@@ -394,9 +397,9 @@ public class PetPveServiceImpl implements PetPveService {
         // OPEN 超 24h → EXPIRED
         int expired = runMapper.update(null, new LambdaUpdateWrapper<PetPveRun>()
                 .eq(PetPveRun::getStatus, PetPveRun.STATUS_OPEN)
-                .lt(PetPveRun::getCreatedAt, LocalDateTime.now().minusHours(OPEN_EXPIRE_HOURS))
+                .lt(PetPveRun::getCreatedAt, clock.nowUtc().minusHours(OPEN_EXPIRE_HOURS))
                 .set(PetPveRun::getStatus, PetPveRun.STATUS_EXPIRED)
-                .set(PetPveRun::getFinishedAt, LocalDateTime.now()));
+                .set(PetPveRun::getFinishedAt, clock.nowUtc()));
         if (expired > 0) {
             closed += expired;
         }
@@ -587,7 +590,7 @@ public class PetPveServiceImpl implements PetPveService {
         if (viewerId != null && PetPveRun.STATUS_FIGHTING.equals(run.getStatus())) {
             if (!viewerId.equals(nextActor)) {
                 blockedReason = "NOT_YOUR_TURN";
-            } else if (run.getTurnDeadlineAt() != null && run.getTurnDeadlineAt().isBefore(LocalDateTime.now())) {
+            } else if (run.getTurnDeadlineAt() != null && run.getTurnDeadlineAt().isBefore(clock.nowUtc())) {
                 blockedReason = "TURN_OVERDUE";
             } else {
                 canAttack = true;

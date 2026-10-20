@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -61,6 +62,7 @@ public class ProductQuestionServiceImpl implements ProductQuestionService {
      * 事实已在 answer 表），不阻塞服务启动。
      */
     private final ObjectProvider<OutboxService> outboxServiceProvider;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -299,7 +301,7 @@ public class ProductQuestionServiceImpl implements ProductQuestionService {
             return; // 幂等
         }
         question.setStatus(2);
-        question.setUpdatedAt(java.time.LocalDateTime.now());
+        question.setUpdatedAt(LocalDateTime.now(clock));
         questionMapper.updateById(question);
     }
 

@@ -2,6 +2,7 @@ package com.cloudmart.pet.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.entity.PetSeason;
 import com.cloudmart.pet.entity.PetSeasonPass;
 import com.cloudmart.pet.entity.PetSeasonPassExpFact;
@@ -15,9 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -36,11 +35,12 @@ import java.util.List;
 public class PetSeasonPassExpAccumulator {
 
     private static final String RULE_VERSION = "V1";
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final PetSeasonMapper seasonMapper;
     private final PetSeasonPassMapper passMapper;
     private final PetSeasonPassExpFactMapper expFactMapper;
+    /** T20：业务日与赛季窗口统一经 PetClock（UTC 存储 + 业务时区归属） */
+    private final PetClock clock;
 
     /**
      * 原子累计：插事实（uk 去重）→ 初始化/锁定通行证 → 累加，同一事务。
@@ -59,7 +59,7 @@ public class PetSeasonPassExpAccumulator {
         fact.setSource(source);
         fact.setSourceBizId(sourceBizId);
         fact.setExp(exp);
-        fact.setBusinessDate(LocalDate.now(BUSINESS_ZONE));
+        fact.setBusinessDate(clock.businessDate());
         fact.setRuleVersion(RULE_VERSION);
         try {
             expFactMapper.insert(fact);
@@ -89,7 +89,7 @@ public class PetSeasonPassExpAccumulator {
 
     /** 进行中赛季：ACTIVE 且在起止窗口内（与主服务口径一致） */
     private PetSeason activeSeason() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = clock.nowUtc();
         return seasonMapper.selectOne(new LambdaQueryWrapper<PetSeason>()
                 .eq(PetSeason::getStatus, "ACTIVE")
                 .and(w -> w.isNull(PetSeason::getStartsAt).or().le(PetSeason::getStartsAt, now))

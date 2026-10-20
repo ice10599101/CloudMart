@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -23,10 +24,12 @@ public class LiveRoomServiceImpl implements LiveRoomService {
 
     private final LiveRoomMapper roomMapper;
     private final LiveConverter converter;
+    private final Clock clock;
 
-    public LiveRoomServiceImpl(LiveRoomMapper roomMapper, LiveConverter converter) {
+    public LiveRoomServiceImpl(LiveRoomMapper roomMapper, LiveConverter converter, Clock clock) {
         this.roomMapper = roomMapper;
         this.converter = converter;
+        this.clock = clock;
     }
 
     @Override
@@ -52,7 +55,7 @@ public class LiveRoomServiceImpl implements LiveRoomService {
             throw new BusinessException("ROOM_ALREADY_LIVE", "直播间已在直播中");
         }
         room.setStatus("LIVE");
-        room.setStartTime(LocalDateTime.now());
+        room.setStartTime(LocalDateTime.now(clock));
         room.setCurrentViewers(0);
         roomMapper.updateById(room);
         return converter.toDTO(room);
@@ -66,7 +69,7 @@ public class LiveRoomServiceImpl implements LiveRoomService {
             throw new BusinessException("ROOM_NOT_FOUND", "直播间不存在");
         }
         room.setStatus("ENDED");
-        room.setEndTime(LocalDateTime.now());
+        room.setEndTime(LocalDateTime.now(clock));
         room.setCurrentViewers(0);
         roomMapper.updateById(room);
         return converter.toDTO(room);

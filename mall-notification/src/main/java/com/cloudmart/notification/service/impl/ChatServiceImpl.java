@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.TextMessage;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,6 +39,7 @@ public class ChatServiceImpl implements ChatService {
     private final UserFeignClient userFeignClient;
     private final com.cloudmart.notification.feign.CommunityFeignClient communityFeignClient;
     private final WebSocketSessionManager wsSessionManager;
+    private final Clock clock;
 
     private final Map<Long, UserInfo> userCache = new ConcurrentHashMap<>();
     private long cacheTimestamp = 0;
@@ -47,13 +49,15 @@ public class ChatServiceImpl implements ChatService {
                            ChatConverter chatConverter,
                            UserFeignClient userFeignClient,
                            WebSocketSessionManager wsSessionManager,
-                           com.cloudmart.notification.feign.CommunityFeignClient communityFeignClient) {
+                           com.cloudmart.notification.feign.CommunityFeignClient communityFeignClient,
+                           Clock clock) {
         this.conversationMapper = conversationMapper;
         this.messageMapper = messageMapper;
         this.chatConverter = chatConverter;
         this.userFeignClient = userFeignClient;
         this.wsSessionManager = wsSessionManager;
         this.communityFeignClient = communityFeignClient;
+        this.clock = clock;
     }
 
     @Override
@@ -271,7 +275,7 @@ public class ChatServiceImpl implements ChatService {
         if (message.getIsRecalled() == 1) {
             throw new BusinessException("MESSAGE_ALREADY_RECALLED", "消息已撤回");
         }
-        if (message.getCreatedAt().isBefore(LocalDateTime.now().minusMinutes(RECALL_WINDOW_MINUTES))) {
+        if (message.getCreatedAt().isBefore(LocalDateTime.now(clock).minusMinutes(RECALL_WINDOW_MINUTES))) {
             throw new BusinessException("MESSAGE_RECALL_EXPIRED", "消息超过2分钟，无法撤回");
         }
 

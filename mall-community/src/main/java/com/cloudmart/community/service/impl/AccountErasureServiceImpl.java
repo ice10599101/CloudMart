@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -28,6 +29,7 @@ public class AccountErasureServiceImpl implements AccountErasureService {
 
     private final PostMapper postMapper;
     private final PostCommentMapper postCommentMapper;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -40,12 +42,12 @@ public class AccountErasureServiceImpl implements AccountErasureService {
                 .set(Post::getCoverImage, null)
                 .set(Post::getMediaUrls, null)
                 .set(Post::getStatus, 2)
-                .set(Post::getDeletedAt, LocalDateTime.now()));
+                .set(Post::getDeletedAt, LocalDateTime.now(clock)));
         // 评论：软删 + 正文清空
         int comments = postCommentMapper.update(null, new LambdaUpdateWrapper<PostComment>()
                 .eq(PostComment::getUserId, userId)
                 .set(PostComment::getContent, "")
-                .set(PostComment::getDeletedAt, LocalDateTime.now()));
+                .set(PostComment::getDeletedAt, LocalDateTime.now(clock)));
         log.warn("T06 编排擦除社区数据 userId={}, posts={}, comments={}", userId, posts, comments);
         return true;
     }

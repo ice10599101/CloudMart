@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -20,15 +21,17 @@ public class OrderTimeoutCompensationTask {
 
     private final OrderMapper orderMapper;
     private final OrderService orderService;
+    private final Clock clock;
 
-    public OrderTimeoutCompensationTask(OrderMapper orderMapper, OrderService orderService) {
+    public OrderTimeoutCompensationTask(OrderMapper orderMapper, OrderService orderService, Clock clock) {
         this.orderMapper = orderMapper;
         this.orderService = orderService;
+        this.clock = clock;
     }
 
     @Scheduled(fixedRate = 300000)
     public void cancelTimeoutOrders() {
-        LocalDateTime threshold = LocalDateTime.now().minusMinutes(TIMEOUT_MINUTES);
+        LocalDateTime threshold = LocalDateTime.now(clock).minusMinutes(TIMEOUT_MINUTES);
         List<Order> timeoutOrders = orderMapper.selectList(
                 new LambdaQueryWrapper<Order>()
                         .eq(Order::getStatus, "PENDING_PAYMENT")

@@ -82,7 +82,7 @@ class CapsuleServiceImplTest {
         };
         capsuleService = new CapsuleServiceImpl(
                 timeCapsuleMapper, wishUserStatMapper, userStatService,
-                wishOutboxService, transactionTemplate, contentSanitizer);
+                wishOutboxService, transactionTemplate, contentSanitizer, java.time.Clock.systemDefaultZone());
     }
 
     private TimeCapsule buildCapsule(CapsuleStatus status, LocalDateTime openAt) {
@@ -487,7 +487,7 @@ class CapsuleServiceImplTest {
             var realOutbox = new com.cloudmart.wish.service.impl.WishOutboxService(outboxMapper,
                     org.mockito.Mockito.mock(org.apache.rocketmq.spring.core.RocketMQTemplate.class), "t01-it");
             var service = new CapsuleServiceImpl(timeCapsuleMapper, wishUserStatMapper,
-                    userStatService, realOutbox, transactionTemplate, contentSanitizer);
+                    userStatService, realOutbox, transactionTemplate, contentSanitizer, java.time.Clock.systemDefaultZone());
             TimeCapsule c1 = buildCapsule(CapsuleStatus.SEALED, LocalDateTime.now().minusDays(2));
             c1.setId(3001L);
             when(timeCapsuleMapper.selectList(any())).thenReturn(List.of(c1));

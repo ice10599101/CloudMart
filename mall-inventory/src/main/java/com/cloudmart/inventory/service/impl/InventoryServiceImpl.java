@@ -49,6 +49,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final DefaultRedisScript<Long> deductInventoryScript;
     private final RedissonClient redissonClient;
     private final TransactionTemplate transactionTemplate;
+    private final java.time.Clock clock;
 
     public InventoryServiceImpl(InventoryMapper inventoryMapper,
                                 InventoryLogMapper inventoryLogMapper,
@@ -58,7 +59,8 @@ public class InventoryServiceImpl implements InventoryService {
                                 StringRedisTemplate redisTemplate,
                                 DefaultRedisScript<Long> deductInventoryScript,
                                 RedissonClient redissonClient,
-                                TransactionTemplate transactionTemplate) {
+                                TransactionTemplate transactionTemplate,
+                                java.time.Clock clock) {
         this.inventoryMapper = inventoryMapper;
         this.inventoryLogMapper = inventoryLogMapper;
         this.reservationMapper = reservationMapper;
@@ -68,6 +70,7 @@ public class InventoryServiceImpl implements InventoryService {
         this.deductInventoryScript = deductInventoryScript;
         this.redissonClient = redissonClient;
         this.transactionTemplate = transactionTemplate;
+        this.clock = clock;
     }
 
     @Override
@@ -639,7 +642,9 @@ public class InventoryServiceImpl implements InventoryService {
 
     /** 调整单号：ADJ + yyyyMMdd + 5 位序号（当日计数；uk_adjust_no 兜底并发撞号重试一次） */
     private String nextAdjustNo() {
-        String date = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+        String date = java.time.LocalDate.now(clock.withZone(
+                java.time.ZoneId.of(com.cloudmart.common.time.UserBusinessCalendar.DEFAULT_ZONE_ID)))
+                .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
         String prefix = "ADJ" + date;
         long seq = adjustmentMapper.countByAdjustNoPrefix(prefix) + 1;
         String candidate = prefix + String.format("%05d", seq);

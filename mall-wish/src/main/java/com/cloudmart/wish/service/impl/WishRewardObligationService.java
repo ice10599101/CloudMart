@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,8 @@ public class WishRewardObligationService {
 
     private final WishRewardObligationMapper obligationMapper;
     private final CommunityFeignClient communityFeignClient;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     /**
      * 义务入队（调用方事务内）+ 提交后即送。重复 bizKey 幂等返回既有行，
@@ -77,7 +80,7 @@ public class WishRewardObligationService {
                 new LambdaQueryWrapper<WishRewardObligation>()
                         .eq(WishRewardObligation::getStatus, WishRewardObligation.STATUS_PENDING)
                         .and(w -> w.isNull(WishRewardObligation::getNextRetryAt)
-                                .or().le(WishRewardObligation::getNextRetryAt, LocalDateTime.now()))
+                                .or().le(WishRewardObligation::getNextRetryAt, LocalDateTime.now(clock)))
                         .orderByAsc(WishRewardObligation::getId)
                         .last("LIMIT 50"));
         int settled = 0;
@@ -122,7 +125,7 @@ public class WishRewardObligationService {
                 .eq(WishRewardObligation::getId, id)
                 .eq(WishRewardObligation::getStatus, WishRewardObligation.STATUS_PENDING)
                 .set(WishRewardObligation::getStatus, WishRewardObligation.STATUS_SETTLED)
-                .set(WishRewardObligation::getSettledAt, LocalDateTime.now()));
+                .set(WishRewardObligation::getSettledAt, LocalDateTime.now(clock)));
     }
 
     private void recordFailure(WishRewardObligation obligation, String error) {
@@ -133,7 +136,7 @@ public class WishRewardObligationService {
                 .eq(WishRewardObligation::getStatus, WishRewardObligation.STATUS_PENDING)
                 .set(WishRewardObligation::getAttempts, attempts)
                 .set(WishRewardObligation::getLastError, truncate(error))
-                .set(WishRewardObligation::getNextRetryAt, LocalDateTime.now().plusSeconds(backoff)));
+                .set(WishRewardObligation::getNextRetryAt, LocalDateTime.now(clock).plusSeconds(backoff)));
         log.warn("R07 奖励义务交付失败（退避 {}s）: bizKey={}, attempts={}, err={}",
                 backoff, obligation.getBizKey(), attempts, error);
     }

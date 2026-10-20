@@ -64,7 +64,7 @@ class HomeServiceImplTest {
     @BeforeEach
     void setUp() {
         homeService = new HomeServiceImpl(wishMapper, wishProgressMapper, userFeignClient,
-                redisTemplate, worldTreeService);
+                redisTemplate, worldTreeService, java.time.Clock.systemDefaultZone());
     }
 
     @Nested

@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -95,6 +96,8 @@ public class UserStatServiceImpl implements UserStatService {
     private final WishResourceLogMapper wishResourceLogMapper;
     private final StarlightOperationMapper starlightOperationMapper;
     private final BadgeService badgeService;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
@@ -116,7 +119,7 @@ public class UserStatServiceImpl implements UserStatService {
         stat.setTotalFulfilled(0);
         stat.setTotalHelped(0);
         stat.setTotalCheckinDays(0);
-        stat.setLastActiveAt(LocalDateTime.now());
+        stat.setLastActiveAt(LocalDateTime.now(clock));
         stat.setRiskScore(0);
         stat.setIsRestricted(false);
         wishUserStatMapper.insert(stat);
@@ -133,7 +136,7 @@ public class UserStatServiceImpl implements UserStatService {
                         .eq(WishUserStat::getUserId, userId)
                         .setSql("total_wishes = total_wishes + 1")
                         .setSql("active_wishes = active_wishes + 1")
-                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now())
+                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now(clock))
         );
         log.debug("心愿创建统计+1, userId={}", userId);
         // 同事务判定徽章（FIRST_WISH 等），回滚时授予一并撤销
@@ -147,7 +150,7 @@ public class UserStatServiceImpl implements UserStatService {
                 new LambdaUpdateWrapper<WishUserStat>()
                         .eq(WishUserStat::getUserId, userId)
                         .setSql("active_wishes = GREATEST(active_wishes - 1, 0)")
-                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now())
+                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now(clock))
         );
         if (affected == 0) {
             log.warn("软删统计-1失败（用户统计记录不存在）, userId={}", userId);
@@ -166,7 +169,7 @@ public class UserStatServiceImpl implements UserStatService {
                         .eq(WishUserStat::getUserId, userId)
                         .setSql("total_fulfilled = total_fulfilled + 1")
                         .setSql("active_wishes = GREATEST(active_wishes - 1, 0)")
-                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now())
+                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now(clock))
         );
         log.debug("还愿统计更新, userId={}", userId);
         // 同事务判定徽章（FIRST_FULFILL 等），回滚时授予一并撤销
@@ -187,7 +190,7 @@ public class UserStatServiceImpl implements UserStatService {
                         .eq(WishUserStat::getUserId, userId)
                         .ge(WishUserStat::getStarlightBalance, cost)
                         .setSql("starlight_balance = starlight_balance - " + cost)
-                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now())
+                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now(clock))
         );
         if (affected == 0) {
             throw new BusinessException(WishErrorCodes.WISH_STARLIGHT_INSUFFICIENT, "星光余额不足");
@@ -224,7 +227,7 @@ public class UserStatServiceImpl implements UserStatService {
                 new LambdaUpdateWrapper<WishUserStat>()
                         .eq(WishUserStat::getUserId, userId)
                         .setSql("starlight_balance = starlight_balance + " + credited)
-                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now())
+                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now(clock))
         );
 
         int balanceAfter = currentBalance + credited;
@@ -329,7 +332,7 @@ public class UserStatServiceImpl implements UserStatService {
                 new LambdaUpdateWrapper<WishUserStat>()
                         .eq(WishUserStat::getUserId, userId)
                         .setSql("total_helped = total_helped + 1")
-                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now())
+                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now(clock))
         );
         if (affected == 0) {
             log.warn("帮助统计+1失败（用户统计记录不存在）, userId={}", userId);
@@ -342,8 +345,10 @@ public class UserStatServiceImpl implements UserStatService {
     @Override
     public MyResourcesVO getMyResources(Long userId) {
         int balance = getStarlightBalance(userId);
-        // 今日边界：与流水 createdAt 的 MetaObjectHandler 填充时区一致（同为服务器默认时区），避免错位
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+        // T20：流水 createdAt 统一 UTC 写入，今日边界按经济业务区零点换算为 UTC 时刻
+        LocalDate businessDate = LocalDate.now(clock.withZone(ECONOMIC_BUSINESS_ZONE));
+        LocalDateTime todayStart = com.cloudmart.common.time.UserBusinessCalendar
+                .businessDayStartUtcDateTime(businessDate, ECONOMIC_BUSINESS_ZONE);
         return new MyResourcesVO(balance,
                 sumTodayDelta(userId, ResourceLogType.EARN, todayStart),
                 Math.abs(sumTodayDelta(userId, ResourceLogType.SPEND, todayStart)));
@@ -462,11 +467,11 @@ public class UserStatServiceImpl implements UserStatService {
         wishUserStatMapper.update(null, new LambdaUpdateWrapper<WishUserStat>()
                 .eq(WishUserStat::getUserId, sender.getUserId())
                 .set(WishUserStat::getStarlightBalance, senderAfter)
-                .set(WishUserStat::getLastActiveAt, LocalDateTime.now()));
+                .set(WishUserStat::getLastActiveAt, LocalDateTime.now(clock)));
         wishUserStatMapper.update(null, new LambdaUpdateWrapper<WishUserStat>()
                 .eq(WishUserStat::getUserId, receiver.getUserId())
                 .set(WishUserStat::getStarlightBalance, receiverAfter)
-                .set(WishUserStat::getLastActiveAt, LocalDateTime.now()));
+                .set(WishUserStat::getLastActiveAt, LocalDateTime.now(clock)));
 
         WishResourceLog senderLog = insertResourceLog(sender.getUserId(), -amount,
                 ResourceLogType.SPEND, ResourceLogSource.TRANSFER_OUT, transferRefId, senderAfter);
@@ -484,7 +489,7 @@ public class UserStatServiceImpl implements UserStatService {
                 new LambdaUpdateWrapper<WishUserStat>()
                         .eq(WishUserStat::getUserId, userId)
                         .setSql("total_checkin_days = total_checkin_days + 1")
-                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now())
+                        .set(WishUserStat::getLastActiveAt, LocalDateTime.now(clock))
         );
         if (affected == 0) {
             log.warn("打卡统计+1失败（用户统计记录不存在）, userId={}", userId);

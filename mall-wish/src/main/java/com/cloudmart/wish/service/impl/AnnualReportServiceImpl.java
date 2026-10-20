@@ -21,8 +21,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.cloudmart.common.time.UserBusinessCalendar;
+
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -55,10 +59,12 @@ public class AnnualReportServiceImpl implements AnnualReportService {
     private final WishGrowthRecordMapper growthRecordMapper;
     private final WishCategoryMapper categoryMapper;
     private final AnnualReportGenerator reportGenerator;
+    private final Clock clock;
 
     @Override
     public AnnualReportVO getOrGenerateReport(Long userId, int year) {
-        int currentYear = LocalDate.now().getYear();
+        int currentYear = LocalDate.now(clock.withZone(
+                ZoneId.of(UserBusinessCalendar.DEFAULT_ZONE_ID))).getYear();
         if (year < 2020 || year > currentYear) {
             throw new BusinessException(WishErrorCodes.WISH_VALIDATION_ERROR,
                     "报告年度须在 2020-" + currentYear + " 之间");

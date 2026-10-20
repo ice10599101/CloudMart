@@ -40,7 +40,7 @@ class AdminLoginLogServiceImplTest {
     @BeforeEach
     void setUp() {
         adminLoginLogMapper = mock(AdminLoginLogMapper.class);
-        adminLoginLogService = new AdminLoginLogServiceImpl(adminLoginLogMapper);
+        adminLoginLogService = new AdminLoginLogServiceImpl(adminLoginLogMapper, java.time.Clock.systemUTC());
     }
 
     private AdminLoginLog buildLoginLog(Long id) {

@@ -56,7 +56,7 @@ class CommunityStatsServiceImplTest {
     @BeforeEach
     void setUp() {
         communityStatsService = new CommunityStatsServiceImpl(
-                postMapper, postCommentMapper, reportMapper
+                postMapper, postCommentMapper, reportMapper, java.time.Clock.systemUTC()
         );
     }
 

@@ -52,7 +52,8 @@ class ReconciliationServiceTest {
         refundOrderMapper = mock(com.cloudmart.payment.repository.RefundOrderMapper.class);
         inventoryReconFeignClient = mock(com.cloudmart.payment.feign.InventoryReconFeignClient.class);
         service = new ReconciliationService(attemptMapper, runMapper, differenceMapper,
-                orderFeignClient, refundOrderMapper, inventoryReconFeignClient, 200, 300);
+                orderFeignClient, refundOrderMapper, inventoryReconFeignClient, 200, 300,
+                java.time.Clock.systemDefaultZone());
     }
 
     private PaymentAttempt successAttempt(Long attemptId, Long orderId) {

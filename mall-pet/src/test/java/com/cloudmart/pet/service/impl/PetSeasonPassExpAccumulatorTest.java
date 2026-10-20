@@ -63,7 +63,9 @@ class PetSeasonPassExpAccumulatorTest {
 
     @BeforeEach
     void setUp() {
-        accumulator = new PetSeasonPassExpAccumulator(seasonMapper, passMapper, expFactMapper);
+        com.cloudmart.pet.config.PetProperties properties = new com.cloudmart.pet.config.PetProperties();
+        accumulator = new PetSeasonPassExpAccumulator(seasonMapper, passMapper, expFactMapper,
+                new com.cloudmart.pet.config.PetClock(java.time.Clock.systemUTC(), properties));
     }
 
     private PetSeason activeSeason() {

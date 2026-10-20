@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,12 +31,18 @@ public class LogisticsTrackingServiceImpl implements LogisticsTrackingService {
 
     private static final Logger log = LoggerFactory.getLogger(LogisticsTrackingServiceImpl.class);
 
+    private final Clock clock;
+
+    public LogisticsTrackingServiceImpl(Clock clock) {
+        this.clock = clock;
+    }
+
     @Override
     public List<ShippingTrackingDTO> queryTracking(String shippingNo, String carrier) {
         log.info("Querying logistics tracking: shippingNo={}, carrier={}", shippingNo, carrier);
 
         // 模拟物流轨迹数据
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         return List.of(
                 new ShippingTrackingDTO(null, null, "北京市",
                         "包裹已签收，签收人：本人", now.minusHours(2), now, now),

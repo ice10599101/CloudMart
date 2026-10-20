@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ public class ProductRewardObligationService {
 
     private final ProductRewardObligationMapper obligationMapper;
     private final WishStarlightFeignClient wishStarlightFeignClient;
+    private final Clock clock;
 
     /** 义务入队（调用方事务内）+ 提交后即送；重复 bizKey 幂等跳过 */
     public void enqueueWithCommitDelivery(String bizKey, String source, String sourceBizId,
@@ -72,7 +74,7 @@ public class ProductRewardObligationService {
                 new LambdaQueryWrapper<ProductRewardObligation>()
                         .eq(ProductRewardObligation::getStatus, ProductRewardObligation.STATUS_PENDING)
                         .and(w -> w.isNull(ProductRewardObligation::getNextRetryAt)
-                                .or().le(ProductRewardObligation::getNextRetryAt, LocalDateTime.now()))
+                                .or().le(ProductRewardObligation::getNextRetryAt, LocalDateTime.now(clock)))
                         .orderByAsc(ProductRewardObligation::getId)
                         .last("LIMIT 50"));
         int settled = 0;
@@ -114,7 +116,7 @@ public class ProductRewardObligationService {
                 .eq(ProductRewardObligation::getId, id)
                 .eq(ProductRewardObligation::getStatus, ProductRewardObligation.STATUS_PENDING)
                 .set(ProductRewardObligation::getStatus, ProductRewardObligation.STATUS_SETTLED)
-                .set(ProductRewardObligation::getSettledAt, LocalDateTime.now()));
+                .set(ProductRewardObligation::getSettledAt, LocalDateTime.now(clock)));
     }
 
     private void recordFailure(ProductRewardObligation obligation, String error) {
@@ -125,7 +127,7 @@ public class ProductRewardObligationService {
                 .eq(ProductRewardObligation::getStatus, ProductRewardObligation.STATUS_PENDING)
                 .set(ProductRewardObligation::getAttempts, attempts)
                 .set(ProductRewardObligation::getLastError, truncate(error))
-                .set(ProductRewardObligation::getNextRetryAt, LocalDateTime.now().plusSeconds(backoff)));
+                .set(ProductRewardObligation::getNextRetryAt, LocalDateTime.now(clock).plusSeconds(backoff)));
         log.warn("R07 评价奖励义务交付失败（退避 {}s）: bizKey={}, attempts={}, err={}",
                 backoff, obligation.getBizKey(), attempts, error);
     }

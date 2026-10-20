@@ -10,6 +10,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Component
@@ -18,9 +19,11 @@ public class OperLogEventListener {
     private static final Logger log = LoggerFactory.getLogger(OperLogEventListener.class);
 
     private final AdminOperLogService adminOperLogService;
+    private final Clock clock;
 
-    public OperLogEventListener(AdminOperLogService adminOperLogService) {
+    public OperLogEventListener(AdminOperLogService adminOperLogService, Clock clock) {
         this.adminOperLogService = adminOperLogService;
+        this.clock = clock;
     }
 
     @Async
@@ -44,7 +47,7 @@ public class OperLogEventListener {
             entity.setStatus(record.getStatus());
             entity.setErrorMsg(record.getErrorMsg());
             entity.setCostTime(record.getCostTime());
-            entity.setOperTime(LocalDateTime.now());
+            entity.setOperTime(LocalDateTime.now(clock));
             adminOperLogService.save(entity);
             log.debug("Operation log persisted: title={}, operName={}", record.getTitle(), record.getOperName());
         } catch (Exception e) {

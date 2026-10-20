@@ -51,6 +51,9 @@ class ExchangeCodeServiceImplTest {
     @Mock private StringRedisTemplate redisTemplate;
     @Mock private ValueOperations<String, String> valueOperations;
 
+    @org.mockito.Spy
+    private java.time.Clock clock = java.time.Clock.systemDefaultZone();
+
     @InjectMocks private ExchangeCodeServiceImpl exchangeCodeService;
 
     @BeforeEach

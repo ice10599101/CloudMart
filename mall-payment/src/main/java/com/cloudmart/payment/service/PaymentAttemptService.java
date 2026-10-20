@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -57,6 +58,8 @@ public class PaymentAttemptService {
     private final ChannelRegistry channelRegistry;
     private final PaymentChannelQueryService channelQueryService;
     private final List<String> allowedReturnUrlPrefixes;
+    /** T20：统一 UTC 时钟（支付尝试有效期） */
+    private final Clock clock;
 
     public PaymentAttemptService(PaymentAttemptMapper attemptMapper,
                                  PaymentNotifyLogMapper notifyLogMapper,
@@ -65,7 +68,8 @@ public class PaymentAttemptService {
                                  ChannelRegistry channelRegistry,
                                  PaymentChannelQueryService channelQueryService,
                                  @Value("${payment.mock-channel-secret:${CLOUDMART_SERVICE_TOKEN_SECRET:}}") String secret,
-                                 @Value("${payment.return-url-allowed-prefixes:}") String allowedReturnUrlPrefixesCsv) {
+                                 @Value("${payment.return-url-allowed-prefixes:}") String allowedReturnUrlPrefixesCsv,
+                                 Clock clock) {
         this.attemptMapper = attemptMapper;
         this.notifyLogMapper = notifyLogMapper;
         this.outboxService = outboxService;
@@ -75,6 +79,7 @@ public class PaymentAttemptService {
         this.signer = new MockChannelSigner(secret);
         String[] prefixTokens = allowedReturnUrlPrefixesCsv == null
                 ? new String[0] : allowedReturnUrlPrefixesCsv.split(",");
+        this.clock = clock;
         this.allowedReturnUrlPrefixes = Arrays.stream(prefixTokens)
                 .map(String::trim)
                 .filter(s -> !s.isBlank())
@@ -150,7 +155,7 @@ public class PaymentAttemptService {
                 throw new BusinessException("PAYMENT_ATTEMPT_BUSY", "支付创建处理中，请稍后重试");
             }
             PaymentAttempt attempt = attemptMapper.findByMerchantPaymentNo(merchantPaymentNo);
-            attempt.setExpiresAt(LocalDateTime.now().plusMinutes(15));
+            attempt.setExpiresAt(LocalDateTime.now(clock).plusMinutes(15));
             attemptMapper.updateById(attempt);
             log.info("[PAY01] 支付尝试已创建 orderId={} no={} channel={} scene={} amount={} replacedPrev={}",
                     orderId, merchantPaymentNo, channel, scene, attempt.getAmount(), previousAttemptId != null);

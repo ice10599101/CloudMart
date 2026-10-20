@@ -229,7 +229,7 @@ class ExchangeCodeConcurrencyIntegrationTest {
                                                     CodeGenerator codeGenerator,
                                                     StringRedisTemplate redisTemplate) {
             return new ExchangeCodeServiceImpl(exchangeCodeMapper, couponTemplateMapper,
-                    couponService, codeGenerator, redisTemplate);
+                    couponService, codeGenerator, redisTemplate, java.time.Clock.systemUTC());
         }
     }
 

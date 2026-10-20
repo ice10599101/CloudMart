@@ -107,7 +107,7 @@ class TreeEnvServiceImplTest {
         lenient().when(weatherClient.getCurrentWeather()).thenReturn(TreeWeather.SUNNY);
         treeEnvService = new TreeEnvServiceImpl(stateMapper, conversationMapper,
                 interactionMapper, specialEventMapper, envConfigMapper, weatherClient,
-                redisTemplate, new WishTreeEnvProperties(), new ObjectMapper());
+                redisTemplate, new WishTreeEnvProperties(), new ObjectMapper(), java.time.Clock.systemDefaultZone());
     }
 
     private WishWorldTreeState sunnyState() {

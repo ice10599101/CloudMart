@@ -56,7 +56,7 @@ class AdminDashboardServiceTest {
         adminDashboardService = new AdminDashboardServiceImpl(
                 adminUserMapper, adminRoleMapper, adminMenuMapper,
                 adminOnlineUserService, orderFeignClient,
-                productFeignClient, memberUserFeignClient
+                productFeignClient, memberUserFeignClient, java.time.Clock.systemUTC()
         );
     }
 

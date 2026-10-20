@@ -62,7 +62,8 @@ class RiskCheckServiceImplTest {
         riskConverter = mock(RiskConverter.class);
         blacklistService = mock(BlacklistService.class);
         riskCheckService = new RiskCheckServiceImpl(
-                riskRuleMapper, riskRecordMapper, riskRecordService, riskConverter, blacklistService);
+                riskRuleMapper, riskRecordMapper, riskRecordService, riskConverter, blacklistService,
+                java.time.Clock.systemUTC());
         when(blacklistService.isBlacklisted(any(), any())).thenReturn(false);
     }
 

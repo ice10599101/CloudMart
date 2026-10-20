@@ -18,6 +18,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.cloudmart.common.time.UserBusinessCalendar;
+
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -73,6 +76,7 @@ public class CompanionReminderServiceImpl implements CompanionReminderService {
     private final AiRateLimiter aiRateLimiter;
     private final AiConfigService aiConfigService;
     private final AiReminderEventProducer reminderProducer;
+    private final Clock clock;
 
     @Override
     public RemindResult scanAndRemind() {
@@ -200,7 +204,8 @@ public class CompanionReminderServiceImpl implements CompanionReminderService {
     }
 
     private String pickTemplate() {
-        int dayOfYear = LocalDate.now().getDayOfYear();
+        int dayOfYear = LocalDate.now(clock.withZone(
+                ZoneId.of(UserBusinessCalendar.DEFAULT_ZONE_ID))).getDayOfYear();
         return REMIND_TEMPLATES[Math.floorMod(dayOfYear, REMIND_TEMPLATES.length)];
     }
 }

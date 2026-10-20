@@ -100,7 +100,7 @@ class FulfillmentServiceImplTest {
                 new com.cloudmart.wish.policy.WishAccessPolicy(),
                 new com.cloudmart.wish.service.impl.WishOperationExecutor(
                         org.mockito.Mockito.mock(com.cloudmart.wish.repository.WishOperationMapper.class), txTemplate),
-                outboxService
+                outboxService, java.time.Clock.systemDefaultZone()
         );
     }
 

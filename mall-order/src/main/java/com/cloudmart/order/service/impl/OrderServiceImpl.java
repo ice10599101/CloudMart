@@ -42,9 +42,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.StringJoiner;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,6 +66,8 @@ public class OrderServiceImpl implements OrderService {
 
     private static final String ORDER_TIMEOUT_KEY_PREFIX = "order:timeout:";
     private static final Duration ORDER_TIMEOUT = Duration.ofMinutes(15);
+    private static final ZoneId BUSINESS_ZONE =
+            ZoneId.of(com.cloudmart.common.time.UserBusinessCalendar.DEFAULT_ZONE_ID);
 
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
@@ -89,6 +92,7 @@ public class OrderServiceImpl implements OrderService {
     private final com.cloudmart.order.repository.OrderQuoteItemMapper orderQuoteItemMapper;
     /** T01：报价生成与下单复核共用同一优惠计算器（满减→券），不允许第三套算法 */
     private final QuoteDiscountCalculator discountCalculator;
+    private final Clock clock;
 
     @Override
     @SentinelResource(value = "createOrder", blockHandler = "createOrderBlockHandler", fallback = "createOrderFallback")
@@ -905,18 +909,22 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public ApiResponse<OrderTodayStatsResponse> getTodayStats() {
-        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
-        LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
+        // 今日口径按平台业务区零点换算为 UTC 时刻，与库内 UTC created_at 比较
+        LocalDate businessDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
+        LocalDateTime startOfDay = com.cloudmart.common.time.UserBusinessCalendar
+                .businessDayStartUtcDateTime(businessDate, BUSINESS_ZONE);
+        LocalDateTime endOfDay = com.cloudmart.common.time.UserBusinessCalendar
+                .businessDayStartUtcDateTime(businessDate.plusDays(1), BUSINESS_ZONE);
 
         LambdaQueryWrapper<Order> countWrapper = new LambdaQueryWrapper<Order>()
                 .ge(Order::getCreatedAt, startOfDay)
-                .le(Order::getCreatedAt, endOfDay);
+                .lt(Order::getCreatedAt, endOfDay);
         long todayOrderCount = orderMapper.selectCount(countWrapper);
 
         List<String> paidStatuses = List.of("PAID", "SHIPPED", "COMPLETED");
         LambdaQueryWrapper<Order> revenueWrapper = new LambdaQueryWrapper<Order>()
                 .ge(Order::getCreatedAt, startOfDay)
-                .le(Order::getCreatedAt, endOfDay)
+                .lt(Order::getCreatedAt, endOfDay)
                 .in(Order::getStatus, paidStatuses);
         List<Order> paidOrders = orderMapper.selectList(revenueWrapper);
         BigDecimal todayRevenue = paidOrders.stream()
@@ -1185,7 +1193,8 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private String generateOrderNo() {
-        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+        return LocalDateTime.now(clock.withZone(BUSINESS_ZONE))
+                .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
                 + UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase();
     }
 
@@ -1243,7 +1252,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public int cancelTimeoutOrders(int timeoutMinutes, int batchSize) {
-        LocalDateTime deadline = LocalDateTime.now().minusMinutes(timeoutMinutes);
+        LocalDateTime deadline = LocalDateTime.now(clock).minusMinutes(timeoutMinutes);
         List<Order> dueOrders = orderMapper.selectList(new LambdaQueryWrapper<Order>()
                 .eq(Order::getStatus, "PENDING_PAYMENT")
                 .le(Order::getCreatedAt, deadline)

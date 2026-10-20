@@ -71,7 +71,7 @@ class UserStatServiceImplTest {
     @BeforeEach
     void setUp() {
         userStatService = new UserStatServiceImpl(wishUserStatMapper, wishResourceLogMapper,
-                starlightOperationMapper, badgeService);
+                starlightOperationMapper, badgeService, java.time.Clock.systemDefaultZone());
         // initUserStat 的存在性检查默认无记录（允许 insert）
         when(wishUserStatMapper.selectById(USER_ID)).thenReturn(null);
     }

@@ -73,6 +73,7 @@ class PetSeasonPassServiceImplTest {
     private com.cloudmart.pet.config.PetSeasonPassClaimMetrics claimMetrics;
 
     private PetSeasonPassServiceImpl service;
+    private com.cloudmart.pet.config.PetClock petClock;
 
     @BeforeAll
     static void initEntityMeta() {
@@ -87,9 +88,11 @@ class PetSeasonPassServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        com.cloudmart.pet.config.PetProperties properties = new com.cloudmart.pet.config.PetProperties();
+        petClock = new com.cloudmart.pet.config.PetClock(java.time.Clock.systemUTC(), properties);
         service = new PetSeasonPassServiceImpl(seasonMapper, passMapper, claimMapper,
                 inventoryMapper, rewardApplicationService, petService,
-                new com.cloudmart.pet.config.PetProperties(), expAccumulator, claimMetrics);
+                properties, petClock, expAccumulator, claimMetrics);
         service.finalTierSkinCode = "";
         when(rewardApplicationService.claim(any(), any()))
                 .thenReturn(new PetRewardApplicationService.RewardClaimResult(
@@ -101,8 +104,8 @@ class PetSeasonPassServiceImplTest {
         season.setId(SEASON_ID);
         season.setName("S1");
         season.setStatus("ACTIVE");
-        season.setStartsAt(LocalDateTime.now().minusDays(1));
-        season.setEndsAt(LocalDateTime.now().plusDays(10));
+        season.setStartsAt(petClock.nowUtc().minusDays(1));
+        season.setEndsAt(petClock.nowUtc().plusDays(10));
         return season;
     }
 
@@ -344,7 +347,7 @@ class PetSeasonPassServiceImplTest {
                     .hasMessageContaining("经验不足");
 
             PetSeason closed = activeSeason();
-            closed.setClaimUntil(LocalDateTime.now().minusHours(1));
+            closed.setClaimUntil(petClock.nowUtc().minusHours(1));
             when(seasonMapper.selectOne(any())).thenReturn(closed);
             when(passMapper.selectOne(any())).thenReturn(pass(60));
             assertThatThrownBy(() -> service.claimTier(USER_ID, null, 1, null))
@@ -416,7 +419,7 @@ class PetSeasonPassServiceImplTest {
     @DisplayName("赛季窗口外（endsAt 已过）ACTIVE 行不再视为进行中（R05：不只看 status）")
     void myPass_seasonWindowExpired_empty() {
         PetSeason expired = activeSeason();
-        expired.setEndsAt(LocalDateTime.now().minusDays(1));
+        expired.setEndsAt(petClock.nowUtc().minusDays(1));
         when(seasonMapper.selectOne(any())).thenReturn(null); // 查询条件含窗口过滤
 
         PetSeasonPassVO vo = service.myPass(USER_ID);

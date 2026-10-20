@@ -40,6 +40,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
@@ -100,6 +101,8 @@ public class TreeEnvServiceImpl implements TreeEnvService {
     private final StringRedisTemplate redisTemplate;
     private final WishTreeEnvProperties props;
     private final ObjectMapper objectMapper;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     @Override
     public TreeEnvVO getCurrentEnv(Integer tzOffsetMinutes) {
@@ -120,7 +123,7 @@ public class TreeEnvServiceImpl implements TreeEnvService {
             return getCurrentEnv(0);
         }
         try {
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(clock);
             MoodAggregate aggregate = aggregateWindowMood(now);
             boolean blessBurst = detectBlessBurst(now);
             WishWorldTreeState state = loadOrInitState();
@@ -166,7 +169,7 @@ public class TreeEnvServiceImpl implements TreeEnvService {
         if (event == null) {
             return null;
         }
-        if (event.getExpiresAt() != null && !event.getExpiresAt().isAfter(LocalDateTime.now())) {
+        if (event.getExpiresAt() != null && !event.getExpiresAt().isAfter(LocalDateTime.now(clock))) {
             // 惰性过期：过期后首次读取时单次幂等写 ENDED，之后查询不再命中
             specialEventMapper.update(null, new LambdaUpdateWrapper<WishSpecialEvent>()
                     .eq(WishSpecialEvent::getId, event.getId())

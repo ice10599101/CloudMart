@@ -19,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -39,6 +41,7 @@ public class SoftwareMetrics {
     private final SoftwareFanoutTaskMapper fanoutTaskMapper;
     private final SoftwareReviewCheckTaskMapper checkTaskMapper;
     private final OutboxEventMapper outboxEventMapper;
+    private final Clock clock;
 
     private final AtomicLong reviewPending = new AtomicLong();
     private final AtomicLong reviewChecking = new AtomicLong();
@@ -55,13 +58,15 @@ public class SoftwareMetrics {
                            SoftwareLinkFeedbackMapper feedbackMapper,
                            SoftwareFanoutTaskMapper fanoutTaskMapper,
                            SoftwareReviewCheckTaskMapper checkTaskMapper,
-                           OutboxEventMapper outboxEventMapper) {
+                           OutboxEventMapper outboxEventMapper,
+                           Clock clock) {
         this.registry = registry;
         this.revisionMapper = revisionMapper;
         this.feedbackMapper = feedbackMapper;
         this.fanoutTaskMapper = fanoutTaskMapper;
         this.checkTaskMapper = checkTaskMapper;
         this.outboxEventMapper = outboxEventMapper;
+        this.clock = clock;
         Gauge.builder("software.review.pending", reviewPending, AtomicLong::doubleValue)
                 .description("待审快照数（30s 采样）").register(registry);
         Gauge.builder("software.review.checking", reviewChecking, AtomicLong::doubleValue)
@@ -95,7 +100,7 @@ public class SoftwareMetrics {
             reviewCheckQueued.set(checkTaskMapper.countQueued());
             reviewCheckDeadLetter.set(checkTaskMapper.countDeadLetter());
             reviewCheckingOldestSeconds.set(checkTaskMapper.oldestCheckingSeconds(
-                    java.time.LocalDateTime.now()));
+                    LocalDateTime.now(clock)));
             feedbackPending.set(feedbackMapper.selectCount(
                     new LambdaQueryWrapper<SoftwareLinkFeedback>()
                             .in(SoftwareLinkFeedback::getStatus,

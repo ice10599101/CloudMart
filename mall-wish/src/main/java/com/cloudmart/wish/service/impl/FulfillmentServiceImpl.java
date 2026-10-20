@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,6 +66,8 @@ public class FulfillmentServiceImpl implements FulfillmentService {
     private final com.cloudmart.wish.policy.WishAccessPolicy accessPolicy;
     private final WishOperationExecutor operationExecutor;
     private final WishOutboxService outboxService;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -146,7 +149,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
         fulfillment.setIsVisible(true);
         fulfillment.setIsInherited(false);
         fulfillment.setShareToCommunity(shareToCommunity);
-        fulfillment.setShareConsentAt(shareToCommunity ? LocalDateTime.now() : null);
+        fulfillment.setShareConsentAt(shareToCommunity ? LocalDateTime.now(clock) : null);
         fulfillment.setContentVersion(1);
         fulfillment.setPurchaseOrderId(purchaseOrderId);
         wishFulfillmentMapper.insert(fulfillment);
@@ -158,7 +161,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
                         .in(Wish::getStatus, WishStatus.ACTIVE, WishStatus.OVERDUE)
                         .set(Wish::getStatus, WishStatus.FULFILLED)
                         .set(Wish::getFruitType, FruitType.BLOOM)
-                        .set(Wish::getFulfilledAt, LocalDateTime.now()));
+                        .set(Wish::getFulfilledAt, LocalDateTime.now(clock)));
         if (affected == 0) {
             // 并发重复提交（或状态已被并发流转）：回滚整个事务
             throw new BusinessException(WishErrorCodes.WISH_NOT_FULFILLABLE, "心愿状态已变更，无法还愿");
@@ -304,7 +307,7 @@ public class FulfillmentServiceImpl implements FulfillmentService {
             throw new BusinessException(WishErrorCodes.WISH_FULFILLMENT_NOT_FOUND, "还愿记录不存在");
         }
         // B03：撤回分享授权，投递中的流转会被执行前校验拦截，已发帖子走 hideFlow 隐藏
-        fulfillment.setShareRevokedAt(java.time.LocalDateTime.now());
+        fulfillment.setShareRevokedAt(java.time.LocalDateTime.now(clock));
         wishFulfillmentMapper.updateById(fulfillment);
         // 软删保留审计；心愿状态保持 FULFILLED（历史事实不回退）。
         // 逻辑删除字段由 MP 全局配置接管：setDeletedAt 经 updateById 会被排除出 SET，

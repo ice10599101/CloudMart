@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 
@@ -22,6 +23,7 @@ public class BlacklistServiceImpl implements BlacklistService {
 
     private final BlacklistEntryRepository blacklistEntryRepository;
     private final StringRedisTemplate stringRedisTemplate;
+    private final Clock clock;
 
     @Override
     public BlacklistEntry addToBlacklist(String targetType, String targetValue, String reason, LocalDateTime expiredAt) {
@@ -68,7 +70,7 @@ public class BlacklistServiceImpl implements BlacklistService {
             return false;
         }
 
-        if (entry.getExpiredAt() != null && entry.getExpiredAt().isBefore(LocalDateTime.now())) {
+        if (entry.getExpiredAt() != null && entry.getExpiredAt().isBefore(LocalDateTime.now(clock))) {
             return false;
         }
 

@@ -121,7 +121,7 @@ class WishServiceImplTest {
                         org.mockito.Mockito.mock(com.cloudmart.wish.repository.WishOperationMapper.class), opTx),
                 org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.WishOutboxService.class),
                 org.mockito.Mockito.mock(com.cloudmart.wish.service.impl.ModerationService.class),
-                sanitizer
+                sanitizer, java.time.Clock.systemDefaultZone()
         );
     }
 

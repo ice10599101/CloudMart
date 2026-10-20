@@ -11,15 +11,18 @@ import com.cloudmart.common.exception.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
 public class AdminLoginLogServiceImpl implements AdminLoginLogService {
 
     private final AdminLoginLogMapper adminLoginLogMapper;
+    private final Clock clock;
 
-    public AdminLoginLogServiceImpl(AdminLoginLogMapper adminLoginLogMapper) {
+    public AdminLoginLogServiceImpl(AdminLoginLogMapper adminLoginLogMapper, Clock clock) {
         this.adminLoginLogMapper = adminLoginLogMapper;
+        this.clock = clock;
     }
 
     @Override
@@ -51,7 +54,7 @@ public class AdminLoginLogServiceImpl implements AdminLoginLogService {
         loginLog.setOs(os);
         loginLog.setStatus(status);
         loginLog.setMsg(msg);
-        loginLog.setLoginTime(LocalDateTime.now());
+        loginLog.setLoginTime(LocalDateTime.now(clock));
         adminLoginLogMapper.insert(loginLog);
     }
 

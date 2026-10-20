@@ -15,6 +15,7 @@ import com.cloudmart.common.exception.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -27,13 +28,16 @@ public class AdminNoticeServiceImpl implements AdminNoticeService {
     private final AdminNoticeMapper adminNoticeMapper;
     private final AdminNoticeReadMapper adminNoticeReadMapper;
     private final NotificationFeignClient notificationFeignClient;
+    private final Clock clock;
 
     public AdminNoticeServiceImpl(AdminNoticeMapper adminNoticeMapper,
                                   AdminNoticeReadMapper adminNoticeReadMapper,
-                                  NotificationFeignClient notificationFeignClient) {
+                                  NotificationFeignClient notificationFeignClient,
+                                  Clock clock) {
         this.adminNoticeMapper = adminNoticeMapper;
         this.adminNoticeReadMapper = adminNoticeReadMapper;
         this.notificationFeignClient = notificationFeignClient;
+        this.clock = clock;
     }
 
     @Override
@@ -136,7 +140,7 @@ public class AdminNoticeServiceImpl implements AdminNoticeService {
         AdminNoticeRead readRecord = new AdminNoticeRead();
         readRecord.setNoticeId(noticeId);
         readRecord.setUserId(userId);
-        readRecord.setReadTime(LocalDateTime.now());
+        readRecord.setReadTime(LocalDateTime.now(clock));
         adminNoticeReadMapper.insert(readRecord);
     }
 

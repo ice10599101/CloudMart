@@ -11,8 +11,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.lang.management.ManagementFactory;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -43,6 +45,9 @@ import java.util.List;
 @Service
 public class ReconciliationService {
 
+    private static final ZoneId BUSINESS_ZONE =
+            ZoneId.of(com.cloudmart.common.time.UserBusinessCalendar.DEFAULT_ZONE_ID);
+
     private final PaymentAttemptMapper attemptMapper;
     private final ReconciliationRunMapper runMapper;
     private final ReconciliationDifferenceMapper differenceMapper;
@@ -53,6 +58,8 @@ public class ReconciliationService {
     private final int leaseSeconds;
     /** 租约持有者标识：pid@host（日志可追踪接管方） */
     private final String instanceId;
+    /** T20：统一 UTC 时钟（租约/扫描窗口/完成时间不依赖 JVM 默认时区） */
+    private final Clock clock;
 
     public ReconciliationService(PaymentAttemptMapper attemptMapper,
                                  ReconciliationRunMapper runMapper,
@@ -61,7 +68,8 @@ public class ReconciliationService {
                                  com.cloudmart.payment.repository.RefundOrderMapper refundOrderMapper,
                                  com.cloudmart.payment.feign.InventoryReconFeignClient inventoryReconFeignClient,
                                  @Value("${ops.reconciliation.batch-size:200}") int batchSize,
-                                 @Value("${ops.reconciliation.lease-seconds:300}") int leaseSeconds) {
+                                 @Value("${ops.reconciliation.lease-seconds:300}") int leaseSeconds,
+                                 Clock clock) {
         this.attemptMapper = attemptMapper;
         this.runMapper = runMapper;
         this.differenceMapper = differenceMapper;
@@ -71,6 +79,7 @@ public class ReconciliationService {
         this.batchSize = batchSize;
         this.leaseSeconds = leaseSeconds;
         this.instanceId = ManagementFactory.getRuntimeMXBean().getName();
+        this.clock = clock;
     }
 
     /** 依赖服务整页/整批不可达（区别于单笔不可核验）：保留断点转 PARTIAL，等待同日续扫 */
@@ -101,7 +110,7 @@ public class ReconciliationService {
                     return new RunLease(existing, false);
                 }
                 case "RUNNING" -> {
-                    if (existing.getLeaseUntil() != null && existing.getLeaseUntil().isAfter(LocalDateTime.now())) {
+                    if (existing.getLeaseUntil() != null && existing.getLeaseUntil().isAfter(LocalDateTime.now(clock))) {
                         log.info("[{}] 本业务日 {} 对账正在执行（run={} owner={} 租约有效），幂等返回",
                                 logTag, scope, existing.getId(), existing.getLeaseOwner());
                         return new RunLease(existing, false);
@@ -133,7 +142,7 @@ public class ReconciliationService {
                 }
             }
         }
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         ReconciliationRun run = new ReconciliationRun();
         run.setBusinessDate(businessDate);
         run.setScope(scope);
@@ -158,7 +167,7 @@ public class ReconciliationService {
 
     /** 逐批心跳：续租约并持久化断点游标与累计计数（崩溃后最多丢失当前批的进度） */
     private void persistProgress(ReconciliationRun run) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         run.setHeartbeatAt(now);
         run.setLeaseUntil(now.plusSeconds(leaseSeconds));
         runMapper.updateById(run);
@@ -202,7 +211,7 @@ public class ReconciliationService {
 
     /** 执行一次支付↔订单对账（扫描最近 N 天 SUCCESS 支付核对订单状态）。 */
     public ReconciliationRun runPaymentOrderReconciliation(int scanDays) {
-        LocalDate businessDate = LocalDate.now();
+        LocalDate businessDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
         RunLease lease = beginRun(businessDate, "PAYMENT_ORDER", "OPS01");
         if (!lease.execute()) {
             return lease.run();
@@ -213,7 +222,7 @@ public class ReconciliationService {
             int checked = nz(run.getTotalChecked());
             int skipped = nz(run.getTotalSkipped());
             int diffs = nz(run.getTotalDiff());
-            LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
+            LocalDateTime since = LocalDateTime.now(clock).minusDays(scanDays);
 
             // 核对一：SUCCESS 支付的订单必须已 PAID+（id 游标断点续扫）
             long lastId = nz(run.getPaymentCursor());
@@ -308,7 +317,7 @@ public class ReconciliationService {
      *   ② 订单 REFUNDED → 必须存在 SUCCEEDED 退款单（无台账=资金事实缺失，HIGH）。
      */
     public ReconciliationRun runRefundReconciliation(int scanDays) {
-        LocalDate businessDate = LocalDate.now();
+        LocalDate businessDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
         RunLease lease = beginRun(businessDate, "REFUND", "T11");
         if (!lease.execute()) {
             return lease.run();
@@ -319,7 +328,7 @@ public class ReconciliationService {
             int checked = nz(run.getTotalChecked());
             int skipped = nz(run.getTotalSkipped());
             int diffs = nz(run.getTotalDiff());
-            LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
+            LocalDateTime since = LocalDateTime.now(clock).minusDays(scanDays);
 
             // ① 退款单 SUCCEEDED → 订单 REFUNDED
             long lastId = nz(run.getRefundCursor());
@@ -411,7 +420,7 @@ public class ReconciliationService {
      * 台账端点不可达 → PARTIAL（断点保留），不再静默 0。
      */
     public ReconciliationRun runInventoryReconciliation(int scanDays) {
-        LocalDate businessDate = LocalDate.now();
+        LocalDate businessDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
         RunLease lease = beginRun(businessDate, "INVENTORY", "T11");
         if (!lease.execute()) {
             return lease.run();
@@ -422,7 +431,7 @@ public class ReconciliationService {
             int checked = nz(run.getTotalChecked());
             int skipped = nz(run.getTotalSkipped());
             int diffs = nz(run.getTotalDiff());
-            LocalDateTime since = LocalDateTime.now().minusDays(scanDays);
+            LocalDateTime since = LocalDateTime.now(clock).minusDays(scanDays);
             long lastId = nz(run.getInventoryCursor());
             while (true) {
                 // "扫不到"与"没有可核对的行"必须区分：端点失败转 PARTIAL，不按空批顺延
@@ -450,7 +459,7 @@ public class ReconciliationService {
                         continue;
                     }
                     checked++;
-                    if ("RESERVED".equals(row.status()) && !row.createdAt().isBefore(LocalDateTime.now().minusHours(24))) {
+                    if ("RESERVED".equals(row.status()) && !row.createdAt().isBefore(LocalDateTime.now(clock).minusHours(24))) {
                         continue; // 24h 内的新预占：正常在途
                     }
                     boolean orderGone = "CANCELLED".equals(orderStatus) || "REFUNDED".equals(orderStatus);
@@ -501,7 +510,7 @@ public class ReconciliationService {
         run.setTotalDiff(diffs);
         run.setTotalSkipped(skipped);
         run.setStatus("DONE");
-        run.setFinishedAt(LocalDateTime.now());
+        run.setFinishedAt(LocalDateTime.now(clock));
         persistProgress(run);
         log.info("[{}] 对账完成 run={} checked={} diffs={} skipped={}", tag, run.getId(), checked, diffs, skipped);
         return run;
@@ -522,7 +531,7 @@ public class ReconciliationService {
 
     private ReconciliationRun finishFailed(ReconciliationRun run, String tag, Exception e) {
         run.setStatus("FAILED");
-        run.setFinishedAt(LocalDateTime.now());
+        run.setFinishedAt(LocalDateTime.now(clock));
         runMapper.updateById(run);
         log.error("[{}] 对账执行失败 run={}（可从断点重试）", tag, run.getId(), e);
         throw new IllegalStateException("对账执行失败 run=" + run.getId() + ": " + e.getMessage(), e);

@@ -57,7 +57,7 @@ class WishRewardObligationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new WishRewardObligationService(obligationMapper, communityFeignClient);
+        service = new WishRewardObligationService(obligationMapper, communityFeignClient, java.time.Clock.systemUTC());
         when(obligationMapper.selectById(any())).thenAnswer(inv -> {
             WishRewardObligation o = new WishRewardObligation();
             o.setId(inv.getArgument(0, Long.class));

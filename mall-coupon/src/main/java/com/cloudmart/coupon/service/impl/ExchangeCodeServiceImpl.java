@@ -3,6 +3,7 @@ package com.cloudmart.coupon.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.common.time.UserBusinessCalendar;
 import com.cloudmart.coupon.dto.UserCouponDTO;
 import com.cloudmart.coupon.entity.CouponTemplate;
 import com.cloudmart.coupon.entity.ExchangeCode;
@@ -19,8 +20,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,12 +53,14 @@ public class ExchangeCodeServiceImpl implements ExchangeCodeService {
 
     /** Redis Key TTL，与优惠券最长有效期对齐（365天） */
     private static final Duration KEY_TTL = Duration.ofDays(365);
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of(UserBusinessCalendar.DEFAULT_ZONE_ID);
 
     private final ExchangeCodeMapper exchangeCodeMapper;
     private final CouponTemplateMapper couponTemplateMapper;
     private final CouponService couponService;
     private final CodeGenerator codeGenerator;
     private final StringRedisTemplate redisTemplate;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -129,7 +134,7 @@ public class ExchangeCodeServiceImpl implements ExchangeCodeService {
 
         try {
             // DB CAS：可靠的状态流转，兜底 BitMap 丢失场景
-            int updated = exchangeCodeMapper.markExchangedIfUnused(code, userId, LocalDateTime.now());
+            int updated = exchangeCodeMapper.markExchangedIfUnused(code, userId, LocalDateTime.now(clock));
             if (updated == 0) {
                 clearBitmapSafely(bitmapKey, serialNumber);
                 throw new BusinessException("EXCHANGE_CODE_ALREADY_USED", "兑换码已被使用");
@@ -223,7 +228,8 @@ public class ExchangeCodeServiceImpl implements ExchangeCodeService {
     }
 
     private String generateBatchNo() {
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        String timestamp = LocalDateTime.now(clock.withZone(BUSINESS_ZONE))
+                .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
         int random = ThreadLocalRandom.current().nextInt(1000, 10000);
         return timestamp + random;
     }

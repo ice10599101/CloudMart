@@ -3,6 +3,7 @@ package com.cloudmart.pet.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.cloudmart.common.exception.BusinessException;
+import com.cloudmart.pet.config.PetClock;
 import com.cloudmart.pet.config.PetProperties;
 import com.cloudmart.pet.config.RocketMQConfig;
 import com.cloudmart.pet.constant.PetErrorCodes;
@@ -39,7 +40,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -85,6 +85,7 @@ public class PetWallServiceImpl implements PetWallService {
     private final com.cloudmart.pet.service.PetUserBlockService userBlockService;
     private final StringRedisTemplate redisTemplate;
     private final PetContentSafetyService safetyService;
+    private final PetClock clock;
 
     public PetWallServiceImpl(PetService petService,
                               PetMapper petMapper,
@@ -103,7 +104,8 @@ public class PetWallServiceImpl implements PetWallService {
                               PetQuotaService quotaService,
                               com.cloudmart.pet.service.PetUserBlockService userBlockService,
                               PetContentSafetyService safetyService,
-                              PetAccessPolicy accessPolicy) {
+                              PetAccessPolicy accessPolicy,
+                              PetClock clock) {
         this.petService = petService;
         this.petMapper = petMapper;
         this.wallMessageMapper = wallMessageMapper;
@@ -122,6 +124,7 @@ this.properties = properties;
         this.userBlockService = userBlockService;
         this.safetyService = safetyService;
         this.accessPolicy = accessPolicy;
+        this.clock = clock;
     }
 
     @Override
@@ -383,7 +386,7 @@ this.properties = properties;
 
     private void requireLikeQuota(Long userId) {
         try {
-            String key = String.format(KEY_WALL_LIKE_DAILY, userId, LocalDate.now());
+            String key = String.format(KEY_WALL_LIKE_DAILY, userId, clock.businessDate());
             Long used = redisTemplate.opsForValue().increment(key);
             if (used != null && used == 1L) {
                 redisTemplate.expire(key, Duration.ofHours(24));

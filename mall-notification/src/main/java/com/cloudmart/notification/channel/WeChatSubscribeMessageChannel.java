@@ -8,8 +8,10 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +40,7 @@ public class WeChatSubscribeMessageChannel implements SubscribeMessageChannel {
     private final RestClient restClient = RestClient.create();
 
     private final com.cloudmart.notification.repository.SubscribeMessageBindingMapper bindingMapper;
+    private final Clock clock;
 
     private volatile String cachedAccessToken;
     private volatile Instant tokenExpiresAt = Instant.EPOCH;
@@ -46,11 +49,13 @@ public class WeChatSubscribeMessageChannel implements SubscribeMessageChannel {
             @Value("${notification.subscribe-message.wechat.appid}") String appid,
             @Value("${notification.subscribe-message.wechat.secret}") String secret,
             @Value("${notification.subscribe-message.templates.anniversary:}") String anniversaryTemplateId,
-            com.cloudmart.notification.repository.SubscribeMessageBindingMapper bindingMapper) {
+            com.cloudmart.notification.repository.SubscribeMessageBindingMapper bindingMapper,
+            Clock clock) {
         this.appid = appid;
         this.secret = secret;
         this.templates = Map.of("ANNIVERSARY", anniversaryTemplateId == null ? "" : anniversaryTemplateId);
         this.bindingMapper = bindingMapper;
+        this.clock = clock;
     }
 
     @Override
@@ -131,7 +136,7 @@ public class WeChatSubscribeMessageChannel implements SubscribeMessageChannel {
                 .eq(SubscribeMessageBinding::getId, binding.getId())
                 .eq(SubscribeMessageBinding::getConsumed, false)
                 .set(SubscribeMessageBinding::getConsumed, true)
-                .set(SubscribeMessageBinding::getConsumedAt, java.time.LocalDateTime.now()));
+                .set(SubscribeMessageBinding::getConsumedAt, LocalDateTime.now(clock)));
     }
 
     private synchronized String accessToken() {

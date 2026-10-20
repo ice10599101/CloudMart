@@ -22,6 +22,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -64,6 +65,8 @@ public class HomeServiceImpl implements HomeService {
     private final UserFeignClient userFeignClient;
     private final RedisTemplate<String, Object> redisTemplate;
     private final WorldTreeService worldTreeService;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     @Override
     public HomeAggregationVO getHomeAggregation(Long userId) {
@@ -116,7 +119,7 @@ public class HomeServiceImpl implements HomeService {
         }
 
         // 缓存未命中，回源 DB：近 7 天 PUBLIC + APPROVED
-        LocalDateTime sevenDaysAgo = LocalDateTime.now().minus(7, ChronoUnit.DAYS);
+        LocalDateTime sevenDaysAgo = LocalDateTime.now(clock).minus(7, ChronoUnit.DAYS);
         List<Wish> candidates = wishMapper.selectList(
                 new LambdaQueryWrapper<Wish>()
                         .eq(Wish::getVisibility, WishVisibility.PUBLIC)
@@ -207,7 +210,7 @@ public class HomeServiceImpl implements HomeService {
         Map<Long, String> nicknameMap = fetchNicknames(candidates);
 
         // 评分排序
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         List<ScoredWish> scored = candidates.stream()
                 .map(w -> new ScoredWish(w, calculateScore(w, now, nicknameMap)))
                 .sorted(Comparator.comparingDouble(ScoredWish::score).reversed())

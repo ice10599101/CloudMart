@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -47,6 +48,7 @@ public class SoftwareErasureServiceImpl implements SoftwareErasureService {
     private final SoftwareErasureTaskMapper taskMapper;
     private final SoftwareErasureSqlMapper sqlMapper;
     private final PlatformTransactionManager transactionManager;
+    private final Clock clock;
 
     @Override
     public boolean eraseUser(Long userId) {
@@ -157,7 +159,7 @@ public class SoftwareErasureServiceImpl implements SoftwareErasureService {
         // 指数退避：60s/300s/900s/3600s（与注销编排重试节奏对齐，上限 1 小时）
         long[] backoff = {60, 300, 900, 3600};
         long seconds = backoff[Math.min(attempt - 1, backoff.length - 1)];
-        update.setNextRetryAt(LocalDateTime.now().plusSeconds(seconds));
+        update.setNextRetryAt(LocalDateTime.now(clock).plusSeconds(seconds));
         taskMapper.updateById(update);
         log.warn("软件域注销阶段失败 userId={} phase={} attempt={}: {}",
                 task.getUserId(), task.getPhase(), attempt, cause.getMessage());

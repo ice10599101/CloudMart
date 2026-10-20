@@ -57,7 +57,7 @@ class AdminTreeEnvServiceImplTest {
         TableInfoHelper.initTableInfo(assistant, WishSpecialEvent.class);
         TableInfoHelper.initTableInfo(assistant, WishEnvConfig.class);
         adminTreeEnvService = new AdminTreeEnvServiceImpl(
-                specialEventMapper, envConfigMapper, new ObjectMapper());
+                specialEventMapper, envConfigMapper, new ObjectMapper(), java.time.Clock.systemDefaultZone());
     }
 
     private WishEnvConfig meteorConfig() {

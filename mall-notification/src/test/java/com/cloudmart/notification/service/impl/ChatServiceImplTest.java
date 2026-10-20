@@ -53,6 +53,9 @@ class ChatServiceImplTest {
     @Mock
     private WebSocketSessionManager wsSessionManager;
 
+    @org.mockito.Spy
+    private java.time.Clock clock = java.time.Clock.systemDefaultZone();
+
     @InjectMocks
     private ChatServiceImpl service;
 

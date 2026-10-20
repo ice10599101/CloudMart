@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
@@ -62,6 +63,8 @@ public class ExpectedManagementServiceImpl implements ExpectedManagementService 
     private final AssistantAiClient assistantAiClient;
     private final AiConfigService aiConfigService;
     private final AiReminderEventProducer reminderProducer;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     @Override
     public NotifyResult notifyExpiredWishes(List<WishService.OverdueWishInfo> wishes) {
@@ -112,7 +115,7 @@ public class ExpectedManagementServiceImpl implements ExpectedManagementService 
      */
     private String buildGuideText(WishService.OverdueWishInfo wish) {
         long overdueDays = Math.max(0, Duration.between(
-                wish.expectedAt(), LocalDateTime.now()).toDays());
+                wish.expectedAt(), LocalDateTime.now(clock)).toDays());
         if (!consentService.hasGrantedAiDataProcessing(wish.userId())) {
             return templateGuide(wish.title(), overdueDays);
         }

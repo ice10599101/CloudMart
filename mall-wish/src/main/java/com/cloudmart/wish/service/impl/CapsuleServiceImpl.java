@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.DateTimeException;
@@ -65,10 +66,12 @@ public class CapsuleServiceImpl implements CapsuleService {
     private final com.cloudmart.wish.service.impl.WishOutboxService wishOutboxService;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final WishContentSanitizer contentSanitizer;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     @Override
     public CapsuleVO createCapsule(Long userId, CreateCapsuleRequest request) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         if (!request.openAt().isAfter(now)) {
             throw new BusinessException(WishErrorCodes.WISH_OPEN_AT_PAST, "开启时间不能早于当前时间");
         }
@@ -106,7 +109,7 @@ public class CapsuleServiceImpl implements CapsuleService {
     @Override
     public com.cloudmart.wish.vo.CapsuleVO reschedule(Long userId, Long capsuleId,
                                                       LocalDateTime newOpenAt, String timezone) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         if (newOpenAt == null || !newOpenAt.isAfter(now)) {
             throw new BusinessException(WishErrorCodes.WISH_OPEN_AT_PAST, "新的开启时间不能早于当前时间");
         }
@@ -190,7 +193,7 @@ public class CapsuleServiceImpl implements CapsuleService {
 
         // CAS：SEALED/AVAILABLE 且已到期 → OPENED（并发双开仅一次生效；
         // SEALED+已到期同样放行，容忍扫描间隙/时钟偏移的"创建即到期"边界）
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         int affected = timeCapsuleMapper.update(null,
                 new LambdaUpdateWrapper<TimeCapsule>()
                         .eq(TimeCapsule::getId, capsuleId)
@@ -233,7 +236,7 @@ public class CapsuleServiceImpl implements CapsuleService {
 
     @Override
     public ScanResult scanAvailableCapsules() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         int scannedTotal = 0;
         int availableTotal = 0;
         while (true) {
@@ -309,7 +312,11 @@ public class CapsuleServiceImpl implements CapsuleService {
                     timeCapsuleMapper.selectCount(new LambdaQueryWrapper<TimeCapsule>()
                             .eq(TimeCapsule::getStatus, status)));
         }
-        LocalDateTime dayStart = LocalDateTime.now().toLocalDate().atStartOfDay();
+        // T20：后台报表日界按平台业务区（Asia/Shanghai）零点换算为 UTC 时刻
+        java.time.ZoneId reportZone = java.time.ZoneId.of(
+                com.cloudmart.common.time.UserBusinessCalendar.DEFAULT_ZONE_ID);
+        LocalDateTime dayStart = com.cloudmart.common.time.UserBusinessCalendar
+                .businessDayStartUtcDateTime(java.time.LocalDate.now(clock.withZone(reportZone)), reportZone);
         stats.put("todayCreated", timeCapsuleMapper.selectCount(new LambdaQueryWrapper<TimeCapsule>()
                 .ge(TimeCapsule::getCreatedAt, dayStart)));
         return stats;
@@ -406,7 +413,7 @@ public class CapsuleServiceImpl implements CapsuleService {
                     wall == WALL_PENDING ? "该胶囊正在处理中，请刷新后重试" : "该胶囊已在墙上");
         }
         // R17：作者明确选择上墙即公开；CAS 绑定旧状态（0/3/4），消除并发重复发布窗口。
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         int updated = timeCapsuleMapper.update(null,
                 new LambdaUpdateWrapper<TimeCapsule>()
                         .eq(TimeCapsule::getId, capsuleId)
@@ -427,7 +434,7 @@ public class CapsuleServiceImpl implements CapsuleService {
     public void withdrawWall(Long userId, Long capsuleId) {
         TimeCapsule capsule = requireOwnedCapsule(userId, capsuleId);
         int wall = capsule.getWallStatus() == null ? WALL_NONE : capsule.getWallStatus();
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         if (wall == WALL_PENDING) {
             // 撤回审核申请：回到未申请，清空本轮申请/裁决痕迹
             int updated = timeCapsuleMapper.update(null,
@@ -504,7 +511,7 @@ public class CapsuleServiceImpl implements CapsuleService {
             }
         }
         int target = approve ? WALL_APPROVED : WALL_REJECTED;
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         // CAS：仅 wallStatus=1 可裁决；并发双裁决/作者同时撤回只有一个赢家（0 行→409）
         int updated = timeCapsuleMapper.update(null,
                 new LambdaUpdateWrapper<TimeCapsule>()
@@ -550,7 +557,7 @@ public class CapsuleServiceImpl implements CapsuleService {
                         .eq(TimeCapsule::getId, capsuleId)
                         .eq(TimeCapsule::getWallStatus, WALL_APPROVED)
                         .set(TimeCapsule::getWallStatus, WALL_TAKEN_DOWN)
-                        .set(TimeCapsule::getWallDecidedAt, LocalDateTime.now())
+                        .set(TimeCapsule::getWallDecidedAt, LocalDateTime.now(clock))
                         .set(TimeCapsule::getWallReason, trimmedReason)
                         .set(TimeCapsule::getWallActorId, adminUserId));
         if (updated == 0) {

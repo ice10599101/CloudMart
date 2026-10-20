@@ -52,7 +52,8 @@ class AdminNoticeServiceImplTest {
         adminNoticeMapper = mock(AdminNoticeMapper.class);
         adminNoticeReadMapper = mock(AdminNoticeReadMapper.class);
         notificationFeignClient = mock(NotificationFeignClient.class);
-        adminNoticeService = new AdminNoticeServiceImpl(adminNoticeMapper, adminNoticeReadMapper, notificationFeignClient);
+        adminNoticeService = new AdminNoticeServiceImpl(adminNoticeMapper, adminNoticeReadMapper,
+                notificationFeignClient, java.time.Clock.systemUTC());
     }
 
     private AdminNotice buildNotice(Long id) {

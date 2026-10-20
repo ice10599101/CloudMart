@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -32,15 +33,18 @@ public class ReportServiceImpl implements ReportService {
     private final PostMapper postMapper;
     private final PostCommentMapper postCommentMapper;
     private final ObjectMapper objectMapper;
+    private final Clock clock;
 
     public ReportServiceImpl(ReportMapper reportMapper,
                              PostMapper postMapper,
                              PostCommentMapper postCommentMapper,
-                             ObjectMapper objectMapper) {
+                             ObjectMapper objectMapper,
+                             Clock clock) {
         this.reportMapper = reportMapper;
         this.postMapper = postMapper;
         this.postCommentMapper = postCommentMapper;
         this.objectMapper = objectMapper;
+        this.clock = clock;
     }
 
     @Override
@@ -91,7 +95,7 @@ public class ReportServiceImpl implements ReportService {
         report.setStatus(request.status());
         report.setHandlerId(handlerId);
         report.setHandleNote(request.handleNote());
-        report.setHandledAt(LocalDateTime.now());
+        report.setHandledAt(LocalDateTime.now(clock));
         reportMapper.updateById(report);
 
         if (request.status() == 3) {

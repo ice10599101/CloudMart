@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +33,8 @@ public class ReconciliationAdminController {
     private final com.cloudmart.payment.reconciliation.ReconciliationRunMapper runMapper;
     private final com.cloudmart.payment.reconciliation.ReconciliationDifferenceMapper differenceMapper;
     private final com.cloudmart.payment.reconciliation.ReconciliationService reconciliationService;
+    /** T20：UTC 处置时间，不依赖 JVM 默认时区 */
+    private final Clock clock;
 
     @GetMapping("/runs")
     @Operation(summary = "对账运行分页", description = "按日期倒序；差异汇总随行；meta 携带 page/pageSize/total")
@@ -106,7 +110,7 @@ public class ReconciliationAdminController {
                 .set(ReconciliationDifference::getResolveStatus, request.resolveStatus())
                 .set(ReconciliationDifference::getResolvedBy, adminId)
                 .set(ReconciliationDifference::getResolveNote, request.resolveNote())
-                .set(ReconciliationDifference::getResolvedAt, java.time.LocalDateTime.now()));
+                .set(ReconciliationDifference::getResolvedAt, LocalDateTime.now(clock)));
         if (updated == 0) {
             throw new com.cloudmart.common.exception.BusinessException(
                     "RECON_DIFF_ALREADY_RESOLVED", "差异已被处置，请刷新");

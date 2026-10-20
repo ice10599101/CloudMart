@@ -35,6 +35,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +63,7 @@ public class PostServiceImpl implements PostService {
     private final CommunityCacheService communityCacheService;
     private final TagSubscriptionService tagSubscriptionService;
     private final LikeService likeService;
+    private final Clock clock;
 
     public PostServiceImpl(PostMapper postMapper,
                            PostTagMapper postTagMapper,
@@ -75,7 +78,8 @@ public class PostServiceImpl implements PostService {
                            UserBlockService userBlockService,
                            CommunityCacheService communityCacheService,
                            TagSubscriptionService tagSubscriptionService,
-                           LikeService likeService) {
+                           LikeService likeService,
+                           Clock clock) {
         this.postMapper = postMapper;
         this.postTagMapper = postTagMapper;
         this.postCollectionMapper = postCollectionMapper;
@@ -90,6 +94,7 @@ public class PostServiceImpl implements PostService {
         this.communityCacheService = communityCacheService;
         this.tagSubscriptionService = tagSubscriptionService;
         this.likeService = likeService;
+        this.clock = clock;
     }
 
     @Override
@@ -393,7 +398,7 @@ public class PostServiceImpl implements PostService {
         long topBonus = Boolean.TRUE.equals(post.isTop()) ? 100000 : 0;
 
         long hoursSinceCreation = java.time.Duration.between(
-                post.createdAt(), java.time.LocalDateTime.now()).toHours();
+                post.createdAt(), LocalDateTime.now(clock)).toHours();
         double decayFactor = 1.0 / (1.0 + hoursSinceCreation * 0.05);
 
         return (likeWeight + commentWeight + collectWeight + viewWeight + topBonus) * decayFactor;

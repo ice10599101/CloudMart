@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 /**
@@ -40,6 +41,8 @@ import java.time.LocalDateTime;
 public class ConsentServiceImpl implements ConsentService {
 
     private final WishConsentMapper wishConsentMapper;
+    /** T20：统一 UTC 时钟，避免 JVM 默认时区造成时间漂移 */
+    private final Clock clock;
 
     @Override
     public ConsentRecordVO recordConsent(Long userId, GrantConsentRequest request,
@@ -58,7 +61,7 @@ public class ConsentServiceImpl implements ConsentService {
         consent.setAction(action);
         consent.setIp(truncate(ip, 45));
         consent.setUserAgent(truncate(userAgent, 255));
-        consent.setCreatedAt(LocalDateTime.now());
+        consent.setCreatedAt(LocalDateTime.now(clock));
         try {
             wishConsentMapper.insert(consent);
         } catch (DuplicateKeyException ex) {

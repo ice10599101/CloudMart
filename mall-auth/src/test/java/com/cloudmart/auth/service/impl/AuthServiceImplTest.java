@@ -61,7 +61,8 @@ class AuthServiceImplTest {
         when(authSessionService.issueSession(any(), org.mockito.ArgumentMatchers.anyLong()))
                 .thenReturn(new AuthSessionService.IssuedSession("session-1", 0L));
         authService = new AuthServiceImpl(userFeignClient, jwtProvider, refreshTokenService,
-                authSessionService, redisTemplate, new ObjectMapper(), 900L);
+                authSessionService, redisTemplate, new ObjectMapper(), 900L,
+                java.time.Clock.systemUTC());
     }
 
     @Nested

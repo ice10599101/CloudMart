@@ -56,7 +56,8 @@ class BlacklistServiceImplTest {
         stringRedisTemplate = mock(StringRedisTemplate.class);
         valueOperations = mock(ValueOperations.class);
         when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        blacklistService = new BlacklistServiceImpl(blacklistEntryRepository, stringRedisTemplate);
+        blacklistService = new BlacklistServiceImpl(blacklistEntryRepository, stringRedisTemplate,
+                java.time.Clock.systemUTC());
     }
 
     @Nested

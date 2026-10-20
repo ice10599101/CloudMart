@@ -8,6 +8,7 @@ import org.apache.ibatis.reflection.MetaObject;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Configuration
@@ -25,17 +26,17 @@ public class MyBatisPlusConfig {
     }
 
     @Bean
-    public MetaObjectHandler metaObjectHandler() {
+    public MetaObjectHandler metaObjectHandler(Clock clock) {
         return new MetaObjectHandler() {
             @Override
             public void insertFill(MetaObject metaObject) {
-                this.strictInsertFill(metaObject, "createdAt", LocalDateTime::now, LocalDateTime.class);
-                this.strictInsertFill(metaObject, "updatedAt", LocalDateTime::now, LocalDateTime.class);
+                this.strictInsertFill(metaObject, "createdAt", () -> LocalDateTime.now(clock), LocalDateTime.class);
+                this.strictInsertFill(metaObject, "updatedAt", () -> LocalDateTime.now(clock), LocalDateTime.class);
             }
 
             @Override
             public void updateFill(MetaObject metaObject) {
-                this.strictUpdateFill(metaObject, "updatedAt", LocalDateTime::now, LocalDateTime.class);
+                this.strictUpdateFill(metaObject, "updatedAt", () -> LocalDateTime.now(clock), LocalDateTime.class);
             }
         };
     }

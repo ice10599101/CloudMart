@@ -88,7 +88,7 @@ class InventoryReservationLedgerTest {
                 mock(com.cloudmart.inventory.repository.InventoryAdjustmentMapper.class),
                 null, redisTemplate,
                 mock(org.springframework.data.redis.core.script.DefaultRedisScript.class),
-                redissonClient, transactionTemplate);
+                redissonClient, transactionTemplate, java.time.Clock.systemDefaultZone());
     }
 
     private InventoryReservation reservation(String status) {

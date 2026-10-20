@@ -122,7 +122,8 @@ class OrderServiceTest {
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteMapper.class),
                 org.mockito.Mockito.mock(com.cloudmart.order.repository.OrderQuoteItemMapper.class),
                 new QuoteDiscountCalculator(marketingFeignClient,
-                        new OrderCouponPolicy(couponFeignClient), new tools.jackson.databind.ObjectMapper())
+                        new OrderCouponPolicy(couponFeignClient), new tools.jackson.databind.ObjectMapper()),
+                java.time.Clock.systemDefaultZone()
         );
     }
 

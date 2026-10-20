@@ -17,14 +17,17 @@ import com.cloudmart.admin.repository.AdminUserMapper;
 import com.cloudmart.admin.service.AdminDashboardService;
 import com.cloudmart.admin.service.AdminOnlineUserService;
 import com.cloudmart.common.api.ApiResponse;
+import com.cloudmart.common.time.UserBusinessCalendar;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -32,6 +35,7 @@ import java.util.stream.Collectors;
 public class AdminDashboardServiceImpl implements AdminDashboardService {
 
     private static final Logger log = LoggerFactory.getLogger(AdminDashboardServiceImpl.class);
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of(UserBusinessCalendar.DEFAULT_ZONE_ID);
 
     private final AdminUserMapper adminUserMapper;
     private final AdminRoleMapper adminRoleMapper;
@@ -40,6 +44,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
     private final OrderFeignClient orderFeignClient;
     private final ProductFeignClient productFeignClient;
     private final MemberUserFeignClient memberUserFeignClient;
+    private final Clock clock;
 
     public AdminDashboardServiceImpl(AdminUserMapper adminUserMapper,
                                      AdminRoleMapper adminRoleMapper,
@@ -47,7 +52,8 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
                                      AdminOnlineUserService adminOnlineUserService,
                                      OrderFeignClient orderFeignClient,
                                      ProductFeignClient productFeignClient,
-                                     MemberUserFeignClient memberUserFeignClient) {
+                                     MemberUserFeignClient memberUserFeignClient,
+                                     Clock clock) {
         this.adminUserMapper = adminUserMapper;
         this.adminRoleMapper = adminRoleMapper;
         this.adminMenuMapper = adminMenuMapper;
@@ -55,6 +61,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
         this.orderFeignClient = orderFeignClient;
         this.productFeignClient = productFeignClient;
         this.memberUserFeignClient = memberUserFeignClient;
+        this.clock = clock;
     }
 
     @Override
@@ -132,7 +139,7 @@ public class AdminDashboardServiceImpl implements AdminDashboardService {
 
     @Override
     public List<SalesTrendItem> getSalesTrend(int days) {
-        LocalDate endDate = LocalDate.now();
+        LocalDate endDate = LocalDate.now(clock.withZone(BUSINESS_ZONE));
         LocalDate startDate = endDate.minusDays(days - 1);
 
         Map<LocalDate, SalesTrendAccumulator> dailyMap = new LinkedHashMap<>();
