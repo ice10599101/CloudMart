@@ -376,6 +376,10 @@ class PetDailyQuestServiceImplTest {
         quest.setProgress(2);
         quest.setTargetValue(2);
         quest.setStatus(status);
+        // T19/V4：任务行生成即冻结快照（非空约束后不再回退当前配置）
+        quest.setRewardSnapshot(com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of(
+                "name", "好好吃饭", "questType", "FEED",
+                "expReward", 20, "currencyReward", 20, "actionTarget", "FEED")));
         return quest;
     }
 
@@ -389,6 +393,9 @@ class PetDailyQuestServiceImplTest {
         chest.setProgress(0);
         chest.setTargetValue(1);
         chest.setStatus(status);
+        chest.setRewardSnapshot(com.cloudmart.pet.util.PetJsonUtils.toJson(java.util.Map.of(
+                "chestExp", properties.getDailyQuest().getChestExp(),
+                "chestCurrency", properties.getDailyQuest().getChestCurrency())));
         return chest;
     }
 
@@ -408,6 +415,24 @@ class PetDailyQuestServiceImplTest {
         org.mockito.Mockito.verify(economyService).earn(org.mockito.ArgumentMatchers.eq(100L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("QUEST_CLAIM"), org.mockito.ArgumentMatchers.eq(20L), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(Object[].class));
         // 领奖本身也加亲密度（长期陪伴数值）
         verify(intimacyService).gain(any(), any());
+    }
+
+    @Test
+    @DisplayName("T19：缺奖励快照显式失败，绝不回退当前配置发奖")
+    void claimFailsClosedWhenSnapshotMissing() {
+        PetDailyQuest row = quest("COMPLETE");
+        row.setRewardSnapshot(null);
+        when(questMapper.selectList(any())).thenReturn(List.of(row, chest("IN_PROGRESS")));
+        when(questMapper.selectOne(any())).thenReturn(row);
+        when(questMapper.update(ArgumentMatchers.<PetDailyQuest>isNull(), any())).thenReturn(1);
+        lenient().when(configMapper.selectOne(any())).thenReturn(config());
+
+        assertThatThrownBy(() -> questService.claimInSet(100L, 99L, 11L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(error -> ((BusinessException) error).getCode())
+                .isEqualTo("PET_TEMPORARILY_UNAVAILABLE");
+        org.mockito.Mockito.verify(stateService, org.mockito.Mockito.never())
+                .grantExp(any(), anyInt());
     }
 
     @Test

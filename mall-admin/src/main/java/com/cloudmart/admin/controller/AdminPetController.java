@@ -566,6 +566,37 @@ public class AdminPetController {
         return petFeignClient.retrySeasonSettlementJob(id, jobId);
     }
 
+    @org.springframework.web.bind.annotation.GetMapping("/seasons/pass-claims")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "通行证领取事实台账（T18）", description = "按状态/用户/赛季筛选；NEEDS_ATTENTION 需人工处置")
+    public ApiResponse<Object> listSeasonPassClaims(
+            @org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
+            @org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "seasonId", required = false) Long seasonId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+            @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size) {
+        return petFeignClient.listSeasonPassClaims(status, userId, seasonId, page, size);
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/seasons/pass-claims/{id}/retry")
+    @OperLog(title = "通行证奖励补发重试", businessType = 2)
+    @RequiresPermission("business:pet:edit")
+    @Operation(summary = "人工重试领取交付（T18）", description = "重放原事实快照、不新造奖励；原因必填留痕")
+    public ApiResponse<Object> retrySeasonPassClaim(
+            @org.springframework.web.bind.annotation.PathVariable("id") Long id,
+            @org.springframework.web.bind.annotation.RequestBody PassClaimRetryRequest request) {
+        if (request == null || request.reason() == null || request.reason().isBlank()
+                || request.reason().length() > 200) {
+            throw new com.cloudmart.common.exception.BusinessException("PET_VALIDATION_ERROR",
+                    "重试原因必填且不超过 200 字");
+        }
+        return petFeignClient.retrySeasonPassClaim(id, request.reason().strip());
+    }
+
+    /** 通行证补发重试请求（原因随操作日志与审计留痕） */
+    public record PassClaimRetryRequest(String reason) {
+    }
+
     // ---------------- F5 用户宠物查询与运营工具 ----------------
 
     @org.springframework.web.bind.annotation.GetMapping("/users/{userId}/pets")
@@ -592,6 +623,27 @@ public class AdminPetController {
     public ApiResponse<Object> compensateUser(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
                                               @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
         return petFeignClient.compensateUser(userId, body);
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/users/{userId}/quest-progress")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "用户任务进度与快照（T19）", description = "按业务日倒序；可选 petId/setId 过滤；只读")
+    public ApiResponse<Object> questProgress(
+            @org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "petId", required = false) Long petId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "setId", required = false) Long setId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+            @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "10") int size) {
+        return petFeignClient.questProgress(userId, petId, setId, page, size);
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/users/{userId}/season-pass")
+    @RequiresPermission("business:pet:list")
+    @Operation(summary = "用户赛季通行证进度与奖励回执（T19）", description = "可选 seasonId；缺省最近参与赛季；只读")
+    public ApiResponse<Object> seasonPassProgress(
+            @org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "seasonId", required = false) Long seasonId) {
+        return petFeignClient.seasonPassProgress(userId, seasonId);
     }
 
     // ---------------- F1 食物配置 / F8 口头禅 ----------------

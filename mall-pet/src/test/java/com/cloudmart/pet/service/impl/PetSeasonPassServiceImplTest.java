@@ -69,6 +69,8 @@ class PetSeasonPassServiceImplTest {
     private PetService petService;
     @Mock
     private PetSeasonPassExpAccumulator expAccumulator;
+    @Mock
+    private com.cloudmart.pet.config.PetSeasonPassClaimMetrics claimMetrics;
 
     private PetSeasonPassServiceImpl service;
 
@@ -87,7 +89,7 @@ class PetSeasonPassServiceImplTest {
     void setUp() {
         service = new PetSeasonPassServiceImpl(seasonMapper, passMapper, claimMapper,
                 inventoryMapper, rewardApplicationService, petService,
-                new com.cloudmart.pet.config.PetProperties(), expAccumulator);
+                new com.cloudmart.pet.config.PetProperties(), expAccumulator, claimMetrics);
         service.finalTierSkinCode = "";
         when(rewardApplicationService.claim(any(), any()))
                 .thenReturn(new PetRewardApplicationService.RewardClaimResult(

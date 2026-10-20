@@ -34,4 +34,25 @@ public interface PetSeasonPassClaimMapper extends BaseMapper<PetSeasonPassClaim>
             + "AND (lease_owner IS NULL OR lease_until < #{now})")
     int tryLease(@Param("id") Long id, @Param("owner") String owner,
                  @Param("leaseUntil") LocalDateTime leaseUntil, @Param("now") LocalDateTime now);
+
+    // ---------------- T18 运营指标（Grafana/Prometheus 告警口径） ----------------
+
+    /** 待补发积压总量（含退避中与租约中） */
+    @Select("SELECT COUNT(*) FROM pet_season_pass_claim WHERE status = 'CLAIM_PENDING'")
+    long countPending();
+
+    /** 到期且可执行积压（与 selectDuePending 同一筛选口径） */
+    @Select("SELECT COUNT(*) FROM pet_season_pass_claim "
+            + "WHERE status = 'CLAIM_PENDING' "
+            + "AND (next_retry_at IS NULL OR next_retry_at <= #{now}) "
+            + "AND (lease_owner IS NULL OR lease_until < #{now})")
+    long countDuePending(@Param("now") LocalDateTime now);
+
+    /** 人工处置队列（达重试上限或不可重试） */
+    @Select("SELECT COUNT(*) FROM pet_season_pass_claim WHERE status = 'NEEDS_ATTENTION'")
+    long countNeedsAttention();
+
+    /** 最老待补发行的创建时间（用于最老等待时长告警；空队列返回 null） */
+    @Select("SELECT MIN(created_at) FROM pet_season_pass_claim WHERE status = 'CLAIM_PENDING'")
+    LocalDateTime oldestPendingCreatedAt();
 }

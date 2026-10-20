@@ -2,15 +2,26 @@ package com.cloudmart.pet.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.cloudmart.common.api.ApiResponse;
 import com.cloudmart.common.constant.SecurityConstants;
 import com.cloudmart.common.exception.BusinessException;
 import com.cloudmart.pet.constant.PetErrorCodes;
 import com.cloudmart.pet.entity.Pet;
+import com.cloudmart.pet.entity.PetDailyQuest;
+import com.cloudmart.pet.entity.PetDailyQuestSet;
 import com.cloudmart.pet.entity.PetInventory;
+import com.cloudmart.pet.entity.PetSeason;
+import com.cloudmart.pet.entity.PetSeasonPass;
+import com.cloudmart.pet.entity.PetSeasonPassClaim;
 import com.cloudmart.pet.entity.PetWalletAccount;
+import com.cloudmart.pet.repository.PetDailyQuestMapper;
+import com.cloudmart.pet.repository.PetDailyQuestSetMapper;
 import com.cloudmart.pet.repository.PetInventoryMapper;
 import com.cloudmart.pet.repository.PetMapper;
+import com.cloudmart.pet.repository.PetSeasonMapper;
+import com.cloudmart.pet.repository.PetSeasonPassClaimMapper;
+import com.cloudmart.pet.repository.PetSeasonPassMapper;
 import com.cloudmart.pet.service.impl.PetConfigGovernanceService;
 import com.cloudmart.pet.wallet.PetWalletAdjustmentService;
 import com.cloudmart.pet.wallet.PetWalletQueryService;
@@ -29,6 +40,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -74,6 +86,11 @@ public class AdminPetUserController {
     private final PetWalletQueryService walletQueryService;
     private final PetWalletAdjustmentService adjustmentService;
     private final PetConfigGovernanceService governance;
+    private final PetDailyQuestSetMapper questSetMapper;
+    private final PetDailyQuestMapper questMapper;
+    private final PetSeasonPassMapper seasonPassMapper;
+    private final PetSeasonPassClaimMapper seasonPassClaimMapper;
+    private final PetSeasonMapper seasonMapper;
 
     /** 客服视角的宠物全貌条目 */
     @lombok.Builder
@@ -208,6 +225,83 @@ public class AdminPetUserController {
         }
         return ApiResponse.ok(adjustmentService.apply(userId, delta, request.reason(),
                 request.ticketNo(), adminUserId));
+    }
+
+    // ---------------- T19 进度快照/奖励回执只读查询 ----------------
+
+    /** 任务集 + 冻结任务行（含奖励快照与领取回执状态），后台按用户/宠物/任务集查询 */
+    public record AdminQuestSetView(PetDailyQuestSet questSet, List<PetDailyQuest> quests) {
+    }
+
+    /** 赛季进度 + 逐档领取回执（含快照/尝试次数/错误码），后台按用户/赛季查询 */
+    public record AdminSeasonPassView(PetSeason season, PetSeasonPass pass,
+                                      List<PetSeasonPassClaim> claims, List<PetSeason> seasons) {
+    }
+
+    @GetMapping("/{userId}/quest-progress")
+    @Operation(summary = "用户任务进度与快照（T19）", description = "按业务日倒序分页；可选 petId/setId 过滤。"
+            + "返回集内任务行原始快照、进度、状态与领取时间，只读，不允许后台改完成值")
+    public ApiResponse<List<AdminQuestSetView>> questProgress(
+            @Parameter(description = "用户 ID") @PathVariable("userId") Long userId,
+            @RequestParam(value = "petId", required = false) Long petId,
+            @RequestParam(value = "setId", required = false) Long setId,
+            @RequestParam(value = "page", defaultValue = "1") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size) {
+        Page<PetDailyQuestSet> sets = questSetMapper.selectPage(
+                new Page<>(Math.max(page, 1), Math.min(Math.max(size, 1), 50)),
+                new LambdaQueryWrapper<PetDailyQuestSet>()
+                        .eq(PetDailyQuestSet::getUserId, userId)
+                        .eq(petId != null, PetDailyQuestSet::getPetId, petId)
+                        .eq(setId != null, PetDailyQuestSet::getId, setId)
+                        .orderByDesc(PetDailyQuestSet::getBusinessDate)
+                        .orderByDesc(PetDailyQuestSet::getId));
+        if (sets.getRecords().isEmpty()) {
+            return ApiResponse.ok(List.of(), sets.getCurrent(), sets.getSize(), sets.getTotal());
+        }
+        List<Long> setIds = sets.getRecords().stream().map(PetDailyQuestSet::getId).toList();
+        Map<Long, List<PetDailyQuest>> bySet = questMapper.selectList(
+                        new LambdaQueryWrapper<PetDailyQuest>()
+                                .in(PetDailyQuest::getSetId, setIds)
+                                .orderByAsc(PetDailyQuest::getId))
+                .stream()
+                .collect(java.util.stream.Collectors.groupingBy(PetDailyQuest::getSetId));
+        List<AdminQuestSetView> views = sets.getRecords().stream()
+                .map(set -> new AdminQuestSetView(set, bySet.getOrDefault(set.getId(), List.of())))
+                .toList();
+        return ApiResponse.ok(views, sets.getCurrent(), sets.getSize(), sets.getTotal());
+    }
+
+    @GetMapping("/{userId}/season-pass")
+    @Operation(summary = "用户赛季通行证进度与奖励回执（T19）", description = "可选 seasonId；缺省取最近一次参与赛季。"
+            + "返回赛季、经验/已领投影、逐档领取事实（奖励快照/尝试/错误/租约）与本人参与赛季列表，只读")
+    public ApiResponse<AdminSeasonPassView> seasonPassProgress(
+            @Parameter(description = "用户 ID") @PathVariable("userId") Long userId,
+            @RequestParam(value = "seasonId", required = false) Long seasonId) {
+        List<PetSeasonPass> passes = seasonPassMapper.selectList(new LambdaQueryWrapper<PetSeasonPass>()
+                .eq(PetSeasonPass::getUserId, userId)
+                .orderByDesc(PetSeasonPass::getId));
+        List<Long> seasonIds = passes.stream()
+                .map(PetSeasonPass::getSeasonId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        List<PetSeason> seasons = seasonIds.isEmpty() ? List.of()
+                : seasonMapper.selectList(new LambdaQueryWrapper<PetSeason>()
+                        .in(PetSeason::getId, seasonIds)
+                        .orderByDesc(PetSeason::getEndsAt));
+        PetSeasonPass pass = seasonId != null
+                ? passes.stream().filter(p -> seasonId.equals(p.getSeasonId())).findFirst().orElse(null)
+                : passes.stream().findFirst().orElse(null);
+        if (pass == null) {
+            return ApiResponse.ok(new AdminSeasonPassView(null, null, List.of(), seasons));
+        }
+        PetSeason season = seasonMapper.selectById(pass.getSeasonId());
+        List<PetSeasonPassClaim> claims = seasonPassClaimMapper.selectList(
+                new LambdaQueryWrapper<PetSeasonPassClaim>()
+                        .eq(PetSeasonPassClaim::getUserId, userId)
+                        .eq(PetSeasonPassClaim::getSeasonId, pass.getSeasonId())
+                        .orderByAsc(PetSeasonPassClaim::getTier));
+        return ApiResponse.ok(new AdminSeasonPassView(season, pass, claims, seasons));
     }
 
     // ---------------- 内部 ----------------

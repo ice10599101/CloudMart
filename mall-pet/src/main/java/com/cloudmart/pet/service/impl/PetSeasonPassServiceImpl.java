@@ -70,6 +70,8 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
     private final PetProperties properties;
     /** T17：经验原子累计器（独立 Bean，REQUIRES_NEW 保证事实与累计同事务） */
     private final PetSeasonPassExpAccumulator expAccumulator;
+    /** T18：补发积压/重试率/终止数指标（Prometheus 告警口径） */
+    private final com.cloudmart.pet.config.PetSeasonPassClaimMetrics claimMetrics;
 
     /** T18：本实例补发租约持有者 ID（多实例并发领取 fenced by tryLease CAS） */
     private final String leaseOwner = UUID.randomUUID().toString();
@@ -172,6 +174,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
         } catch (Exception e) {
             log.warn("通行证档位奖励交付失败（待补发）: season={}, user={}, tier={}, err={}",
                     season.getId(), userId, tier, e.getMessage());
+            claimMetrics.recordRetry();
             // 领取事实保持 CLAIM_PENDING（已提交），由定时补发收敛；不虚报已领取
             return seasonPassOf(season, userId);
         }
@@ -242,6 +245,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
                 .in(PetSeasonPassClaim::getStatus, PetSeasonPassClaim.STATUS_NEEDS_ATTENTION,
                         PetSeasonPassClaim.STATUS_CLAIM_PENDING));
         if (updated == 1) {
+            claimMetrics.recordManualRetry();
             log.info("[OPS] 通行证奖励人工重试: claimId={}, season={}, user={}, tier={}, reason={}",
                     claimId, claim.getSeasonId(), claim.getUserId(), claim.getTier(), reason);
         }
@@ -267,9 +271,15 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
             try {
                 deliver(claim);
                 markSettled(claim);
+                claimMetrics.recordSettled();
                 settled++;
             } catch (Exception e) {
-                recordFailure(claim, e, now);
+                boolean terminal = recordFailure(claim, e, now);
+                if (terminal) {
+                    claimMetrics.recordTerminal();
+                } else {
+                    claimMetrics.recordRetry();
+                }
             }
         }
         return settled;
@@ -289,8 +299,8 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
         }
     }
 
-    /** 失败记录：指数退避 + 抖动；达上限或不可重试 → NEEDS_ATTENTION（可见可处置） */
-    private void recordFailure(PetSeasonPassClaim claim, Exception cause, LocalDateTime now) {
+    /** 失败记录：指数退避 + 抖动；达上限或不可重试 → NEEDS_ATTENTION（可见可处置）；@return 是否终止 */
+    private boolean recordFailure(PetSeasonPassClaim claim, Exception cause, LocalDateTime now) {
         PetProperties.SeasonPass cfg = properties.getSeasonPass();
         int attempts = (claim.getAttempts() == null ? 0 : claim.getAttempts()) + 1;
         String errorCode = classifyError(cause);
@@ -312,6 +322,7 @@ public class PetSeasonPassServiceImpl implements PetSeasonPassService {
         log.warn("通行证奖励补发失败: claimId={}, season={}, user={}, tier={}, attempts={}, code={}, terminal={}, err={}",
                 claim.getId(), claim.getSeasonId(), claim.getUserId(), claim.getTier(),
                 attempts, errorCode, terminal, cause.getMessage());
+        return terminal;
     }
 
     /** 指数退避 + 抖动（±25%），封顶 maxRetrySeconds */

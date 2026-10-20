@@ -333,6 +333,113 @@ export function settlePetSeason(id: number | string) {
   return request.post<ApiResponse<void>>(`/admin/pet/seasons/${id}/settle`)
 }
 
+// ==================== T18/T19 通行证补发台账与用户进度查询 ====================
+
+/** 通行证逐档领取回执（T18 补发台账） */
+export interface AdminPetPassClaim {
+  id: number | string
+  seasonId: number | string
+  userId: number | string
+  tier: number
+  status: 'CLAIM_PENDING' | 'SETTLED' | 'NEEDS_ATTENTION'
+  attempts: number | null
+  nextRetryAt: string | null
+  lastErrorCode: string | null
+  leaseOwner: string | null
+  leaseUntil: string | null
+  lastAttemptAt: string | null
+  rewardSnapshot: string | null
+  createdAt: string
+  settledAt: string | null
+}
+
+export function listPetPassClaims(params: {
+  status?: string
+  userId?: string
+  seasonId?: string
+  page: number
+  size: number
+}) {
+  return request.get<ApiResponse<AdminPetPassClaim[]>>('/admin/pet/seasons/pass-claims', { params })
+}
+
+/** 人工重试：重放领取时快照，不新造奖励；原因随操作日志留痕 */
+export function retryPetPassClaim(id: number | string, reason: string) {
+  return request.post<ApiResponse<AdminPetPassClaim>>(
+    `/admin/pet/seasons/pass-claims/${id}/retry`,
+    { reason },
+  )
+}
+
+export interface AdminPetQuestSet {
+  id: number | string
+  userId: number | string
+  petId: number | string
+  businessDate: string
+  timezone: string
+  levelSnapshot: number | null
+  generatedAt: string
+  claimDeadline: string | null
+  status: 'ACTIVE' | 'EXPIRED'
+  chestSnapshot: string | null
+  chestClaimedAt: string | null
+}
+
+export interface AdminPetQuest {
+  id: number | string
+  petId: number | string
+  userId: number | string
+  questDate: string
+  setId: number | string
+  questCode: string
+  progress: number
+  targetValue: number
+  rewardSnapshot: string | null
+  status: 'IN_PROGRESS' | 'COMPLETE' | 'CLAIMED' | 'CANCELLED'
+  cancelReason: string | null
+  cancelledBy: string | null
+  completedAt: string | null
+  claimedAt: string | null
+}
+
+export interface AdminPetQuestProgress {
+  questSet: AdminPetQuestSet
+  quests: AdminPetQuest[]
+}
+
+export function listUserQuestProgress(
+  userId: number | string,
+  params: { petId?: string; setId?: string; page: number; size: number },
+) {
+  return request.get<ApiResponse<AdminPetQuestProgress[]>>(
+    `/admin/pet/users/${userId}/quest-progress`,
+    { params },
+  )
+}
+
+export interface AdminPetSeasonPass {
+  id: number | string
+  seasonId: number | string
+  userId: number | string
+  passExp: number
+  claimedTiers: string
+  version: number
+}
+
+export interface AdminSeasonPassProgress {
+  season: AdminPetSeason | null
+  pass: AdminPetSeasonPass | null
+  claims: AdminPetPassClaim[]
+  seasons: AdminPetSeason[]
+}
+
+export function getUserSeasonPassProgress(userId: number | string, seasonId?: string) {
+  return request.get<ApiResponse<AdminSeasonPassProgress>>(
+    `/admin/pet/users/${userId}/season-pass`,
+    { params: seasonId ? { seasonId } : undefined },
+  )
+}
+
 // ==================== P0-1 内容安全：敏感词库 ====================
 
 export interface AdminPetSensitiveWord {

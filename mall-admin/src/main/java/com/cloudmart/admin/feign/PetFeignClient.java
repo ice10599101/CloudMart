@@ -273,6 +273,18 @@ public interface PetFeignClient {
     ApiResponse<Object> retrySeasonSettlementJob(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
                                                  @org.springframework.web.bind.annotation.PathVariable("jobId") Long jobId);
 
+    @org.springframework.web.bind.annotation.GetMapping("/seasons/pass-claims")
+    ApiResponse<Object> listSeasonPassClaims(
+            @org.springframework.web.bind.annotation.RequestParam(value = "status", required = false) String status,
+            @org.springframework.web.bind.annotation.RequestParam(value = "userId", required = false) Long userId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "seasonId", required = false) Long seasonId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+            @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "20") int size);
+
+    @org.springframework.web.bind.annotation.PostMapping("/seasons/pass-claims/{id}/retry")
+    ApiResponse<Object> retrySeasonPassClaim(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                             @org.springframework.web.bind.annotation.RequestParam("reason") String reason);
+
     // ---------------- F5 用户宠物查询与运营工具（下游 /admin/users/**） ----------------
 
     @org.springframework.web.bind.annotation.GetMapping("/users/{userId}/pets")
@@ -286,6 +298,17 @@ public interface PetFeignClient {
     @org.springframework.web.bind.annotation.PostMapping("/users/{userId}/compensation")
     ApiResponse<Object> compensateUser(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
                                        @RequestBody Map<String, Object> body);
+
+    @org.springframework.web.bind.annotation.GetMapping("/users/{userId}/quest-progress")
+    ApiResponse<Object> questProgress(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
+                                      @org.springframework.web.bind.annotation.RequestParam(value = "petId", required = false) Long petId,
+                                      @org.springframework.web.bind.annotation.RequestParam(value = "setId", required = false) Long setId,
+                                      @org.springframework.web.bind.annotation.RequestParam(value = "page", defaultValue = "1") int page,
+                                      @org.springframework.web.bind.annotation.RequestParam(value = "size", defaultValue = "10") int size);
+
+    @org.springframework.web.bind.annotation.GetMapping("/users/{userId}/season-pass")
+    ApiResponse<Object> seasonPassProgress(@org.springframework.web.bind.annotation.PathVariable("userId") Long userId,
+                                           @org.springframework.web.bind.annotation.RequestParam(value = "seasonId", required = false) Long seasonId);
 
     // ---------------- W04 钱包管理（§8.4；下游 /admin/pet/wallet/**） ----------------
 

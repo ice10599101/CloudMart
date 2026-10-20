@@ -161,21 +161,17 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         if (claimed == 0) {
             throw new BusinessException(PetErrorCodes.PET_QUEST_ALREADY_CLAIMED, "这个任务奖励已经领过啦");
         }
-        // R32/PET-09：领取按生成时快照入账（运营改配置不改变已生成任务的经济结果，§5.1 不变量 5）；
-        // 存量无快照行回退当前配置（迁移兼容，WARN 留痕）
+        // R32/PET-09/T19：领取只读生成时快照（运营改配置不改变已生成任务的经济结果）；
+        // V4 起 reward_snapshot 非空，运行期不再回退当前配置——缺失即数据异常，显式失败待排查
         Map<String, Object> snapshot = parseSnapshot(quest.getRewardSnapshot());
-        int expReward;
-        int currencyReward;
-        if (snapshot != null) {
-            expReward = intOf(snapshot.get("expReward"));
-            currencyReward = intOf(snapshot.get("currencyReward"));
-        } else {
-            PetDailyQuestConfig legacyConfig = configByCode(quest.getQuestCode());
-            log.warn("任务行缺奖励快照，回退当前配置（存量兼容）: questId={}, code={}",
+        if (snapshot == null) {
+            log.error("任务行奖励快照缺失（V4 非空约束后不应出现）: questId={}, code={}",
                     quest.getId(), quest.getQuestCode());
-            expReward = legacyConfig != null ? orZero(legacyConfig.getExpReward()) : 0;
-            currencyReward = legacyConfig != null ? orZero(legacyConfig.getCurrencyReward()) : 0;
+            throw new BusinessException(PetErrorCodes.PET_TEMPORARILY_UNAVAILABLE,
+                    "任务奖励数据异常，请联系管理员");
         }
+        int expReward = intOf(snapshot.get("expReward"));
+        int currencyReward = intOf(snapshot.get("currencyReward"));
         // 亲密度在写库前先叠加（与经验同一次乐观锁写入）
         intimacyService.gain(pet, PetIntimacySource.QUEST);
         int levelups = stateService.grantExp(pet, expReward);
@@ -283,7 +279,6 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
     /** 宝箱领取主体（claimChestInSet 使用；宠物/集由调用方绑定） */
     private PetDailyQuestVO doClaimChest(Pet pet, PetDailyQuestSet questSet) {
         List<PetDailyQuest> quests = questMapper.selectList(setWrapper(questSet.getId()));
-        PetProperties.DailyQuest cfg = properties.getDailyQuest();
         List<PetDailyQuest> normalQuests = quests.stream()
                 .filter(q -> !CHEST_CODE.equals(q.getQuestCode()))
                 .toList();
@@ -322,10 +317,16 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         if (claimed == 0) {
             throw new BusinessException(PetErrorCodes.PET_QUEST_CHEST_CLAIMED, "今天的宝箱已经领过啦");
         }
-        // R32：宝箱奖励读生成时快照（存量无快照回退当前配置）
+        // R32/T19：宝箱奖励只读生成时快照；V4 起非空，不再回退当前配置
         Map<String, Object> chestSnapshot = parseSnapshot(chest.getRewardSnapshot());
-        int chestExp = chestSnapshot != null ? intOf(chestSnapshot.get("chestExp")) : cfg.getChestExp();
-        int chestCurrency = chestSnapshot != null ? intOf(chestSnapshot.get("chestCurrency")) : cfg.getChestCurrency();
+        if (chestSnapshot == null) {
+            log.error("宝箱奖励快照缺失（V4 非空约束后不应出现）: chestId={}, setId={}",
+                    chest.getId(), chest.getSetId());
+            throw new BusinessException(PetErrorCodes.PET_TEMPORARILY_UNAVAILABLE,
+                    "宝箱奖励数据异常，请联系管理员");
+        }
+        int chestExp = intOf(chestSnapshot.get("chestExp"));
+        int chestCurrency = intOf(chestSnapshot.get("chestCurrency"));
         int levelups = stateService.grantExp(pet, chestExp);
         if (chestCurrency > 0) {
             economyService.earn(
@@ -635,17 +636,14 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
                 .toList();
     }
 
-    /** 任务行的统计口径：奖励快照优先，存量无快照回退当前配置（legacy 兼容）；宝箱行不参与进度投影 */
+    /** 任务行的统计口径：只读奖励快照（T19 起不再回退当前配置）；宝箱行不参与进度投影 */
     private String questTypeOf(PetDailyQuest quest) {
         if (CHEST_CODE.equals(quest.getQuestCode())) {
             return "";
         }
         Map<String, Object> snapshot = parseSnapshot(quest.getRewardSnapshot());
-        if (snapshot != null && snapshot.get("questType") != null) {
-            return String.valueOf(snapshot.get("questType"));
-        }
-        PetDailyQuestConfig config = configByCode(quest.getQuestCode());
-        return config != null && config.getQuestType() != null ? config.getQuestType() : "";
+        return snapshot != null && snapshot.get("questType") != null
+                ? String.valueOf(snapshot.get("questType")) : "";
     }
 
     /** 原子累加 + 状态翻转（progress 先赋值，后续 CASE 读到的是新值）；@return 命中行数 */
@@ -947,15 +945,9 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         return pet;
     }
 
-    private PetDailyQuestConfig configByCode(String code) {
-        return configMapper.selectOne(new LambdaQueryWrapper<PetDailyQuestConfig>()
-                .eq(PetDailyQuestConfig::getCode, code)
-                .last("LIMIT 1"));
-    }
-
     /**
-     * PET-09/T14：列表/详情展示全部读任务行生成时快照（名称/描述/图标/口径/奖励/行动入口）——
-     * 模板编辑、停用不再改变已生成任务的展示；存量无快照行回退当前配置（legacy 兼容）。
+     * PET-09/T14/T19：列表/详情展示全部读任务行生成时快照（名称/描述/图标/口径/奖励/行动入口）——
+     * 模板编辑、停用不再改变已生成任务的展示；V4 起快照非空，不做当前配置回退。
      */
     private PetDailyQuestVO buildVo(Pet pet, List<PetDailyQuest> quests) {
         List<PetDailyQuestItemVO> items = new ArrayList<>();
@@ -999,15 +991,12 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
         if (chest != null && !chestClaimed) {
             chest.setProgress(claimed);
         }
-        // R32/PET-09：宝箱奖励读任务行生成时快照（存量无快照回退当前配置）
+        // R32/PET-09/T19：宝箱奖励读任务行生成时快照（不再回退当前配置）
         Map<String, Object> chestSnapshot = chest != null ? parseSnapshot(chest.getRewardSnapshot()) : null;
-        PetProperties.DailyQuest chestCfg = properties.getDailyQuest();
         return new PetDailyQuestVO(petClock.businessDate(), items, completed, claimed, items.size(),
                 allClaimed && !chestClaimed, chestClaimed,
-                chestSnapshot != null && chestSnapshot.get("chestExp") != null
-                        ? intOf(chestSnapshot.get("chestExp")) : chestCfg.getChestExp(),
-                chestSnapshot != null && chestSnapshot.get("chestCurrency") != null
-                        ? intOf(chestSnapshot.get("chestCurrency")) : chestCfg.getChestCurrency(),
+                snapshotInt(chestSnapshot, "chestExp"),
+                snapshotInt(chestSnapshot, "chestCurrency"),
                 chest != null && chest.getSetId() != null ? String.valueOf(chest.getSetId()) : null);
     }
 
@@ -1019,11 +1008,6 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             default -> "进行中";
         };
         String actionTarget = snapshotText(snapshot, "actionTarget");
-        if (actionTarget == null || actionTarget.isBlank()) {
-            // 存量无快照行回退当前配置的完成动作（legacy 兼容）
-            PetDailyQuestConfig legacy = configByCode(quest.getQuestCode());
-            actionTarget = actionTargetOf(legacy);
-        }
         return new PetDailyQuestItemVO(
                 quest.getId() == null ? null : String.valueOf(quest.getId()),
                 quest.getQuestCode(),
@@ -1079,9 +1063,5 @@ public class PetDailyQuestServiceImpl implements PetDailyQuestService {
             case "COMPANION" -> "COMPANION_START";
             default -> null;
         };
-    }
-
-    private static int orZero(Integer value) {
-        return value != null ? value : 0;
     }
 }

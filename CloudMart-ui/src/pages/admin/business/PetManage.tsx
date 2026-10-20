@@ -4,11 +4,13 @@ import { ConfigPanel } from './PetManage/panels/config'
 import { DashboardPanel } from './PetManage/panels/dashboard'
 import { GovernancePanel } from './PetManage/panels/governance'
 import { PersonaPhrasePanel } from './PetManage/panels/persona-phrase'
+import { PassClaimPanel } from './PetManage/panels/pass-claim'
 import { QuestReceiptPanel } from './PetManage/panels/quest-receipt'
 import { ReportPanel } from './PetManage/panels/report'
 import { SeasonPanel } from './PetManage/panels/season'
 import { SensitiveWordPanel } from './PetManage/panels/sensitive-word'
 import { UserPanel } from './PetManage/panels/user'
+import { UserProgressPanel } from './PetManage/panels/user-progress'
 import { WallPanel } from './PetManage/panels/wall'
 
 /**
@@ -45,7 +47,9 @@ export default function PetManage() {
           { key: 'reports', label: '举报处理', children: <ReportPanel /> },
           { key: 'album-governance', label: '相册·治理', children: <GovernancePanel /> },
           { key: 'users', label: '用户宠物', children: <UserPanel /> },
+          { key: 'user-progress', label: '进度查询', children: <UserProgressPanel /> },
           { key: 'seasons', label: '赛季管理', children: <SeasonPanel /> },
+          { key: 'pass-claims', label: '通行证补发', children: <PassClaimPanel /> },
           { key: 'sensitive-words', label: '敏感词库', children: <SensitiveWordPanel /> },
           { key: 'persona-phrases', label: '口头禅', children: <PersonaPhrasePanel /> },
           { key: 'quest-receipts', label: '任务回执', children: <QuestReceiptPanel /> },
