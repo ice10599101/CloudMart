@@ -21,6 +21,7 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -158,6 +159,139 @@ class RouteGuardTest {
         assertThat(byPath.keySet()).doesNotContain("/feat/not-a-handler");
     }
 
+    /**
+     * T23：从真实 {@link RequestMappingHandlerMapping} 导出机器可读清单
+     * （method + path + 认证主体 + 权限码 + 参数/请求体/响应类型），
+     * 作为契约门禁与三端入口核对的事实来源；产物写入 target，不入库。
+     */
+    @Test
+    @DisplayName("T23：导出 method+path+主体+权限+DTO 类型路由清单")
+    void exportsRealRequestMappingManifest() throws Exception {
+        List<Map<String, Object>> routes = withHandlerMapping(null, mapping -> {
+            List<Map<String, Object>> out = new ArrayList<>();
+            mapping.getHandlerMethods().forEach((info, hm) -> {
+                String preAuth = preAuthExpression(hm);
+                List<Map<String, Object>> params = new ArrayList<>();
+                String bodyType = "";
+                org.springframework.core.MethodParameter[] methodParams = hm.getMethodParameters();
+                for (int i = 0; i < methodParams.length; i++) {
+                    org.springframework.core.MethodParameter p = methodParams[i];
+                    String binding = bindingOf(p);
+                    Map<String, Object> param = new LinkedHashMap<>();
+                    param.put("name", p.getParameterName() == null ? "arg" + i : p.getParameterName());
+                    param.put("type", p.getParameterType().getTypeName());
+                    param.put("binding", binding);
+                    params.add(param);
+                    if ("body".equals(binding)) {
+                        bodyType = p.getParameterType().getTypeName();
+                    }
+                }
+                String handler = hm.getBeanType().getSimpleName() + "#" + hm.getMethod().getName();
+                String responseType = hm.getMethod().getGenericReturnType().getTypeName();
+                for (String pattern : patternsOf(info)) {
+                    for (String method : methodsOf(info)) {
+                        Map<String, Object> entry = new LinkedHashMap<>();
+                        entry.put("method", method);
+                        entry.put("path", pattern);
+                        entry.put("handler", handler);
+                        entry.put("principal", principalOf(preAuth));
+                        entry.put("preAuthorize", preAuth == null ? "" : preAuth);
+                        entry.put("permission", permissionOf(preAuth));
+                        entry.put("params", params);
+                        entry.put("requestBodyType", bodyType);
+                        entry.put("responseType", responseType);
+                        out.add(entry);
+                    }
+                }
+            });
+            return out;
+        });
+
+        assertThat(routes).isNotEmpty();
+        java.nio.file.Path manifest = java.nio.file.Path.of("target", "route-manifest.json");
+        java.nio.file.Files.createDirectories(manifest.getParent());
+        new com.fasterxml.jackson.databind.ObjectMapper().writerWithDefaultPrettyPrinter()
+                .writeValue(manifest.toFile(), Map.of(
+                        "generatedBy", "mall-admin RouteGuardTest (RequestMappingHandlerMapping)",
+                        "routes", routes));
+
+        assertThat(manifest).exists();
+        assertThat(routes).allSatisfy(route -> assertThat(route)
+                .containsKeys("method", "path", "handler", "principal", "permission",
+                        "params", "requestBodyType", "responseType"));
+        // 写路由必须能归类到明确主体，或与门禁同一豁免清单（含 owner/到期）
+        List<String[]> exemptions = loadExemptions();
+        LocalDate today = LocalDate.now();
+        List<String> unclassified = new ArrayList<>();
+        for (Map<String, Object> route : routes) {
+            String method = (String) route.get("method");
+            String path = (String) route.get("path");
+            if (!isWrite(method) || !"UNSPECIFIED".equals(route.get("principal"))) {
+                continue;
+            }
+            if (!isExempt(exemptions, today, new RouteRef(method, path, (String) route.get("handler"), null))) {
+                unclassified.add(method + " " + path);
+            }
+        }
+        assertThat(unclassified)
+                .as("写路由在真实清单中缺主体/权限且未登记豁免")
+                .isEmpty();
+        System.out.printf("[T23] 路由清单已导出 %d 条 -> %s%n", routes.size(), manifest.toAbsolutePath());
+    }
+
+    private static String bindingOf(org.springframework.core.MethodParameter p) {
+        if (p.hasParameterAnnotation(org.springframework.web.bind.annotation.RequestBody.class)) {
+            return "body";
+        }
+        if (p.hasParameterAnnotation(org.springframework.web.bind.annotation.PathVariable.class)) {
+            return "path";
+        }
+        if (p.hasParameterAnnotation(org.springframework.web.bind.annotation.RequestParam.class)) {
+            return "query";
+        }
+        if (p.hasParameterAnnotation(org.springframework.web.bind.annotation.RequestHeader.class)) {
+            return "header";
+        }
+        if (p.hasParameterAnnotation(org.springframework.web.bind.annotation.RequestPart.class)) {
+            return "part";
+        }
+        return "other";
+    }
+
+    private static String principalOf(String expression) {
+        if (expression == null || expression.isBlank()) {
+            return "UNSPECIFIED";
+        }
+        String upper = expression.toUpperCase();
+        if (upper.contains("INTERNAL")) {
+            return "INTERNAL";
+        }
+        if (upper.contains("ADMIN") || "RequiresAdmin".equals(expression)) {
+            return "ADMIN";
+        }
+        if (expression.startsWith("RequiresPermission(")
+                || upper.contains("HASAUTHORITY") || upper.contains("HASANYAUTHORITY")) {
+            return "PERMISSION";
+        }
+        if (upper.contains("ISAUTHENTICATED")) {
+            return "AUTHENTICATED";
+        }
+        return "EXPRESSION";
+    }
+
+    private static String permissionOf(String expression) {
+        if (expression == null) {
+            return "";
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("(?:hasAuthority|hasAnyAuthority|RequiresPermission)\\(([^)]*)\\)")
+                .matcher(expression);
+        if (!m.find()) {
+            return "";
+        }
+        return m.group(1).replace("'", "").replace("\"", "").trim();
+    }
+
     // ---------- 收集器 ----------
 
     private List<RouteRef> collectRoutes() {
@@ -170,6 +304,25 @@ class RouteGuardTest {
      *                        （用 CodeSource 排除 test-classes，避免把自检类算进主门禁）。
      */
     private List<RouteRef> collectRoutes(List<Class<?>> explicitClasses) {
+        return withHandlerMapping(explicitClasses, mapping -> {
+            List<RouteRef> out = new ArrayList<>();
+            mapping.getHandlerMethods().forEach((info, handlerMethod) -> {
+                Set<String> methods = methodsOf(info);
+                for (String pattern : patternsOf(info)) {
+                    for (String method : methods) {
+                        out.add(new RouteRef(method, pattern,
+                                handlerMethod.getBeanType().getSimpleName() + "#" + handlerMethod.getMethod().getName(),
+                                preAuthExpression(handlerMethod)));
+                    }
+                }
+            });
+            return out;
+        });
+    }
+
+    /** 真实 RequestMappingHandlerMapping 的构建/销毁收敛在一处，路由门禁与清单导出共用。 */
+    private <T> T withHandlerMapping(List<Class<?>> explicitClasses,
+                                     java.util.function.Function<RequestMappingHandlerMapping, T> action) {
         GenericApplicationContext ctx = new GenericApplicationContext();
         DefaultListableBeanFactory bf = (DefaultListableBeanFactory) ctx.getBeanFactory();
 
@@ -218,25 +371,17 @@ class RouteGuardTest {
             RequestMappingHandlerMapping mapping = new RequestMappingHandlerMapping();
             mapping.setApplicationContext(ctx);
             mapping.afterPropertiesSet();
-
-            List<RouteRef> out = new ArrayList<>();
-            mapping.getHandlerMethods().forEach((info, handlerMethod) -> {
-                Set<String> methods = info.getMethodsCondition().getMethods().isEmpty()
-                        ? Set.of("ANY")
-                        : info.getMethodsCondition().getMethods().stream()
-                            .map(Enum::name).collect(java.util.stream.Collectors.toCollection(TreeSet::new));
-                for (String pattern : patternsOf(info)) {
-                    for (String method : methods) {
-                        out.add(new RouteRef(method, pattern,
-                                handlerMethod.getBeanType().getSimpleName() + "#" + handlerMethod.getMethod().getName(),
-                                preAuthExpression(handlerMethod)));
-                    }
-                }
-            });
-            return out;
+            return action.apply(mapping);
         } finally {
             ctx.close();
         }
+    }
+
+    private Set<String> methodsOf(RequestMappingInfo info) {
+        return info.getMethodsCondition().getMethods().isEmpty()
+                ? Set.of("ANY")
+                : info.getMethodsCondition().getMethods().stream()
+                    .map(Enum::name).collect(java.util.stream.Collectors.toCollection(TreeSet::new));
     }
 
     private Set<String> patternsOf(RequestMappingInfo info) {
